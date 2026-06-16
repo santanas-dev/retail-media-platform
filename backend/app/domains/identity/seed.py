@@ -46,6 +46,9 @@ PERMISSIONS = [
     ("reports.export", "Export reports", "reports", "export", "Export reports to file"),
     ("audit.read", "View audit logs", "audit", "read", "View audit trail"),
     ("emergency.manage", "Emergency actions", "emergency", "manage", "Emergency stop all campaigns"),
+    ("organization.read", "View organization", "organization", "read", "View branches, clusters, stores"),
+    ("organization.manage", "Manage organization", "organization", "manage", "Create/edit branches, clusters, stores"),
+    ("channels.manage", "Manage channels", "channels", "manage", "Create/edit channels"),
 ]
 
 # ── Roles ────────────────────────────────────────────────────────────────
@@ -69,7 +72,8 @@ ROLE_PERMISSIONS = {
         "users.read", "users.create", "users.manage",
         "roles.read", "roles.manage",
         "permissions.read", "permissions.manage",
-        "channels.read", "devices.read", "devices.manage",
+        "channels.read", "channels.manage", "devices.read", "devices.manage",
+        "organization.read", "organization.manage",
         "campaigns.read", "campaigns.create", "campaigns.manage", "campaigns.approve",
         "media.manage",
         "reports.read", "reports.export",
@@ -80,21 +84,25 @@ ROLE_PERMISSIONS = {
         "users.read", "users.manage",
         "roles.read", "roles.manage",
         "permissions.read",
+        "organization.read", "channels.read",
         "audit.read",
     ],
     "ad_manager": [
         "channels.read", "devices.read",
+        "organization.read",
         "campaigns.read", "campaigns.create", "campaigns.manage",
         "media.manage",
         "reports.read",
     ],
     "approver": [
         "channels.read", "devices.read",
+        "organization.read",
         "campaigns.read", "campaigns.approve",
         "reports.read",
     ],
     "analyst": [
         "channels.read", "devices.read",
+        "organization.read",
         "campaigns.read",
         "reports.read", "reports.export",
     ],
@@ -103,7 +111,8 @@ ROLE_PERMISSIONS = {
         "reports.read",
     ],
     "operations": [
-        "channels.read", "devices.read", "devices.manage",
+        "channels.read", "channels.manage", "devices.read", "devices.manage",
+        "organization.read",
     ],
     "device_service": [
         # No interactive permissions — service account only
