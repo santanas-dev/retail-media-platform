@@ -1,0 +1,30 @@
+[project]
+name = "retail-media-platform"
+version = "0.1.0"
+description = "Multichannel retail media management platform"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "sqlalchemy>=2.0.30",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    "clickhouse-connect>=0.7.0",
+    "redis>=5.0.0",
+    "minio>=7.2.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "passlib>=1.7.4",
+    "python-jose>=3.3.0",
+    "httpx>=0.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
