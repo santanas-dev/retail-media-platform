@@ -13,6 +13,7 @@ from app.core.database import check_db_connection
 from app.domains.identity.router import router as identity_router
 from app.domains.organization.router import router as organization_router
 from app.domains.channels.router import router as channels_router
+from app.domains.advertisers.router import router as advertisers_router
 
 
 @asynccontextmanager
@@ -41,6 +42,7 @@ app.add_middleware(
 app.include_router(identity_router)
 app.include_router(organization_router)
 app.include_router(channels_router)
+app.include_router(advertisers_router)
 
 
 @app.get("/health")

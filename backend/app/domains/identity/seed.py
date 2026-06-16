@@ -49,6 +49,14 @@ PERMISSIONS = [
     ("organization.read", "View organization", "organization", "read", "View branches, clusters, stores"),
     ("organization.manage", "Manage organization", "organization", "manage", "Create/edit branches, clusters, stores"),
     ("channels.manage", "Manage channels", "channels", "manage", "Create/edit channels"),
+    ("advertisers.read", "View advertisers", "advertisers", "read", "View advertiser list"),
+    ("advertisers.manage", "Manage advertisers", "advertisers", "manage", "Create/edit advertisers"),
+    ("brands.read", "View brands", "brands", "read", "View brand list"),
+    ("brands.manage", "Manage brands", "brands", "manage", "Create/edit brands"),
+    ("contracts.read", "View contracts", "contracts", "read", "View contract list"),
+    ("contracts.manage", "Manage contracts", "contracts", "manage", "Create/edit contracts"),
+    ("orders.read", "View orders", "orders", "read", "View order list"),
+    ("orders.manage", "Manage orders", "orders", "manage", "Create/edit orders"),
 ]
 
 # ── Roles ────────────────────────────────────────────────────────────────
@@ -74,6 +82,10 @@ ROLE_PERMISSIONS = {
         "permissions.read", "permissions.manage",
         "channels.read", "channels.manage", "devices.read", "devices.manage",
         "organization.read", "organization.manage",
+        "advertisers.read", "advertisers.manage",
+        "brands.read", "brands.manage",
+        "contracts.read", "contracts.manage",
+        "orders.read", "orders.manage",
         "campaigns.read", "campaigns.create", "campaigns.manage", "campaigns.approve",
         "media.manage",
         "reports.read", "reports.export",
@@ -85,11 +97,16 @@ ROLE_PERMISSIONS = {
         "roles.read", "roles.manage",
         "permissions.read",
         "organization.read", "channels.read",
+        "advertisers.read", "brands.read", "contracts.read", "orders.read",
         "audit.read",
     ],
     "ad_manager": [
         "channels.read", "devices.read",
         "organization.read",
+        "advertisers.read", "advertisers.manage",
+        "brands.read", "brands.manage",
+        "contracts.read", "contracts.manage",
+        "orders.read", "orders.manage",
         "campaigns.read", "campaigns.create", "campaigns.manage",
         "media.manage",
         "reports.read",
@@ -97,12 +114,14 @@ ROLE_PERMISSIONS = {
     "approver": [
         "channels.read", "devices.read",
         "organization.read",
+        "advertisers.read", "brands.read", "contracts.read", "orders.read",
         "campaigns.read", "campaigns.approve",
         "reports.read",
     ],
     "analyst": [
         "channels.read", "devices.read",
         "organization.read",
+        "advertisers.read", "brands.read", "contracts.read", "orders.read",
         "campaigns.read",
         "reports.read", "reports.export",
     ],
@@ -113,6 +132,7 @@ ROLE_PERMISSIONS = {
     "operations": [
         "channels.read", "channels.manage", "devices.read", "devices.manage",
         "organization.read",
+        "advertisers.read",
     ],
     "device_service": [
         # No interactive permissions — service account only
