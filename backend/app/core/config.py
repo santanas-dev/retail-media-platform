@@ -50,14 +50,26 @@ class Settings(BaseSettings):
     CLICKHOUSE_DB: str = "retail_media_analytics"
 
     # MinIO
-    MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_ENDPOINT: str = "localhost:9002"
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_BUCKET: str = "retail-media"
     MINIO_SECURE: bool = False
 
     # Redis
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = "redis://localhost:***@localhost"
+
+    # JWT
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # Identity — initial admin user (created by seed script)
+    INITIAL_ADMIN_USERNAME: str = "admin"
+    INITIAL_ADMIN_PASSWORD: str = ""
+    INITIAL_ADMIN_EMAIL: str = "admin@localhost"
+
+
 @lru_cache()
 def get_settings() -> Settings:
     return Settings()
