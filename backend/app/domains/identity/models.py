@@ -71,6 +71,21 @@ class User(Base):
     )
     refresh_tokens = relationship("RefreshToken", back_populates="user", lazy="selectin")
 
+    @property
+    def roles(self) -> list[str]:
+        """Convenience: list of role codes for serialization."""
+        return [ur.role.code for ur in self.user_roles if ur.role]
+
+    @property
+    def permissions(self) -> list[str]:
+        """Convenience: list of permission codes for serialization."""
+        result: set[str] = set()
+        for ur in self.user_roles:
+            if ur.role:
+                for rp in ur.role.role_permissions:
+                    result.add(rp.permission.code)
+        return sorted(result)
+
 
 class Role(Base):
     """Named role (RBAC)."""

@@ -42,6 +42,7 @@ class UserCreateRequest(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     email: EmailStr | None = None
     display_name: str | None = Field(None, max_length=255)
+    role_codes: list[str] | None = None
 
 
 class UserResponse(BaseModel):
@@ -54,6 +55,7 @@ class UserResponse(BaseModel):
     is_locked: bool
     auth_provider: str
     is_service_account: bool
+    roles: list[str]
     last_login_at: datetime | None
     created_at: datetime
 
@@ -100,3 +102,10 @@ class PermissionResponse(BaseModel):
     description: str | None
 
     model_config = {"from_attributes": True}
+
+
+# ── User Roles ──────────────────────────────────────────────────────────
+
+class UserRoleUpdate(BaseModel):
+    """PUT /api/users/{user_id}/roles"""
+    role_codes: list[str] = Field(min_length=1)

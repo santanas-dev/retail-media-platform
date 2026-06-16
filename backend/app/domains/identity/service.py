@@ -3,6 +3,7 @@ Identity & Access: business logic — auth, user management, permission checks.
 """
 
 from datetime import datetime, timezone
+from uuid import UUID
 
 from fastapi import HTTPException, status
 from jose import JWTError
@@ -309,7 +310,7 @@ async def create_user(
     db: AsyncSession,
     data: schemas.UserCreateRequest,
 ) -> models.User:
-    """Create a new portal user."""
+    """Create a new portal user, optionally assign roles."""
     # Check uniqueness
     result = await db.execute(
         select(models.User).where(
@@ -336,9 +337,46 @@ async def create_user(
         display_name=data.display_name,
     )
     db.add(user)
+    await db.flush()  # get user.id
+
+    # Assign roles if requested
+    if data.role_codes:
+        # Deduplicate
+        codes = list(dict.fromkeys(data.role_codes))
+
+        result = await db.execute(
+            select(models.Role).where(models.Role.code.in_(codes))
+        )
+        roles = {r.code: r for r in result.scalars().all()}
+
+        missing = set(codes) - set(roles.keys())
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Roles not found: {', '.join(sorted(missing))}",
+            )
+
+        if "device_service" in codes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot assign device_service role via user API",
+            )
+
+        for role in roles.values():
+            db.add(models.UserRole(user_id=user.id, role_id=role.id))
+
     await db.commit()
-    await db.refresh(user)
-    return user
+    # Reload with roles
+    result = await db.execute(
+        select(models.User)
+        .options(
+            selectinload(models.User.user_roles).selectinload(
+                models.UserRole.role
+            )
+        )
+        .where(models.User.id == user.id)
+    )
+    return result.scalar_one()
 
 
 async def list_users(
@@ -346,9 +384,14 @@ async def list_users(
     skip: int = 0,
     limit: int = 100,
 ) -> list[models.User]:
-    """List all users (paginated)."""
+    """List all users (paginated), with roles eager-loaded."""
     result = await db.execute(
         select(models.User)
+        .options(
+            selectinload(models.User.user_roles).selectinload(
+                models.UserRole.role
+            )
+        )
         .order_by(models.User.created_at.desc())
         .offset(skip)
         .limit(limit)
@@ -370,3 +413,120 @@ async def list_permissions(db: AsyncSession) -> list[models.Permission]:
         select(models.Permission).order_by(models.Permission.code)
     )
     return list(result.scalars().all())
+
+
+# ── User role management ────────────────────────────────────────────────
+
+async def update_user_roles(
+    db: AsyncSession,
+    user_id: UUID,
+    data: schemas.UserRoleUpdate,
+) -> models.User:
+    """Replace all roles for a user."""
+    # Deduplicate
+    codes = list(dict.fromkeys(data.role_codes))
+
+    # 1. Check user exists
+    result = await db.execute(
+        select(models.User)
+        .options(
+            selectinload(models.User.user_roles).selectinload(
+                models.UserRole.role
+            )
+        )
+        .where(models.User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    # 2. Check all roles exist
+    result = await db.execute(
+        select(models.Role).where(models.Role.code.in_(codes))
+    )
+    new_roles_by_code = {r.code: r for r in result.scalars().all()}
+    missing = set(codes) - set(new_roles_by_code.keys())
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Roles not found: {', '.join(sorted(missing))}",
+        )
+
+    # 3. Disallow device_service
+    if "device_service" in codes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot assign device_service role via user API",
+        )
+
+    # 4. Protect last active system_admin
+    # Get system_admin role id
+    result = await db.execute(
+        select(models.Role.id).where(models.Role.code == "system_admin")
+    )
+    sa_role_id = result.scalar_one()
+    current_role_ids = {ur.role_id for ur in user.user_roles}
+    had_sa = sa_role_id in current_role_ids
+    will_have_sa = "system_admin" in codes
+
+    if had_sa and not will_have_sa:
+        # Check if there's another active user with system_admin
+        result = await db.execute(
+            select(models.UserRole).join(
+                models.User,
+                models.UserRole.user_id == models.User.id,
+            ).where(
+                models.UserRole.role_id == sa_role_id,
+                models.User.is_active == True,
+                models.User.id != user_id,
+            )
+        )
+        other_admins = result.scalars().all()
+        if not other_admins:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot remove system_admin from the last active system administrator",
+            )
+
+    # 5. Replace: delete old, insert new
+    for ur in list(user.user_roles):
+        await db.delete(ur)
+    await db.flush()
+    for code in codes:
+        role = new_roles_by_code[code]
+        db.add(models.UserRole(user_id=user_id, role_id=role.id))
+
+    await db.commit()
+
+    # Reload user with new roles — expire to bypass identity map cache
+    db.expire_all()
+    result = await db.execute(
+        select(models.User)
+        .options(
+            selectinload(models.User.user_roles).selectinload(
+                models.UserRole.role
+            )
+        )
+        .where(models.User.id == user_id)
+    )
+    return result.scalar_one()
+
+
+async def require_user_permission(
+    db: AsyncSession, user: models.User, permission: str
+) -> None:
+    """Check permission on a given user (reloads from DB to be current)."""
+    result = await db.execute(
+        select(models.User)
+        .options(
+            selectinload(models.User.user_roles)
+            .selectinload(models.UserRole.role)
+            .selectinload(models.Role.role_permissions)
+            .selectinload(models.RolePermission.permission)
+        )
+        .where(models.User.id == user.id)
+    )
+    fresh_user = result.scalar_one()
+    require_permission(fresh_user, permission)

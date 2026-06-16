@@ -1,6 +1,6 @@
-"""
-Identity & Access: FastAPI router — auth, users, roles, permissions.
-"""
+"""Identity & Access: FastAPI router - auth, users, roles, permissions."""
+
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -93,11 +93,28 @@ async def list_users(
 async def create_user(
     body: schemas.UserCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _: models.User = Depends(require_permission("users.create")),
+    current_user: models.User = Depends(get_current_user),
 ):
-    """Create a new user. Requires users.create permission."""
+    """Create a new user. Requires users.create.
+    If role_codes is provided, also requires roles.manage."""
+    # Always require users.create
+    service.require_permission(current_user, "users.create")
+    # If roles are being assigned, also require roles.manage
+    if body.role_codes:
+        await service.require_user_permission(db, current_user, "roles.manage")
     user = await service.create_user(db, body)
     return user
+
+
+@router.put("/users/{user_id}/roles", response_model=schemas.UserResponse)
+async def update_user_roles(
+    user_id: UUID,
+    body: schemas.UserRoleUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: models.User = Depends(require_permission("roles.manage")),
+):
+    """Replace all roles for a user. Requires roles.manage."""
+    return await service.update_user_roles(db, user_id, body)
 
 
 # ── Roles ────────────────────────────────────────────────────────────────
