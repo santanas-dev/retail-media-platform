@@ -145,3 +145,41 @@ class DeviceHeartbeatRequest(BaseModel):
     cache_items_count: Optional[int] = None
     current_manifest_hash: Optional[str] = None
     details_json: dict[str, Any] = Field(default_factory=dict)
+
+
+# ── Manifest Delivery schemas ─────────────────────────────────────
+
+class DeviceManifestResponse(BaseModel):
+    """Manifest delivered to a device."""
+    status: str  # "served", "not_modified"
+    manifest_version_id: UUID
+    manifest_hash: str
+    published_at: Optional[datetime] = None
+    manifest: Optional[dict[str, Any]] = None  # None when not_modified
+
+
+class DeviceManifestCurrentResponse(BaseModel):
+    """Response for /manifest/current — covers all states."""
+    status: str  # "served", "not_modified", "no_manifest"
+    manifest_version_id: Optional[UUID] = None
+    manifest_hash: Optional[str] = None
+    published_at: Optional[datetime] = None
+    manifest: Optional[dict[str, Any]] = None
+
+
+class DeviceManifestRequestResponse(BaseModel):
+    """Admin view of a manifest request."""
+    id: UUID
+    gateway_device_id: UUID
+    manifest_version_id: Optional[UUID] = None
+    publication_target_id: Optional[UUID] = None
+    request_status: str
+    response_hash: Optional[str] = None
+    client_manifest_hash: Optional[str] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    message: Optional[str] = None
+    details_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

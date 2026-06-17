@@ -80,6 +80,10 @@ class GatewayDevice(Base):
         "DeviceEvent", back_populates="device", lazy="selectin",
         order_by="DeviceEvent.created_at",
     )
+    manifest_requests = relationship(
+        "DeviceManifestRequest", back_populates="device", lazy="selectin",
+        order_by="DeviceManifestRequest.created_at",
+    )
 
 
 class DeviceCredential(Base):
@@ -216,3 +220,43 @@ class DeviceEvent(Base):
     )
 
     device = relationship("GatewayDevice", back_populates="events")
+
+
+class DeviceManifestRequest(Base):
+    """Audit log of device manifest requests."""
+
+    __tablename__ = "device_manifest_requests"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    gateway_device_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("gateway_devices.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_version_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("manifest_versions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    publication_target_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("publication_targets.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    request_status = Column(String(20), nullable=False)
+    response_hash = Column(String(64), nullable=True)
+    client_manifest_hash = Column(String(64), nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    message = Column(Text, nullable=True)
+    details_json = Column(
+        JSONB, nullable=False, server_default=func.text("'{}'::jsonb"),
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+
+    device = relationship("GatewayDevice", back_populates="manifest_requests")

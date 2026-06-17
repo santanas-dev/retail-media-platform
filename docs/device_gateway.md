@@ -209,4 +209,92 @@ DEVICE_HEARTBEAT_DETAILS_MAX_BYTES = 65536
 - ❌ mTLS / certificates
 - ❌ Presigned URLs
 - ❌ Refresh tokens for devices
-- ❌ Reports
+
+
+---
+
+## Manifest Delivery (Step 11)
+
+### Overview
+
+Authorized devices pull **published manifests** that belong to their target (display_surface / logical_carrier). Pull model only — no push, no media delivery, no PoP.
+
+### Device Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/device-gateway/manifest/current?current_manifest_hash=...` | Latest published manifest for device |
+| `GET` | `/api/device-gateway/manifest/{manifest_version_id}` | Specific manifest (404 if not device's) |
+
+Both endpoints require device JWT token (Bearer). User tokens return 401.
+
+### Admin Endpoint
+
+| Method | Path | Permission |
+|--------|------|------------|
+| `GET` | `/api/gateway-devices/{id}/manifest-requests?request_status=&date_from=&date_to=&limit=` | `devices.gateway.read` |
+
+### Response Formats
+
+**Manifest served:**
+```json
+{
+  "status": "served",
+  "manifest_version_id": "uuid",
+  "manifest_hash": "sha256",
+  "published_at": "ISO8601",
+  "manifest": { ... }
+}
+```
+
+**Not modified:**
+```json
+{
+  "status": "not_modified",
+  "manifest_version_id": "uuid",
+  "manifest_hash": "sha256"
+}
+```
+
+**No manifest:**
+```json
+{
+  "status": "no_manifest"
+}
+```
+
+### Match Logic
+
+Priority-based matching between `gateway_device` and `publication_targets`:
+
+1. `gateway_device.display_surface_id` → match `publication_targets.display_surface_id`
+2. `gateway_device.logical_carrier_id` → match `publication_targets.logical_carrier_id`
+3. `gateway_device.physical_device_id` → find logical_carriers → match publication_targets
+
+All matches additionally require: `channel_id` and `store_id` equality.
+No match → `{"status": "no_manifest"}`.
+
+### Published Only
+
+Only manifests where ALL three statuses are `published`:
+- `publication_batches.status = "published"`
+- `publication_targets.status = "published"`
+- `manifest_versions.status = "published"`
+
+### Forbidden Key Validation
+
+Manifest JSON is checked recursively for forbidden keys. If found → **500 Manifest validation failed** (manifest is NOT modified/sanitized). Hash integrity is preserved.
+
+Forbidden keys: `access_token`, `refresh_token`, `token`, `jwt`, `password`, `secret`, `credential`, `credentials`, `authorization`, `cookie`, `api_key`, `private_key`, `public_key`.
+
+### Audit (`device_manifest_requests`)
+
+Every manifest request is logged with status: `served`, `not_modified`, `not_found`, `forbidden`, `validation_failed`.
+
+### New Table
+
+- `device_manifest_requests` — audit log only, not PoP
+
+### Config
+
+- `DEVICE_MANIFEST_REQUEST_DETAILS_MAX_BYTES` = 65536 (default)

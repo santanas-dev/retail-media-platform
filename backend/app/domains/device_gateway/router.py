@@ -1,5 +1,6 @@
 """Device Gateway Foundation: FastAPI routers — admin + device endpoints."""
 
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -82,3 +83,62 @@ async def device_heartbeat(data: schemas.DeviceHeartbeatRequest, request: Reques
     client_ip = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
     return await service.record_heartbeat(db, device, data, client_ip, user_agent)
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Manifest Delivery
+# ═══════════════════════════════════════════════════════════════════
+
+@device_router.get("/manifest/current", response_model=schemas.DeviceManifestCurrentResponse)
+async def manifest_current(
+    request: Request,
+    db=Depends(get_db),
+    current_manifest_hash: Optional[str] = Query(None, max_length=64),
+):
+    device, session = await authenticate_device(request, db)
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    response = await service.get_current_manifest(
+        device, db, current_manifest_hash, client_ip, user_agent,
+    )
+    # Update session last_used
+    session.last_used_at = datetime.now(timezone.utc)
+    await db.commit()
+    return response
+
+
+@device_router.get("/manifest/{manifest_version_id}", response_model=schemas.DeviceManifestResponse)
+async def manifest_by_id(
+    manifest_version_id: UUID,
+    request: Request,
+    db=Depends(get_db),
+):
+    device, session = await authenticate_device(request, db)
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    response = await service.get_device_manifest_by_id(
+        device, db, manifest_version_id, client_ip, user_agent,
+    )
+    session.last_used_at = datetime.now(timezone.utc)
+    await db.commit()
+    return response
+
+
+# ── Admin: manifest requests ────────────────────────────────────────
+
+@admin_router.get(
+    "/gateway-devices/{device_id}/manifest-requests",
+    response_model=list[schemas.DeviceManifestRequestResponse],
+)
+async def list_manifest_requests(
+    device_id: UUID,
+    db=Depends(get_db),
+    request_status: Optional[str] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_device_manifest_requests(
+        db, device_id, request_status, date_from, date_to, limit,
+    )
