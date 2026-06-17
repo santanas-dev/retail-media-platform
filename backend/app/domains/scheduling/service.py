@@ -596,11 +596,16 @@ async def cancel_schedule_run(
     if run.status == "cancelled":
         raise HTTPException(400, "Schedule run is already cancelled")
 
-    # Approved runs require scheduling.approve
-    if run.status == "approved" and "scheduling.approve" not in user_perms:
-        raise HTTPException(
-            403, "Cancelling approved schedule run requires scheduling.approve",
-        )
+    if run.status == "approved":
+        if "scheduling.approve" not in user_perms:
+            raise HTTPException(
+                403, "Cancelling approved schedule run requires scheduling.approve",
+            )
+    else:
+        if "scheduling.manage" not in user_perms:
+            raise HTTPException(
+                403, "Cancelling schedule run requires scheduling.manage",
+            )
 
     # Mark items as cancelled
     stmt = select(models.ScheduleItem).where(

@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from fastapi import status as http_status
 
-from app.core.deps import get_db, require_permission
+from app.core.deps import get_current_user, get_db, require_permission
 from app.domains.identity.models import User
 from app.domains.scheduling import schemas, service
 
@@ -89,7 +89,7 @@ async def approve_schedule_run(
 async def cancel_schedule_run(
     run_id: UUID,
     db=Depends(get_db),
-    current_user: User = Depends(require_permission("scheduling.manage")),
+    current_user: User = Depends(get_current_user),
 ):
     """Cancel a schedule run. Approved runs require scheduling.approve."""
     user_perms = set(current_user.permissions)
