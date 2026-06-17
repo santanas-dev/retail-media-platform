@@ -30,6 +30,9 @@ FORBIDDEN_KEYS = frozenset({
     "access_token", "refresh_token", "token", "jwt", "password",
     "secret", "credential", "credentials", "authorization",
     "cookie", "api_key", "private_key", "public_key",
+    "minio", "presigned", "presigned_url",
+    "stacktrace", "raw_exception",
+    "local_path", "file_path", "filesystem_path", "path",
 })
 
 HEARTBEAT_STATUSES = frozenset({"ok", "warning", "error"})
@@ -2141,3 +2144,226 @@ async def get_pop_batches(
         .limit(min(limit, 500))
     )
     return list(result.scalars().all())
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Content Sync State (Step 20) — Device-facing service
+# ═══════════════════════════════════════════════════════════════════════
+
+
+async def validate_manifest_for_device(
+    db: AsyncSession,
+    device: models.GatewayDevice,
+    manifest_version_id: UUID,
+    manifest_hash: str,
+):
+    """Validate that a manifest version belongs to this device."""
+    result = await db.execute(
+        select(ManifestVersion)
+        .where(ManifestVersion.id == manifest_version_id)
+    )
+    mv = result.scalar_one_or_none()
+    if not mv:
+        return None, "Manifest version not found"
+    if mv.manifest_hash != manifest_hash:
+        return None, "Manifest hash does not match"
+    if mv.status != "published":
+        return None, "Manifest version is not published"
+
+    result = await db.execute(
+        select(PublicationTarget)
+        .where(PublicationTarget.id == mv.publication_target_id)
+    )
+    target = result.scalar_one_or_none()
+    if not target:
+        return None, "Publication target not found"
+    if target.channel_id != device.channel_id or target.store_id != device.store_id:
+        return None, "Manifest does not belong to this device"
+
+    return mv, None
+
+
+async def apply_manifest(
+    db: AsyncSession,
+    device: models.GatewayDevice,
+    manifest_version_id: UUID,
+    data,
+):
+    """Record a manifest apply event and update current state."""
+    from app.domains.device_operations import models as do_models
+
+    mv, error = await validate_manifest_for_device(
+        db, device, manifest_version_id, data.manifest_hash,
+    )
+    if error:
+        status_code = 404 if "not found" in error.lower() else 400
+        raise HTTPException(status_code=status_code, detail=error)
+
+    if data.details_json:
+        hits = _validate_no_forbidden_keys(data.details_json)
+        if hits:
+            raise HTTPException(status_code=400, detail=f"Forbidden keys: {', '.join(hits)}")
+
+    event = do_models.DeviceManifestApplyEvent(
+        gateway_device_id=device.id,
+        manifest_version_id=manifest_version_id,
+        manifest_hash=data.manifest_hash,
+        status=data.status,
+        device_reported_at=data.device_reported_at,
+        reported_at=_now(),
+        error_code=data.error_code,
+        message=data.message,
+        details_json=data.details_json,
+    )
+    db.add(event)
+
+    result = await db.execute(
+        select(do_models.DeviceCurrentManifestState)
+        .where(do_models.DeviceCurrentManifestState.gateway_device_id == device.id)
+    )
+    state = result.scalar_one_or_none()
+    now = _now()
+
+    if state is None:
+        state = do_models.DeviceCurrentManifestState(
+            gateway_device_id=device.id,
+            manifest_version_id=manifest_version_id,
+            manifest_hash=data.manifest_hash,
+            status=data.status,
+            last_applied_at=now if data.status == "applied" else None,
+            last_failed_at=now if data.status == "failed" else None,
+            updated_at=now,
+            details_json=data.details_json,
+        )
+        db.add(state)
+    else:
+        state.status = data.status
+        state.updated_at = now
+        state.details_json = data.details_json
+        if data.status == "applied":
+            state.manifest_version_id = manifest_version_id
+            state.manifest_hash = data.manifest_hash
+            state.last_applied_at = now
+        elif data.status == "failed":
+            state.last_failed_at = now
+            if state.status == "unknown":
+                state.manifest_version_id = manifest_version_id
+                state.manifest_hash = data.manifest_hash
+
+    await db.flush()
+    return event
+
+
+async def submit_cache_report(
+    db: AsyncSession,
+    device: models.GatewayDevice,
+    data,
+):
+    """Process a device media cache report."""
+    from app.domains.device_operations import models as do_models
+
+    mv, error = await validate_manifest_for_device(
+        db, device, data.manifest_version_id, data.manifest_hash,
+    )
+    if error:
+        status_code = 404 if "not found" in error.lower() else 400
+        raise HTTPException(status_code=status_code, detail=error)
+
+    if data.details_json:
+        hits = _validate_no_forbidden_keys(data.details_json)
+        if hits:
+            raise HTTPException(status_code=400, detail=f"Forbidden keys: {', '.join(hits)}")
+
+    result = await db.execute(
+        select(ManifestItem)
+        .where(ManifestItem.manifest_version_id == data.manifest_version_id)
+    )
+    manifest_items_map: dict[UUID, ManifestItem] = {
+        mi.id: mi for mi in result.scalars().all()
+    }
+
+    cached = missing = failed = invalid_hash = 0
+    now = _now()
+
+    for item in data.items:
+        mi = manifest_items_map.get(item.manifest_item_id)
+        if not mi:
+            raise HTTPException(
+                status_code=400,
+                detail=f"manifest_item_id {item.manifest_item_id} not in manifest {data.manifest_version_id}",
+            )
+
+        if item.details_json:
+            hits = _validate_no_forbidden_keys(item.details_json)
+            if hits:
+                raise HTTPException(status_code=400, detail=f"Forbidden keys in item: {', '.join(hits)}")
+
+        expected_sha256 = mi.sha256
+        final_status = item.status
+
+        if item.status == "cached":
+            if not item.reported_sha256:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"reported_sha256 required for cached item {item.manifest_item_id}",
+                )
+            if item.reported_sha256.lower() != expected_sha256.lower():
+                final_status = "invalid_hash"
+            else:
+                cached += 1
+
+        if final_status == "invalid_hash":
+            invalid_hash += 1
+        elif final_status == "missing":
+            missing += 1
+        elif final_status == "failed":
+            failed += 1
+
+        existing_result = await db.execute(
+            select(do_models.DeviceMediaCacheItem)
+            .where(
+                do_models.DeviceMediaCacheItem.gateway_device_id == device.id,
+                do_models.DeviceMediaCacheItem.manifest_item_id == item.manifest_item_id,
+            )
+        )
+        existing = existing_result.scalar_one_or_none()
+
+        cache_kwargs = dict(
+            gateway_device_id=device.id,
+            manifest_item_id=item.manifest_item_id,
+            manifest_version_id=data.manifest_version_id,
+            rendition_id=mi.rendition_id,
+            expected_sha256=expected_sha256,
+            reported_sha256=item.reported_sha256,
+            status=final_status,
+            file_size_bytes=item.file_size_bytes,
+            cached_at=item.cached_at,
+            last_seen_at=now,
+            error_code=item.error_code,
+            message=item.message,
+            details_json=item.details_json,
+        )
+
+        if existing:
+            for k, v in cache_kwargs.items():
+                setattr(existing, k, v)
+        else:
+            db.add(do_models.DeviceMediaCacheItem(**cache_kwargs))
+
+    report = do_models.DeviceMediaCacheReport(
+        gateway_device_id=device.id,
+        manifest_version_id=data.manifest_version_id,
+        manifest_hash=data.manifest_hash,
+        total_items=len(data.items),
+        cached_count=cached,
+        missing_count=missing,
+        failed_count=failed,
+        invalid_hash_count=invalid_hash,
+        reported_at=now,
+        device_reported_at=data.device_reported_at,
+        details_json=data.details_json,
+    )
+    db.add(report)
+    await db.flush()
+    return report
+

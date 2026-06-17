@@ -1810,3 +1810,173 @@ async def get_config_requests(
     ).offset(offset).limit(limit)
     result = await db.execute(q)
     return result.scalars().all()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Content Sync State (Step 20) — Admin queries
+# ═══════════════════════════════════════════════════════════════════════
+
+
+async def get_sync_devices(
+    db: AsyncSession,
+    gateway_device_id: UUID | None = None,
+    store_id: UUID | None = None,
+    channel_id: UUID | None = None,
+    manifest_status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict]:
+    """List devices with content sync state."""
+    from app.domains.device_gateway.models import GatewayDevice
+
+    q = (
+        select(
+            GatewayDevice.id.label("gateway_device_id"),
+            GatewayDevice.device_code,
+            GatewayDevice.device_name,
+            GatewayDevice.channel_id,
+            GatewayDevice.store_id,
+            GatewayDevice.status,
+            do_models.DeviceCurrentManifestState.status.label("manifest_status"),
+            do_models.DeviceCurrentManifestState.manifest_version_id,
+            do_models.DeviceCurrentManifestState.manifest_hash,
+            do_models.DeviceCurrentManifestState.last_applied_at,
+            do_models.DeviceCurrentManifestState.last_failed_at,
+        )
+        .outerjoin(
+            do_models.DeviceCurrentManifestState,
+            do_models.DeviceCurrentManifestState.gateway_device_id == GatewayDevice.id,
+        )
+    )
+    if gateway_device_id:
+        q = q.where(GatewayDevice.id == gateway_device_id)
+    if store_id:
+        q = q.where(GatewayDevice.store_id == store_id)
+    if channel_id:
+        q = q.where(GatewayDevice.channel_id == channel_id)
+    q = q.order_by(GatewayDevice.device_code).offset(offset).limit(min(limit, 500))
+    result = await db.execute(q)
+    rows = result.all()
+
+    devices = []
+    for row in rows:
+        dev_id = row.gateway_device_id
+        cr = await db.execute(
+            select(do_models.DeviceMediaCacheItem.status, func.count().label("cnt"))
+            .where(do_models.DeviceMediaCacheItem.gateway_device_id == dev_id)
+            .group_by(do_models.DeviceMediaCacheItem.status)
+        )
+        cc = {r.status: r.cnt for r in cr.all()}
+        d = {
+            "gateway_device_id": dev_id, "device_code": row.device_code,
+            "device_name": row.device_name, "channel_id": row.channel_id,
+            "store_id": row.store_id, "status": row.status,
+            "manifest_status": row.manifest_status or "unknown",
+            "manifest_version_id": row.manifest_version_id,
+            "manifest_hash": row.manifest_hash,
+            "last_applied_at": row.last_applied_at,
+            "last_failed_at": row.last_failed_at,
+            "cached_items": cc.get("cached", 0),
+            "missing_items": cc.get("missing", 0),
+            "failed_items": cc.get("failed", 0),
+            "invalid_hash_items": cc.get("invalid_hash", 0),
+        }
+        if not manifest_status or d["manifest_status"] == manifest_status:
+            devices.append(d)
+    return devices
+
+
+async def get_sync_device_detail(db: AsyncSession, gateway_device_id: UUID) -> dict | None:
+    """Detailed content sync state for one device."""
+    from app.domains.device_gateway.models import GatewayDevice
+
+    r = await db.execute(select(GatewayDevice).where(GatewayDevice.id == gateway_device_id))
+    dev = r.scalar_one_or_none()
+    if not dev: return None
+
+    r = await db.execute(select(do_models.DeviceCurrentManifestState).where(
+        do_models.DeviceCurrentManifestState.gateway_device_id == gateway_device_id))
+    st = r.scalar_one_or_none()
+
+    cr = await db.execute(
+        select(do_models.DeviceMediaCacheItem.status, func.count().label("cnt"))
+        .where(do_models.DeviceMediaCacheItem.gateway_device_id == gateway_device_id)
+        .group_by(do_models.DeviceMediaCacheItem.status))
+    cache_summary = {r2.status: r2.cnt for r2 in cr.all()}
+
+    er = await db.execute(
+        select(do_models.DeviceManifestApplyEvent)
+        .where(do_models.DeviceManifestApplyEvent.gateway_device_id == gateway_device_id)
+        .order_by(do_models.DeviceManifestApplyEvent.reported_at.desc()).limit(10))
+    recent_events = [{"id": e.id, "manifest_version_id": e.manifest_version_id,
+                      "manifest_hash": e.manifest_hash, "status": e.status,
+                      "reported_at": e.reported_at, "message": e.message}
+                     for e in er.scalars().all()]
+
+    ir = await db.execute(
+        select(do_models.DeviceMediaCacheItem)
+        .where(do_models.DeviceMediaCacheItem.gateway_device_id == gateway_device_id)
+        .order_by(do_models.DeviceMediaCacheItem.last_seen_at.desc()).limit(20))
+    recent_items = [{"manifest_item_id": i.manifest_item_id, "status": i.status,
+                     "expected_sha256": i.expected_sha256, "reported_sha256": i.reported_sha256,
+                     "last_seen_at": i.last_seen_at} for i in ir.scalars().all()]
+
+    return {
+        "gateway_device_id": dev.id, "device_code": dev.device_code,
+        "device_name": dev.device_name, "channel_id": dev.channel_id,
+        "store_id": dev.store_id,
+        "manifest_status": st.status if st else "unknown",
+        "manifest_version_id": st.manifest_version_id if st else None,
+        "manifest_hash": st.manifest_hash if st else None,
+        "last_applied_at": st.last_applied_at if st else None,
+        "last_failed_at": st.last_failed_at if st else None,
+        "updated_at": st.updated_at if st else None,
+        "cache_summary": cache_summary,
+        "recent_manifest_events": recent_events,
+        "recent_cache_items": recent_items,
+    }
+
+
+async def get_manifest_events(
+    db: AsyncSession, gateway_device_id: UUID | None = None,
+    manifest_version_id: UUID | None = None, status: str | None = None,
+    date_from: datetime | None = None, date_to: datetime | None = None,
+    limit: int = 100, offset: int = 0,
+) -> list:
+    q = select(do_models.DeviceManifestApplyEvent)
+    if gateway_device_id: q = q.where(do_models.DeviceManifestApplyEvent.gateway_device_id == gateway_device_id)
+    if manifest_version_id: q = q.where(do_models.DeviceManifestApplyEvent.manifest_version_id == manifest_version_id)
+    if status: q = q.where(do_models.DeviceManifestApplyEvent.status == status)
+    if date_from: q = q.where(do_models.DeviceManifestApplyEvent.reported_at >= date_from)
+    if date_to: q = q.where(do_models.DeviceManifestApplyEvent.reported_at <= date_to)
+    q = q.order_by(do_models.DeviceManifestApplyEvent.reported_at.desc()).offset(offset).limit(min(limit, 500))
+    return (await db.execute(q)).scalars().all()
+
+
+async def get_cache_reports(
+    db: AsyncSession, gateway_device_id: UUID | None = None,
+    manifest_version_id: UUID | None = None,
+    date_from: datetime | None = None, date_to: datetime | None = None,
+    limit: int = 100, offset: int = 0,
+) -> list:
+    q = select(do_models.DeviceMediaCacheReport)
+    if gateway_device_id: q = q.where(do_models.DeviceMediaCacheReport.gateway_device_id == gateway_device_id)
+    if manifest_version_id: q = q.where(do_models.DeviceMediaCacheReport.manifest_version_id == manifest_version_id)
+    if date_from: q = q.where(do_models.DeviceMediaCacheReport.reported_at >= date_from)
+    if date_to: q = q.where(do_models.DeviceMediaCacheReport.reported_at <= date_to)
+    q = q.order_by(do_models.DeviceMediaCacheReport.reported_at.desc()).offset(offset).limit(min(limit, 500))
+    return (await db.execute(q)).scalars().all()
+
+
+async def get_cache_items(
+    db: AsyncSession, gateway_device_id: UUID | None = None,
+    manifest_version_id: UUID | None = None, manifest_item_id: UUID | None = None,
+    status: str | None = None, limit: int = 100, offset: int = 0,
+) -> list:
+    q = select(do_models.DeviceMediaCacheItem)
+    if gateway_device_id: q = q.where(do_models.DeviceMediaCacheItem.gateway_device_id == gateway_device_id)
+    if manifest_version_id: q = q.where(do_models.DeviceMediaCacheItem.manifest_version_id == manifest_version_id)
+    if manifest_item_id: q = q.where(do_models.DeviceMediaCacheItem.manifest_item_id == manifest_item_id)
+    if status: q = q.where(do_models.DeviceMediaCacheItem.status == status)
+    q = q.order_by(do_models.DeviceMediaCacheItem.last_seen_at.desc()).offset(offset).limit(min(limit, 500))
+    return (await db.execute(q)).scalars().all()

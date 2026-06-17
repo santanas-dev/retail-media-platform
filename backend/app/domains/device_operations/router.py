@@ -517,3 +517,113 @@ async def list_runtime_config_requests(
         db, device_id=device_id, date_from=date_from, date_to=date_to,
         response_status=response_status, limit=limit, offset=offset,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Content Sync State (Step 20) — Admin endpoints
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@router.get(
+    "/content-sync/devices",
+    response_model=list[schemas.DeviceSyncStateItem],
+)
+async def list_sync_devices(
+    gateway_device_id: Optional[UUID] = Query(None),
+    store_id: Optional[UUID] = Query(None),
+    channel_id: Optional[UUID] = Query(None),
+    manifest_status: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_sync_devices(
+        db, gateway_device_id=gateway_device_id, store_id=store_id,
+        channel_id=channel_id, manifest_status=manifest_status,
+        limit=limit, offset=offset,
+    )
+
+
+@router.get(
+    "/content-sync/devices/{gateway_device_id}",
+    response_model=schemas.DeviceSyncStateDetail,
+)
+async def get_sync_device_detail(
+    gateway_device_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    detail = await service.get_sync_device_detail(db, gateway_device_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Device not found")
+    return detail
+
+
+@router.get(
+    "/content-sync/manifest-events",
+    response_model=list[schemas.ManifestApplyEventResponse],
+)
+async def list_manifest_events(
+    gateway_device_id: Optional[UUID] = Query(None),
+    manifest_version_id: Optional[UUID] = Query(None),
+    status: Optional[str] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(status_code=422, detail="date_from must be <= date_to")
+    return await service.get_manifest_events(
+        db, gateway_device_id=gateway_device_id,
+        manifest_version_id=manifest_version_id, status=status,
+        date_from=date_from, date_to=date_to, limit=limit, offset=offset,
+    )
+
+
+@router.get(
+    "/content-sync/cache-reports",
+    response_model=list[schemas.MediaCacheReportResponse],
+)
+async def list_cache_reports(
+    gateway_device_id: Optional[UUID] = Query(None),
+    manifest_version_id: Optional[UUID] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(status_code=422, detail="date_from must be <= date_to")
+    return await service.get_cache_reports(
+        db, gateway_device_id=gateway_device_id,
+        manifest_version_id=manifest_version_id,
+        date_from=date_from, date_to=date_to, limit=limit, offset=offset,
+    )
+
+
+@router.get(
+    "/content-sync/cache-items",
+    response_model=list[schemas.MediaCacheItemResponse],
+)
+async def list_cache_items(
+    gateway_device_id: Optional[UUID] = Query(None),
+    manifest_version_id: Optional[UUID] = Query(None),
+    manifest_item_id: Optional[UUID] = Query(None),
+    status: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_cache_items(
+        db, gateway_device_id=gateway_device_id,
+        manifest_version_id=manifest_version_id,
+        manifest_item_id=manifest_item_id, status=status,
+        limit=limit, offset=offset,
+    )

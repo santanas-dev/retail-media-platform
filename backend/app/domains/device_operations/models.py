@@ -8,6 +8,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import relationship
@@ -335,3 +336,152 @@ class DeviceRuntimeConfigRequest(Base):
     ip_address = Column(String(45))
     user_agent = Column(String(512))
     details_json = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Content Sync State (Step 20)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class DeviceManifestApplyEvent(Base):
+    """Audit log: device reports manifest apply attempt."""
+
+    __tablename__ = "device_manifest_apply_events"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    gateway_device_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("gateway_devices.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_version_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("manifest_versions.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_hash = Column(String(64), nullable=False)
+    status = Column(String(20), nullable=False)
+    device_reported_at = Column(DateTime(timezone=True))
+    reported_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )
+    error_code = Column(String(64))
+    message = Column(String(512))
+    details_json = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+
+
+class DeviceCurrentManifestState(Base):
+    """Current manifest state per device (upsert)."""
+
+    __tablename__ = "device_current_manifest_states"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    gateway_device_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("gateway_devices.id", ondelete="RESTRICT"),
+        nullable=False, unique=True,
+    )
+    manifest_version_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("manifest_versions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    manifest_hash = Column(String(64))
+    status = Column(
+        String(20), nullable=False, server_default="unknown",
+    )
+    last_applied_at = Column(DateTime(timezone=True))
+    last_failed_at = Column(DateTime(timezone=True))
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False,
+        server_default=func.now(), onupdate=func.now(),
+    )
+    details_json = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+
+
+class DeviceMediaCacheReport(Base):
+    """Audit log: device submits a batch media cache report."""
+
+    __tablename__ = "device_media_cache_reports"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    gateway_device_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("gateway_devices.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_version_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("manifest_versions.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_hash = Column(String(64), nullable=False)
+    total_items = Column(Integer, nullable=False)
+    cached_count = Column(Integer, nullable=False)
+    missing_count = Column(Integer, nullable=False)
+    failed_count = Column(Integer, nullable=False)
+    invalid_hash_count = Column(Integer, nullable=False)
+    reported_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )
+    device_reported_at = Column(DateTime(timezone=True))
+    details_json = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+
+
+class DeviceMediaCacheItem(Base):
+    """Per-item media cache state on a device (upsert)."""
+
+    __tablename__ = "device_media_cache_items"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    gateway_device_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("gateway_devices.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_item_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("manifest_items.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_version_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("manifest_versions.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    rendition_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("renditions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    expected_sha256 = Column(String(64), nullable=False)
+    reported_sha256 = Column(String(64))
+    status = Column(String(20), nullable=False)
+    file_size_bytes = Column(Integer)
+    cached_at = Column(DateTime(timezone=True))
+    last_seen_at = Column(
+        DateTime(timezone=True), nullable=False,
+        server_default=func.now(), onupdate=func.now(),
+    )
+    error_code = Column(String(64))
+    message = Column(String(512))
+    details_json = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+
+    __table_args__ = (
+        UniqueConstraint(
+            "gateway_device_id", "manifest_item_id",
+            name="uq_device_media_cache_item",
+        ),
+    )

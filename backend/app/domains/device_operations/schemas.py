@@ -765,3 +765,96 @@ class RuntimeConfigRequestResponse(BaseModel):
     details_json: Optional[dict[str, Any]] = None
 
     model_config = {"from_attributes": True}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Content Sync State (Step 20) — Admin response schemas
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class DeviceSyncStateItem(BaseModel):
+    """Device row in content-sync device list."""
+    gateway_device_id: UUID
+    device_code: str
+    device_name: Optional[str] = None
+    channel_id: UUID
+    store_id: UUID
+    status: str
+    manifest_status: str
+    manifest_version_id: Optional[UUID] = None
+    manifest_hash: Optional[str] = None
+    last_applied_at: Optional[datetime] = None
+    last_failed_at: Optional[datetime] = None
+    cached_items: int = 0
+    missing_items: int = 0
+    failed_items: int = 0
+    invalid_hash_items: int = 0
+
+
+class DeviceSyncStateDetail(BaseModel):
+    """Detailed content-sync state for a single device."""
+    gateway_device_id: UUID
+    device_code: str
+    device_name: Optional[str] = None
+    channel_id: UUID
+    store_id: UUID
+    manifest_status: str
+    manifest_version_id: Optional[UUID] = None
+    manifest_hash: Optional[str] = None
+    last_applied_at: Optional[datetime] = None
+    last_failed_at: Optional[datetime] = None
+    updated_at: datetime
+    cache_summary: dict[str, int] = Field(default_factory=dict)
+    recent_manifest_events: list[dict[str, Any]] = Field(default_factory=list)
+    recent_cache_items: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ManifestApplyEventResponse(BaseModel):
+    id: UUID
+    gateway_device_id: UUID
+    manifest_version_id: UUID
+    manifest_hash: str
+    status: str
+    device_reported_at: Optional[datetime] = None
+    reported_at: datetime
+    error_code: Optional[str] = None
+    message: Optional[str] = None
+    details_json: Optional[dict[str, Any]] = None
+
+    model_config = {"from_attributes": True}
+
+
+class MediaCacheReportResponse(BaseModel):
+    id: UUID
+    gateway_device_id: UUID
+    manifest_version_id: UUID
+    manifest_hash: str
+    total_items: int
+    cached_count: int
+    missing_count: int
+    failed_count: int
+    invalid_hash_count: int
+    reported_at: datetime
+    device_reported_at: Optional[datetime] = None
+    details_json: Optional[dict[str, Any]] = None
+
+    model_config = {"from_attributes": True}
+
+
+class MediaCacheItemResponse(BaseModel):
+    id: UUID
+    gateway_device_id: UUID
+    manifest_item_id: UUID
+    manifest_version_id: UUID
+    rendition_id: Optional[UUID] = None
+    expected_sha256: str
+    reported_sha256: Optional[str] = None
+    status: str
+    file_size_bytes: Optional[int] = None
+    cached_at: Optional[datetime] = None
+    last_seen_at: datetime
+    error_code: Optional[str] = None
+    message: Optional[str] = None
+    details_json: Optional[dict[str, Any]] = None
+
+    model_config = {"from_attributes": True}

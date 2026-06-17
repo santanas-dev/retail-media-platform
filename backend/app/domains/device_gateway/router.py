@@ -397,3 +397,55 @@ async def get_device_runtime_config(
     resp = JSONResponse(content=jsonable_encoder(response_data))
     resp.headers["ETag"] = f'"{config_hash}"'
     return resp
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Content Sync State (Step 20) — Device endpoints
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@device_router.post(
+    "/manifest/{manifest_version_id}/apply",
+    response_model=schemas.ManifestApplyResponse,
+)
+async def manifest_apply(
+    manifest_version_id: UUID,
+    data: schemas.ManifestApplyRequest,
+    request: Request,
+    db=Depends(get_db),
+):
+    """Device reports manifest apply result (applied or failed)."""
+    current_device, _ = await authenticate_device(request, db)
+    event = await service.apply_manifest(
+        db, current_device, manifest_version_id, data,
+    )
+    return {
+        "status": "ok",
+        "gateway_device_id": current_device.id,
+        "manifest_version_id": manifest_version_id,
+        "manifest_status": data.status,
+    }
+
+
+@device_router.post(
+    "/media/cache/report",
+    response_model=schemas.MediaCacheReportResponse,
+)
+async def media_cache_report(
+    data: schemas.MediaCacheReportRequest,
+    request: Request,
+    db=Depends(get_db),
+):
+    """Device submits a batch media cache report."""
+    current_device, _ = await authenticate_device(request, db)
+    report = await service.submit_cache_report(db, current_device, data)
+    return {
+        "status": "ok",
+        "gateway_device_id": current_device.id,
+        "manifest_version_id": data.manifest_version_id,
+        "total_items": report.total_items,
+        "cached_count": report.cached_count,
+        "missing_count": report.missing_count,
+        "failed_count": report.failed_count,
+        "invalid_hash_count": report.invalid_hash_count,
+    }

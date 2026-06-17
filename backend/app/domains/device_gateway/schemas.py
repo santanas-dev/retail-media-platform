@@ -341,3 +341,57 @@ class PoPBatchRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Content Sync State (Step 20) — Device Request / Response schemas
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class ManifestApplyRequest(BaseModel):
+    """Device reports manifest apply result."""
+    manifest_hash: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+    status: Literal["applied", "failed"]
+    device_reported_at: Optional[datetime] = None
+    message: Optional[str] = Field(None, max_length=512)
+    error_code: Optional[str] = Field(None, max_length=64)
+    details_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class ManifestApplyResponse(BaseModel):
+    status: str  # "ok"
+    gateway_device_id: UUID
+    manifest_version_id: UUID
+    manifest_status: str  # "applied" | "failed"
+
+
+class CacheReportItem(BaseModel):
+    manifest_item_id: UUID
+    status: Literal["cached", "missing", "failed", "invalid_hash", "evicted"]
+    reported_sha256: Optional[str] = Field(
+        None, min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$",
+    )
+    file_size_bytes: Optional[int] = Field(None, ge=0)
+    cached_at: Optional[datetime] = None
+    error_code: Optional[str] = Field(None, max_length=64)
+    message: Optional[str] = Field(None, max_length=512)
+    details_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class MediaCacheReportRequest(BaseModel):
+    manifest_version_id: UUID
+    manifest_hash: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")
+    device_reported_at: Optional[datetime] = None
+    items: list[CacheReportItem] = Field(min_length=1, max_length=1000)
+    details_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class MediaCacheReportResponse(BaseModel):
+    status: str  # "ok"
+    gateway_device_id: UUID
+    manifest_version_id: UUID
+    total_items: int
+    cached_count: int
+    missing_count: int
+    failed_count: int
+    invalid_hash_count: int
