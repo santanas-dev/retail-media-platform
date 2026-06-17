@@ -300,8 +300,15 @@ DEVICE_ALERT_DETAILS_MAX_BYTES = 65536  # 64 KB
 - `status` — running / completed / completed_with_errors / failed
 - `trigger_type` — manual
 - `triggered_by` — UUID пользователя
-- `date_from` / `date_to` — диапазон дат
+- `date_from` / `date_to` — диапазон дат (date_from ≤ date_to, иначе 422)
 - `limit` (default 100, max 500) / `offset` (default 0)
+
+**DB-level constraints (миграция 018):**
+- `trigger_type` CHECK: только `manual`
+- `status` CHECK: `running` / `completed` / `completed_with_errors` / `failed`
+- Все count ≥ 0 (CHECK per column)
+- `duration_ms` IS NULL OR ≥ 0
+- `error_message` VARCHAR(500)
 
 ### Evaluate Response
 

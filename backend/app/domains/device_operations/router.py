@@ -257,6 +257,11 @@ async def list_evaluation_runs(
     offset: int = Query(0, ge=0),
     current_user: User = Depends(require_permission("devices.gateway.read")),
 ):
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(
+            status_code=422,
+            detail="date_from must be before or equal to date_to",
+        )
     return await service.get_evaluation_runs(
         db, status=status, trigger_type=trigger_type, triggered_by=triggered_by,
         date_from=date_from, date_to=date_to, limit=limit, offset=offset,

@@ -1072,23 +1072,15 @@ _RUN_STATUS_COMPLETED = "completed"
 _RUN_STATUS_WITH_ERRORS = "completed_with_errors"
 _RUN_STATUS_FAILED = "failed"
 
-_SAFE_ERROR_MESSAGES = {
-    "unexpected": "Unexpected evaluation error",
-    "rule_failed": "Rule evaluation failed",
-    "invalid_config": "Invalid rule configuration",
-}
 
-
-def _safe_error_message(msg: str) -> str:
-    """Truncate and sanitize error messages — no stacktrace, no secrets."""
-    if not msg:
-        return _SAFE_ERROR_MESSAGES["unexpected"]
-    # Truncate
-    safe = msg[:500]
-    # Strip potential stacktrace lines
-    if "Traceback" in safe:
-        safe = safe.split("Traceback")[0].strip()
-    return safe or _SAFE_ERROR_MESSAGES["unexpected"]
+def _safe_error_message(e: Exception) -> str:
+    """Return a generic safe error message — NEVER expose raw exception text."""
+    exc_type = type(e).__name__
+    if exc_type in ("TypeError", "AttributeError"):
+        return "Rule evaluation failed"
+    if exc_type == "ValueError":
+        return "Invalid rule configuration"
+    return "Unexpected evaluation error"
 
 
 async def evaluate_alerts_with_run(db: AsyncSession, user_id: UUID) -> dict:
@@ -1107,6 +1099,34 @@ async def evaluate_alerts_with_run(db: AsyncSession, user_id: UUID) -> dict:
     await db.flush()
     run_id = run.id
 
+    try:
+        return await _do_evaluate(db, run, run_id, settings)
+    except Exception as e:
+        run.error_message = _safe_error_message(e)
+        run.status = _RUN_STATUS_FAILED
+        run.finished_at = _now()
+        run.duration_ms = int(
+            (run.finished_at - run.started_at).total_seconds() * 1000
+        )
+        await db.commit()
+        return {
+            "status": "ok",
+            "evaluation_run_id": str(run_id),
+            "evaluated_rules": 0,
+            "created": 0,
+            "repeated": 0,
+            "reopened": 0,
+            "skipped": 0,
+            "failed_rules": 0,
+        }
+
+
+async def _do_evaluate(
+    db: AsyncSession,
+    run: do_models.DeviceAlertEvaluationRun,
+    run_id: UUID,
+    settings,
+) -> dict:
     rules = await get_alert_rules(db, enabled_only=True)
     run.evaluated_rules_count = len(rules)
 
@@ -1165,7 +1185,7 @@ async def evaluate_alerts_with_run(db: AsyncSession, user_id: UUID) -> dict:
 
         except Exception as e:
             rr.status = "failed"
-            rr.error_message = _safe_error_message(str(e))
+            rr.error_message = _safe_error_message(e)
             counts["failed_rules"] += 1
 
         rr.created_count = per_counts["created"]
