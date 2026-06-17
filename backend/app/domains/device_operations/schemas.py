@@ -450,3 +450,318 @@ class EvaluationRunResponse(BaseModel):
 
 class EvaluationRunDetailResponse(EvaluationRunResponse):
     rule_results: list[EvaluationRuleResultResponse] = Field(default_factory=list)
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Runtime Configuration (Step 18)
+# ═══════════════════════════════════════════════════════════════════════
+
+import hashlib, json, re
+from enum import Enum
+
+from pydantic import field_validator, model_validator
+
+# ── Constants ─────────────────────────────────────────────────────────
+
+ALLOWED_CONFIG_KEYS = {
+    "heartbeat_interval_sec",
+    "manifest_refresh_interval_sec",
+    "media_download_timeout_sec",
+    "media_cache_max_mb",
+    "pop_batch_max_events",
+    "pop_flush_interval_sec",
+    "offline_mode_enabled",
+    "allowed_mime_types",
+    "max_media_file_mb",
+    "clock_skew_tolerance_sec",
+    "log_level",
+    "kso_safety",
+}
+
+ALLOWED_KSO_KEYS = {
+    "idle_only",
+    "stop_on_transaction",
+    "stop_on_payment",
+    "stop_on_error_screen",
+}
+
+NUMERIC_RANGES = {
+    "heartbeat_interval_sec": (10, 3600),
+    "manifest_refresh_interval_sec": (10, 3600),
+    "media_download_timeout_sec": (1, 300),
+    "media_cache_max_mb": (100, 10240),
+    "pop_batch_max_events": (1, 1000),
+    "pop_flush_interval_sec": (30, 3600),
+    "max_media_file_mb": (1, 2000),
+    "clock_skew_tolerance_sec": (0, 3600),
+}
+
+ALLOWED_LOG_LEVELS = {"debug", "info", "warning", "error"}
+
+ALLOWED_MIME_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "video/mp4",
+    "video/webm",
+}
+
+FORBIDDEN_CONFIG_KEYS = {
+    "access_token", "refresh_token", "token", "jwt", "password",
+    "secret", "credential", "credentials", "authorization", "cookie",
+    "api_key", "private_key", "public_key", "minio", "presigned",
+    "presigned_url", "stacktrace",
+}
+
+CODE_PATTERN = re.compile(r"^[a-z0-9_]+$")
+
+SCOPE_TYPES = {"global", "channel", "store", "device"}
+
+STATUS_RESPONSE_TYPES = {"ok", "not_modified", "error"}
+
+
+def _validate_config_json(value: dict) -> dict:
+    """Validate config_json: allowed keys, numeric ranges, MIME types, forbidden keys."""
+    if not isinstance(value, dict):
+        raise ValueError("config_json must be a JSON object")
+
+    _check_forbidden_recursive(value)
+
+    unknown = set(value.keys()) - ALLOWED_CONFIG_KEYS
+    if unknown:
+        raise ValueError(f"Unknown config keys: {', '.join(sorted(unknown))}")
+
+    # Numeric validation
+    for key, (lo, hi) in NUMERIC_RANGES.items():
+        if key in value:
+            v = value[key]
+            if not isinstance(v, (int, float)) or v < lo or v > hi:
+                raise ValueError(
+                    f"{key} must be between {lo} and {hi}, got {v}"
+                )
+
+    # Log level
+    if "log_level" in value:
+        if value["log_level"] not in ALLOWED_LOG_LEVELS:
+            raise ValueError(
+                f"log_level must be one of {sorted(ALLOWED_LOG_LEVELS)}"
+            )
+
+    # MIME types
+    if "allowed_mime_types" in value:
+        mimes = value["allowed_mime_types"]
+        if not isinstance(mimes, list):
+            raise ValueError("allowed_mime_types must be a list")
+        invalid = set(mimes) - ALLOWED_MIME_TYPES
+        if invalid:
+            raise ValueError(
+                f"Invalid MIME types: {', '.join(sorted(invalid))}"
+            )
+
+    # KSO safety
+    if "kso_safety" in value:
+        kso = value["kso_safety"]
+        if not isinstance(kso, dict):
+            raise ValueError("kso_safety must be an object")
+        unknown_kso = set(kso.keys()) - ALLOWED_KSO_KEYS
+        if unknown_kso:
+            raise ValueError(
+                f"Unknown kso_safety keys: {', '.join(sorted(unknown_kso))}"
+            )
+        for k, v in kso.items():
+            if not isinstance(v, bool):
+                raise ValueError(f"kso_safety.{k} must be boolean")
+
+    return value
+
+
+def _check_forbidden_recursive(obj, path=""):
+    """Recursively check for forbidden keys in a JSON structure."""
+    if isinstance(obj, dict):
+        for key, val in obj.items():
+            if key.lower() in FORBIDDEN_CONFIG_KEYS:
+                raise ValueError(
+                    f"Forbidden key '{path}{key}' in configuration"
+                )
+            _check_forbidden_recursive(val, f"{path}{key}.")
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            _check_forbidden_recursive(item, f"{path}[{i}].")
+
+
+def canonical_hash(obj: dict) -> str:
+    """Compute canonical SHA-256 hash of a JSON-serializable dict."""
+    s = json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
+def _now():
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc)
+
+
+# ── Profile schemas ───────────────────────────────────────────────────
+
+
+class RuntimeConfigProfileCreate(BaseModel):
+    code: str = Field(
+        ..., min_length=1, max_length=64, pattern=r"^[a-z0-9_]+$",
+    )
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    config_json: dict[str, Any]
+
+    @field_validator("config_json")
+    @classmethod
+    def validate_config(cls, v):
+        return _validate_config_json(v)
+
+    model_config = {"from_attributes": True}
+
+
+class RuntimeConfigProfileUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    config_json: Optional[dict[str, Any]] = None
+
+    @field_validator("config_json")
+    @classmethod
+    def validate_config(cls, v):
+        if v is not None:
+            return _validate_config_json(v)
+        return v
+
+    model_config = {"from_attributes": True}
+
+
+class RuntimeConfigProfileResponse(BaseModel):
+    id: UUID
+    code: str
+    name: str
+    description: Optional[str] = None
+    config_hash: str
+    version: int
+    enabled: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    created_by: Optional[UUID] = None
+    updated_by: Optional[UUID] = None
+
+    model_config = {"from_attributes": True}
+
+
+# ── Assignment schemas ────────────────────────────────────────────────
+
+
+class RuntimeConfigAssignmentCreate(BaseModel):
+    profile_id: UUID
+    scope_type: str = Field(..., min_length=1, max_length=10)
+    gateway_device_id: Optional[UUID] = None
+    store_id: Optional[UUID] = None
+    channel_id: Optional[UUID] = None
+    priority: int = Field(0, ge=0)
+
+    @field_validator("scope_type")
+    @classmethod
+    def validate_scope(cls, v):
+        if v not in SCOPE_TYPES:
+            raise ValueError(f"scope_type must be one of {sorted(SCOPE_TYPES)}")
+        return v
+
+    @model_validator(mode="after")
+    def validate_scope_combination(self):
+        scope = self.scope_type
+        dev = self.gateway_device_id
+        store = self.store_id
+        chan = self.channel_id
+
+        if scope == "global":
+            if dev or store or chan:
+                raise ValueError(
+                    "global assignment must not have device/store/channel"
+                )
+        elif scope == "channel":
+            if not chan:
+                raise ValueError("channel assignment requires channel_id")
+            if dev or store:
+                raise ValueError(
+                    "channel assignment must not have device/store"
+                )
+        elif scope == "store":
+            if not store:
+                raise ValueError("store assignment requires store_id")
+            if dev or chan:
+                raise ValueError(
+                    "store assignment must not have device/channel"
+                )
+        elif scope == "device":
+            if not dev:
+                raise ValueError("device assignment requires gateway_device_id")
+            if store or chan:
+                raise ValueError(
+                    "device assignment must not have store/channel"
+                )
+        return self
+
+    model_config = {"from_attributes": True}
+
+
+class RuntimeConfigAssignmentUpdate(BaseModel):
+    profile_id: Optional[UUID] = None
+    priority: Optional[int] = Field(None, ge=0)
+
+    model_config = {"from_attributes": True}
+
+
+class RuntimeConfigAssignmentResponse(BaseModel):
+    id: UUID
+    profile_id: UUID
+    scope_type: str
+    gateway_device_id: Optional[UUID] = None
+    store_id: Optional[UUID] = None
+    channel_id: Optional[UUID] = None
+    priority: int
+    enabled: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    created_by: Optional[UUID] = None
+    updated_by: Optional[UUID] = None
+
+    model_config = {"from_attributes": True}
+
+
+# ── Effective config schemas ──────────────────────────────────────────
+
+
+class EffectiveConfigResponse(BaseModel):
+    status: str = "ok"
+    gateway_device_id: UUID
+    config_hash: str
+    config: dict[str, Any]
+    profile_ids: list[UUID] = Field(default_factory=list)
+    assignment_ids: list[UUID] = Field(default_factory=list)
+    generated_at: datetime = Field(default_factory=_now)
+
+
+class DeviceConfigResponse(BaseModel):
+    """Response for device gateway endpoint — no profile_ids."""
+    status: str = "ok"
+    gateway_device_id: UUID
+    config_hash: str
+    config: dict[str, Any]
+    generated_at: datetime = Field(default_factory=_now)
+
+
+# ── Request audit schemas ─────────────────────────────────────────────
+
+
+class RuntimeConfigRequestResponse(BaseModel):
+    id: UUID
+    gateway_device_id: UUID
+    config_profile_ids: list[UUID]
+    effective_config_hash: str
+    response_status: str
+    requested_at: datetime
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    details_json: Optional[dict[str, Any]] = None
+
+    model_config = {"from_attributes": True}

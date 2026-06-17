@@ -1,12 +1,13 @@
 """Device Operations: health + alert rules API router."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.deps import get_current_user, get_db, require_permission
+from app.domains.device_gateway.models import GatewayDevice
 from app.domains.device_operations import schemas, service
 from app.domains.identity.models import User
 
@@ -293,3 +294,226 @@ async def get_evaluation_run_rules(
     current_user: User = Depends(require_permission("devices.gateway.read")),
 ):
     return await service.get_evaluation_run_rules(db, run_id)
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Runtime Configuration (Step 18)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# ── Profiles ──────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/runtime-configs/profiles",
+    response_model=list[schemas.RuntimeConfigProfileResponse],
+)
+async def list_runtime_config_profiles(
+    db=Depends(get_db),
+    enabled: Optional[bool] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_runtime_config_profiles(
+        db, enabled=enabled, limit=limit, offset=offset,
+    )
+
+
+@router.post(
+    "/runtime-configs/profiles",
+    response_model=schemas.RuntimeConfigProfileResponse,
+    status_code=201,
+)
+async def create_runtime_config_profile(
+    data: schemas.RuntimeConfigProfileCreate,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.create_runtime_config_profile(db, data, current_user.id)
+
+
+@router.get(
+    "/runtime-configs/profiles/{profile_id}",
+    response_model=schemas.RuntimeConfigProfileResponse,
+)
+async def get_runtime_config_profile(
+    profile_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_runtime_config_profile(db, profile_id)
+
+
+@router.put(
+    "/runtime-configs/profiles/{profile_id}",
+    response_model=schemas.RuntimeConfigProfileResponse,
+)
+async def update_runtime_config_profile(
+    profile_id: UUID,
+    data: schemas.RuntimeConfigProfileUpdate,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.update_runtime_config_profile(
+        db, profile_id, data, current_user.id,
+    )
+
+
+@router.post(
+    "/runtime-configs/profiles/{profile_id}/enable",
+    response_model=schemas.RuntimeConfigProfileResponse,
+)
+async def enable_runtime_config_profile(
+    profile_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.set_runtime_config_profile_enabled(db, profile_id, True)
+
+
+@router.post(
+    "/runtime-configs/profiles/{profile_id}/disable",
+    response_model=schemas.RuntimeConfigProfileResponse,
+)
+async def disable_runtime_config_profile(
+    profile_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.set_runtime_config_profile_enabled(db, profile_id, False)
+
+
+# ── Assignments ───────────────────────────────────────────────────────
+
+
+@router.get(
+    "/runtime-configs/assignments",
+    response_model=list[schemas.RuntimeConfigAssignmentResponse],
+)
+async def list_runtime_config_assignments(
+    db=Depends(get_db),
+    profile_id: Optional[UUID] = Query(None),
+    scope_type: Optional[str] = Query(None),
+    enabled: Optional[bool] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_runtime_config_assignments(
+        db, profile_id=profile_id, scope_type=scope_type,
+        enabled=enabled, limit=limit, offset=offset,
+    )
+
+
+@router.post(
+    "/runtime-configs/assignments",
+    response_model=schemas.RuntimeConfigAssignmentResponse,
+    status_code=201,
+)
+async def create_runtime_config_assignment(
+    data: schemas.RuntimeConfigAssignmentCreate,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.create_runtime_config_assignment(
+        db, data, current_user.id,
+    )
+
+
+@router.put(
+    "/runtime-configs/assignments/{assignment_id}",
+    response_model=schemas.RuntimeConfigAssignmentResponse,
+)
+async def update_runtime_config_assignment(
+    assignment_id: UUID,
+    data: schemas.RuntimeConfigAssignmentUpdate,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.update_runtime_config_assignment(
+        db, assignment_id, data, current_user.id,
+    )
+
+
+@router.post(
+    "/runtime-configs/assignments/{assignment_id}/enable",
+    response_model=schemas.RuntimeConfigAssignmentResponse,
+)
+async def enable_runtime_config_assignment(
+    assignment_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.set_runtime_config_assignment_enabled(
+        db, assignment_id, True,
+    )
+
+
+@router.post(
+    "/runtime-configs/assignments/{assignment_id}/disable",
+    response_model=schemas.RuntimeConfigAssignmentResponse,
+)
+async def disable_runtime_config_assignment(
+    assignment_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.set_runtime_config_assignment_enabled(
+        db, assignment_id, False,
+    )
+
+
+# ── Effective config preview ──────────────────────────────────────────
+
+
+@router.get(
+    "/runtime-configs/effective/{gateway_device_id}",
+    response_model=schemas.EffectiveConfigResponse,
+)
+async def get_effective_config_preview(
+    gateway_device_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    device = await db.get(GatewayDevice, gateway_device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Gateway device not found")
+
+    config, ch, pids, aids = await service.compute_effective_config(db, device)
+    return {
+        "status": "ok",
+        "gateway_device_id": device.id,
+        "config_hash": ch,
+        "config": config,
+        "profile_ids": pids,
+        "assignment_ids": aids,
+        "generated_at": datetime.now(timezone.utc),
+    }
+
+
+# ── Requests audit ────────────────────────────────────────────────────
+
+
+@router.get(
+    "/runtime-configs/requests",
+    response_model=list[schemas.RuntimeConfigRequestResponse],
+)
+async def list_runtime_config_requests(
+    db=Depends(get_db),
+    device_id: Optional[UUID] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    response_status: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(
+            status_code=422,
+            detail="date_from must be before or equal to date_to",
+        )
+    return await service.get_config_requests(
+        db, device_id=device_id, date_from=date_from, date_to=date_to,
+        response_status=response_status, limit=limit, offset=offset,
+    )

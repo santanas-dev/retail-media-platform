@@ -9,9 +9,9 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 
 from app.core.database import Base
 
@@ -230,3 +230,108 @@ class DeviceAlertEvaluationRuleResult(Base):
     run = relationship(
         "DeviceAlertEvaluationRun", back_populates="rule_results", lazy="raise",
     )
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Runtime Configuration (Step 18)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class DeviceRuntimeConfigProfile(Base):
+    __tablename__ = "device_runtime_config_profiles"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    code = Column(String(64), unique=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    config_json = Column(JSONB, nullable=False)
+    config_hash = Column(String(64), nullable=False)
+    version = Column(Integer, nullable=False, server_default="1")
+    enabled = Column(Boolean, nullable=False, server_default="true")
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )
+    updated_at = Column(DateTime(timezone=True))
+    created_by = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    updated_by = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+
+    assignments = relationship(
+        "DeviceRuntimeConfigAssignment", back_populates="profile",
+    )
+
+
+class DeviceRuntimeConfigAssignment(Base):
+    __tablename__ = "device_runtime_config_assignments"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    profile_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("device_runtime_config_profiles.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    scope_type = Column(String(10), nullable=False)
+    gateway_device_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("gateway_devices.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    store_id = Column(
+        UUID(as_uuid=True), ForeignKey("stores.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    channel_id = Column(
+        UUID(as_uuid=True), ForeignKey("channels.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    priority = Column(Integer, nullable=False, server_default="0")
+    enabled = Column(Boolean, nullable=False, server_default="true")
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )
+    updated_at = Column(DateTime(timezone=True))
+    created_by = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    updated_by = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+
+    profile = relationship(
+        "DeviceRuntimeConfigProfile", back_populates="assignments",
+    )
+
+
+class DeviceRuntimeConfigRequest(Base):
+    __tablename__ = "device_runtime_config_requests"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    gateway_device_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("gateway_devices.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    config_profile_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=False)
+    effective_config_hash = Column(String(64), nullable=False)
+    response_status = Column(String(13), nullable=False)
+    requested_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )
+    ip_address = Column(String(45))
+    user_agent = Column(String(512))
+    details_json = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))

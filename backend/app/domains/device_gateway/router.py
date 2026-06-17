@@ -13,6 +13,7 @@ from app.core.deps import get_current_user, get_db, require_permission
 from app.domains.device_gateway import schemas, service
 from app.domains.device_gateway.auth import authenticate_device
 from app.domains.identity.models import User
+from app.domains.device_operations import schemas as rt_schemas, service as rt_service
 
 admin_router = APIRouter(prefix="/api", tags=["gateway-devices"])
 device_router = APIRouter(prefix="/api/device-gateway", tags=["device-gateway"])
@@ -334,3 +335,64 @@ async def list_pop_batches(
         limit=limit,
         offset=offset,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Runtime Config (Step 18) — Device endpoint
+# ═══════════════════════════════════════════════════════════════════════
+
+from fastapi import Request, Response
+
+
+
+@device_router.get(
+    "/config/current",
+    response_model=rt_schemas.DeviceConfigResponse,
+)
+async def get_device_runtime_config(
+    request: Request,
+    db=Depends(get_db),
+):
+    """Serve effective runtime config to authenticated devices. Supports ETag/304."""
+    current_device, _session = await authenticate_device(request, db)
+    config, config_hash, profile_ids, _ = await rt_service.compute_effective_config(
+        db, current_device,
+    )
+
+    # Record audit
+    await rt_service.record_config_request(
+        db,
+        gateway_device_id=current_device.id,
+        profile_ids=profile_ids,
+        effective_hash=config_hash,
+        response_status="ok",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    # Check If-None-Match
+    if_none_match = request.headers.get("If-None-Match", "").strip('"').strip("'")
+    if if_none_match and if_none_match == config_hash:
+        # Record not_modified audit
+        await rt_service.record_config_request(
+            db,
+            gateway_device_id=current_device.id,
+            profile_ids=profile_ids,
+            effective_hash=config_hash,
+            response_status="not_modified",
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+        return Response(status_code=304)
+
+    response_data = {
+        "status": "ok",
+        "gateway_device_id": current_device.id,
+        "config_hash": config_hash,
+        "config": config,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    resp = JSONResponse(content=response_data)
+    resp.headers["ETag"] = f'"{config_hash}"'
+    return resp

@@ -158,6 +158,9 @@ class Settings(BaseSettings):
     # Device Operations — alert rules
     DEVICE_ALERT_DETAILS_MAX_BYTES: int = 65536  # 64 KB
 
+    # Runtime config
+    RUNTIME_CONFIG_MAX_BYTES: int = 65536  # 64 KB
+
 
 @lru_cache()
 def get_settings() -> Settings:

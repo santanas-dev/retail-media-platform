@@ -1,11 +1,13 @@
 """Device Operations: delivery health computation from audit tables."""
 
+import hashlib
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func, select, text, union_all
+from sqlalchemy import and_, func, or_, select, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -1457,5 +1459,354 @@ async def get_evaluation_run_rules(db: AsyncSession, run_id: UUID):
         .where(do_models.DeviceAlertEvaluationRuleResult.run_id == run_id)
         .order_by(do_models.DeviceAlertEvaluationRuleResult.created_at)
     )
+    result = await db.execute(q)
+    return result.scalars().all()
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Runtime Configuration (Step 18)
+# ═══════════════════════════════════════════════════════════════════════
+
+from app.domains.device_gateway.models import GatewayDevice
+
+
+def canonical_hash(obj: dict) -> str:
+    """Compute canonical SHA-256 hash of a JSON-serializable dict."""
+    s = json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
+# ── Profiles CRUD ─────────────────────────────────────────────────────
+
+
+async def get_runtime_config_profiles(
+    db: AsyncSession,
+    enabled: bool | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[do_models.DeviceRuntimeConfigProfile]:
+    q = select(do_models.DeviceRuntimeConfigProfile)
+    if enabled is not None:
+        q = q.where(do_models.DeviceRuntimeConfigProfile.enabled == enabled)
+    q = q.order_by(do_models.DeviceRuntimeConfigProfile.code).offset(offset).limit(limit)
+    result = await db.execute(q)
+    return result.scalars().all()
+
+
+async def get_runtime_config_profile(
+    db: AsyncSession, profile_id: UUID,
+) -> do_models.DeviceRuntimeConfigProfile:
+    profile = await db.get(do_models.DeviceRuntimeConfigProfile, profile_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Runtime config profile not found")
+    return profile
+
+
+async def create_runtime_config_profile(
+    db: AsyncSession, data, user_id: UUID | None,
+) -> do_models.DeviceRuntimeConfigProfile:
+    # Check duplicate code
+    existing = (
+        await db.execute(
+            select(do_models.DeviceRuntimeConfigProfile).where(
+                do_models.DeviceRuntimeConfigProfile.code == data.code
+            )
+        )
+    ).scalar()
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Profile code '{data.code}' already exists",
+        )
+
+    config_hash = canonical_hash(data.config_json)
+    profile = do_models.DeviceRuntimeConfigProfile(
+        code=data.code,
+        name=data.name,
+        description=data.description,
+        config_json=data.config_json,
+        config_hash=config_hash,
+        version=1,
+        created_by=user_id,
+    )
+    db.add(profile)
+    await db.commit()
+    await db.refresh(profile)
+    return profile
+
+
+async def update_runtime_config_profile(
+    db: AsyncSession, profile_id: UUID, data, user_id: UUID | None,
+) -> do_models.DeviceRuntimeConfigProfile:
+    profile = await get_runtime_config_profile(db, profile_id)
+
+    if data.name is not None:
+        profile.name = data.name
+    if data.description is not None:
+        profile.description = data.description
+    if data.config_json is not None:
+        profile.config_json = data.config_json
+        profile.config_hash = canonical_hash(data.config_json)
+        profile.version = (profile.version or 1) + 1
+
+    profile.updated_at = _now()
+    profile.updated_by = user_id
+    await db.commit()
+    await db.refresh(profile)
+    return profile
+
+
+async def set_runtime_config_profile_enabled(
+    db: AsyncSession, profile_id: UUID, enabled: bool,
+) -> do_models.DeviceRuntimeConfigProfile:
+    profile = await get_runtime_config_profile(db, profile_id)
+    profile.enabled = enabled
+    profile.updated_at = _now()
+    await db.commit()
+    await db.refresh(profile)
+    return profile
+
+
+# ── Assignments CRUD ──────────────────────────────────────────────────
+
+
+async def get_runtime_config_assignments(
+    db: AsyncSession,
+    profile_id: UUID | None = None,
+    scope_type: str | None = None,
+    enabled: bool | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[do_models.DeviceRuntimeConfigAssignment]:
+    q = select(do_models.DeviceRuntimeConfigAssignment)
+    if profile_id is not None:
+        q = q.where(
+            do_models.DeviceRuntimeConfigAssignment.profile_id == profile_id
+        )
+    if scope_type is not None:
+        q = q.where(
+            do_models.DeviceRuntimeConfigAssignment.scope_type == scope_type
+        )
+    if enabled is not None:
+        q = q.where(do_models.DeviceRuntimeConfigAssignment.enabled == enabled)
+    q = q.order_by(
+        do_models.DeviceRuntimeConfigAssignment.scope_type,
+        do_models.DeviceRuntimeConfigAssignment.priority,
+    ).offset(offset).limit(limit)
+    result = await db.execute(q)
+    return result.scalars().all()
+
+
+async def get_runtime_config_assignment(
+    db: AsyncSession, assignment_id: UUID,
+) -> do_models.DeviceRuntimeConfigAssignment:
+    a = await db.get(do_models.DeviceRuntimeConfigAssignment, assignment_id)
+    if not a:
+        raise HTTPException(
+            status_code=404, detail="Runtime config assignment not found",
+        )
+    return a
+
+
+async def create_runtime_config_assignment(
+    db: AsyncSession, data, user_id: UUID | None,
+) -> do_models.DeviceRuntimeConfigAssignment:
+    # Verify profile exists
+    profile = await db.get(do_models.DeviceRuntimeConfigProfile, data.profile_id)
+    if not profile:
+        raise HTTPException(
+            status_code=404, detail="Runtime config profile not found",
+        )
+
+    assignment = do_models.DeviceRuntimeConfigAssignment(
+        profile_id=data.profile_id,
+        scope_type=data.scope_type,
+        gateway_device_id=data.gateway_device_id,
+        store_id=data.store_id,
+        channel_id=data.channel_id,
+        priority=data.priority,
+        created_by=user_id,
+    )
+    db.add(assignment)
+    await db.commit()
+    await db.refresh(assignment)
+    return assignment
+
+
+async def update_runtime_config_assignment(
+    db: AsyncSession, assignment_id: UUID, data, user_id: UUID | None,
+) -> do_models.DeviceRuntimeConfigAssignment:
+    a = await get_runtime_config_assignment(db, assignment_id)
+
+    if data.profile_id is not None:
+        profile = await db.get(do_models.DeviceRuntimeConfigProfile, data.profile_id)
+        if not profile:
+            raise HTTPException(
+                status_code=404, detail="Runtime config profile not found",
+            )
+        a.profile_id = data.profile_id
+    if data.priority is not None:
+        a.priority = data.priority
+
+    a.updated_at = _now()
+    a.updated_by = user_id
+    await db.commit()
+    await db.refresh(a)
+    return a
+
+
+async def set_runtime_config_assignment_enabled(
+    db: AsyncSession, assignment_id: UUID, enabled: bool,
+) -> do_models.DeviceRuntimeConfigAssignment:
+    a = await get_runtime_config_assignment(db, assignment_id)
+    a.enabled = enabled
+    a.updated_at = _now()
+    await db.commit()
+    await db.refresh(a)
+    return a
+
+
+# ── Effective Config Computation ──────────────────────────────────────
+
+
+_SCOPE_ORDER = {"global": 0, "channel": 1, "store": 2, "device": 3}
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Recursive dict merge — arrays are replaced entirely."""
+    result = dict(base)
+    for key, val in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(val, dict):
+            result[key] = _deep_merge(result[key], val)
+        else:
+            result[key] = val
+    return result
+
+
+async def compute_effective_config(
+    db: AsyncSession, device: GatewayDevice, for_device: bool = True,
+) -> tuple[dict, str, list[UUID], list[UUID]]:
+    """Compute effective config for a device.
+
+    Returns: (effective_config, config_hash, profile_ids, assignment_ids)
+    """
+    # Get enabled assignments applicable to this device
+    q = select(do_models.DeviceRuntimeConfigAssignment).where(
+        do_models.DeviceRuntimeConfigAssignment.enabled == True,  # noqa: E712
+        or_(
+            # Global
+            do_models.DeviceRuntimeConfigAssignment.scope_type == "global",
+            # Channel
+            and_(
+                do_models.DeviceRuntimeConfigAssignment.scope_type == "channel",
+                do_models.DeviceRuntimeConfigAssignment.channel_id == device.channel_id,
+            ),
+            # Store
+            and_(
+                do_models.DeviceRuntimeConfigAssignment.scope_type == "store",
+                do_models.DeviceRuntimeConfigAssignment.store_id == device.store_id,
+            ),
+            # Device
+            and_(
+                do_models.DeviceRuntimeConfigAssignment.scope_type == "device",
+                do_models.DeviceRuntimeConfigAssignment.gateway_device_id == device.id,
+            ),
+        ),
+    )
+    result = await db.execute(q)
+    assignments = result.scalars().all()
+
+    # Sort by scope order then priority
+    assignments.sort(
+        key=lambda a: (_SCOPE_ORDER.get(a.scope_type, 99), a.priority),
+    )
+
+    # Load profiles
+    profile_ids = list({a.profile_id for a in assignments})
+    if profile_ids:
+        pq = select(do_models.DeviceRuntimeConfigProfile).where(
+            do_models.DeviceRuntimeConfigProfile.id.in_(profile_ids),
+        )
+        pr = await db.execute(pq)
+        profiles = {p.id: p for p in pr.scalars().all()}
+    else:
+        profiles = {}
+
+    # Merge
+    config: dict = {}
+    used_profile_ids = []
+    used_assignment_ids = []
+    for a in assignments:
+        profile = profiles.get(a.profile_id)
+        if profile and profile.enabled:
+            config = _deep_merge(config, profile.config_json or {})
+            used_profile_ids.append(a.profile_id)
+            used_assignment_ids.append(a.id)
+
+    config_hash = canonical_hash(config)
+
+    # Check size limit
+    config_str = json.dumps(config)
+    if len(config_str.encode("utf-8")) > get_settings().RUNTIME_CONFIG_MAX_BYTES:
+        raise HTTPException(
+            status_code=500,
+            detail="Effective config exceeds size limit",
+        )
+
+    return config, config_hash, used_profile_ids, used_assignment_ids
+
+
+# ── Request Audit ─────────────────────────────────────────────────────
+
+
+async def record_config_request(
+    db: AsyncSession,
+    gateway_device_id: UUID,
+    profile_ids: list[UUID],
+    effective_hash: str,
+    response_status: str,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> None:
+    req = do_models.DeviceRuntimeConfigRequest(
+        gateway_device_id=gateway_device_id,
+        config_profile_ids=profile_ids,
+        effective_config_hash=effective_hash,
+        response_status=response_status,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+    db.add(req)
+    await db.flush()
+
+
+async def get_config_requests(
+    db: AsyncSession,
+    device_id: UUID | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    response_status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[do_models.DeviceRuntimeConfigRequest]:
+    q = select(do_models.DeviceRuntimeConfigRequest)
+    if device_id:
+        q = q.where(
+            do_models.DeviceRuntimeConfigRequest.gateway_device_id == device_id,
+        )
+    if date_from:
+        q = q.where(
+            do_models.DeviceRuntimeConfigRequest.requested_at >= date_from,
+        )
+    if date_to:
+        q = q.where(
+            do_models.DeviceRuntimeConfigRequest.requested_at <= date_to,
+        )
+    if response_status:
+        q = q.where(
+            do_models.DeviceRuntimeConfigRequest.response_status == response_status,
+        )
+    q = q.order_by(
+        do_models.DeviceRuntimeConfigRequest.requested_at.desc(),
+    ).offset(offset).limit(limit)
     result = await db.execute(q)
     return result.scalars().all()
