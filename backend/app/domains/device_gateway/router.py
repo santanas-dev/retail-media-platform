@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi import status as http_status
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse as _StreamingResponse
 
 from app.core.config import get_settings
@@ -393,6 +394,6 @@ async def get_device_runtime_config(
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    resp = JSONResponse(content=response_data)
+    resp = JSONResponse(content=jsonable_encoder(response_data))
     resp.headers["ETag"] = f'"{config_hash}"'
     return resp
