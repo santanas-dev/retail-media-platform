@@ -131,8 +131,8 @@ class CapacityRuleResponse(BaseModel):
     valid_from: date
     valid_to: date
     days_of_week_json: list
-    time_from: str
-    time_to: str
+    time_from: time
+    time_to: time
     loop_duration_seconds: int
     spot_duration_seconds: int
     max_spots_per_loop: int
