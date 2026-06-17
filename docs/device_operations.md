@@ -225,3 +225,125 @@ DEVICE_ALERT_DETAILS_MAX_BYTES = 65536  # 64 KB
 - ❌ Incident management, escalation matrix
 - ❌ SLA, billing, compensation
 - ❌ Автоматическое изменение статусов устройств
+
+---
+
+## Step 17 — Alert Evaluation Run History Core
+
+**Создан:** 2026-06-17  
+**Статус:** ✅ Реализован  
+**Миграция:** `017_alert_evaluation_runs.py`
+
+### Сводка
+
+История запусков проверки алертов. Каждый вызов `POST /alerts/evaluate` создаёт запись evaluation run с per-rule результатами. Alert events получают ссылку на evaluation_run_id для трассируемости.
+
+### Таблицы
+
+**`device_alert_evaluation_runs`**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | UUID PK | |
+| `triggered_by` | UUID FK → users | Кто запустил |
+| `trigger_type` | VARCHAR(20) | Только `manual` |
+| `status` | VARCHAR(30) | `running` / `completed` / `completed_with_errors` / `failed` |
+| `started_at` | TIMESTAMPTZ | |
+| `finished_at` | TIMESTAMPTZ | NULL пока running |
+| `evaluated_rules_count` | INT | Сколько правил проверено |
+| `created_count` | INT | Новых алертов |
+| `repeated_count` | INT | Repeated событий |
+| `reopened_count` | INT | Переоткрытых алертов |
+| `skipped_count` | INT | Пропущенных правил |
+| `failed_rules_count` | INT | Упавших правил |
+| `duration_ms` | INT | |
+| `details_json` | JSONB NOT NULL DEFAULT {} | |
+| `error_message` | VARCHAR(500) | Safe error text |
+| `created_at` | TIMESTAMPTZ | |
+
+**`device_alert_evaluation_rule_results`**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | UUID PK | |
+| `run_id` | UUID FK → runs | |
+| `rule_id` | UUID FK → rules | |
+| `rule_code` | VARCHAR(100) | |
+| `alert_type` | VARCHAR(50) | |
+| `status` | VARCHAR(20) | `completed` / `skipped` / `failed` |
+| `checked_devices_count` | INT DEFAULT 0 | |
+| `matched_devices_count` | INT DEFAULT 0 | |
+| `created_count` | INT DEFAULT 0 | |
+| `repeated_count` | INT DEFAULT 0 | |
+| `reopened_count` | INT DEFAULT 0 | |
+| `skipped_count` | INT DEFAULT 0 | |
+| `error_message` | VARCHAR(500) | Safe error text |
+| `details_json` | JSONB NOT NULL DEFAULT {} | |
+| `created_at` | TIMESTAMPTZ | |
+
+**Изменения существующих таблиц:**
+
+- `device_alert_events.evaluation_run_id` — nullable FK → `device_alert_evaluation_runs(id)`, ON DELETE RESTRICT
+  - NULL для старых событий и событий acknowledge/resolve
+  - Заполняется только для created/repeated/reopened событий из evaluate
+
+### Endpoints
+
+| Метод | Путь | Permissions | Описание |
+|-------|------|-------------|----------|
+| `POST` | `/alerts/evaluate` | `devices.gateway.manage` | Запуск оценки (создаёт run) |
+| `GET` | `/alert-evaluations` | `devices.gateway.read` | Список evaluation runs |
+| `GET` | `/alert-evaluations/{id}` | `devices.gateway.read` | Детали run |
+| `GET` | `/alert-evaluations/{id}/rules` | `devices.gateway.read` | Per-rule результаты run |
+
+**Фильтры для `GET /alert-evaluations`:**
+- `status` — running / completed / completed_with_errors / failed
+- `trigger_type` — manual
+- `triggered_by` — UUID пользователя
+- `date_from` / `date_to` — диапазон дат
+- `limit` (default 100, max 500) / `offset` (default 0)
+
+### Evaluate Response
+
+```json
+{
+  "status": "ok",
+  "evaluation_run_id": "uuid",
+  "evaluated_rules": 7,
+  "created": 3,
+  "repeated": 5,
+  "reopened": 1,
+  "skipped": 0,
+  "failed_rules": 0
+}
+```
+
+### Error Handling
+
+- Per-rule изоляция: ошибка одного правила не валит весь run
+- Run status: `completed` (все ок) / `completed_with_errors` (часть правил упала) / `failed` (критическая ошибка)
+- `error_message` — safe, max 500 символов, без stacktrace/SQL/credentials
+- `running` run не должен зависнуть: при падении evaluate статус обновляется на `failed`
+
+### Alert Event связь
+
+- `evaluation_run_id` заполняется только для событий из evaluate (created / repeated / reopened)
+- Старые события: NULL
+- События acknowledge / resolve: NULL
+- FK: ON DELETE RESTRICT
+
+### Security
+
+- Forbidden keys в `details_json` (recursive): access_token, refresh_token, token, jwt, password, secret, credential, credentials, authorization, cookie, api_key, private_key, public_key, stacktrace
+- Используется `DEVICE_ALERT_DETAILS_MAX_BYTES` (64 KB)
+- `triggered_by` — только UUID, без разворачивания user object
+- `error_message` — safe, без stacktrace / SQL / credentials
+
+### Что НЕ в Шаге 17
+
+- ❌ Cron, scheduler, background worker, Celery
+- ❌ Telegram / email / push
+- ❌ Escalation, incident management
+- ❌ SLA, billing, compensation
+- ❌ Frontend
+- ❌ Новые permissions (используются существующие `devices.gateway.read` / `devices.gateway.manage`)

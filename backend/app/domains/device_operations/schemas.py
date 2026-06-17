@@ -348,6 +348,7 @@ class AlertEventResponse(BaseModel):
     user_id: Optional[UUID] = None
     message: Optional[str] = None
     details_json: Optional[dict[str, Any]] = None
+    evaluation_run_id: Optional[UUID] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
