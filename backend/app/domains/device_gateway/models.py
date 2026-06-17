@@ -93,6 +93,10 @@ class GatewayDevice(Base):
         "ProofOfPlayEvent", back_populates="device", lazy="selectin",
         order_by="ProofOfPlayEvent.created_at",
     )
+    pop_batches = relationship(
+        "ProofOfPlayBatch", back_populates="device", lazy="selectin",
+        order_by="ProofOfPlayBatch.created_at",
+    )
 
 
 class DeviceCredential(Base):
@@ -391,8 +395,56 @@ class ProofOfPlayEvent(Base):
         JSONB, nullable=False, server_default=func.text("'{}'::jsonb"),
     )
     rejection_reason = Column(String(100), nullable=True)
+    batch_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("proof_of_play_batches.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(),
     )
 
     device = relationship("GatewayDevice", back_populates="pop_events")
+    batch = relationship("ProofOfPlayBatch", back_populates="events")
+
+
+class ProofOfPlayBatch(Base):
+    """Batch of PoP events submitted in one request."""
+
+    __tablename__ = "proof_of_play_batches"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    gateway_device_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("gateway_devices.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    device_batch_id = Column(
+        UUID(as_uuid=True), nullable=False,
+    )
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    received_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )
+    total_events = Column(Integer, nullable=False)
+    accepted_count = Column(Integer, nullable=False, default=0)
+    duplicate_count = Column(Integer, nullable=False, default=0)
+    rejected_count = Column(Integer, nullable=False, default=0)
+    batch_status = Column(String(20), nullable=False)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    details_json = Column(
+        JSONB, nullable=False, server_default=func.text("'{}'::jsonb"),
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+
+    device = relationship("GatewayDevice", back_populates="pop_batches")
+    events = relationship(
+        "ProofOfPlayEvent", back_populates="batch", lazy="selectin",
+        order_by="ProofOfPlayEvent.created_at",
+    )

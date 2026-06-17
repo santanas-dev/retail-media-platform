@@ -1681,18 +1681,33 @@ async def _validate_pop_event(
     return None, mi, mv, pt
 
 
-async def ingest_pop_event(
+async def _ingest_single_event(
     db: AsyncSession,
     device: models.GatewayDevice,
     data: schemas.PoPEventRequest,
+    *,
     client_ip: str | None = None,
     user_agent: str | None = None,
+    batch_id: UUID | None = None,
+    known_event_ids: set[UUID] | None = None,
 ) -> schemas.PoPEventResponse:
-    """Process a single PoP event from an authorized device."""
-    now = _now()
-    settings = get_settings()
+    """Core ingest logic. Does NOT commit — caller is responsible.
 
-    # Dedup check
+    Args:
+        known_event_ids: set of already-processed device_event_ids
+            within this batch. Used as in-memory dedup layer (option A).
+    """
+    now = _now()
+
+    # In-memory dedup (within batch — known_event_ids from caller)
+    if known_event_ids is not None and data.device_event_id in known_event_ids:
+        return schemas.PoPEventResponse(
+            status="duplicate",
+            proof_event_id=None,
+            reason="device_event_id_already_in_batch",
+        )
+
+    # DB dedup check
     existing_result = await db.execute(
         select(models.ProofOfPlayEvent).where(
             models.ProofOfPlayEvent.gateway_device_id == device.id,
@@ -1706,7 +1721,6 @@ async def ingest_pop_event(
             f"Duplicate PoP: {data.device_event_id}", device.id,
             details_json={"device_event_id": str(data.device_event_id)},
         )
-        await db.commit()
         return schemas.PoPEventResponse(
             status="duplicate",
             proof_event_id=existing.id,
@@ -1754,6 +1768,7 @@ async def ingest_pop_event(
             user_agent=user_agent[:500] if user_agent else None,
             details_json=_clean_details(data.details_json or {}),
             rejection_reason=rejection_reason[:100],
+            batch_id=batch_id,
         )
         db.add(pop_entry)
         await db.flush()
@@ -1764,7 +1779,6 @@ async def ingest_pop_event(
             f"PoP rejected: {rejection_reason}", device.id,
             details_json={"rejection_reason": rejection_reason},
         )
-        await db.commit()
         return schemas.PoPEventResponse(
             status="rejected",
             proof_event_id=pop_entry.id,
@@ -1793,6 +1807,7 @@ async def ingest_pop_event(
         ip_address=client_ip[:45] if client_ip else None,
         user_agent=user_agent[:500] if user_agent else None,
         details_json=_clean_details(data.details_json or {}),
+        batch_id=batch_id,
     )
     db.add(pop_entry)
     await db.flush()
@@ -1802,10 +1817,249 @@ async def ingest_pop_event(
         db, "pop_event_accepted",
         f"PoP accepted: {data.device_event_id}", device.id,
     )
-    await db.commit()
     return schemas.PoPEventResponse(
         status="accepted",
         proof_event_id=pop_entry.id,
+    )
+
+
+async def ingest_pop_event(
+    db: AsyncSession,
+    device: models.GatewayDevice,
+    data: schemas.PoPEventRequest,
+    client_ip: str | None = None,
+    user_agent: str | None = None,
+) -> schemas.PoPEventResponse:
+    """Single-event endpoint wrapper — commits after processing."""
+    result = await _ingest_single_event(
+        db, device, data,
+        client_ip=client_ip, user_agent=user_agent,
+    )
+    await db.commit()
+    return result
+
+
+BATCH_VALID_STATUSES = frozenset({
+    "processed", "partially_processed", "rejected",
+})
+
+
+async def ingest_pop_batch(
+    db: AsyncSession,
+    device: models.GatewayDevice,
+    data: schemas.PoPBatchRequest,
+    client_ip: str | None = None,
+    user_agent: str | None = None,
+) -> schemas.PoPBatchResponse:
+    """Process a batch of PoP events."""
+    now = _now()
+    settings = get_settings()
+
+    # Validate batch envelope: sent_at
+    if data.sent_at and data.sent_at > now + timedelta(
+        seconds=settings.POP_MAX_CLOCK_SKEW_SECONDS
+    ):
+        raise HTTPException(status_code=400, detail="batch sent_at too far in the future")
+
+    # Validate batch.details_json for forbidden keys
+    if data.details_json:
+        batch_forbidden = _validate_no_forbidden_keys(data.details_json)
+        if batch_forbidden:
+            await _log_event(
+                db, "pop_batch_rejected",
+                f"Forbidden keys in batch details: {batch_forbidden}", device.id,
+                severity="warning",
+            )
+            await db.commit()
+            raise HTTPException(
+                status_code=400,
+                detail="Forbidden keys in batch details_json",
+            )
+        details_str = json.dumps(data.details_json, default=str)
+        if len(details_str) > settings.POP_DETAILS_MAX_BYTES:
+            await _log_event(
+                db, "pop_batch_rejected",
+                "Batch details_json too large", device.id,
+                severity="warning",
+            )
+            await db.commit()
+            raise HTTPException(
+                status_code=400,
+                detail="Batch details_json exceeds maximum size",
+            )
+
+    # Validate batch size
+    if len(data.events) > settings.POP_BATCH_MAX_EVENTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch exceeds maximum of {settings.POP_BATCH_MAX_EVENTS} events",
+        )
+
+    # Dedup check — batch level
+    existing_batch_result = await db.execute(
+        select(models.ProofOfPlayBatch).where(
+            models.ProofOfPlayBatch.gateway_device_id == device.id,
+            models.ProofOfPlayBatch.device_batch_id == data.batch_id,
+        )
+    )
+    existing_batch = existing_batch_result.scalar_one_or_none()
+    if existing_batch:
+        await _log_event(
+            db, "pop_batch_duplicate",
+            f"Duplicate batch: {data.batch_id}", device.id,
+        )
+        await db.commit()
+        return schemas.PoPBatchResponse(
+            status="duplicate_batch",
+            batch_id=data.batch_id,
+            proof_batch_id=existing_batch.id,
+        )
+
+    # Pre-query existing event IDs for this device (Option A: in-memory dedup)
+    all_device_event_ids = {e.device_event_id for e in data.events}
+    existing_rows = await db.execute(
+        select(
+            models.ProofOfPlayEvent.device_event_id,
+            models.ProofOfPlayEvent.id,
+        ).where(
+            models.ProofOfPlayEvent.gateway_device_id == device.id,
+            models.ProofOfPlayEvent.device_event_id.in_(all_device_event_ids),
+        )
+    )
+    existing_event_map: dict[UUID, UUID] = {
+        row[0]: row[1] for row in existing_rows.all()
+    }
+
+    # Create batch record
+    batch = models.ProofOfPlayBatch(
+        gateway_device_id=device.id,
+        device_batch_id=data.batch_id,
+        sent_at=data.sent_at,
+        total_events=0,  # set to 0 initially, updated before commit
+        accepted_count=0,
+        duplicate_count=0,
+        rejected_count=0,
+        batch_status="processed",  # temporary, updated before commit
+        ip_address=client_ip[:45] if client_ip else None,
+        user_agent=user_agent[:500] if user_agent else None,
+        details_json=_clean_details(data.details_json or {}),
+    )
+    db.add(batch)
+    await db.flush()
+    await db.refresh(batch)
+
+    # Process each event
+    results: list[schemas.PoPEventBatchResult] = []
+    seen_in_batch: set[UUID] = set()
+    accepted = 0
+    duplicates = 0
+    rejected = 0
+
+    for event_item in data.events:
+        # In-memory dedup: event already in this batch
+        if event_item.device_event_id in seen_in_batch:
+            results.append(schemas.PoPEventBatchResult(
+                device_event_id=event_item.device_event_id,
+                status="duplicate",
+                proof_event_id=None,
+                reason="device_event_id_already_in_batch",
+            ))
+            duplicates += 1
+            await _log_event(
+                db, "pop_event_duplicate",
+                f"In-batch duplicate: {event_item.device_event_id}", device.id,
+                details_json={"device_event_id": str(event_item.device_event_id)},
+            )
+            continue
+
+        # Pre-queried DB dedup
+        if event_item.device_event_id in existing_event_map:
+            results.append(schemas.PoPEventBatchResult(
+                device_event_id=event_item.device_event_id,
+                status="duplicate",
+                proof_event_id=existing_event_map[event_item.device_event_id],
+                reason="device_event_id_already_exists",
+            ))
+            duplicates += 1
+            seen_in_batch.add(event_item.device_event_id)
+            await _log_event(
+                db, "pop_event_duplicate",
+                f"DB duplicate in batch: {event_item.device_event_id}", device.id,
+                details_json={"device_event_id": str(event_item.device_event_id)},
+            )
+            continue
+
+        # Convert batch item to single-event request
+        single_data = schemas.PoPEventRequest(
+            device_event_id=event_item.device_event_id,
+            manifest_item_id=event_item.manifest_item_id,
+            played_at=event_item.played_at,
+            duration_ms=event_item.duration_ms,
+            play_status=event_item.play_status,
+            media_sha256=event_item.media_sha256,
+            schedule_item_id=event_item.schedule_item_id,
+            player_version=event_item.player_version,
+            details_json=event_item.details_json,
+        )
+
+        result = await _ingest_single_event(
+            db, device, single_data,
+            client_ip=client_ip, user_agent=user_agent,
+            batch_id=str(batch.id) if batch.id else None, known_event_ids=seen_in_batch,
+        )
+        seen_in_batch.add(event_item.device_event_id)
+
+        batch_result = schemas.PoPEventBatchResult(
+            device_event_id=event_item.device_event_id,
+            status=result.status,
+            proof_event_id=result.proof_event_id,
+            reason=result.reason,
+        )
+        results.append(batch_result)
+
+        if result.status == "accepted":
+            accepted += 1
+        elif result.status == "duplicate":
+            duplicates += 1
+        elif result.status == "rejected":
+            rejected += 1
+
+    # Update batch counts and status
+    batch.total_events = len(data.events)
+    batch.accepted_count = accepted
+    batch.duplicate_count = duplicates
+    batch.rejected_count = rejected
+    if accepted > 0:
+        batch.batch_status = "partially_processed" if (duplicates > 0 or rejected > 0) else "processed"
+    else:
+        batch.batch_status = "rejected"
+
+    await _log_event(
+        db, "pop_batch_processed",
+        f"Batch processed: {data.batch_id} — "
+        f"accepted={accepted} dup={duplicates} rej={rejected}",
+        device.id,
+        details_json={
+            "batch_id": str(data.batch_id),
+            "accepted": accepted,
+            "duplicate": duplicates,
+            "rejected": rejected,
+        },
+    )
+
+    await db.commit()
+
+    return schemas.PoPBatchResponse(
+        status=batch.batch_status,
+        batch_id=data.batch_id,
+        proof_batch_id=batch.id,
+        summary={
+            "total": len(data.events),
+            "accepted": accepted,
+            "duplicate": duplicates,
+            "rejected": rejected,
+        },
+        results=results,
     )
 
 
@@ -1829,6 +2083,7 @@ async def get_pop_events(
     validation_status: str | None = None,
     play_status: str | None = None,
     manifest_item_id: UUID | None = None,
+    batch_id: UUID | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
     limit: int = 100,
@@ -1846,6 +2101,8 @@ async def get_pop_events(
         conditions.append(
             models.ProofOfPlayEvent.manifest_item_id == manifest_item_id
         )
+    if batch_id:
+        conditions.append(models.ProofOfPlayEvent.batch_id == batch_id)
     if date_from:
         conditions.append(models.ProofOfPlayEvent.played_at >= date_from)
     if date_to:
@@ -1855,6 +2112,35 @@ async def get_pop_events(
         select(models.ProofOfPlayEvent)
         .where(*conditions)
         .order_by(models.ProofOfPlayEvent.created_at.desc())
+        .offset(offset)
+        .limit(min(limit, 500))
+    )
+    return list(result.scalars().all())
+
+
+async def get_pop_batches(
+    db: AsyncSession,
+    device_id: UUID,
+    *,
+    batch_status: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[models.ProofOfPlayBatch]:
+    """Get PoP batches for a device (admin)."""
+    conditions = [models.ProofOfPlayBatch.gateway_device_id == device_id]
+    if batch_status:
+        conditions.append(models.ProofOfPlayBatch.batch_status == batch_status)
+    if date_from:
+        conditions.append(models.ProofOfPlayBatch.created_at >= date_from)
+    if date_to:
+        conditions.append(models.ProofOfPlayBatch.created_at <= date_to)
+
+    result = await db.execute(
+        select(models.ProofOfPlayBatch)
+        .where(*conditions)
+        .order_by(models.ProofOfPlayBatch.created_at.desc())
         .offset(offset)
         .limit(min(limit, 500))
     )

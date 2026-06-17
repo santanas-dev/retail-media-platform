@@ -529,3 +529,137 @@ POP_DETAILS_MAX_BYTES = 65536
 - ❌ Billing
 - ❌ KSO player, transcoding
 - ❌ Media retry / offline protocol
+
+
+## Step 14: PoP Batch / Offline Ingest
+
+### Overview
+
+Шаг 14 — устройство накопило PoP-события офлайн → отправляет пачкой через один запрос. Валидация, дедупликация, сохранение — per-event, независимо. Batch не падает из-за одного плохого события. Без отчётов, BI, SLA, компенсаций.
+
+### Endpoints
+
+**Device:**
+- `POST /api/device-gateway/pop/events/batch` — submit batch of PoP events
+
+**Admin:**
+- `GET /api/gateway-devices/{device_id}/pop-batches` — batch audit list (filters: `batch_status`, `date_from`, `date_to`, `limit`, `offset`)
+- `GET /api/gateway-devices/{device_id}/pop-events?batch_id=...` — filter existing events by batch
+
+### Authentication
+
+Только device JWT. User token → 401. Device token на human API → 401.
+
+### Payload
+
+```json
+{
+  "batch_id": "uuid",
+  "sent_at": "2026-06-17T10:20:00Z",
+  "details_json": {},
+  "events": [
+    {
+      "device_event_id": "uuid",
+      "manifest_item_id": "uuid",
+      "played_at": "ISO8601",
+      "duration_ms": 15000,
+      "play_status": "completed",
+      "media_sha256": "64hex",
+      "schedule_item_id": "uuid (optional)",
+      "player_version": "string (optional)",
+      "details_json": {}
+    }
+  ]
+}
+```
+
+### Response
+
+```json
+{
+  "status": "processed",
+  "batch_id": "device-uuid",
+  "proof_batch_id": "server-uuid",
+  "summary": {"total": 3, "accepted": 1, "duplicate": 1, "rejected": 1},
+  "results": [
+    {"device_event_id": "uuid", "status": "accepted", "proof_event_id": "uuid"},
+    {"device_event_id": "uuid", "status": "duplicate", "proof_event_id": "uuid"},
+    {"device_event_id": "uuid", "status": "rejected", "reason": "media_sha256_mismatch"}
+  ]
+}
+```
+
+### Deduplication — Two Levels
+
+| Level | Mechanism |
+|---|---|
+| Batch | `UNIQUE(gateway_device_id, device_batch_id)` |
+| Event | `UNIQUE(gateway_device_id, device_event_id)` + in-memory dedup within batch |
+
+Duplicate batch → HTTP 200 `{"status": "duplicate_batch", "proof_batch_id": "..."}`. New events NOT created.
+
+### Processing Algorithm
+
+1. Auth + envelope validation (size, count, sent_at, forbidden keys)
+2. Batch-level dedup check
+3. Pre-query ALL existing `device_event_id` for this device → in-memory dedup map
+4. Create `proof_of_play_batches` record
+5. For each event independently: in-memory dedup → DB dedup → validate → insert
+6. Update batch counts + status, single `COMMIT`
+
+### Per-Event Processing
+
+Same validation as Step 13 (`_validate_pop_event`). Each event gets `batch_id` FK.
+
+One bad event → rejected in results, batch continues. No transaction rollback from per-event errors.
+
+### Batch Statuses
+
+| Status | Meaning |
+|---|---|
+| `processed` | All events accepted |
+| `partially_processed` | Mix of accepted + duplicate/rejected |
+| `rejected` | No accepted events (all duplicate or rejected) |
+
+### HTTP Policy
+
+| Scenario | HTTP |
+|---|---|
+| No token / user token | 401 |
+| Disabled/retired device | 401 |
+| Invalid JSON / no events array | 400 |
+| Empty events | 400 |
+| > 500 events | 400 |
+| Body > 2 MB | 413 |
+| sent_at too future | 400 |
+| Forbidden keys in batch.details_json | 400 |
+| Duplicate batch | 200 duplicate_batch |
+| Normal processing | 200 |
+
+### New Tables & Changes
+
+- `proof_of_play_batches` — batch audit (13 columns, 5 CHECK, UNIQUE)
+- `proof_of_play_events.batch_id` — nullable FK to `proof_of_play_batches`
+
+Single-event endpoint unchanged: `batch_id = NULL`.
+
+### Device Events
+
+New event_type: `pop_batch_processed`, `pop_batch_duplicate`, `pop_batch_rejected`.
+Per-event events from Step 13 unchanged.
+
+### Config
+
+```ini
+POP_BATCH_MAX_EVENTS = 500             # max events per batch
+POP_BATCH_MAX_BYTES = 2_097_152       # 2 MB max request body
+# + existing: POP_MAX_CLOCK_SKEW_SECONDS, POP_MAX_EVENT_AGE_DAYS,
+#             POP_MAX_DURATION_MS, POP_DETAILS_MAX_BYTES
+```
+
+### Что НЕ в Шаге 14
+
+- ❌ Отчёты, агрегации, BI, ClickHouse
+- ❌ План/факт, SLA, компенсации, billing
+- ❌ Excel/PDF, рекламный кабинет, frontend
+- ❌ Player, KSO adapter, media retry

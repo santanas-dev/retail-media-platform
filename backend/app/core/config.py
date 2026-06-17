@@ -115,6 +115,10 @@ class Settings(BaseSettings):
     POP_MAX_DURATION_MS: int = 86_400_000
     POP_DETAILS_MAX_BYTES: int = 65536
 
+    # Device Gateway → PoP Batch Ingest
+    POP_BATCH_MAX_EVENTS: int = 500
+    POP_BATCH_MAX_BYTES: int = 2_097_152  # 2 MB
+
     @model_validator(mode="after")
     def _validate_device_jwt_secret(self) -> "Settings":
         """In non-dev environments, DEVICE_JWT_SECRET must be explicitly set."""

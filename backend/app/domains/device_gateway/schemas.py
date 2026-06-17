@@ -265,6 +265,70 @@ class PoPEventRead(BaseModel):
     user_agent: Optional[str] = None
     details_json: dict[str, Any] = Field(default_factory=dict)
     rejection_reason: Optional[str] = None
+    batch_id: Optional[UUID] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Step 14 — PoP Batch / Offline Ingest
+# ═══════════════════════════════════════════════════════════════════
+
+
+class PoPEventBatchItem(BaseModel):
+    """Single event inside a batch — same shape as PoPEventRequest."""
+    device_event_id: UUID
+    manifest_item_id: UUID
+    played_at: Optional[datetime] = None
+    duration_ms: Optional[int] = None
+    play_status: Optional[str] = None
+    media_sha256: Optional[str] = None
+    schedule_item_id: Optional[UUID] = None
+    player_version: Optional[str] = None
+    details_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class PoPBatchRequest(BaseModel):
+    """Batch PoP envelope from a device."""
+    batch_id: UUID
+    sent_at: Optional[datetime] = None
+    details_json: dict[str, Any] = Field(default_factory=dict)
+    events: list[PoPEventBatchItem] = Field(min_length=1)
+
+
+class PoPEventBatchResult(BaseModel):
+    """Per-event result in batch response."""
+    device_event_id: UUID
+    status: str  # accepted / duplicate / rejected
+    proof_event_id: Optional[UUID] = None
+    reason: Optional[str] = None
+
+
+class PoPBatchResponse(BaseModel):
+    """Response to a batch PoP request."""
+    status: str  # processed / partially_processed / rejected / duplicate_batch
+    batch_id: UUID
+    proof_batch_id: Optional[UUID] = None
+    summary: Optional[dict[str, int]] = None
+    results: list[PoPEventBatchResult] = Field(default_factory=list)
+
+
+class PoPBatchRead(BaseModel):
+    """Admin-facing read model for a PoP batch."""
+    id: UUID
+    gateway_device_id: UUID
+    device_batch_id: UUID
+    sent_at: Optional[datetime] = None
+    received_at: datetime
+    total_events: int
+    accepted_count: int
+    duplicate_count: int
+    rejected_count: int
+    batch_status: str
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    details_json: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
 
     model_config = {"from_attributes": True}

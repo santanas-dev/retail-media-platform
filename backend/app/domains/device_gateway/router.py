@@ -249,6 +249,7 @@ async def list_pop_events(
     validation_status: Optional[str] = Query(None),
     play_status: Optional[str] = Query(None),
     manifest_item_id: Optional[UUID] = Query(None),
+    batch_id: Optional[UUID] = Query(None),
     date_from: Optional[datetime] = Query(None),
     date_to: Optional[datetime] = Query(None),
     limit: int = Query(100, ge=1, le=500),
@@ -260,6 +261,76 @@ async def list_pop_events(
         validation_status=validation_status,
         play_status=play_status,
         manifest_item_id=manifest_item_id,
+        batch_id=batch_id,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Step 14 — PoP Batch / Offline Ingest
+# ═══════════════════════════════════════════════════════════════════
+
+# ── Device: submit PoP batch ───────────────────────────────────────
+
+@device_router.post(
+    "/pop/events/batch",
+    response_model=schemas.PoPBatchResponse,
+)
+async def submit_pop_batch(
+    request: Request,
+    db=Depends(get_db),
+):
+    device, _session = await authenticate_device(request, db)
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    # Size check
+    from app.core.config import get_settings
+    max_bytes = get_settings().POP_BATCH_MAX_BYTES
+    body = await request.body()
+    if len(body) > max_bytes:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=413, detail="Request body too large")
+
+    # Parse
+    import json as _json
+    from pydantic import ValidationError
+    try:
+        raw = _json.loads(body)
+        data = schemas.PoPBatchRequest(**raw)
+    except (_json.JSONDecodeError, ValidationError) as e:
+        from fastapi import HTTPException
+        detail = "Invalid JSON" if isinstance(e, _json.JSONDecodeError) else str(e)
+        raise HTTPException(status_code=400 if isinstance(e, _json.JSONDecodeError) else 422, detail=detail)
+
+    return await service.ingest_pop_batch(
+        db, device, data,
+        client_ip=client_ip, user_agent=user_agent,
+    )
+
+
+# ── Admin: list PoP batches ────────────────────────────────────────
+
+@admin_router.get(
+    "/gateway-devices/{device_id}/pop-batches",
+    response_model=list[schemas.PoPBatchRead],
+)
+async def list_pop_batches(
+    device_id: UUID,
+    db=Depends(get_db),
+    batch_status: Optional[str] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_pop_batches(
+        db, device_id,
+        batch_status=batch_status,
         date_from=date_from,
         date_to=date_to,
         limit=limit,
