@@ -59,6 +59,11 @@ PERMISSIONS = [
     ("contracts.manage", "Manage contracts", "contracts", "manage", "Create/edit contracts"),
     ("orders.read", "View orders", "orders", "read", "View order list"),
     ("orders.manage", "Manage orders", "orders", "manage", "Create/edit orders"),
+    ("inventory.read", "View inventory", "inventory", "read", "View inventory units and capacity"),
+    ("inventory.manage", "Manage inventory", "inventory", "manage", "Create/edit inventory units and capacity"),
+    ("bookings.read", "View bookings", "bookings", "read", "View campaign bookings"),
+    ("bookings.manage", "Manage bookings", "bookings", "manage", "Create/edit campaign bookings"),
+    ("bookings.approve", "Approve bookings", "bookings", "approve", "Confirm campaign bookings"),
 ]
 
 # ── Roles ────────────────────────────────────────────────────────────────
@@ -90,6 +95,8 @@ ROLE_PERMISSIONS = {
         "orders.read", "orders.manage",
         "campaigns.read", "campaigns.create", "campaigns.manage", "campaigns.approve",
         "media.read", "media.manage", "media.approve",
+        "inventory.read", "inventory.manage",
+        "bookings.read", "bookings.manage", "bookings.approve",
         "reports.read", "reports.export",
         "audit.read",
         "emergency.manage",
@@ -102,6 +109,8 @@ ROLE_PERMISSIONS = {
         "advertisers.read", "brands.read", "contracts.read", "orders.read",
         "media.read",
         "campaigns.read",
+        "inventory.read",
+        "bookings.read",
         "audit.read",
     ],
     "ad_manager": [
@@ -113,6 +122,8 @@ ROLE_PERMISSIONS = {
         "orders.read", "orders.manage",
         "campaigns.read", "campaigns.create", "campaigns.manage",
         "media.read", "media.manage",
+        "inventory.read",
+        "bookings.read", "bookings.manage",
         "reports.read",
     ],
     "approver": [
@@ -121,6 +132,8 @@ ROLE_PERMISSIONS = {
         "advertisers.read", "brands.read", "contracts.read", "orders.read",
         "campaigns.read", "campaigns.approve",
         "media.read", "media.approve",
+        "inventory.read",
+        "bookings.read", "bookings.approve",
         "reports.read",
     ],
     "analyst": [
@@ -129,6 +142,8 @@ ROLE_PERMISSIONS = {
         "advertisers.read", "brands.read", "contracts.read", "orders.read",
         "campaigns.read",
         "media.read",
+        "inventory.read",
+        "bookings.read",
         "reports.read", "reports.export",
     ],
     "advertiser": [
@@ -141,6 +156,8 @@ ROLE_PERMISSIONS = {
         "advertisers.read",
         "media.read",
         "campaigns.read",
+        "inventory.read", "inventory.manage",
+        "bookings.read",
     ],
     "device_service": [
         # No interactive permissions — service account only
