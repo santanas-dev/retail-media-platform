@@ -4,6 +4,7 @@ Application configuration loaded from environment variables.
 
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,8 +20,38 @@ class Settings(BaseSettings):
     # Application
     APP_NAME: str = "Retail Media Platform"
     APP_VERSION: str = "0.1.0"
+    APP_ENV: str = "development"
     DEBUG: bool = False
-    SECRET_KEY: str = "change-me-in-production"
+    SECRET_KEY: str = ""
+
+    @model_validator(mode="after")
+    def _validate_secret_key(self) -> "Settings":
+        """Refuse to start with insecure SECRET_KEY."""
+        if not self.SECRET_KEY:
+            raise ValueError("SECRET_KEY must be set (cannot be empty)")
+        if self.SECRET_KEY == "change-me-in-production":
+            raise ValueError(
+                "SECRET_KEY must be set to a random value, "
+                "not the default 'change-me-in-production'"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_minio_creds(self) -> "Settings":
+        """In non-dev environments, refuse default MinIO credentials."""
+        if self.APP_ENV == "development":
+            return self
+        if self.MINIO_ACCESS_KEY == "minioadmin":
+            raise ValueError(
+                "MINIO_ACCESS_KEY must not use default 'minioadmin' "
+                "in non-development environments"
+            )
+        if self.MINIO_SECRET_KEY == "minioadmin":
+            raise ValueError(
+                "MINIO_SECRET_KEY must not use default 'minioadmin' "
+                "in non-development environments"
+            )
+        return self
 
     # PostgreSQL
     POSTGRES_HOST: str = "localhost"

@@ -2,7 +2,7 @@
 Identity & Access: business logic — auth, user management, permission checks.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -43,9 +43,7 @@ async def authenticate_user(
             user.failed_attempts = (user.failed_attempts or 0) + 1
             if user.failed_attempts >= 5:
                 user.is_locked = True
-                user.locked_until = datetime.now(timezone.utc).replace(
-                    minute=(datetime.now(timezone.utc).minute + 15) % 60
-                )
+                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
             await db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
