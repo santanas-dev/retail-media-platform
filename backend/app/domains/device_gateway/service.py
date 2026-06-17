@@ -698,9 +698,10 @@ async def get_current_manifest(
             f"Manifest forbidden: device {device.status}",
             device.id, "warning",
         )
+        await db.commit()
         raise HTTPException(status_code=403, detail="Device not authorized for manifest delivery")
 
-    # Match targets
+    # Match targets (get_current_manifest)
     target_ids = await _match_publication_targets(device, db)
     if not target_ids:
         await _record_manifest_request(
@@ -765,12 +766,13 @@ async def get_current_manifest(
             device.id, "error",
             details_json={"forbidden_key": key_name, "path": path},
         )
+        await db.commit()
         raise HTTPException(
             status_code=500,
             detail="Manifest validation failed",
         )
 
-    # Not-modified check
+    # Not-modified check (get_current_manifest)
     if current_manifest_hash and current_manifest_hash == manifest.manifest_hash:
         await _record_manifest_request(
             db, device, manifest.id, target_id, "not_modified",
@@ -838,9 +840,10 @@ async def get_device_manifest_by_id(
             f"Manifest forbidden: device {device.status}",
             device.id, "warning",
         )
+        await db.commit()
         raise HTTPException(status_code=403, detail="Device not authorized for manifest delivery")
 
-    # Load manifest
+    # Load manifest (get_device_manifest_by_id)
     result = await db.execute(
         select(ManifestVersion)
         .join(PublicationTarget, ManifestVersion.publication_target_id == PublicationTarget.id)
@@ -895,9 +898,10 @@ async def get_device_manifest_by_id(
             f"Manifest forbidden key '{path}': {key_name}",
             device.id, "error",
         )
+        await db.commit()
         raise HTTPException(status_code=500, detail="Manifest validation failed")
 
-    # Serve
+    # Serve (get_device_manifest_by_id)
     await _record_manifest_request(
         db, device, manifest.id, manifest.publication_target_id, "served",
         response_hash=manifest.manifest_hash,
