@@ -354,3 +354,184 @@ DEVICE_ALERT_DETAILS_MAX_BYTES = 65536  # 64 KB
 - ❌ SLA, billing, compensation
 - ❌ Frontend
 - ❌ Новые permissions (используются существующие `devices.gateway.read` / `devices.gateway.manage`)
+
+---
+
+## Шаг 18 — Device Runtime Configuration Core
+
+**Создан:** 2026-06-17  
+**Статус:** ✅ Реализован  
+**Миграция:** `019_device_runtime_config_core.py`
+
+### Сводка
+
+Хранение, вычисление и выдача runtime-настроек устройствам. Конфигурация собирается по иерархии merge (global → channel → store → device), кэшируется через canonical SHA-256 и отдаётся устройству с поддержкой ETag/304 Not Modified.
+
+**НЕ является:** плеером, Android-приложением, frontend, scheduler, push-командами, remote command execution, КСО-интеграцией.
+
+### Таблицы
+
+**`device_runtime_config_profiles`**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | UUID PK | |
+| `code` | VARCHAR(64) UNIQUE | `^[a-z0-9_]+$` |
+| `name` | VARCHAR(255) | |
+| `description` | TEXT | |
+| `config_json` | JSONB NOT NULL | ≤65536 байт, только разрешённые ключи |
+| `config_hash` | VARCHAR(64) | Canonical SHA-256 от config_json |
+| `version` | INT DEFAULT 1 | Инкремент при каждом изменении config_json |
+| `enabled` | BOOL DEFAULT true | |
+| `created_by` | UUID FK → users | NULL для seed |
+| `updated_by` | UUID FK → users | |
+| `created_at` | TIMESTAMPTZ | |
+| `updated_at` | TIMESTAMPTZ | |
+
+**`device_runtime_config_assignments`**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | UUID PK | |
+| `profile_id` | UUID FK → profiles | ON DELETE RESTRICT |
+| `scope_type` | VARCHAR(10) | `global` / `channel` / `store` / `device` |
+| `channel_id` | UUID FK | Только для scope_type=channel |
+| `store_id` | UUID FK | Только для scope_type=store |
+| `gateway_device_id` | UUID FK | Только для scope_type=device |
+| `priority` | INT DEFAULT 0 | Чем выше, тем приоритетнее |
+| `enabled` | BOOL DEFAULT true | |
+| `created_by` | UUID FK → users | NULL для seed |
+| `updated_by` | UUID FK → users | |
+| `created_at` | TIMESTAMPTZ | |
+| `updated_at` | TIMESTAMPTZ | |
+
+**`device_runtime_config_requests`**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | UUID PK | |
+| `gateway_device_id` | UUID FK → devices | |
+| `config_profile_ids` | UUID[ ] | Профили, участвовавшие в merge |
+| `effective_config_hash` | VARCHAR(64) | Хэш выданного конфига |
+| `response_status` | VARCHAR(20) | `ok` / `not_modified` / `not_found` |
+| `requested_at` | TIMESTAMPTZ | |
+| `ip_address` | INET | |
+| `user_agent` | TEXT | |
+
+### Иерархия Merge
+
+Приоритет от низшего к высшему:
+
+```
+global → channel → store → device
+```
+
+На каждом уровне поля из конфига перезаписывают значения предыдущих уровней. `device`-level assignment имеет наивысший приоритет.
+
+### Разрешённые config-ключи
+
+| Ключ | Тип | Границы |
+|------|-----|---------|
+| `heartbeat_interval_sec` | int | 10–3600 |
+| `manifest_refresh_interval_sec` | int | 10–3600 |
+| `media_download_timeout_sec` | int | 1–300 |
+| `media_cache_max_mb` | int | 100–10240 |
+| `pop_batch_max_events` | int | 1–1000 |
+| `pop_flush_interval_sec` | int | 30–3600 |
+| `max_media_file_mb` | int | 1–2000 |
+| `clock_skew_tolerance_sec` | int | 0–3600 |
+| `log_level` | str | `debug` / `info` / `warning` / `error` |
+| `allowed_mime_types` | str[ ] | Subset из [`image/jpeg`, `image/png`, `video/mp4`, `video/webm`] |
+| `kso_safety` | object | Optional, только boolean поля: `idle_only`, `stop_on_transaction`, `stop_on_payment`, `stop_on_error_screen` |
+| `details_json` | object | Произвольные метаданные |
+
+### Default Config (Seed)
+
+**Профиль:** `default_runtime_config`
+
+```json
+{
+  "heartbeat_interval_sec": 300,
+  "manifest_refresh_interval_sec": 600,
+  "media_download_timeout_sec": 30,
+  "media_cache_max_mb": 1024,
+  "pop_batch_max_events": 100,
+  "pop_flush_interval_sec": 60,
+  "max_media_file_mb": 500,
+  "clock_skew_tolerance_sec": 30,
+  "log_level": "info",
+  "allowed_mime_types": ["image/jpeg", "image/png", "video/mp4", "video/webm"]
+}
+```
+
+**Assignment:** global (priority=0).
+
+### Endpoints
+
+**Device Gateway** (под `/api/device-gateway/`):
+
+| Метод | Путь | Токен | Описание |
+|-------|------|-------|----------|
+| `GET` | `/config/current` | Device only | Текущий effective config |
+
+**Admin** (под `/api/device-operations/runtime-configs/`):
+
+| Метод | Путь | Permission | Описание |
+|-------|------|------------|----------|
+| `GET` | `/profiles` | `devices.gateway.read` | Список профилей |
+| `POST` | `/profiles` | `devices.gateway.manage` | Создать профиль |
+| `GET` | `/profiles/{id}` | `devices.gateway.read` | Детали профиля |
+| `PUT` | `/profiles/{id}` | `devices.gateway.manage` | Обновить профиль |
+| `POST` | `/profiles/{id}/enable` | `devices.gateway.manage` | Включить профиль |
+| `POST` | `/profiles/{id}/disable` | `devices.gateway.manage` | Выключить профиль |
+| `GET` | `/assignments` | `devices.gateway.read` | Список назначений |
+| `POST` | `/assignments` | `devices.gateway.manage` | Создать назначение |
+| `GET` | `/assignments/{id}` | `devices.gateway.read` | Детали назначения |
+| `PUT` | `/assignments/{id}` | `devices.gateway.manage` | Обновить назначение |
+| `POST` | `/assignments/{id}/enable` | `devices.gateway.manage` | Включить назначение |
+| `POST` | `/assignments/{id}/disable` | `devices.gateway.manage` | Выключить назначение |
+| `GET` | `/effective/{device_id}` | `devices.gateway.read` | Preview effective config |
+| `GET` | `/requests` | `devices.gateway.read` | Audit config requests |
+
+Фильтры для `/profiles`: `enabled` (bool), `search` (поиск по code/name).  
+Фильтры для `/assignments`: `profile_id`, `scope_type`.  
+Фильтры для `/requests`: `device_id`, `date_from`, `date_to`.
+
+### Device Endpoint: `GET /config/current`
+
+- **Только device token** (human token → 401, невалидный токен → 401)
+- **200** — возвращает `DeviceConfigResponse`: `status`, `gateway_device_id`, `config_hash`, `config` (текущий effective config), `generated_at`
+- **304 Not Modified** — при совпадении `If-None-Match` с текущим `config_hash`
+- **Device response НЕ содержит** `profile_ids`, `assignment_ids` — только чистый конфиг
+- **Audit:** каждый запрос пишется в `device_runtime_config_requests` (до возврата ответа)
+
+### Security
+
+- **Forbidden keys** (recursive, проверяются при create/update):
+  `access_token`, `refresh_token`, `token`, `jwt`, `password`, `secret`, `credential`, `credentials`, `authorization`, `cookie`, `api_key`, `private_key`, `public_key`, `stacktrace`, `admin_token`, `secret_token`, `secret_key`, `encryption_key`, `signing_key`
+
+- **No secrets в ответах:** device response не содержит `profile_ids`; admin responses не содержат forbidden keys
+- **No raw exception:** все ошибки — safe сообщения без stacktrace
+- **Token isolation:** human token → `GET /config/current` = 401, device token → admin endpoints = 401
+- **Config size limit:** ≤65536 байт (проверка при create/update)
+- **MIME whitelist:** только `image/jpeg`, `image/png`, `video/mp4`, `video/webm`
+- **Canonical hash:** SHA-256 от keys-sorted JSON без пробелов — стабилен между запросами
+- **Нет DELETE:** мягкое удаление через disable (и профили, и назначения)
+- **FK:** все ON DELETE RESTRICT
+
+### DB-level Constraints
+
+- `code` — UNIQUE
+- `scope_type` + scope fields — CHECK (только нужные поля для каждого scope)
+- `config_json` IS NOT NULL, `config_hash` IS NOT NULL
+- `version` ≥ 1, `priority` ≥ 0
+- `response_status` CHECK: `ok` / `not_modified` / `not_found`
+
+### Что НЕ в Шаге 18
+
+- ❌ Плеер, Android-приложение, client-side логика
+- ❌ Frontend, админка
+- ❌ Scheduler, cron, background worker
+- ❌ Push-команды, remote command execution
+- ❌ КСО-интеграция, POS-интеграция
+- ❌ Новые permissions (используются `devices.gateway.read` / `devices.gateway.manage`)
