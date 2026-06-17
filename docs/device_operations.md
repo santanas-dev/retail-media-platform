@@ -81,3 +81,97 @@ DEVICE_HEALTH_DEFAULT_PERIOD_HOURS = 24
 - ❌ Кабинет рекламодателя
 - ❌ Push alerts, incident management
 - ❌ Автоматическое изменение статусов устройств
+
+---
+
+## Шаг 16 — Alert Rules Core
+
+### Overview
+
+Внутренний механизм технических alert-правил по доставке рекламы на устройства. Read/write через `/api/device-operations/alert-rules` и `/api/device-operations/alerts`.
+
+**НЕ является:** SLA, billing, incident management, push-уведомлениями, Telegram/email.
+
+### Таблицы
+
+| Таблица | Назначение |
+|---|---|
+| `device_alert_rules` | Определения правил (что и как мониторить) |
+| `device_alerts` | Экземпляры сработавших алертов |
+| `device_alert_events` | История изменений статуса алертов |
+
+### Alert Types
+
+`device_offline`, `no_manifest`, `no_media`, `no_pop`, `manifest_validation_failed`, `media_validation_failed`, `media_storage_error`, `pop_rejected_high`, `duplicate_events_high`, `batch_rejected`.
+
+### Status Lifecycle
+
+```
+open → acknowledged → resolved
+  ↑                      │
+  └──────────────────────┘ (reopen)
+```
+
+### Endpoints
+
+**Rules** (all under `/api/device-operations/`):
+
+| Method | Path | Permission |
+|---|---|---|
+| `GET` | `/alert-rules` | `devices.gateway.read` |
+| `POST` | `/alert-rules` | `devices.gateway.manage` |
+| `PUT` | `/alert-rules/{id}` | `devices.gateway.manage` |
+| `POST` | `/alert-rules/{id}/enable` | `devices.gateway.manage` |
+| `POST` | `/alert-rules/{id}/disable` | `devices.gateway.manage` |
+
+**Alerts:**
+
+| Method | Path | Permission |
+|---|---|---|
+| `GET` | `/alerts` | `devices.gateway.read` |
+| `GET` | `/alerts/{id}` | `devices.gateway.read` |
+| `POST` | `/alerts/{id}/acknowledge` | `devices.gateway.manage` |
+| `POST` | `/alerts/{id}/resolve` | `devices.gateway.manage` |
+| `GET` | `/alerts/{id}/events` | `devices.gateway.read` |
+| `POST` | `/alerts/evaluate` | `devices.gateway.manage` |
+
+### Deduplication
+
+`dedup_key = {alert_type}:device:{gateway_device_id}`. Partial unique index `WHERE status IN ('open', 'acknowledged')`. Один dedup_key → один активный alert.
+
+### Default Rules (seed в миграции)
+
+| Rule | Severity | Window | Enabled |
+|---|---|---|---|
+| `device_offline` | critical | 30 min | ✅ |
+| `media_storage_error` | critical | 60 min | ✅ |
+| `manifest_validation_failed` | warning | 60 min | ✅ |
+| `media_validation_failed` | warning | 60 min | ✅ |
+| `pop_rejected_high` | warning | 120 min, min_total=10 | ✅ |
+| `duplicate_events_high` | warning | 120 min, min_total=10 | ✅ |
+| `batch_rejected` | warning | 120 min | ✅ |
+| `no_manifest` | warning | 120 min | ❌ (disabled) |
+| `no_media` | warning | 120 min | ❌ (disabled) |
+| `no_pop` | warning | 120 min | ❌ (disabled) |
+
+### Config
+
+```ini
+DEVICE_ALERT_DETAILS_MAX_BYTES = 65536  # 64 KB
+```
+
+### Security
+
+- Forbidden keys: access_token, refresh_token, token, jwt, password, secret, credential, credentials, authorization, cookie, api_key, private_key, public_key, stacktrace
+- Recursive validation threshold_json, scope_json, details_json
+- Device token → 401
+- Без новых permissions
+
+### Что НЕ в Шаге 16
+
+- ❌ Frontend, графики, BI
+- ❌ Telegram/email/push уведомления
+- ❌ Cron/scheduler/Celery
+- ❌ Incident management, escalation matrix
+- ❌ SLA, billing, compensation
+- ❌ Автоматическое изменение статусов устройств

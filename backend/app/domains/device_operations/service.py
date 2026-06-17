@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.domains.device_gateway import models as gw_models
 from app.domains.channels.models import Channel
 from app.domains.organization.models import Store
+from app.domains.device_operations import models as do_models
 
 HEALTH_STATUSES = frozenset({
     "healthy", "warning", "critical", "offline", "disabled",
@@ -680,3 +681,381 @@ async def get_channels_health(
             "top_problem_types": [t[0] for t in top],
         })
     return result
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Step 16 — Alert Rules
+# ═══════════════════════════════════════════════════════════════════════
+
+_DEDUP_FMT_DEVICE = "{alert_type}:device:{device_id}"
+_DEDUP_FMT_STORE = "{alert_type}:store:{store_id}"
+_DEDUP_FMT_CHANNEL = "{alert_type}:channel:{channel_id}"
+_DEDUP_FMT_GLOBAL = "{alert_type}:global"
+
+
+def _build_dedup_key(alert_type: str, device_id=None, store_id=None, channel_id=None) -> str:
+    if device_id:
+        return _DEDUP_FMT_DEVICE.format(alert_type=alert_type, device_id=device_id)
+    if store_id:
+        return _DEDUP_FMT_STORE.format(alert_type=alert_type, store_id=store_id)
+    if channel_id:
+        return _DEDUP_FMT_CHANNEL.format(alert_type=alert_type, channel_id=channel_id)
+    return _DEDUP_FMT_GLOBAL.format(alert_type=alert_type)
+
+
+async def get_alert_rules(db: AsyncSession, enabled_only: bool = False):
+    q = select(do_models.DeviceAlertRule).order_by(do_models.DeviceAlertRule.code)
+    if enabled_only:
+        q = q.where(do_models.DeviceAlertRule.enabled == True)
+    result = await db.execute(q)
+    return result.scalars().all()
+
+
+async def create_alert_rule(db: AsyncSession, data: dict) -> do_models.DeviceAlertRule:
+    existing = await db.execute(
+        select(do_models.DeviceAlertRule.id).where(
+            do_models.DeviceAlertRule.code == data["code"]
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail=f"Alert rule with code '{data['code']}' already exists",
+        )
+    rule = do_models.DeviceAlertRule(**data, updated_at=_now(), created_at=_now())
+    db.add(rule)
+    await db.flush()
+    await db.refresh(rule)
+    await db.commit()
+    return rule
+
+
+async def update_alert_rule(db: AsyncSession, rule_id: UUID, data: dict) -> do_models.DeviceAlertRule:
+    rule = await db.get(do_models.DeviceAlertRule, rule_id)
+    if not rule:
+        raise HTTPException(status_code=404, detail="Alert rule not found")
+    for field, value in data.items():
+        if value is not None:
+            setattr(rule, field, value)
+    rule.updated_at = _now()
+    await db.flush()
+    await db.refresh(rule)
+    await db.commit()
+    return rule
+
+
+async def set_rule_enabled(db: AsyncSession, rule_id: UUID, enabled: bool) -> do_models.DeviceAlertRule:
+    rule = await db.get(do_models.DeviceAlertRule, rule_id)
+    if not rule:
+        raise HTTPException(status_code=404, detail="Alert rule not found")
+    rule.enabled = enabled
+    rule.updated_at = _now()
+    await db.flush()
+    await db.refresh(rule)
+    await db.commit()
+    return rule
+
+
+async def get_alerts(
+    db: AsyncSession,
+    status: str = None, severity: str = None, alert_type: str = None,
+    gateway_device_id: UUID = None, store_id: UUID = None, channel_id: UUID = None,
+    date_from: datetime = None, date_to: datetime = None,
+    limit: int = 100, offset: int = 0,
+):
+    q = select(do_models.DeviceAlert).order_by(do_models.DeviceAlert.last_seen_at.desc())
+    if status:
+        q = q.where(do_models.DeviceAlert.status == status)
+    if severity:
+        q = q.where(do_models.DeviceAlert.severity == severity)
+    if alert_type:
+        q = q.where(do_models.DeviceAlert.alert_type == alert_type)
+    if gateway_device_id:
+        q = q.where(do_models.DeviceAlert.gateway_device_id == gateway_device_id)
+    if store_id:
+        q = q.where(do_models.DeviceAlert.store_id == store_id)
+    if channel_id:
+        q = q.where(do_models.DeviceAlert.channel_id == channel_id)
+    if date_from:
+        q = q.where(do_models.DeviceAlert.last_seen_at >= date_from)
+    if date_to:
+        q = q.where(do_models.DeviceAlert.last_seen_at <= date_to)
+    q = q.offset(offset).limit(limit)
+    result = await db.execute(q)
+    return result.scalars().all()
+
+
+async def get_alert_detail(db: AsyncSession, alert_id: UUID):
+    alert = await db.get(do_models.DeviceAlert, alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    events_q = (
+        select(do_models.DeviceAlertEvent)
+        .where(do_models.DeviceAlertEvent.alert_id == alert_id)
+        .order_by(do_models.DeviceAlertEvent.created_at)
+    )
+    events_result = await db.execute(events_q)
+    return alert, events_result.scalars().all()
+
+
+async def get_alert_events(db: AsyncSession, alert_id: UUID):
+    alert = await db.get(do_models.DeviceAlert, alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    q = (
+        select(do_models.DeviceAlertEvent)
+        .where(do_models.DeviceAlertEvent.alert_id == alert_id)
+        .order_by(do_models.DeviceAlertEvent.created_at)
+    )
+    result = await db.execute(q)
+    return result.scalars().all()
+
+
+async def acknowledge_alert(db: AsyncSession, alert_id: UUID, user_id: UUID, message: str = None) -> do_models.DeviceAlert:
+    alert = await db.get(do_models.DeviceAlert, alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    if alert.status == "resolved":
+        raise HTTPException(status_code=409, detail="Cannot acknowledge a resolved alert")
+    if alert.status == "acknowledged":
+        return alert
+    old_status = alert.status
+    alert.status = "acknowledged"
+    alert.acknowledged_at = _now()
+    alert.acknowledged_by = user_id
+    alert.updated_at = _now()
+    event = do_models.DeviceAlertEvent(
+        alert_id=alert.id, event_type="acknowledged",
+        old_status=old_status, new_status="acknowledged",
+        user_id=user_id, message=message, created_at=_now(),
+    )
+    db.add(event)
+    await db.flush()
+    await db.refresh(alert)
+    await db.commit()
+    return alert
+
+
+async def resolve_alert(db: AsyncSession, alert_id: UUID, user_id: UUID, message: str = None) -> do_models.DeviceAlert:
+    alert = await db.get(do_models.DeviceAlert, alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    if alert.status == "resolved":
+        return alert
+    old_status = alert.status
+    alert.status = "resolved"
+    alert.resolved_at = _now()
+    alert.resolved_by = user_id
+    alert.updated_at = _now()
+    event = do_models.DeviceAlertEvent(
+        alert_id=alert.id, event_type="resolved",
+        old_status=old_status, new_status="resolved",
+        user_id=user_id, message=message, created_at=_now(),
+    )
+    db.add(event)
+    await db.flush()
+    await db.refresh(alert)
+    await db.commit()
+    return alert
+
+
+async def evaluate_alerts(db: AsyncSession) -> dict:
+    settings = get_settings()
+    rules = await get_alert_rules(db, enabled_only=True)
+    counts = {"evaluated_rules": len(rules), "created": 0, "repeated": 0, "reopened": 0, "skipped": 0}
+
+    for rule in rules:
+        window = min(rule.window_minutes, settings.DEVICE_HEALTH_MAX_PERIOD_DAYS * 24 * 60)
+        scope = rule.scope_json or {}
+        device_ids = scope.get("gateway_device_ids") if scope else None
+
+        if rule.alert_type == "device_offline":
+            await _evaluate_device_offline(db, rule, window, device_ids, counts)
+        elif rule.alert_type == "media_storage_error":
+            await _evaluate_error_based(db, rule, window, device_ids, counts, ["storage_error"], "media")
+        elif rule.alert_type == "manifest_validation_failed":
+            await _evaluate_error_based(db, rule, window, device_ids, counts, ["validation_failed"], "manifest")
+        elif rule.alert_type == "media_validation_failed":
+            await _evaluate_error_based(db, rule, window, device_ids, counts, ["validation_failed"], "media")
+        elif rule.alert_type == "pop_rejected_high":
+            t = rule.threshold_json or {}
+            await _evaluate_rate_based(db, rule, window, device_ids, counts, "rejected", t.get("min_total", 10), t.get("error_rate", 0.20))
+        elif rule.alert_type == "duplicate_events_high":
+            t = rule.threshold_json or {}
+            await _evaluate_rate_based(db, rule, window, device_ids, counts, "duplicate", t.get("min_total", 10), t.get("duplicate_rate", 0.20))
+        elif rule.alert_type == "batch_rejected":
+            await _evaluate_batch_rejected(db, rule, window, device_ids, counts)
+        elif rule.alert_type in ("no_manifest", "no_media", "no_pop"):
+            await _evaluate_missing_pipeline(db, rule, window, device_ids, counts, rule.alert_type)
+        else:
+            counts["skipped"] += 1
+
+    await db.commit()
+    return counts
+
+
+async def _get_devices_in_scope(db, device_ids, window):
+    q = select(gw_models.GatewayDevice.id, gw_models.GatewayDevice.device_code,
+               gw_models.GatewayDevice.store_id, gw_models.GatewayDevice.channel_id).where(
+        gw_models.GatewayDevice.status.in_(["active", "pending", "lost"]))
+    if device_ids:
+        q = q.where(gw_models.GatewayDevice.id.in_([UUID(d) for d in device_ids]))
+    result = await db.execute(q)
+    return result.all()
+
+
+async def _evaluate_device_offline(db, rule, window, device_ids, counts):
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+    for dev_id, dev_code, store_id, channel_id in devices:
+        sources = []
+        dev = await db.get(gw_models.GatewayDevice, dev_id)
+        if dev and dev.last_seen_at:
+            sources.append(dev.last_seen_at)
+        hb = await db.execute(select(func.max(gw_models.DeviceHeartbeat.created_at)).where(
+            gw_models.DeviceHeartbeat.gateway_device_id == dev_id))
+        hb_ts = hb.scalar()
+        if hb_ts:
+            sources.append(hb_ts)
+        last_activity = max(sources) if sources else None
+        if last_activity is None or last_activity < cutoff:
+            details = {"device_code": dev_code, "window_minutes": window}
+            await _upsert_alert(db, rule, _build_dedup_key(rule.alert_type, device_id=dev_id),
+                              f"Device {dev_code} is offline", dev_id, store_id, channel_id, details, counts)
+
+
+async def _evaluate_error_based(db, rule, window, device_ids, counts, event_types, table):
+    cutoff = _now() - timedelta(minutes=window)
+    model = gw_models.DeviceManifestRequest if table == "manifest" else gw_models.DeviceMediaRequest
+    dev_fk = model.gateway_device_id
+    status_field = model.request_status
+    q = select(dev_fk).where(status_field.in_(event_types), model.created_at >= cutoff).distinct()
+    if device_ids:
+        q = q.where(dev_fk.in_([UUID(d) for d in device_ids]))
+    result = await db.execute(q)
+    for (dev_id,) in result.all():
+        dev = await db.get(gw_models.GatewayDevice, dev_id)
+        dev_code = dev.device_code if dev else "unknown"
+        details = {"device_code": dev_code, "window_minutes": window}
+        await _upsert_alert(db, rule, _build_dedup_key(rule.alert_type, device_id=dev_id),
+                          f"{rule.name} on device {dev_code}", dev_id,
+                          dev.store_id if dev else None, dev.channel_id if dev else None, details, counts)
+
+
+async def _evaluate_rate_based(db, rule, window, device_ids, counts, error_field, min_total, rate):
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+    for dev_id, dev_code, store_id, channel_id in devices:
+        total = (await db.execute(select(func.count(gw_models.ProofOfPlayEvent.id)).where(
+            gw_models.ProofOfPlayEvent.gateway_device_id == dev_id,
+            gw_models.ProofOfPlayEvent.created_at >= cutoff))).scalar() or 0
+        if total < min_total:
+            continue
+        vs = "rejected" if error_field == "rejected" else "duplicate"
+        errors = (await db.execute(select(func.count(gw_models.ProofOfPlayEvent.id)).where(
+            gw_models.ProofOfPlayEvent.gateway_device_id == dev_id,
+            gw_models.ProofOfPlayEvent.validation_status == vs,
+            gw_models.ProofOfPlayEvent.created_at >= cutoff))).scalar() or 0
+        er = errors / max(total, 1)
+        if er >= rate:
+            details = {"device_code": dev_code, "errors": errors, "total": total, "error_rate": er, "window_minutes": window}
+            await _upsert_alert(db, rule, _build_dedup_key(rule.alert_type, device_id=dev_id),
+                              f"{rule.name} on device {dev_code} ({errors}/{total} = {er:.0%})",
+                              dev_id, store_id, channel_id, details, counts)
+
+
+async def _evaluate_batch_rejected(db, rule, window, device_ids, counts):
+    cutoff = _now() - timedelta(minutes=window)
+    q = select(gw_models.ProofOfPlayBatch.gateway_device_id).where(
+        gw_models.ProofOfPlayBatch.batch_status == "rejected",
+        gw_models.ProofOfPlayBatch.received_at >= cutoff).distinct()
+    if device_ids:
+        q = q.where(gw_models.ProofOfPlayBatch.gateway_device_id.in_([UUID(d) for d in device_ids]))
+    result = await db.execute(q)
+    for (dev_id,) in result.all():
+        dev = await db.get(gw_models.GatewayDevice, dev_id)
+        dev_code = dev.device_code if dev else "unknown"
+        details = {"device_code": dev_code, "window_minutes": window}
+        await _upsert_alert(db, rule, _build_dedup_key(rule.alert_type, device_id=dev_id),
+                          f"Rejected batch on device {dev_code}", dev_id,
+                          dev.store_id if dev else None, dev.channel_id if dev else None, details, counts)
+
+
+async def _evaluate_missing_pipeline(db, rule, window, device_ids, counts, stage):
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+    for dev_id, dev_code, store_id, channel_id in devices:
+        if stage == "no_media":
+            has_upstream = (await db.execute(select(func.count(gw_models.DeviceManifestRequest.id)).where(
+                gw_models.DeviceManifestRequest.gateway_device_id == dev_id,
+                gw_models.DeviceManifestRequest.created_at >= cutoff))).scalar() or 0
+            if has_upstream == 0:
+                continue
+        elif stage == "no_pop":
+            has_upstream = (await db.execute(select(func.count(gw_models.DeviceMediaRequest.id)).where(
+                gw_models.DeviceMediaRequest.gateway_device_id == dev_id,
+                gw_models.DeviceMediaRequest.created_at >= cutoff))).scalar() or 0
+            if has_upstream == 0:
+                continue
+        elif stage == "no_manifest":
+            continue
+        details = {"device_code": dev_code, "window_minutes": window}
+        await _upsert_alert(db, rule, _build_dedup_key(rule.alert_type, device_id=dev_id),
+                          f"{stage.replace('_', ' ').title()} on device {dev_code}",
+                          dev_id, store_id, channel_id, details, counts)
+
+
+async def _upsert_alert(db, rule, dedup_key, title, dev_id, store_id, channel_id, details, counts):
+    active_q = select(do_models.DeviceAlert).where(
+        do_models.DeviceAlert.dedup_key == dedup_key,
+        do_models.DeviceAlert.status.in_(["open", "acknowledged"]))
+    active_result = await db.execute(active_q)
+    active_alert = active_result.scalar_one_or_none()
+
+    if active_alert:
+        active_alert.last_seen_at = _now()
+        active_alert.updated_at = _now()
+        db.add(do_models.DeviceAlertEvent(
+            alert_id=active_alert.id, event_type="repeated",
+            old_status=active_alert.status, new_status=active_alert.status,
+            message=f"Problem persists on device {details.get('device_code', '?')}",
+            details_json=details, created_at=_now()))
+        counts["repeated"] += 1
+        return
+
+    resolved_q = select(do_models.DeviceAlert).where(
+        do_models.DeviceAlert.dedup_key == dedup_key,
+        do_models.DeviceAlert.status == "resolved").order_by(
+        do_models.DeviceAlert.last_seen_at.desc()).limit(1)
+    resolved_result = await db.execute(resolved_q)
+    resolved_alert = resolved_result.scalar_one_or_none()
+
+    if resolved_alert:
+        resolved_alert.status = "open"
+        resolved_alert.last_seen_at = _now()
+        resolved_alert.resolved_at = None
+        resolved_alert.resolved_by = None
+        resolved_alert.acknowledged_at = None
+        resolved_alert.acknowledged_by = None
+        resolved_alert.updated_at = _now()
+        db.add(do_models.DeviceAlertEvent(
+            alert_id=resolved_alert.id, event_type="reopened",
+            old_status="resolved", new_status="open",
+            message=f"Problem reoccurred on device {details.get('device_code', '?')}",
+            details_json=details, created_at=_now()))
+        counts["reopened"] += 1
+        return
+
+    alert = do_models.DeviceAlert(
+        rule_id=rule.id, alert_type=rule.alert_type, severity=rule.severity,
+        status="open", gateway_device_id=dev_id, store_id=store_id,
+        channel_id=channel_id, first_seen_at=_now(), last_seen_at=_now(),
+        dedup_key=dedup_key, title=title, message=rule.description,
+        details_json=details, created_at=_now(), updated_at=_now())
+    db.add(alert)
+    await db.flush()
+    db.add(do_models.DeviceAlertEvent(
+        alert_id=alert.id, event_type="created", old_status=None, new_status="open",
+        message=f"Alert created for device {details.get('device_code', '?')}",
+        details_json=details, created_at=_now()))
+    counts["created"] += 1

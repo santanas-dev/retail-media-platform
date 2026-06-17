@@ -1,16 +1,21 @@
-"""Device Operations: read-only health API router."""
+"""Device Operations: health + alert rules API router."""
 
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.core.deps import get_db, require_permission
+from app.core.deps import get_current_user, get_db, require_permission
 from app.domains.device_operations import schemas, service
 from app.domains.identity.models import User
 
 router = APIRouter(prefix="/api/device-operations", tags=["device-operations"])
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Health endpoints (Step 15)
+# ═══════════════════════════════════════════════════════════════════════
 
 
 @router.get("/overview", response_model=schemas.OverviewResponse)
@@ -23,11 +28,8 @@ async def get_overview(
     current_user: User = Depends(require_permission("devices.gateway.read")),
 ):
     return await service.get_overview(
-        db,
-        date_from=date_from,
-        date_to=date_to,
-        channel_id=channel_id,
-        store_id=store_id,
+        db, date_from=date_from, date_to=date_to,
+        channel_id=channel_id, store_id=store_id,
     )
 
 
@@ -46,16 +48,10 @@ async def get_devices(
     current_user: User = Depends(require_permission("devices.gateway.read")),
 ):
     return await service.get_devices(
-        db,
-        date_from=date_from,
-        date_to=date_to,
-        channel_id=channel_id,
-        store_id=store_id,
-        device_status=device_status,
-        health_status=health_status,
-        problem_type=problem_type,
-        limit=limit,
-        offset=offset,
+        db, date_from=date_from, date_to=date_to,
+        channel_id=channel_id, store_id=store_id,
+        device_status=device_status, health_status=health_status,
+        problem_type=problem_type, limit=limit, offset=offset,
     )
 
 
@@ -68,12 +64,9 @@ async def get_device_detail(
     current_user: User = Depends(require_permission("devices.gateway.read")),
 ):
     result = await service.get_device_detail(
-        db, device_id,
-        date_from=date_from,
-        date_to=date_to,
+        db, device_id, date_from=date_from, date_to=date_to,
     )
     if not result:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Device not found")
     return result
 
@@ -88,11 +81,8 @@ async def get_stores_health(
     current_user: User = Depends(require_permission("devices.gateway.read")),
 ):
     return await service.get_stores_health(
-        db,
-        date_from=date_from,
-        date_to=date_to,
-        channel_id=channel_id,
-        store_id=store_id,
+        db, date_from=date_from, date_to=date_to,
+        channel_id=channel_id, store_id=store_id,
     )
 
 
@@ -106,9 +96,145 @@ async def get_channels_health(
     current_user: User = Depends(require_permission("devices.gateway.read")),
 ):
     return await service.get_channels_health(
-        db,
-        date_from=date_from,
-        date_to=date_to,
-        channel_id=channel_id,
-        store_id=store_id,
+        db, date_from=date_from, date_to=date_to,
+        channel_id=channel_id, store_id=store_id,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Alert Rules endpoints (Step 16)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# ── Rules ──────────────────────────────────────────────────────────────
+
+
+@router.get("/alert-rules", response_model=list[schemas.AlertRuleResponse])
+async def list_alert_rules(
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_alert_rules(db)
+
+
+@router.post("/alert-rules", response_model=schemas.AlertRuleResponse, status_code=201)
+async def create_alert_rule(
+    data: schemas.AlertRuleCreate,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.create_alert_rule(db, data.model_dump())
+
+
+@router.put("/alert-rules/{rule_id}", response_model=schemas.AlertRuleResponse)
+async def update_alert_rule(
+    rule_id: UUID,
+    data: schemas.AlertRuleUpdate,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.update_alert_rule(db, rule_id, data.model_dump(exclude_none=True))
+
+
+@router.post("/alert-rules/{rule_id}/enable", response_model=schemas.AlertRuleResponse)
+async def enable_alert_rule(
+    rule_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.set_rule_enabled(db, rule_id, True)
+
+
+@router.post("/alert-rules/{rule_id}/disable", response_model=schemas.AlertRuleResponse)
+async def disable_alert_rule(
+    rule_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.set_rule_enabled(db, rule_id, False)
+
+
+# ── Alerts ─────────────────────────────────────────────────────────────
+
+
+@router.get("/alerts", response_model=list[schemas.AlertResponse])
+async def list_alerts(
+    db=Depends(get_db),
+    status: Optional[str] = Query(None),
+    severity: Optional[str] = Query(None),
+    alert_type: Optional[str] = Query(None),
+    gateway_device_id: Optional[UUID] = Query(None),
+    store_id: Optional[UUID] = Query(None),
+    channel_id: Optional[UUID] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_alerts(
+        db, status=status, severity=severity, alert_type=alert_type,
+        gateway_device_id=gateway_device_id, store_id=store_id,
+        channel_id=channel_id, date_from=date_from, date_to=date_to,
+        limit=limit, offset=offset,
+    )
+
+
+@router.get("/alerts/{alert_id}", response_model=schemas.AlertDetailResponse)
+async def get_alert_detail(
+    alert_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    alert, events = await service.get_alert_detail(db, alert_id)
+    result = schemas.AlertResponse.model_validate(alert).model_dump()
+    result["events"] = [
+        schemas.AlertEventResponse.model_validate(e).model_dump() for e in events
+    ]
+    return result
+
+
+@router.get("/alerts/{alert_id}/events", response_model=list[schemas.AlertEventResponse])
+async def get_alert_events(
+    alert_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_alert_events(db, alert_id)
+
+
+@router.post("/alerts/{alert_id}/acknowledge", response_model=schemas.AlertResponse)
+async def acknowledge_alert(
+    alert_id: UUID,
+    data: schemas.AlertAcknowledgeRequest = None,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.acknowledge_alert(
+        db, alert_id, current_user.id,
+        message=data.message if data else None,
+    )
+
+
+@router.post("/alerts/{alert_id}/resolve", response_model=schemas.AlertResponse)
+async def resolve_alert(
+    alert_id: UUID,
+    data: schemas.AlertResolveRequest = None,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.resolve_alert(
+        db, alert_id, current_user.id,
+        message=data.message if data else None,
+    )
+
+
+# ── Evaluate ───────────────────────────────────────────────────────────
+
+
+@router.post("/alerts/evaluate", response_model=schemas.EvaluateResponse)
+async def evaluate_alerts(
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.manage")),
+):
+    return await service.evaluate_alerts(db)

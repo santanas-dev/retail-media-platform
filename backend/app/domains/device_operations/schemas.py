@@ -174,3 +174,229 @@ class ChannelHealthItem(BaseModel):
     top_problem_types: list[str] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Step 16 — Alert Rules Core
+# ═══════════════════════════════════════════════════════════════════════
+
+from pydantic import field_validator
+
+ALLOWED_ALERT_TYPES = {
+    "device_offline", "no_manifest", "no_media", "no_pop",
+    "manifest_validation_failed", "media_validation_failed",
+    "media_storage_error", "pop_rejected_high", "duplicate_events_high",
+    "batch_rejected",
+}
+ALLOWED_SEVERITIES = {"info", "warning", "critical"}
+ALLOWED_SCOPE_KEYS = {"gateway_device_ids", "store_ids", "channel_ids"}
+
+FORBIDDEN_KEYS = {
+    "access_token", "refresh_token", "token", "jwt",
+    "password", "secret", "credential", "credentials",
+    "authorization", "cookie", "api_key", "private_key",
+    "public_key", "stacktrace",
+}
+
+RULE_CODE_RE = r"^[a-z0-9_]+$"
+
+
+def _validate_forbidden_keys(data: dict, path: str = "$") -> None:
+    """Recursively check that no forbidden keys exist in a dict."""
+    if not isinstance(data, dict):
+        return
+    for k, v in data.items():
+        if k in FORBIDDEN_KEYS:
+            raise ValueError(f"Forbidden key '{k}' at {path}")
+        if isinstance(v, dict):
+            _validate_forbidden_keys(v, f"{path}.{k}")
+        elif isinstance(v, list):
+            for i, item in enumerate(v):
+                if isinstance(item, dict):
+                    _validate_forbidden_keys(item, f"{path}.{k}[{i}]")
+
+
+def _validate_scope_json(scope: dict) -> None:
+    """Validate scope_json — only allowed keys with UUID arrays."""
+    if not isinstance(scope, dict):
+        raise ValueError("scope_json must be a JSON object")
+    extra = set(scope.keys()) - ALLOWED_SCOPE_KEYS
+    if extra:
+        raise ValueError(f"Disallowed scope keys: {extra}")
+    for key in ALLOWED_SCOPE_KEYS:
+        val = scope.get(key)
+        if val is not None:
+            if not isinstance(val, list):
+                raise ValueError(f"scope.{key} must be an array")
+            for item in val:
+                if not isinstance(item, str):
+                    raise ValueError(f"scope.{key} must be UUID strings")
+                try:
+                    UUID(item)
+                except (ValueError, AttributeError):
+                    raise ValueError(f"scope.{key} contains invalid UUID: {item}")
+
+
+# ── Rule schemas ──────────────────────────────────────────────────────
+
+
+class AlertRuleCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=64, pattern=RULE_CODE_RE)
+    name: str = Field(min_length=1, max_length=255)
+    description: Optional[str] = None
+    alert_type: str
+    severity: str
+    enabled: bool = True
+    threshold_json: Optional[dict[str, Any]] = None
+    window_minutes: int = Field(default=60, ge=1)
+    scope_json: Optional[dict[str, Any]] = None
+
+    @field_validator("alert_type")
+    @classmethod
+    def check_alert_type(cls, v: str) -> str:
+        if v not in ALLOWED_ALERT_TYPES:
+            raise ValueError(f"Invalid alert_type: {v}")
+        return v
+
+    @field_validator("severity")
+    @classmethod
+    def check_severity(cls, v: str) -> str:
+        if v not in ALLOWED_SEVERITIES:
+            raise ValueError(f"Invalid severity: {v}")
+        return v
+
+    @field_validator("threshold_json")
+    @classmethod
+    def check_threshold_forbidden(cls, v: Optional[dict]) -> Optional[dict]:
+        if v is not None:
+            _validate_forbidden_keys(v)
+        return v
+
+    @field_validator("scope_json")
+    @classmethod
+    def check_scope(cls, v: Optional[dict]) -> Optional[dict]:
+        if v is not None:
+            _validate_scope_json(v)
+            _validate_forbidden_keys(v)
+        return v
+
+
+class AlertRuleUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    alert_type: Optional[str] = None
+    severity: Optional[str] = None
+    threshold_json: Optional[dict[str, Any]] = None
+    window_minutes: Optional[int] = Field(default=None, ge=1)
+    scope_json: Optional[dict[str, Any]] = None
+
+    @field_validator("alert_type")
+    @classmethod
+    def check_alert_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ALLOWED_ALERT_TYPES:
+            raise ValueError(f"Invalid alert_type: {v}")
+        return v
+
+    @field_validator("severity")
+    @classmethod
+    def check_severity(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ALLOWED_SEVERITIES:
+            raise ValueError(f"Invalid severity: {v}")
+        return v
+
+    @field_validator("threshold_json")
+    @classmethod
+    def check_threshold_forbidden(cls, v: Optional[dict]) -> Optional[dict]:
+        if v is not None:
+            _validate_forbidden_keys(v)
+        return v
+
+    @field_validator("scope_json")
+    @classmethod
+    def check_scope(cls, v: Optional[dict]) -> Optional[dict]:
+        if v is not None:
+            _validate_scope_json(v)
+            _validate_forbidden_keys(v)
+        return v
+
+
+class AlertRuleResponse(BaseModel):
+    id: UUID
+    code: str
+    name: str
+    description: Optional[str] = None
+    alert_type: str
+    severity: str
+    enabled: bool
+    threshold_json: Optional[dict[str, Any]] = None
+    window_minutes: int
+    scope_json: Optional[dict[str, Any]] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Alert schemas ─────────────────────────────────────────────────────
+
+
+class AlertEventResponse(BaseModel):
+    id: UUID
+    event_type: str
+    old_status: Optional[str] = None
+    new_status: Optional[str] = None
+    user_id: Optional[UUID] = None
+    message: Optional[str] = None
+    details_json: Optional[dict[str, Any]] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AlertResponse(BaseModel):
+    id: UUID
+    rule_id: UUID
+    alert_type: str
+    severity: str
+    status: str
+    gateway_device_id: Optional[UUID] = None
+    store_id: Optional[UUID] = None
+    channel_id: Optional[UUID] = None
+    first_seen_at: datetime
+    last_seen_at: datetime
+    resolved_at: Optional[datetime] = None
+    acknowledged_at: Optional[datetime] = None
+    acknowledged_by: Optional[UUID] = None
+    resolved_by: Optional[UUID] = None
+    dedup_key: str
+    title: str
+    message: Optional[str] = None
+    details_json: Optional[dict[str, Any]] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AlertDetailResponse(AlertResponse):
+    events: list[AlertEventResponse] = Field(default_factory=list)
+
+
+class AlertAcknowledgeRequest(BaseModel):
+    message: Optional[str] = None
+
+
+class AlertResolveRequest(BaseModel):
+    message: Optional[str] = None
+
+
+# ── Evaluate schemas ──────────────────────────────────────────────────
+
+
+class EvaluateResponse(BaseModel):
+    status: str = "ok"
+    evaluated_rules: int = 0
+    created: int = 0
+    repeated: int = 0
+    reopened: int = 0
+    skipped: int = 0
