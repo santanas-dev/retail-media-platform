@@ -29,24 +29,6 @@ from app.domains.media import schemas, service
 router = APIRouter(prefix="/api", tags=["media"])
 
 
-async def _require_media_write(
-    current_user: identity_models.User = Depends(require_permission("media.manage")),
-) -> identity_models.User:
-    """Require media.manage OR media.approve.
-
-    Returns the user if either permission is held.
-    Raises 403 if neither is present.
-    """
-    return current_user
-
-    if "media.manage" in user_perms or "media.approve" in user_perms:
-        return current_user
-
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Requires media.manage or media.approve",
-    )
-
 
 # ── Creatives ──────────────────────────────────────────────────────────────
 
