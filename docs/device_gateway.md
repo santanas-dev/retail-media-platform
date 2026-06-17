@@ -298,3 +298,98 @@ Every manifest request is logged with status: `served`, `not_modified`, `not_fou
 ### Config
 
 - `DEVICE_MANIFEST_REQUEST_DETAILS_MAX_BYTES` = 65536 (default)
+
+
+## Step 12: Device Media Delivery Core
+
+### Overview
+
+Шаг 12 — позволяет авторизованному устройству безопасно скачать медиафайлы, указанные в его published manifest. Pull-модель: устройство запрашивает media через backend по `manifest_item_id`, backend проверяет права, валидирует object key и MIME, отдаёт файл через StreamingResponse из MinIO. Без presigned URLs, без PoP, без плеера.
+
+### Endpoints
+
+**Device:**
+- `GET /api/device-gateway/media/{manifest_item_id}/metadata` — безопасные метаданные (sha256, content_type, size_bytes, duration_ms)
+- `GET /api/device-gateway/media/{manifest_item_id}` — download media через StreamingResponse (64 KB chunks)
+
+**Admin:**
+- `GET /api/gateway-devices/{device_id}/media-requests` — аудит запросов media
+
+### Authentication
+
+Только device JWT (`Authorization: Bearer ***`). User token → 401. Device token на human API → 401.
+
+### Match Logic
+
+Используется та же `_match_publication_targets`, что в Шаге 11:
+- `display_surface_id` → `logical_carrier_id` → `physical_device_id`
+- Всегда дополнительно проверяются `channel_id` и `store_id`
+- Device получает media только своего `publication_target`
+
+### Publication Chain Validation
+
+- `publication_batch.status` = `published`
+- `publication_target.status` = `published`
+- `manifest_version.status` = `published`
+- Draft/approved/cancelled → 404
+
+### Object Key Validation
+
+- Не пустой, длина ≤ 500
+- Начинается строго с `creatives/`
+- Не абсолютный, не содержит `..`, `\`, `?`, `#`, `%`
+- Допустимые символы: латиница, цифры, `/`, `_`, `-`, `.`
+
+### MIME Allowlist
+
+Разрешены: `image/jpeg`, `image/png`, `video/mp4`, `video/webm`
+Запрещены: SVG, HTML, JS, ZIP, любые неизвестные типы
+
+MIME берётся из `renditions.mime_type` (приоритет) → `creative_versions.mime_type` (fallback). Проверяется консистентность с MinIO `stat_object.content_type`.
+
+### Not Modified
+
+- Metadata: `?client_cached_sha256=<sha256>` → 200 `{"status": "not_modified"}`
+- Download: `?client_cached_sha256=<sha256>` → 304 Not Modified (без тела)
+
+### StreamingResponse
+
+- MinIO `get_object` → `response.stream(amt=64KB)`
+- Headers: `Content-Type`, `Content-Length`, `X-Content-SHA256`, `ETag`, `Cache-Control: private, max-age=86400`
+- MinIO connection закрывается через `BackgroundTask` (`close()` + `release_conn()`)
+
+### Security
+
+- Device token только в Authorization header
+- User token не работает на media endpoints
+- Device token не работает на human API
+- Presigned URLs не используются
+- MinIO credentials не раскрываются
+- Ошибки безопасные (без bucket/stacktrace)
+- `details_json` не содержит secret/token/password
+
+### Device Statuses
+
+- `active`, `pending`, `lost` — могут скачивать
+- `disabled`, `retired` — не могут (401/403)
+
+### Audit (`device_media_requests`)
+
+Статусы: `served`, `not_modified`, `not_found`, `forbidden`, `validation_failed`, `storage_error`
+
+Каждый запрос логируется с:
+- `gateway_device_id`, `manifest_item_id`, `manifest_version_id`, `publication_target_id`
+- `media_path`, `expected_sha256`, `client_cached_sha256`, `response_size_bytes`
+- `ip_address`, `user_agent`, `message`, `details_json`
+
+### Device Events
+
+Новые event_type: `media_served`, `media_not_modified`, `media_not_found`, `media_forbidden`, `media_validation_failed`, `media_storage_error`
+
+### New Table
+
+- `device_media_requests` — аудит запросов media
+
+### Config
+
+- `DEVICE_MEDIA_REQUEST_DETAILS_MAX_BYTES` = 65536 (default)

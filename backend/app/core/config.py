@@ -107,6 +107,7 @@ class Settings(BaseSettings):
     DEVICE_HEARTBEAT_TIMEOUT_MINUTES: int = 15
     DEVICE_HEARTBEAT_DETAILS_MAX_BYTES: int = 65536
     DEVICE_MANIFEST_REQUEST_DETAILS_MAX_BYTES: int = 65536
+    DEVICE_MEDIA_REQUEST_DETAILS_MAX_BYTES: int = 65536
 
     @model_validator(mode="after")
     def _validate_device_jwt_secret(self) -> "Settings":

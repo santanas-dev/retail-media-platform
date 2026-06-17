@@ -4,8 +4,9 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi import status as http_status
+from fastapi.responses import JSONResponse, StreamingResponse as _StreamingResponse
 
 from app.core.deps import get_current_user, get_db, require_permission
 from app.domains.device_gateway import schemas, service
@@ -141,4 +142,73 @@ async def list_manifest_requests(
 ):
     return await service.get_device_manifest_requests(
         db, device_id, request_status, date_from, date_to, limit,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Device: Media Delivery
+# ═══════════════════════════════════════════════════════════════════
+
+@device_router.get(
+    "/media/{manifest_item_id}/metadata",
+    response_model=schemas.DeviceMediaMetadataResponse,
+    responses={304: {"description": "Not modified"}},
+)
+async def media_metadata(
+    manifest_item_id: UUID,
+    request: Request,
+    db=Depends(get_db),
+    client_cached_sha256: Optional[str] = Query(None, max_length=64),
+):
+    device, _session = await authenticate_device(request, db)
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    return await service.get_media_metadata(
+        device, manifest_item_id, client_cached_sha256, client_ip, user_agent, db,
+    )
+
+
+@device_router.get(
+    "/media/{manifest_item_id}",
+    responses={
+        200: {"description": "Media file stream"},
+        304: {"description": "Not modified"},
+    },
+)
+async def media_download(
+    manifest_item_id: UUID,
+    request: Request,
+    db=Depends(get_db),
+    client_cached_sha256: Optional[str] = Query(None, max_length=64),
+):
+    device, _session = await authenticate_device(request, db)
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    return await service.get_media_download(
+        device, manifest_item_id, client_cached_sha256, client_ip, user_agent,
+        request, db,
+    )
+
+
+# ── Admin: media requests ───────────────────────────────────────────
+
+@admin_router.get(
+    "/gateway-devices/{device_id}/media-requests",
+    response_model=list[schemas.DeviceMediaRequestResponse],
+)
+async def list_media_requests(
+    device_id: UUID,
+    db=Depends(get_db),
+    request_status: Optional[str] = Query(None),
+    manifest_item_id: Optional[UUID] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_media_requests(
+        db, device_id,
+        request_status=request_status,
+        manifest_item_id=manifest_item_id,
+        limit=limit,
+        offset=offset,
     )

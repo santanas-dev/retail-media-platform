@@ -2,20 +2,27 @@
 
 import hashlib
 import json
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from uuid import UUID
 
 import bcrypt
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
+from fastapi.responses import StreamingResponse
 from jose import jwt
+from minio import Minio
+from minio.error import S3Error
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.background import BackgroundTask
 
 from app.core.config import get_settings
 from app.domains.device_gateway import models, schemas
+from app.domains.media.storage import _get_client as _get_minio_client
 from app.domains.publications.models import (
-    ManifestVersion, PublicationBatch, PublicationTarget,
+    ManifestItem, ManifestVersion, PublicationBatch, PublicationTarget,
 )
 
 # Forbidden keys (same as publications)
@@ -996,6 +1003,509 @@ async def get_device_manifest_requests(
         select(models.DeviceManifestRequest)
         .where(*conditions)
         .order_by(models.DeviceManifestRequest.created_at.desc())
+        .limit(min(limit, 500))
+    )
+    return list(result.scalars().all())
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Media Delivery Constants
+# ═══════════════════════════════════════════════════════════════════
+
+MEDIA_DELIVERY_ALLOWED_MIME = frozenset({
+    "image/jpeg",
+    "image/png",
+    "video/mp4",
+    "video/webm",
+})
+
+_VALID_OBJECT_KEY_RE = re.compile(r'^[A-Za-z0-9._/-]+$')
+_FORBIDDEN_OBJECT_KEY_CHARS = frozenset({'\\', '?', '#', '%'})
+_FORBIDDEN_CONTROL = frozenset(chr(c) for c in range(0x20))
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Media Delivery Helpers
+# ═══════════════════════════════════════════════════════════════════
+
+def _validate_object_key(path: str | None) -> str | None:
+    """Validate a MinIO object key. Returns error message or None."""
+    if not path:
+        return "media_path is empty"
+    if len(path) > 500:
+        return "media_path exceeds 500 characters"
+    if not path.startswith("creatives/"):
+        return "media_path must start with 'creatives/'"
+    if path.startswith("/"):
+        return "media_path must not be absolute"
+    if path.endswith("/"):
+        return "media_path must not end with '/'"
+    if ".." in path:
+        return "media_path must not contain '..'"
+    if any(c in _FORBIDDEN_OBJECT_KEY_CHARS for c in path):
+        return "media_path contains forbidden characters (\\, ?, #, %)"
+    if any(c in _FORBIDDEN_CONTROL for c in path):
+        return "media_path contains control characters"
+    if not _VALID_OBJECT_KEY_RE.match(path):
+        return "media_path contains invalid characters"
+    return None
+
+
+def _validate_sha256_hex(value: str | None) -> str | None:
+    """Validate sha256 is 64 hex chars. Returns error or None."""
+    if not value:
+        return "sha256 is empty"
+    if len(value) != 64:
+        return "sha256 must be 64 hex characters"
+    if not all(c in "0123456789abcdef" for c in value.lower()):
+        return "sha256 contains non-hex characters"
+    return None
+
+
+async def _record_media_request(
+    db: AsyncSession,
+    device: models.GatewayDevice,
+    manifest_item_id: UUID | None,
+    manifest_version_id: UUID | None,
+    publication_target_id: UUID | None,
+    status: str,
+    *,
+    media_path: str | None = None,
+    expected_sha256: str | None = None,
+    client_cached_sha256: str | None = None,
+    response_size_bytes: int | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    message: str | None = None,
+    details_json: dict | None = None,
+    commit: bool = True,
+) -> None:
+    """Record a media request. Must be called before HTTPException if commit=True."""
+    settings = get_settings()
+    max_bytes = settings.DEVICE_MEDIA_REQUEST_DETAILS_MAX_BYTES
+
+    details = dict(details_json or {})
+    cleaned = {}
+    for k, v in details.items():
+        if k.lower() in FORBIDDEN_KEYS:
+            continue
+        if isinstance(v, str) and len(v) > 1024:
+            cleaned[k] = v[:1020] + "..."
+        else:
+            cleaned[k] = v
+    details_str = json.dumps(cleaned, default=str)
+    if len(details_str) > max_bytes:
+        details_str = details_str[:max_bytes - 3] + "..."
+
+    entry = models.DeviceMediaRequest(
+        gateway_device_id=device.id,
+        manifest_item_id=manifest_item_id,
+        manifest_version_id=manifest_version_id,
+        publication_target_id=publication_target_id,
+        request_status=status,
+        media_path=media_path[:1000] if media_path else None,
+        expected_sha256=expected_sha256[:64] if expected_sha256 else None,
+        client_cached_sha256=client_cached_sha256[:64] if client_cached_sha256 else None,
+        response_size_bytes=response_size_bytes,
+        ip_address=ip_address[:45] if ip_address else None,
+        user_agent=user_agent[:500] if user_agent else None,
+        message=message[:500] if message else None,
+        details_json=cleaned,
+    )
+    db.add(entry)
+    if commit:
+        await db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Media Delivery Public Functions
+# ═══════════════════════════════════════════════════════════════════
+
+async def get_media_metadata(
+    device: models.GatewayDevice,
+    manifest_item_id: UUID,
+    client_cached_sha256: str | None,
+    client_ip: str | None,
+    user_agent: str | None,
+    db: AsyncSession,
+) -> dict:
+    """Return safe metadata for a manifest item."""
+    from app.domains.media.models import CreativeVersion, Rendition
+
+    result = await db.execute(
+        select(
+            ManifestItem,
+            ManifestVersion,
+            PublicationTarget,
+            PublicationBatch,
+            CreativeVersion,
+            Rendition,
+        )
+        .join(ManifestVersion, ManifestItem.manifest_version_id == ManifestVersion.id)
+        .join(PublicationTarget, ManifestVersion.publication_target_id == PublicationTarget.id)
+        .join(PublicationBatch, ManifestVersion.publication_batch_id == PublicationBatch.id)
+        .outerjoin(CreativeVersion, ManifestItem.creative_version_id == CreativeVersion.id)
+        .outerjoin(Rendition, ManifestItem.rendition_id == Rendition.id)
+        .where(ManifestItem.id == manifest_item_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        await _record_media_request(
+            db, device, None, None, None, "not_found",
+            ip_address=client_ip, user_agent=user_agent,
+            message="Manifest item not found",
+        )
+        raise HTTPException(status_code=404, detail="Not found")
+
+    mi, mv, pt, pb, cv, rend = row
+
+    if pb.status != "published" or pt.status != "published" or mv.status != "published":
+        await _record_media_request(
+            db, device, manifest_item_id, mv.id, pt.id, "not_found",
+            ip_address=client_ip, user_agent=user_agent,
+            message="Manifest not published",
+        )
+        raise HTTPException(status_code=404, detail="Not found")
+
+    target_ids = await _match_publication_targets(device, db)
+    if pt.id not in target_ids:
+        await _record_media_request(
+            db, device, manifest_item_id, mv.id, pt.id, "not_found",
+            ip_address=client_ip, user_agent=user_agent,
+            message="Publication target does not match device",
+        )
+        raise HTTPException(status_code=404, detail="Not found")
+
+    key_error = _validate_object_key(mi.media_path)
+    sha_error = _validate_sha256_hex(mi.sha256)
+    if key_error or sha_error:
+        await _record_media_request(
+            db, device, mi.id, mv.id, pt.id, "validation_failed",
+            media_path=mi.media_path, expected_sha256=mi.sha256,
+            ip_address=client_ip, user_agent=user_agent,
+            message=key_error or sha_error,
+            details_json={
+                "validation_key": key_error,
+                "validation_sha256": sha_error,
+            },
+        )
+        await _log_event(
+            db, "media_validation_failed",
+            (key_error or "") + (sha_error or ""),
+            device.id, "error",
+        )
+        await db.commit()
+        raise HTTPException(status_code=500, detail="Media validation failed")
+
+    mime_type = None
+    if rend and rend.mime_type:
+        mime_type = rend.mime_type
+    elif cv and cv.mime_type:
+        mime_type = cv.mime_type
+
+    if not mime_type or mime_type not in MEDIA_DELIVERY_ALLOWED_MIME:
+        await _record_media_request(
+            db, device, mi.id, mv.id, pt.id, "validation_failed",
+            media_path=mi.media_path, expected_sha256=mi.sha256,
+            ip_address=client_ip, user_agent=user_agent,
+            message=f"MIME type not allowed: {mime_type}",
+            details_json={"mime_type": mime_type},
+        )
+        await _log_event(
+            db, "media_validation_failed",
+            f"MIME not allowed: {mime_type}", device.id, "error",
+        )
+        await db.commit()
+        raise HTTPException(status_code=500, detail="Media validation failed")
+
+    duration_seconds = None
+    if rend and rend.duration_seconds is not None:
+        duration_seconds = rend.duration_seconds
+    elif cv and cv.duration_seconds is not None:
+        duration_seconds = cv.duration_seconds
+    duration_ms = int(duration_seconds * 1000) if duration_seconds is not None else None
+
+    try:
+        minio_client = _get_minio_client()
+        settings = get_settings()
+        obj_info = minio_client.stat_object(settings.MINIO_BUCKET, mi.media_path)
+        size_bytes = obj_info.size
+    except S3Error:
+        size_bytes = None
+
+    if client_cached_sha256 and client_cached_sha256 == mi.sha256:
+        await _record_media_request(
+            db, device, mi.id, mv.id, pt.id, "not_modified",
+            media_path=mi.media_path, expected_sha256=mi.sha256,
+            client_cached_sha256=client_cached_sha256,
+            ip_address=client_ip, user_agent=user_agent,
+        )
+        await _log_event(
+            db, "media_not_modified",
+            f"Media not modified: {mi.id}", device.id,
+        )
+        await db.commit()
+        return {
+            "status": "not_modified",
+            "manifest_item_id": str(manifest_item_id),
+            "sha256": mi.sha256,
+        }
+
+    await _record_media_request(
+        db, device, mi.id, mv.id, pt.id, "served",
+        media_path=mi.media_path, expected_sha256=mi.sha256,
+        ip_address=client_ip, user_agent=user_agent,
+    )
+    await _log_event(
+        db, "media_served",
+        f"Media metadata served: {mi.id}", device.id,
+    )
+    await db.commit()
+
+    return {
+        "status": "ok",
+        "manifest_item_id": str(manifest_item_id),
+        "media": {
+            "sha256": mi.sha256,
+            "content_type": mime_type,
+            "size_bytes": size_bytes,
+            "duration_ms": duration_ms,
+        },
+    }
+
+
+async def get_media_download(
+    device: models.GatewayDevice,
+    manifest_item_id: UUID,
+    client_cached_sha256: str | None,
+    client_ip: str | None,
+    user_agent: str | None,
+    request: Request,
+    db: AsyncSession,
+) -> StreamingResponse | dict:
+    """Stream a media file for an authorized device."""
+    from app.domains.media.models import CreativeVersion, Rendition
+
+    result = await db.execute(
+        select(
+            ManifestItem,
+            ManifestVersion,
+            PublicationTarget,
+            PublicationBatch,
+            CreativeVersion,
+            Rendition,
+        )
+        .join(ManifestVersion, ManifestItem.manifest_version_id == ManifestVersion.id)
+        .join(PublicationTarget, ManifestVersion.publication_target_id == PublicationTarget.id)
+        .join(PublicationBatch, ManifestVersion.publication_batch_id == PublicationBatch.id)
+        .outerjoin(CreativeVersion, ManifestItem.creative_version_id == CreativeVersion.id)
+        .outerjoin(Rendition, ManifestItem.rendition_id == Rendition.id)
+        .where(ManifestItem.id == manifest_item_id)
+    )
+    row = result.one_or_none()
+    if not row:
+        await _record_media_request(
+            db, device, None, None, None, "not_found",
+            ip_address=client_ip, user_agent=user_agent,
+            message="Manifest item not found",
+        )
+        raise HTTPException(status_code=404, detail="Not found")
+
+    mi, mv, pt, pb, cv, rend = row
+
+    if pb.status != "published" or pt.status != "published" or mv.status != "published":
+        await _record_media_request(
+            db, device, manifest_item_id, mv.id, pt.id, "not_found",
+            ip_address=client_ip, user_agent=user_agent,
+            message="Manifest not published",
+        )
+        raise HTTPException(status_code=404, detail="Not found")
+
+    target_ids = await _match_publication_targets(device, db)
+    if pt.id not in target_ids:
+        await _record_media_request(
+            db, device, manifest_item_id, mv.id, pt.id, "not_found",
+            ip_address=client_ip, user_agent=user_agent,
+            message="Publication target does not match device",
+        )
+        raise HTTPException(status_code=404, detail="Not found")
+
+    key_error = _validate_object_key(mi.media_path)
+    if key_error:
+        await _record_media_request(
+            db, device, mi.id, mv.id, pt.id, "validation_failed",
+            media_path=mi.media_path, expected_sha256=mi.sha256,
+            ip_address=client_ip, user_agent=user_agent,
+            message=key_error,
+            details_json={"validation_key": key_error},
+        )
+        await _log_event(
+            db, "media_validation_failed", key_error, device.id, "error",
+        )
+        await db.commit()
+        raise HTTPException(status_code=403, detail="Media path invalid")
+
+    sha_error = _validate_sha256_hex(mi.sha256)
+    if sha_error:
+        await _record_media_request(
+            db, device, mi.id, mv.id, pt.id, "validation_failed",
+            media_path=mi.media_path, expected_sha256=mi.sha256,
+            ip_address=client_ip, user_agent=user_agent,
+            message=sha_error,
+            details_json={"validation_sha256": sha_error},
+        )
+        await _log_event(
+            db, "media_validation_failed", sha_error, device.id, "error",
+        )
+        await db.commit()
+        raise HTTPException(status_code=500, detail="Media validation failed")
+
+    mime_type = None
+    if rend and rend.mime_type:
+        mime_type = rend.mime_type
+    elif cv and cv.mime_type:
+        mime_type = cv.mime_type
+
+    if not mime_type or mime_type not in MEDIA_DELIVERY_ALLOWED_MIME:
+        await _record_media_request(
+            db, device, mi.id, mv.id, pt.id, "validation_failed",
+            media_path=mi.media_path, expected_sha256=mi.sha256,
+            ip_address=client_ip, user_agent=user_agent,
+            message=f"MIME type not allowed: {mime_type}",
+            details_json={"mime_type": mime_type},
+        )
+        await _log_event(
+            db, "media_validation_failed",
+            f"MIME not allowed: {mime_type}", device.id, "error",
+        )
+        await db.commit()
+        raise HTTPException(status_code=500, detail="Media validation failed")
+
+    if client_cached_sha256 and client_cached_sha256 == mi.sha256:
+        await _record_media_request(
+            db, device, mi.id, mv.id, pt.id, "not_modified",
+            media_path=mi.media_path, expected_sha256=mi.sha256,
+            client_cached_sha256=client_cached_sha256,
+            ip_address=client_ip, user_agent=user_agent,
+        )
+        await _log_event(
+            db, "media_not_modified",
+            f"Media not modified: {mi.id}", device.id,
+        )
+        await db.commit()
+        raise HTTPException(status_code=304)
+
+    try:
+        minio_client = _get_minio_client()
+        settings = get_settings()
+        obj_info = minio_client.stat_object(settings.MINIO_BUCKET, mi.media_path)
+        content_length = obj_info.size
+        etag = obj_info.etag
+        minio_content_type = obj_info.content_type
+    except S3Error as e:
+        await _record_media_request(
+            db, device, mi.id, mv.id, pt.id, "storage_error",
+            media_path=mi.media_path, expected_sha256=mi.sha256,
+            ip_address=client_ip, user_agent=user_agent,
+            message="MinIO object not accessible",
+            details_json={"error_category": type(e).__name__},
+        )
+        await _log_event(
+            db, "media_storage_error",
+            f"MinIO error for {mi.media_path}: {type(e).__name__}",
+            device.id, "error",
+        )
+        await db.commit()
+        raise HTTPException(status_code=404, detail="Media not available")
+
+    if minio_content_type and minio_content_type != mime_type:
+        await _record_media_request(
+            db, device, mi.id, mv.id, pt.id, "validation_failed",
+            media_path=mi.media_path, expected_sha256=mi.sha256,
+            ip_address=client_ip, user_agent=user_agent,
+            message=f"MIME mismatch: DB={mime_type} MinIO={minio_content_type}",
+            details_json={"db_mime": mime_type, "minio_mime": minio_content_type},
+        )
+        await _log_event(
+            db, "media_validation_failed",
+            f"MIME mismatch for {mi.id}: DB={mime_type} MinIO={minio_content_type}",
+            device.id, "error",
+        )
+        await db.commit()
+        raise HTTPException(status_code=500, detail="Media validation failed")
+
+    try:
+        response = minio_client.get_object(settings.MINIO_BUCKET, mi.media_path)
+    except S3Error as e:
+        await _record_media_request(
+            db, device, mi.id, mv.id, pt.id, "storage_error",
+            media_path=mi.media_path, expected_sha256=mi.sha256,
+            ip_address=client_ip, user_agent=user_agent,
+            message="MinIO get_object failed",
+            details_json={"error_category": type(e).__name__},
+        )
+        await _log_event(
+            db, "media_storage_error",
+            f"MinIO get_object failed for {mi.media_path}: {type(e).__name__}",
+            device.id, "error",
+        )
+        await db.commit()
+        raise HTTPException(status_code=404, detail="Media not available")
+
+    await _record_media_request(
+        db, device, mi.id, mv.id, pt.id, "served",
+        media_path=mi.media_path, expected_sha256=mi.sha256,
+        response_size_bytes=content_length,
+        ip_address=client_ip, user_agent=user_agent,
+    )
+    await _log_event(
+        db, "media_served",
+        f"Media download started: {mi.id}", device.id,
+    )
+    await db.commit()
+
+    def _close_response():
+        try:
+            response.close()
+            response.release_conn()
+        except Exception:
+            pass
+
+    return StreamingResponse(
+        response.stream(amt=64 * 1024),
+        status_code=200,
+        media_type=mime_type,
+        headers={
+            "Content-Length": str(content_length),
+            "X-Content-SHA256": mi.sha256,
+            "ETag": etag or "",
+            "Cache-Control": "private, max-age=86400",
+        },
+        background=BackgroundTask(_close_response),
+    )
+
+
+async def get_media_requests(
+    db: AsyncSession,
+    device_id: UUID,
+    *,
+    request_status: str | None = None,
+    manifest_item_id: UUID | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> list[models.DeviceMediaRequest]:
+    """Get media requests for a device (admin)."""
+    conditions = [models.DeviceMediaRequest.gateway_device_id == device_id]
+    if request_status:
+        conditions.append(models.DeviceMediaRequest.request_status == request_status)
+    if manifest_item_id:
+        conditions.append(models.DeviceMediaRequest.manifest_item_id == manifest_item_id)
+
+    result = await db.execute(
+        select(models.DeviceMediaRequest)
+        .where(*conditions)
+        .order_by(models.DeviceMediaRequest.created_at.desc())
+        .offset(offset)
         .limit(min(limit, 500))
     )
     return list(result.scalars().all())

@@ -1,7 +1,7 @@
 """Device Gateway Foundation: Pydantic schemas."""
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -176,6 +176,52 @@ class DeviceManifestRequestResponse(BaseModel):
     request_status: str
     response_hash: Optional[str] = None
     client_manifest_hash: Optional[str] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    message: Optional[str] = None
+    details_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Media Delivery
+# ═══════════════════════════════════════════════════════════════════
+
+class MediaMetadata(BaseModel):
+    """Safe media metadata returned to device."""
+    sha256: str
+    content_type: str
+    size_bytes: Optional[int] = None
+    duration_ms: Optional[int] = None
+
+
+class DeviceMediaMetadataResponse(BaseModel):
+    """Response for GET /media/{manifest_item_id}/metadata."""
+    status: Literal["ok", "not_modified"]
+    manifest_item_id: UUID
+    sha256: Optional[str] = None
+    media: Optional[MediaMetadata] = None
+
+
+class DeviceMediaNotModifiedResponse(BaseModel):
+    """Response when client cache is current."""
+    status: Literal["not_modified"]
+
+
+class DeviceMediaRequestResponse(BaseModel):
+    """Admin view of a media request."""
+    id: UUID
+    gateway_device_id: UUID
+    manifest_item_id: Optional[UUID] = None
+    manifest_version_id: Optional[UUID] = None
+    publication_target_id: Optional[UUID] = None
+    request_status: str
+    media_path: Optional[str] = None
+    expected_sha256: Optional[str] = None
+    client_cached_sha256: Optional[str] = None
+    response_size_bytes: Optional[int] = None
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
     message: Optional[str] = None

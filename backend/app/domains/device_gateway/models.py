@@ -1,6 +1,7 @@
 """Device Gateway Foundation: SQLAlchemy ORM models."""
 
 from sqlalchemy import (
+    BigInteger,
     Column,
     DateTime,
     ForeignKey,
@@ -83,6 +84,10 @@ class GatewayDevice(Base):
     manifest_requests = relationship(
         "DeviceManifestRequest", back_populates="device", lazy="selectin",
         order_by="DeviceManifestRequest.created_at",
+    )
+    media_requests = relationship(
+        "DeviceMediaRequest", back_populates="device", lazy="selectin",
+        order_by="DeviceMediaRequest.created_at",
     )
 
 
@@ -260,3 +265,50 @@ class DeviceManifestRequest(Base):
     )
 
     device = relationship("GatewayDevice", back_populates="manifest_requests")
+
+
+class DeviceMediaRequest(Base):
+    """Audit log for media download attempts by gateway devices."""
+
+    __tablename__ = "device_media_requests"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    gateway_device_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("gateway_devices.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_item_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("manifest_items.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    manifest_version_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("manifest_versions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    publication_target_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("publication_targets.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    request_status = Column(String(30), nullable=False)
+    media_path = Column(String(1000), nullable=True)
+    expected_sha256 = Column(String(64), nullable=True)
+    client_cached_sha256 = Column(String(64), nullable=True)
+    response_size_bytes = Column(BigInteger, nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    message = Column(Text, nullable=True)
+    details_json = Column(
+        JSONB, nullable=False, server_default=func.text("'{}'::jsonb"),
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+
+    device = relationship("GatewayDevice", back_populates="media_requests")
