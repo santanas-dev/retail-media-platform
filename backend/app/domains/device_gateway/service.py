@@ -1839,10 +1839,6 @@ async def ingest_pop_event(
     return result
 
 
-BATCH_VALID_STATUSES = frozenset({
-    "processed", "partially_processed", "rejected",
-})
-
 
 async def ingest_pop_batch(
     db: AsyncSession,

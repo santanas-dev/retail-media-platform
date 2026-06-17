@@ -4,10 +4,11 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi import status as http_status
 from fastapi.responses import JSONResponse, StreamingResponse as _StreamingResponse
 
+from app.core.config import get_settings
 from app.core.deps import get_current_user, get_db, require_permission
 from app.domains.device_gateway import schemas, service
 from app.domains.device_gateway.auth import authenticate_device
@@ -288,11 +289,9 @@ async def submit_pop_batch(
     user_agent = request.headers.get("user-agent")
 
     # Size check
-    from app.core.config import get_settings
     max_bytes = get_settings().POP_BATCH_MAX_BYTES
     body = await request.body()
     if len(body) > max_bytes:
-        from fastapi import HTTPException
         raise HTTPException(status_code=413, detail="Request body too large")
 
     # Parse
@@ -302,7 +301,6 @@ async def submit_pop_batch(
         raw = _json.loads(body)
         data = schemas.PoPBatchRequest(**raw)
     except (_json.JSONDecodeError, ValidationError) as e:
-        from fastapi import HTTPException
         detail = "Invalid JSON" if isinstance(e, _json.JSONDecodeError) else str(e)
         raise HTTPException(status_code=400 if isinstance(e, _json.JSONDecodeError) else 422, detail=detail)
 
