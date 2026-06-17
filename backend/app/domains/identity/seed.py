@@ -101,6 +101,7 @@ ROLE_PERMISSIONS = {
         "organization.read", "channels.read",
         "advertisers.read", "brands.read", "contracts.read", "orders.read",
         "media.read",
+        "campaigns.read",
         "audit.read",
     ],
     "ad_manager": [
@@ -139,6 +140,7 @@ ROLE_PERMISSIONS = {
         "organization.read",
         "advertisers.read",
         "media.read",
+        "campaigns.read",
     ],
     "device_service": [
         # No interactive permissions — service account only

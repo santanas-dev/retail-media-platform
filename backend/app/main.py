@@ -16,6 +16,7 @@ from app.domains.organization.router import router as organization_router
 from app.domains.channels.router import router as channels_router
 from app.domains.advertisers.router import router as advertisers_router
 from app.domains.media.router import router as media_router
+from app.domains.campaigns.router import router as campaigns_router
 
 
 @asynccontextmanager
@@ -47,6 +48,7 @@ app.include_router(organization_router)
 app.include_router(channels_router)
 app.include_router(advertisers_router)
 app.include_router(media_router)
+app.include_router(campaigns_router)
 
 
 @app.get("/health")
