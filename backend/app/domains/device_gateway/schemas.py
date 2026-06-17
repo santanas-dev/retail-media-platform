@@ -81,6 +81,15 @@ class DeviceCredentialCreatedResponse(BaseModel):
 class DeviceHeartbeatRequest(BaseModel):
     status: str = "ok"  # ok / warning / error
     message: Optional[str] = None
+    device_time: Optional[datetime] = None
+    app_version: Optional[str] = Field(None, max_length=128)
+    os_version: Optional[str] = Field(None, max_length=128)
+    storage_free_mb: Optional[int] = Field(None, ge=0)
+    cache_items_count: Optional[int] = Field(None, ge=0)
+    current_manifest_hash: Optional[str] = Field(
+        None, min_length=64, max_length=64,
+        pattern=r"^[0-9a-fA-F]{64}$",
+    )
     details_json: dict[str, Any] = Field(default_factory=dict)
 
 
