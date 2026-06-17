@@ -20,6 +20,7 @@ from app.domains.campaigns.router import router as campaigns_router
 from app.domains.inventory.router import router as inventory_router
 from app.domains.scheduling.router import router as scheduling_router
 from app.domains.publications.router import router as publications_router
+from app.domains.device_gateway.router import admin_router as device_gateway_admin_router, device_router as device_gateway_device_router
 
 
 @asynccontextmanager
@@ -55,6 +56,8 @@ app.include_router(campaigns_router)
 app.include_router(inventory_router)
 app.include_router(scheduling_router)
 app.include_router(publications_router)
+app.include_router(device_gateway_admin_router)
+app.include_router(device_gateway_device_router)
 
 
 @app.get("/health")

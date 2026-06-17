@@ -101,6 +101,33 @@ class Settings(BaseSettings):
     # Publications
     MAX_MANIFEST_JSON_BYTES: int = 10 * 1024 * 1024  # 10 MB
 
+    # Device Gateway
+    DEVICE_JWT_SECRET: str = ""
+    DEVICE_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    DEVICE_HEARTBEAT_TIMEOUT_MINUTES: int = 15
+    DEVICE_HEARTBEAT_DETAILS_MAX_BYTES: int = 65536
+
+    @model_validator(mode="after")
+    def _validate_device_jwt_secret(self) -> "Settings":
+        """In non-dev environments, DEVICE_JWT_SECRET must be explicitly set."""
+        if self.APP_ENV == "development":
+            return self
+        if not self.DEVICE_JWT_SECRET:
+            raise ValueError(
+                "DEVICE_JWT_SECRET must be set in non-development environments"
+            )
+        if self.DEVICE_JWT_SECRET == "change-me-in-production":
+            raise ValueError(
+                "DEVICE_JWT_SECRET must be set to a random value, "
+                "not the default 'change-me-in-production'"
+            )
+        return self
+
+    @property
+    def effective_device_jwt_secret(self) -> str:
+        """DEVICE_JWT_SECRET with fallback to SECRET_KEY in development only."""
+        return self.DEVICE_JWT_SECRET or self.SECRET_KEY
+
     # Identity — initial admin user (created by seed script)
     INITIAL_ADMIN_USERNAME: str = "admin"
     INITIAL_ADMIN_PASSWORD: str = ""

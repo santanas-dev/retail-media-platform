@@ -71,6 +71,9 @@ PERMISSIONS = [
     ("publications.manage", "Manage publications", "publications", "manage", "Create and manage publication batches"),
     ("publications.approve", "Approve publications", "publications", "approve", "Approve publication batches"),
     ("publications.publish", "Publish", "publications", "publish", "Publish approved manifests"),
+    ("devices.gateway.read", "View gateway devices", "devices.gateway", "read", "View gateway devices and heartbeats"),
+    ("devices.gateway.manage", "Manage gateway devices", "devices.gateway", "manage", "Register and manage gateway devices"),
+    ("devices.gateway.credentials", "Manage device credentials", "devices.gateway", "credentials", "Issue and revoke device credentials"),
 ]
 
 # ── Roles ────────────────────────────────────────────────────────────────
@@ -106,6 +109,7 @@ ROLE_PERMISSIONS = {
         "bookings.read", "bookings.manage", "bookings.approve",
         "scheduling.read", "scheduling.manage", "scheduling.approve",
         "publications.read", "publications.manage", "publications.approve", "publications.publish",
+        "devices.gateway.read", "devices.gateway.manage", "devices.gateway.credentials",
         "reports.read", "reports.export",
         "audit.read",
         "emergency.manage",
@@ -122,6 +126,7 @@ ROLE_PERMISSIONS = {
         "bookings.read",
         "scheduling.read",
         "publications.read", "publications.approve",
+        "devices.gateway.read", "devices.gateway.manage", "devices.gateway.credentials",
         "audit.read",
     ],
     "ad_manager": [
@@ -137,6 +142,7 @@ ROLE_PERMISSIONS = {
         "bookings.read", "bookings.manage",
         "scheduling.read", "scheduling.manage",
         "publications.read", "publications.manage",
+        "devices.gateway.read",
         "reports.read",
     ],
     "approver": [
@@ -149,6 +155,7 @@ ROLE_PERMISSIONS = {
         "bookings.read", "bookings.approve",
         "scheduling.read", "scheduling.approve",
         "publications.read", "publications.approve",
+        "devices.gateway.read",
         "reports.read",
     ],
     "analyst": [
@@ -161,6 +168,7 @@ ROLE_PERMISSIONS = {
         "bookings.read",
         "scheduling.read",
         "publications.read",
+        "devices.gateway.read",
         "reports.read", "reports.export",
     ],
     "advertiser": [
@@ -177,6 +185,7 @@ ROLE_PERMISSIONS = {
         "bookings.read",
         "scheduling.read",
         "publications.read", "publications.publish",
+        "devices.gateway.read", "devices.gateway.manage", "devices.gateway.credentials",
     ],
     "device_service": [
         # No interactive permissions — service account only
