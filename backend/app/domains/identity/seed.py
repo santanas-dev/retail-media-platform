@@ -64,6 +64,9 @@ PERMISSIONS = [
     ("bookings.read", "View bookings", "bookings", "read", "View campaign bookings"),
     ("bookings.manage", "Manage bookings", "bookings", "manage", "Create/edit campaign bookings"),
     ("bookings.approve", "Approve bookings", "bookings", "approve", "Confirm campaign bookings"),
+    ("scheduling.read", "View schedules", "scheduling", "read", "View schedule runs and items"),
+    ("scheduling.manage", "Manage schedules", "scheduling", "manage", "Create and manage schedule runs"),
+    ("scheduling.approve", "Approve schedules", "scheduling", "approve", "Approve schedule runs"),
 ]
 
 # ── Roles ────────────────────────────────────────────────────────────────
@@ -97,6 +100,7 @@ ROLE_PERMISSIONS = {
         "media.read", "media.manage", "media.approve",
         "inventory.read", "inventory.manage",
         "bookings.read", "bookings.manage", "bookings.approve",
+        "scheduling.read", "scheduling.manage", "scheduling.approve",
         "reports.read", "reports.export",
         "audit.read",
         "emergency.manage",
@@ -111,6 +115,7 @@ ROLE_PERMISSIONS = {
         "campaigns.read",
         "inventory.read",
         "bookings.read",
+        "scheduling.read",
         "audit.read",
     ],
     "ad_manager": [
@@ -124,6 +129,7 @@ ROLE_PERMISSIONS = {
         "media.read", "media.manage",
         "inventory.read",
         "bookings.read", "bookings.manage",
+        "scheduling.read", "scheduling.manage",
         "reports.read",
     ],
     "approver": [
@@ -134,6 +140,7 @@ ROLE_PERMISSIONS = {
         "media.read", "media.approve",
         "inventory.read",
         "bookings.read", "bookings.approve",
+        "scheduling.read", "scheduling.approve",
         "reports.read",
     ],
     "analyst": [
@@ -144,6 +151,7 @@ ROLE_PERMISSIONS = {
         "media.read",
         "inventory.read",
         "bookings.read",
+        "scheduling.read",
         "reports.read", "reports.export",
     ],
     "advertiser": [
@@ -158,6 +166,7 @@ ROLE_PERMISSIONS = {
         "campaigns.read",
         "inventory.read", "inventory.manage",
         "bookings.read",
+        "scheduling.read",
     ],
     "device_service": [
         # No interactive permissions — service account only

@@ -95,6 +95,9 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Scheduling
+    MAX_SCHEDULE_ITEMS_PER_RUN: int = 100_000
+
     # Identity — initial admin user (created by seed script)
     INITIAL_ADMIN_USERNAME: str = "admin"
     INITIAL_ADMIN_PASSWORD: str = ""

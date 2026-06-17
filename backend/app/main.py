@@ -18,6 +18,7 @@ from app.domains.advertisers.router import router as advertisers_router
 from app.domains.media.router import router as media_router
 from app.domains.campaigns.router import router as campaigns_router
 from app.domains.inventory.router import router as inventory_router
+from app.domains.scheduling.router import router as scheduling_router
 
 
 @asynccontextmanager
@@ -51,6 +52,7 @@ app.include_router(advertisers_router)
 app.include_router(media_router)
 app.include_router(campaigns_router)
 app.include_router(inventory_router)
+app.include_router(scheduling_router)
 
 
 @app.get("/health")
