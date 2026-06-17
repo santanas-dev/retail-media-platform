@@ -119,6 +119,16 @@ class Settings(BaseSettings):
     POP_BATCH_MAX_EVENTS: int = 500
     POP_BATCH_MAX_BYTES: int = 2_097_152  # 2 MB
 
+    # Device Operations → Health thresholds
+    DEVICE_HEALTH_OFFLINE_MINUTES: int = 30
+    DEVICE_HEALTH_MANIFEST_GRACE_MINUTES: int = 60
+    DEVICE_HEALTH_MEDIA_GRACE_MINUTES: int = 120
+    DEVICE_HEALTH_POP_GRACE_MINUTES: int = 180
+    DEVICE_HEALTH_ERROR_RATE_WARNING: float = 0.20
+    DEVICE_HEALTH_ERROR_RATE_CRITICAL: float = 0.50
+    DEVICE_HEALTH_MAX_PERIOD_DAYS: int = 30
+    DEVICE_HEALTH_DEFAULT_PERIOD_HOURS: int = 24
+
     @model_validator(mode="after")
     def _validate_device_jwt_secret(self) -> "Settings":
         """In non-dev environments, DEVICE_JWT_SECRET must be explicitly set."""
