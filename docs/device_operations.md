@@ -535,3 +535,80 @@ global → channel → store → device
 - ❌ Push-команды, remote command execution
 - ❌ КСО-интеграция, POS-интеграция
 - ❌ Новые permissions (используются `devices.gateway.read` / `devices.gateway.manage`)
+
+---
+
+## Шаг 20 — Device Content Sync State Core
+
+**Создан:** 2026-06-17  
+**Статус:** ✅ Реализован  
+**Миграция:** `020_device_content_sync_state.py`
+
+### Сводка
+
+Backend-слой синхронизации состояния контента на устройствах. Устройство сообщает, какой manifest применён и состояние локального media-кэша. Backend хранит текущее состояние и историю отчётов. Admin API показывает состояние синхронизации.
+
+**НЕ является:** плеером, КСО-интеграцией, Android-приложением, frontend, remote commands, push, scheduler.
+
+**НЕ менялись:** health/alerts (Шаг 16–17), PoP, runtime config (Шаг 18–19).
+
+### Таблицы
+
+| Таблица | Назначение |
+|---------|-----------|
+| `device_manifest_apply_events` | Append-only audit manifest apply |
+| `device_current_manifest_states` | Текущее состояние manifest по устройству |
+| `device_media_cache_reports` | Audit batch reports media cache |
+| `device_media_cache_items` | Текущее состояние media item на устройстве |
+
+Все FK — `ON DELETE RESTRICT`. Без CASCADE.
+
+### Device Endpoints
+
+| Метод | Путь | Токен | Описание |
+|-------|------|-------|----------|
+| `POST` | `/api/device-gateway/manifest/{manifest_version_id}/apply` | Device only | Сообщить о применении manifest |
+| `POST` | `/api/device-gateway/media/cache/report` | Device only | Сообщить состояние media-кэша |
+
+### Admin Endpoints
+
+Все под `/api/device-operations/content-sync/`, permission `devices.gateway.read`:
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/devices` | Список устройств с sync-состоянием |
+| `GET` | `/devices/{gateway_device_id}` | Детализация sync-состояния устройства |
+| `GET` | `/manifest-events` | История manifest apply |
+| `GET` | `/cache-reports` | История cache report |
+| `GET` | `/cache-items` | Состояние media items |
+
+### Правила проверки связей
+
+**Свой/чужой manifest:**
+- `gateway_device_id` → `PublicationTarget` через `channel_id` + `store_id`
+- `PublicationTarget` → `ManifestVersion` через `publication_target_id`
+- Manifest не принадлежит устройству → 404
+
+**Manifest items:**
+- `manifest_item_id` должен принадлежать `manifest_version_id`
+- Чужой item → 404
+
+### SHA256 Mismatch Behaviour
+
+- Не отклоняет весь batch
+- Item сохраняется как `invalid_hash`
+- `report.invalid_hash_count` увеличивается
+- Нужно для диагностики повреждённого кэша
+- Но: если `manifest_hash` неверный или manifest чужой — отклонить весь report
+
+### Security
+
+- **No local paths:** запрещены `local_path`, `file_path`, `filesystem_path`, `path` в `details_json`
+- **Recursive forbidden keys:** `access_token`, `refresh_token`, `token`, `jwt`, `password`, `secret`, `credential`, `credentials`, `authorization`, `cookie`, `api_key`, `private_key`, `public_key`, `minio`, `presigned`, `presigned_url`, `stacktrace`
+- **No secrets** в ответах
+- **No raw exception/stacktrace**
+- **Token isolation:** device token ↔ device endpoints, human token ↔ admin endpoints
+- Device token на admin endpoint → 401
+- Human token на device endpoint → 401
+- Advertiser/device_service → 403 на admin endpoints
+- `expected_sha256` всегда берётся из backend, device не может его переопределить
