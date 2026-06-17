@@ -89,6 +89,10 @@ class GatewayDevice(Base):
         "DeviceMediaRequest", back_populates="device", lazy="selectin",
         order_by="DeviceMediaRequest.created_at",
     )
+    pop_events = relationship(
+        "ProofOfPlayEvent", back_populates="device", lazy="selectin",
+        order_by="ProofOfPlayEvent.created_at",
+    )
 
 
 class DeviceCredential(Base):
@@ -312,3 +316,83 @@ class DeviceMediaRequest(Base):
     )
 
     device = relationship("GatewayDevice", back_populates="media_requests")
+
+
+class ProofOfPlayEvent(Base):
+    """Proof-of-play event submitted by a gateway device."""
+
+    __tablename__ = "proof_of_play_events"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    gateway_device_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("gateway_devices.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    device_event_id = Column(
+        UUID(as_uuid=True), nullable=False,
+    )
+    manifest_item_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("manifest_items.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    manifest_version_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("manifest_versions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    publication_target_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("publication_targets.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    schedule_item_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("schedule_items.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    campaign_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("campaigns.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    campaign_rendition_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("campaign_renditions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    rendition_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("renditions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    creative_version_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("creative_versions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    played_at = Column(DateTime(timezone=True), nullable=True)
+    received_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )
+    duration_ms = Column(Integer, nullable=True)
+    play_status = Column(String(20), nullable=True)
+    validation_status = Column(String(20), nullable=False, default="accepted")
+    media_sha256 = Column(String(64), nullable=True)
+    expected_sha256 = Column(String(64), nullable=True)
+    player_version = Column(String(64), nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    details_json = Column(
+        JSONB, nullable=False, server_default=func.text("'{}'::jsonb"),
+    )
+    rejection_reason = Column(String(100), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+
+    device = relationship("GatewayDevice", back_populates="pop_events")

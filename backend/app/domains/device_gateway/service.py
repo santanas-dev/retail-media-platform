@@ -1509,3 +1509,353 @@ async def get_media_requests(
         .limit(min(limit, 500))
     )
     return list(result.scalars().all())
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Step 13 — PoP Ingest Core
+# ═══════════════════════════════════════════════════════════════════
+
+POP_VALID_PLAY_STATUSES = frozenset({
+    "started", "completed", "interrupted", "skipped", "failed",
+})
+
+
+async def _build_target_ids_for_device(
+    db: AsyncSession, device: models.GatewayDevice,
+) -> set[UUID]:
+    """Build the set of publication_target IDs that match this device."""
+    target_ids: set[UUID] = set()
+
+    # Priority 1: display_surface_id
+    if device.display_surface_id:
+        result = await db.execute(
+            select(PublicationTarget.id).where(
+                PublicationTarget.display_surface_id == device.display_surface_id,
+                PublicationTarget.channel_id == device.channel_id,
+                PublicationTarget.store_id == device.store_id,
+            )
+        )
+        target_ids.update(row[0] for row in result.all())
+
+    # Priority 2: logical_carrier_id
+    if device.logical_carrier_id:
+        result = await db.execute(
+            select(PublicationTarget.id).where(
+                PublicationTarget.logical_carrier_id == device.logical_carrier_id,
+                PublicationTarget.channel_id == device.channel_id,
+                PublicationTarget.store_id == device.store_id,
+            )
+        )
+        target_ids.update(row[0] for row in result.all())
+
+    # Priority 3: physical_device → logical_carriers → targets
+    if device.physical_device_id:
+        from app.domains.channels.models import DisplaySurface, LogicalCarrier
+        lc_result = await db.execute(
+            select(LogicalCarrier.id).where(
+                LogicalCarrier.physical_device_id == device.physical_device_id,
+            )
+        )
+        lc_ids = [row[0] for row in lc_result.all()]
+        if lc_ids:
+            ds_result = await db.execute(
+                select(DisplaySurface.id).where(
+                    DisplaySurface.logical_carrier_id.in_(lc_ids),
+                )
+            )
+            ds_ids = [row[0] for row in ds_result.all()]
+            conditions = [
+                PublicationTarget.channel_id == device.channel_id,
+                PublicationTarget.store_id == device.store_id,
+            ]
+            from sqlalchemy import or_
+            or_conds = []
+            if lc_ids:
+                or_conds.append(PublicationTarget.logical_carrier_id.in_(lc_ids))
+            if ds_ids:
+                or_conds.append(PublicationTarget.display_surface_id.in_(ds_ids))
+            if or_conds:
+                conditions.append(or_(*or_conds))
+                result = await db.execute(
+                    select(PublicationTarget.id).where(*conditions)
+                )
+                target_ids.update(row[0] for row in result.all())
+
+    return target_ids
+
+
+async def _validate_pop_event(
+    db: AsyncSession,
+    device: models.GatewayDevice,
+    data: schemas.PoPEventRequest,
+    now: datetime,
+):
+    """
+    Validate a PoP event payload against business rules.
+
+    Returns (rejection_reason, manifest_item, manifest_version, publication_target).
+    If rejection_reason is None, the event is valid and the other three are filled.
+    """
+    settings = get_settings()
+
+    # 0. Check device status
+    if device.status not in ("active", "pending", "lost"):
+        return "device_disabled", None, None, None
+
+    # 1. Find manifest_item
+    mi = await db.get(ManifestItem, data.manifest_item_id)
+    if not mi:
+        return "manifest_item_not_found", None, None, None
+
+    # 2. Validate manifest version
+    mv = await db.get(ManifestVersion, mi.manifest_version_id)
+    if not mv:
+        return "manifest_not_found", None, None, None
+    if mv.status != "published":
+        return "manifest_not_published", mi, mv, None
+
+    pt = await db.get(PublicationTarget, mv.publication_target_id)
+    if not pt:
+        return "publication_target_not_found", mi, mv, None
+    if pt.status != "published":
+        return "publication_target_not_published", mi, mv, pt
+
+    pb = await db.get(PublicationBatch, pt.publication_batch_id)
+    if not pb or pb.status != "published":
+        return "publication_batch_not_published", mi, mv, pt
+
+    # 3. Match device to target
+    target_ids = await _build_target_ids_for_device(db, device)
+    if pt.id not in target_ids:
+        return "manifest_item_not_allowed", mi, mv, pt
+
+    # 4. media_sha256
+    if not data.media_sha256:
+        return "media_sha256_missing", mi, mv, pt
+    if not re.match(r"^[a-f0-9]{64}$", data.media_sha256):
+        return "media_sha256_invalid_format", mi, mv, pt
+    if mi.sha256 and data.media_sha256 != mi.sha256:
+        return "media_sha256_mismatch", mi, mv, pt
+
+    # 5. schedule_item_id cross-check
+    if data.schedule_item_id:
+        if mi.schedule_item_id and data.schedule_item_id != mi.schedule_item_id:
+            return "schedule_item_mismatch", mi, mv, pt
+
+    # 6. played_at
+    if not data.played_at:
+        return "played_at_missing", mi, mv, pt
+    if data.played_at > now + timedelta(seconds=settings.POP_MAX_CLOCK_SKEW_SECONDS):
+        return "played_at_too_future", mi, mv, pt
+    age_limit = now - timedelta(days=settings.POP_MAX_EVENT_AGE_DAYS)
+    if data.played_at < age_limit:
+        return "played_at_too_old", mi, mv, pt
+
+    # 7. duration_ms
+    if data.duration_ms is None:
+        return "duration_ms_missing", mi, mv, pt
+    if data.duration_ms < 0:
+        return "duration_ms_negative", mi, mv, pt
+    if data.duration_ms > settings.POP_MAX_DURATION_MS:
+        return "duration_ms_too_large", mi, mv, pt
+
+    # 8. play_status
+    if not data.play_status:
+        return "play_status_missing", mi, mv, pt
+    if data.play_status not in POP_VALID_PLAY_STATUSES:
+        return "invalid_play_status", mi, mv, pt
+
+    # 9. details_json
+    details = data.details_json or {}
+    forbidden_hits = _validate_no_forbidden_keys(details)
+    if forbidden_hits:
+        return "forbidden_keys_in_details", mi, mv, pt
+    details_str = json.dumps(details, default=str)
+    if len(details_str) > settings.POP_DETAILS_MAX_BYTES:
+        return "details_too_large", mi, mv, pt
+
+    # 10. player_version
+    if data.player_version and len(data.player_version) > 64:
+        return "player_version_too_long", mi, mv, pt
+
+    return None, mi, mv, pt
+
+
+async def ingest_pop_event(
+    db: AsyncSession,
+    device: models.GatewayDevice,
+    data: schemas.PoPEventRequest,
+    client_ip: str | None = None,
+    user_agent: str | None = None,
+) -> schemas.PoPEventResponse:
+    """Process a single PoP event from an authorized device."""
+    now = _now()
+    settings = get_settings()
+
+    # Dedup check
+    existing_result = await db.execute(
+        select(models.ProofOfPlayEvent).where(
+            models.ProofOfPlayEvent.gateway_device_id == device.id,
+            models.ProofOfPlayEvent.device_event_id == data.device_event_id,
+        )
+    )
+    existing = existing_result.scalar_one_or_none()
+    if existing:
+        await _log_event(
+            db, "pop_event_duplicate",
+            f"Duplicate PoP: {data.device_event_id}", device.id,
+            details_json={"device_event_id": str(data.device_event_id)},
+        )
+        await db.commit()
+        return schemas.PoPEventResponse(
+            status="duplicate",
+            proof_event_id=existing.id,
+            reason="device_event_id_already_exists",
+        )
+
+    # Validate
+    rejection_reason, mi, mv, pt = await _validate_pop_event(
+        db, device, data, now,
+    )
+
+    is_valid_play = data.play_status in POP_VALID_PLAY_STATUSES
+    is_valid_sha256 = bool(
+        data.media_sha256
+        and re.match(r"^[a-f0-9]{64}$", data.media_sha256)
+    )
+    is_valid_duration = (
+        data.duration_ms is None
+        or (isinstance(data.duration_ms, int) and data.duration_ms >= 0)
+    )
+
+    if rejection_reason:
+        pop_entry = models.ProofOfPlayEvent(
+            gateway_device_id=device.id,
+            device_event_id=data.device_event_id,
+            manifest_item_id=mi.id if mi else None,
+            manifest_version_id=mv.id if mv else None,
+            publication_target_id=pt.id if pt else None,
+            schedule_item_id=(
+                mi.schedule_item_id if mi and mi.schedule_item_id
+                else data.schedule_item_id
+            ),
+            campaign_id=mi.campaign_id if mi else None,
+            campaign_rendition_id=mi.campaign_rendition_id if mi else None,
+            rendition_id=mi.rendition_id if mi else None,
+            creative_version_id=mi.creative_version_id if mi else None,
+            played_at=data.played_at,
+            duration_ms=data.duration_ms if is_valid_duration else None,
+            play_status=data.play_status if is_valid_play else None,
+            validation_status="rejected",
+            media_sha256=data.media_sha256 if is_valid_sha256 else None,
+            expected_sha256=mi.sha256 if mi else None,
+            player_version=(data.player_version[:64] if data.player_version else None),
+            ip_address=client_ip[:45] if client_ip else None,
+            user_agent=user_agent[:500] if user_agent else None,
+            details_json=_clean_details(data.details_json or {}),
+            rejection_reason=rejection_reason[:100],
+        )
+        db.add(pop_entry)
+        await db.flush()
+        await db.refresh(pop_entry)
+
+        await _log_event(
+            db, "pop_event_rejected",
+            f"PoP rejected: {rejection_reason}", device.id,
+            details_json={"rejection_reason": rejection_reason},
+        )
+        await db.commit()
+        return schemas.PoPEventResponse(
+            status="rejected",
+            proof_event_id=pop_entry.id,
+            reason=rejection_reason,
+        )
+
+    # Accepted
+    pop_entry = models.ProofOfPlayEvent(
+        gateway_device_id=device.id,
+        device_event_id=data.device_event_id,
+        manifest_item_id=mi.id,
+        manifest_version_id=mv.id,
+        publication_target_id=pt.id,
+        schedule_item_id=mi.schedule_item_id or data.schedule_item_id,
+        campaign_id=mi.campaign_id,
+        campaign_rendition_id=mi.campaign_rendition_id,
+        rendition_id=mi.rendition_id,
+        creative_version_id=mi.creative_version_id,
+        played_at=data.played_at,
+        duration_ms=data.duration_ms,
+        play_status=data.play_status,
+        validation_status="accepted",
+        media_sha256=data.media_sha256,
+        expected_sha256=mi.sha256,
+        player_version=(data.player_version[:64] if data.player_version else None),
+        ip_address=client_ip[:45] if client_ip else None,
+        user_agent=user_agent[:500] if user_agent else None,
+        details_json=_clean_details(data.details_json or {}),
+    )
+    db.add(pop_entry)
+    await db.flush()
+    await db.refresh(pop_entry)
+
+    await _log_event(
+        db, "pop_event_accepted",
+        f"PoP accepted: {data.device_event_id}", device.id,
+    )
+    await db.commit()
+    return schemas.PoPEventResponse(
+        status="accepted",
+        proof_event_id=pop_entry.id,
+    )
+
+
+def _clean_details(details: dict) -> dict:
+    """Remove forbidden keys from details_json."""
+    cleaned = {}
+    for k, v in details.items():
+        if k.lower() in FORBIDDEN_KEYS:
+            continue
+        if isinstance(v, str) and len(v) > 1024:
+            cleaned[k] = v[:1020] + "..."
+        else:
+            cleaned[k] = v
+    return cleaned
+
+
+async def get_pop_events(
+    db: AsyncSession,
+    device_id: UUID,
+    *,
+    validation_status: str | None = None,
+    play_status: str | None = None,
+    manifest_item_id: UUID | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[models.ProofOfPlayEvent]:
+    """Get PoP events for a device (admin)."""
+    conditions = [models.ProofOfPlayEvent.gateway_device_id == device_id]
+    if validation_status:
+        conditions.append(
+            models.ProofOfPlayEvent.validation_status == validation_status
+        )
+    if play_status:
+        conditions.append(models.ProofOfPlayEvent.play_status == play_status)
+    if manifest_item_id:
+        conditions.append(
+            models.ProofOfPlayEvent.manifest_item_id == manifest_item_id
+        )
+    if date_from:
+        conditions.append(models.ProofOfPlayEvent.played_at >= date_from)
+    if date_to:
+        conditions.append(models.ProofOfPlayEvent.played_at <= date_to)
+
+    result = await db.execute(
+        select(models.ProofOfPlayEvent)
+        .where(*conditions)
+        .order_by(models.ProofOfPlayEvent.created_at.desc())
+        .offset(offset)
+        .limit(min(limit, 500))
+    )
+    return list(result.scalars().all())

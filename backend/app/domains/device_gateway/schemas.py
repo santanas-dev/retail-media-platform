@@ -7,8 +7,6 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
-# ── Admin schemas ─────────────────────────────────────────────────
-
 class GatewayDeviceCreate(BaseModel):
     device_code: str = Field(pattern=r"^[a-z0-9_-]+$", min_length=1, max_length=64)
     device_name: Optional[str] = None
@@ -74,9 +72,16 @@ class DeviceCredentialCreatedResponse(BaseModel):
     status: str
     device_secret: str  # plaintext — shown ONCE
     issued_at: datetime
+    expires_at: Optional[datetime] = None
     fingerprint: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class DeviceHeartbeatRequest(BaseModel):
+    status: str = "ok"  # ok / warning / error
+    message: Optional[str] = None
+    details_json: dict[str, Any] = Field(default_factory=dict)
 
 
 class DeviceHeartbeatResponse(BaseModel):
@@ -109,8 +114,6 @@ class DeviceEventResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Device API schemas ────────────────────────────────────────────
-
 class DeviceAuthRequest(BaseModel):
     device_code: str
     device_secret: str
@@ -136,46 +139,14 @@ class DeviceMeResponse(BaseModel):
     session_id: UUID
 
 
-class DeviceHeartbeatRequest(BaseModel):
-    status: Optional[str] = "ok"
-    device_time: Optional[datetime] = None
-    app_version: Optional[str] = None
-    os_version: Optional[str] = None
-    storage_free_mb: Optional[int] = None
-    cache_items_count: Optional[int] = None
-    current_manifest_hash: Optional[str] = None
-    details_json: dict[str, Any] = Field(default_factory=dict)
-
-
-# ── Manifest Delivery schemas ─────────────────────────────────────
-
-class DeviceManifestResponse(BaseModel):
-    """Manifest delivered to a device."""
-    status: str  # "served", "not_modified"
-    manifest_version_id: UUID
-    manifest_hash: str
-    published_at: Optional[datetime] = None
-    manifest: Optional[dict[str, Any]] = None  # None when not_modified
-
-
-class DeviceManifestCurrentResponse(BaseModel):
-    """Response for /manifest/current — covers all states."""
-    status: str  # "served", "not_modified", "no_manifest"
-    manifest_version_id: Optional[UUID] = None
-    manifest_hash: Optional[str] = None
-    published_at: Optional[datetime] = None
-    manifest: Optional[dict[str, Any]] = None
-
-
 class DeviceManifestRequestResponse(BaseModel):
-    """Admin view of a manifest request."""
     id: UUID
     gateway_device_id: UUID
     manifest_version_id: Optional[UUID] = None
     publication_target_id: Optional[UUID] = None
     request_status: str
-    response_hash: Optional[str] = None
     client_manifest_hash: Optional[str] = None
+    response_hash: Optional[str] = None
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
     message: Optional[str] = None
@@ -185,12 +156,17 @@ class DeviceManifestRequestResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Media Delivery
-# ═══════════════════════════════════════════════════════════════════
+class DeviceManifestResponse(BaseModel):
+    """Manifest delivered to a device (public)."""
+    manifest_version_id: UUID
+    manifest_items: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class DeviceManifestMetadataResponse(BaseModel):
+    """Metadata for a manifest request."""
+
 
 class MediaMetadata(BaseModel):
-    """Safe media metadata returned to device."""
     sha256: str
     content_type: str
     size_bytes: Optional[int] = None
@@ -198,20 +174,15 @@ class MediaMetadata(BaseModel):
 
 
 class DeviceMediaMetadataResponse(BaseModel):
-    """Response for GET /media/{manifest_item_id}/metadata."""
-    status: Literal["ok", "not_modified"]
+    status: str = "ok"
     manifest_item_id: UUID
     sha256: Optional[str] = None
-    media: Optional[MediaMetadata] = None
-
-
-class DeviceMediaNotModifiedResponse(BaseModel):
-    """Response when client cache is current."""
-    status: Literal["not_modified"]
+    content_type: Optional[str] = None
+    size_bytes: Optional[int] = None
+    duration_ms: Optional[int] = None
 
 
 class DeviceMediaRequestResponse(BaseModel):
-    """Admin view of a media request."""
     id: UUID
     gateway_device_id: UUID
     manifest_item_id: Optional[UUID] = None
@@ -226,6 +197,74 @@ class DeviceMediaRequestResponse(BaseModel):
     user_agent: Optional[str] = None
     message: Optional[str] = None
     details_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DeviceManifestCurrentResponse(BaseModel):
+    """Response for /manifest/current — covers all states."""
+    status: str  # "served", "not_modified", "no_manifest"
+    manifest_version_id: Optional[UUID] = None
+    manifest_hash: Optional[str] = None
+    published_at: Optional[datetime] = None
+    manifest: Optional[dict[str, Any]] = None
+
+class DeviceMediaNotModifiedResponse(BaseModel):
+    """Response when client cache is current."""
+    status: Literal["not_modified"]
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Step 13 — PoP Ingest Core
+# ═══════════════════════════════════════════════════════════════════
+
+
+class PoPEventRequest(BaseModel):
+    """Payload from a device with a proof-of-play event."""
+    device_event_id: UUID
+    manifest_item_id: UUID
+    played_at: Optional[datetime] = None
+    duration_ms: Optional[int] = None
+    play_status: Optional[str] = None
+    media_sha256: Optional[str] = None
+    schedule_item_id: Optional[UUID] = None
+    player_version: Optional[str] = None
+    details_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class PoPEventResponse(BaseModel):
+    """Response to the device after processing a PoP event."""
+    status: str  # accepted / duplicate / rejected
+    proof_event_id: Optional[UUID] = None
+    reason: Optional[str] = None
+
+
+class PoPEventRead(BaseModel):
+    """Admin-facing read model for a stored PoP event."""
+    id: UUID
+    gateway_device_id: UUID
+    device_event_id: UUID
+    manifest_item_id: Optional[UUID] = None
+    manifest_version_id: Optional[UUID] = None
+    publication_target_id: Optional[UUID] = None
+    schedule_item_id: Optional[UUID] = None
+    campaign_id: Optional[UUID] = None
+    campaign_rendition_id: Optional[UUID] = None
+    rendition_id: Optional[UUID] = None
+    creative_version_id: Optional[UUID] = None
+    played_at: Optional[datetime] = None
+    received_at: datetime
+    duration_ms: Optional[int] = None
+    play_status: Optional[str] = None
+    validation_status: str
+    media_sha256: Optional[str] = None
+    expected_sha256: Optional[str] = None
+    player_version: Optional[str] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    details_json: dict[str, Any] = Field(default_factory=dict)
+    rejection_reason: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -109,6 +109,12 @@ class Settings(BaseSettings):
     DEVICE_MANIFEST_REQUEST_DETAILS_MAX_BYTES: int = 65536
     DEVICE_MEDIA_REQUEST_DETAILS_MAX_BYTES: int = 65536
 
+    # Device Gateway → PoP Ingest
+    POP_MAX_CLOCK_SKEW_SECONDS: int = 300
+    POP_MAX_EVENT_AGE_DAYS: int = 7
+    POP_MAX_DURATION_MS: int = 86_400_000
+    POP_DETAILS_MAX_BYTES: int = 65536
+
     @model_validator(mode="after")
     def _validate_device_jwt_secret(self) -> "Settings":
         """In non-dev environments, DEVICE_JWT_SECRET must be explicitly set."""

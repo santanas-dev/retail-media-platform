@@ -212,3 +212,56 @@ async def list_media_requests(
         limit=limit,
         offset=offset,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Step 13 — PoP Ingest Core
+# ═══════════════════════════════════════════════════════════════════
+
+# ── Device: submit PoP event ───────────────────────────────────────
+
+@device_router.post(
+    "/pop/events",
+    response_model=schemas.PoPEventResponse,
+)
+async def submit_pop_event(
+    data: schemas.PoPEventRequest,
+    request: Request,
+    db=Depends(get_db),
+):
+    device, _session = await authenticate_device(request, db)
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    return await service.ingest_pop_event(
+        db, device, data, client_ip=client_ip, user_agent=user_agent,
+    )
+
+
+# ── Admin: list PoP events ─────────────────────────────────────────
+
+@admin_router.get(
+    "/gateway-devices/{device_id}/pop-events",
+    response_model=list[schemas.PoPEventRead],
+)
+async def list_pop_events(
+    device_id: UUID,
+    db=Depends(get_db),
+    validation_status: Optional[str] = Query(None),
+    play_status: Optional[str] = Query(None),
+    manifest_item_id: Optional[UUID] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_pop_events(
+        db, device_id,
+        validation_status=validation_status,
+        play_status=play_status,
+        manifest_item_id=manifest_item_id,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
