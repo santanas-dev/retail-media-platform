@@ -237,4 +237,54 @@ async def evaluate_alerts(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("devices.gateway.manage")),
 ):
-    return await service.evaluate_alerts(db)
+    return await service.evaluate_alerts_with_run(db, current_user.id)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Evaluation Run History endpoints (Step 17)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@router.get("/alert-evaluations", response_model=list[schemas.EvaluationRunResponse])
+async def list_evaluation_runs(
+    db=Depends(get_db),
+    status: Optional[str] = Query(None),
+    trigger_type: Optional[str] = Query(None),
+    triggered_by: Optional[UUID] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_evaluation_runs(
+        db, status=status, trigger_type=trigger_type, triggered_by=triggered_by,
+        date_from=date_from, date_to=date_to, limit=limit, offset=offset,
+    )
+
+
+@router.get("/alert-evaluations/{run_id}", response_model=schemas.EvaluationRunDetailResponse)
+async def get_evaluation_run_detail(
+    run_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    run, rules = await service.get_evaluation_run_detail(db, run_id)
+    result = schemas.EvaluationRunResponse.model_validate(run).model_dump()
+    result["rule_results"] = [
+        schemas.EvaluationRuleResultResponse.model_validate(r).model_dump()
+        for r in rules
+    ]
+    return result
+
+
+@router.get(
+    "/alert-evaluations/{run_id}/rules",
+    response_model=list[schemas.EvaluationRuleResultResponse],
+)
+async def get_evaluation_run_rules(
+    run_id: UUID,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("devices.gateway.read")),
+):
+    return await service.get_evaluation_run_rules(db, run_id)

@@ -395,8 +395,57 @@ class AlertResolveRequest(BaseModel):
 
 class EvaluateResponse(BaseModel):
     status: str = "ok"
+    evaluation_run_id: Optional[UUID] = None
     evaluated_rules: int = 0
     created: int = 0
     repeated: int = 0
     reopened: int = 0
     skipped: int = 0
+    failed_rules: int = 0
+
+
+# ── Evaluation Run History schemas ─────────────────────────────────────
+
+
+class EvaluationRuleResultResponse(BaseModel):
+    id: UUID
+    rule_id: UUID
+    rule_code: str
+    alert_type: str
+    status: str
+    checked_devices_count: int = 0
+    matched_devices_count: int = 0
+    created_count: int = 0
+    repeated_count: int = 0
+    reopened_count: int = 0
+    skipped_count: int = 0
+    error_message: Optional[str] = None
+    details_json: Optional[dict[str, Any]] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class EvaluationRunResponse(BaseModel):
+    id: UUID
+    triggered_by: UUID
+    trigger_type: str
+    status: str
+    started_at: datetime
+    finished_at: Optional[datetime] = None
+    evaluated_rules_count: int = 0
+    created_count: int = 0
+    repeated_count: int = 0
+    reopened_count: int = 0
+    skipped_count: int = 0
+    failed_rules_count: int = 0
+    duration_ms: Optional[int] = None
+    details_json: Optional[dict[str, Any]] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class EvaluationRunDetailResponse(EvaluationRunResponse):
+    rule_results: list[EvaluationRuleResultResponse] = Field(default_factory=list)

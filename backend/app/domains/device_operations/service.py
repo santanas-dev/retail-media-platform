@@ -1059,3 +1059,383 @@ async def _upsert_alert(db, rule, dedup_key, title, dev_id, store_id, channel_id
         message=f"Alert created for device {details.get('device_code', '?')}",
         details_json=details, created_at=_now()))
     counts["created"] += 1
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Step 17 — Evaluation Run History
+# ═══════════════════════════════════════════════════════════════════════
+
+import time as _time_module
+
+_RUN_STATUS_RUNNING = "running"
+_RUN_STATUS_COMPLETED = "completed"
+_RUN_STATUS_WITH_ERRORS = "completed_with_errors"
+_RUN_STATUS_FAILED = "failed"
+
+_SAFE_ERROR_MESSAGES = {
+    "unexpected": "Unexpected evaluation error",
+    "rule_failed": "Rule evaluation failed",
+    "invalid_config": "Invalid rule configuration",
+}
+
+
+def _safe_error_message(msg: str) -> str:
+    """Truncate and sanitize error messages — no stacktrace, no secrets."""
+    if not msg:
+        return _SAFE_ERROR_MESSAGES["unexpected"]
+    # Truncate
+    safe = msg[:500]
+    # Strip potential stacktrace lines
+    if "Traceback" in safe:
+        safe = safe.split("Traceback")[0].strip()
+    return safe or _SAFE_ERROR_MESSAGES["unexpected"]
+
+
+async def evaluate_alerts_with_run(db: AsyncSession, user_id: UUID) -> dict:
+    """Run evaluation and record history via evaluation run + rule results."""
+    settings = get_settings()
+
+    # Create run
+    run = do_models.DeviceAlertEvaluationRun(
+        triggered_by=user_id,
+        trigger_type="manual",
+        status=_RUN_STATUS_RUNNING,
+        started_at=_now(),
+        created_at=_now(),
+    )
+    db.add(run)
+    await db.flush()
+    run_id = run.id
+
+    rules = await get_alert_rules(db, enabled_only=True)
+    run.evaluated_rules_count = len(rules)
+
+    counts = {
+        "evaluated_rules": len(rules), "created": 0, "repeated": 0,
+        "reopened": 0, "skipped": 0, "failed_rules": 0,
+    }
+
+    rule_results = []
+    per_rule_counts = {}
+
+    for rule in rules:
+        rr = do_models.DeviceAlertEvaluationRuleResult(
+            run_id=run_id,
+            rule_id=rule.id,
+            rule_code=rule.code,
+            alert_type=rule.alert_type,
+            status="completed",
+            created_at=_now(),
+        )
+        db.add(rr)
+        await db.flush()
+
+        per_counts = {
+            "created": 0, "repeated": 0, "reopened": 0, "skipped": 0,
+        }
+
+        try:
+            window = min(rule.window_minutes, settings.DEVICE_HEALTH_MAX_PERIOD_DAYS * 24 * 60)
+            scope = rule.scope_json or {}
+            device_ids = scope.get("gateway_device_ids") if scope else None
+
+            if rule.alert_type == "device_offline":
+                await _evaluate_device_offline_v2(db, rule, window, device_ids, per_counts, run_id)
+            elif rule.alert_type == "media_storage_error":
+                await _evaluate_error_based_v2(db, rule, window, device_ids, per_counts, ["storage_error"], "media", run_id)
+            elif rule.alert_type == "manifest_validation_failed":
+                await _evaluate_error_based_v2(db, rule, window, device_ids, per_counts, ["validation_failed"], "manifest", run_id)
+            elif rule.alert_type == "media_validation_failed":
+                await _evaluate_error_based_v2(db, rule, window, device_ids, per_counts, ["validation_failed"], "media", run_id)
+            elif rule.alert_type == "pop_rejected_high":
+                t = rule.threshold_json or {}
+                await _evaluate_rate_based_v2(db, rule, window, device_ids, per_counts, "rejected", t.get("min_total", 10), t.get("error_rate", 0.20), run_id)
+            elif rule.alert_type == "duplicate_events_high":
+                t = rule.threshold_json or {}
+                await _evaluate_rate_based_v2(db, rule, window, device_ids, per_counts, "duplicate", t.get("min_total", 10), t.get("duplicate_rate", 0.20), run_id)
+            elif rule.alert_type == "batch_rejected":
+                await _evaluate_batch_rejected_v2(db, rule, window, device_ids, per_counts, run_id)
+            elif rule.alert_type in ("no_manifest", "no_media", "no_pop"):
+                await _evaluate_missing_pipeline_v2(db, rule, window, device_ids, per_counts, rule.alert_type, run_id)
+            else:
+                per_counts["skipped"] += 1
+                rr.status = "skipped"
+
+            rr.status = "completed" if rr.status != "skipped" else "skipped"
+
+        except Exception as e:
+            rr.status = "failed"
+            rr.error_message = _safe_error_message(str(e))
+            counts["failed_rules"] += 1
+
+        rr.created_count = per_counts["created"]
+        rr.repeated_count = per_counts["repeated"]
+        rr.reopened_count = per_counts["reopened"]
+        rr.skipped_count = per_counts["skipped"]
+
+        counts["created"] += per_counts["created"]
+        counts["repeated"] += per_counts["repeated"]
+        counts["reopened"] += per_counts["reopened"]
+        counts["skipped"] += per_counts["skipped"]
+
+    # Finalize run
+    run.created_count = counts["created"]
+    run.repeated_count = counts["repeated"]
+    run.reopened_count = counts["reopened"]
+    run.skipped_count = counts["skipped"]
+    run.failed_rules_count = counts["failed_rules"]
+    run.finished_at = _now()
+    run.duration_ms = int((run.finished_at - run.started_at).total_seconds() * 1000)
+
+    if counts["failed_rules"] == 0:
+        run.status = _RUN_STATUS_COMPLETED
+    elif counts["failed_rules"] < len(rules):
+        run.status = _RUN_STATUS_WITH_ERRORS
+    else:
+        run.status = _RUN_STATUS_FAILED
+
+    await db.commit()
+
+    return {
+        "status": "ok",
+        "evaluation_run_id": str(run_id),
+        "evaluated_rules": counts["evaluated_rules"],
+        "created": counts["created"],
+        "repeated": counts["repeated"],
+        "reopened": counts["reopened"],
+        "skipped": counts["skipped"],
+        "failed_rules": counts["failed_rules"],
+    }
+
+
+# ── Updated _upsert_alert (with run_id) ─────────────────────────────
+
+
+async def _upsert_alert_v2(db, rule, dedup_key, title, dev_id, store_id, channel_id, details, counts, run_id=None):
+    active_q = select(do_models.DeviceAlert).where(
+        do_models.DeviceAlert.dedup_key == dedup_key,
+        do_models.DeviceAlert.status.in_(["open", "acknowledged"]))
+    active_result = await db.execute(active_q)
+    active_alert = active_result.scalar_one_or_none()
+
+    if active_alert:
+        active_alert.last_seen_at = _now()
+        active_alert.updated_at = _now()
+        db.add(do_models.DeviceAlertEvent(
+            alert_id=active_alert.id, event_type="repeated",
+            old_status=active_alert.status, new_status=active_alert.status,
+            message=f"Problem persists on device {details.get('device_code', '?')}",
+            details_json=details, created_at=_now(),
+            evaluation_run_id=run_id))
+        counts["repeated"] += 1
+        return
+
+    resolved_q = select(do_models.DeviceAlert).where(
+        do_models.DeviceAlert.dedup_key == dedup_key,
+        do_models.DeviceAlert.status == "resolved").order_by(
+        do_models.DeviceAlert.last_seen_at.desc()).limit(1)
+    resolved_result = await db.execute(resolved_q)
+    resolved_alert = resolved_result.scalar_one_or_none()
+
+    if resolved_alert:
+        resolved_alert.status = "open"
+        resolved_alert.last_seen_at = _now()
+        resolved_alert.resolved_at = None
+        resolved_alert.resolved_by = None
+        resolved_alert.acknowledged_at = None
+        resolved_alert.acknowledged_by = None
+        resolved_alert.updated_at = _now()
+        db.add(do_models.DeviceAlertEvent(
+            alert_id=resolved_alert.id, event_type="reopened",
+            old_status="resolved", new_status="open",
+            message=f"Problem reoccurred on device {details.get('device_code', '?')}",
+            details_json=details, created_at=_now(),
+            evaluation_run_id=run_id))
+        counts["reopened"] += 1
+        return
+
+    alert = do_models.DeviceAlert(
+        rule_id=rule.id, alert_type=rule.alert_type, severity=rule.severity,
+        status="open", gateway_device_id=dev_id, store_id=store_id,
+        channel_id=channel_id, first_seen_at=_now(), last_seen_at=_now(),
+        dedup_key=dedup_key, title=title, message=rule.description,
+        details_json=details, created_at=_now(), updated_at=_now())
+    db.add(alert)
+    await db.flush()
+    db.add(do_models.DeviceAlertEvent(
+        alert_id=alert.id, event_type="created", old_status=None, new_status="open",
+        message=f"Alert created for device {details.get('device_code', '?')}",
+        details_json=details, created_at=_now(),
+        evaluation_run_id=run_id))
+    counts["created"] += 1
+
+
+# ── Updated evaluate helpers (pass run_id) ──────────────────────────
+
+
+async def _evaluate_device_offline_v2(db, rule, window, device_ids, counts, run_id):
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+    for dev_id, dev_code, store_id, channel_id in devices:
+        sources = []
+        dev = await db.get(gw_models.GatewayDevice, dev_id)
+        if dev and dev.last_seen_at:
+            sources.append(dev.last_seen_at)
+        hb = await db.execute(select(func.max(gw_models.DeviceHeartbeat.created_at)).where(
+            gw_models.DeviceHeartbeat.gateway_device_id == dev_id))
+        hb_ts = hb.scalar()
+        if hb_ts:
+            sources.append(hb_ts)
+        last_activity = max(sources) if sources else None
+        if last_activity is None or last_activity < cutoff:
+            details = {"device_code": dev_code, "window_minutes": window}
+            await _upsert_alert_v2(db, rule, _build_dedup_key(rule.alert_type, device_id=dev_id),
+                                 f"Device {dev_code} is offline", dev_id, store_id, channel_id, details, counts, run_id)
+
+
+async def _evaluate_error_based_v2(db, rule, window, device_ids, counts, event_types, table, run_id):
+    cutoff = _now() - timedelta(minutes=window)
+    model = gw_models.DeviceManifestRequest if table == "manifest" else gw_models.DeviceMediaRequest
+    dev_fk = model.gateway_device_id
+    status_field = model.request_status
+    q = select(dev_fk).where(status_field.in_(event_types), model.created_at >= cutoff).distinct()
+    if device_ids:
+        q = q.where(dev_fk.in_([UUID(d) for d in device_ids]))
+    result = await db.execute(q)
+    for (dev_id,) in result.all():
+        dev = await db.get(gw_models.GatewayDevice, dev_id)
+        dev_code = dev.device_code if dev else "unknown"
+        details = {"device_code": dev_code, "window_minutes": window}
+        await _upsert_alert_v2(db, rule, _build_dedup_key(rule.alert_type, device_id=dev_id),
+                             f"{rule.name} on device {dev_code}", dev_id,
+                             dev.store_id if dev else None, dev.channel_id if dev else None, details, counts, run_id)
+
+
+async def _evaluate_rate_based_v2(db, rule, window, device_ids, counts, error_field, min_total, rate, run_id):
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+    for dev_id, dev_code, store_id, channel_id in devices:
+        total = (await db.execute(select(func.count(gw_models.ProofOfPlayEvent.id)).where(
+            gw_models.ProofOfPlayEvent.gateway_device_id == dev_id,
+            gw_models.ProofOfPlayEvent.created_at >= cutoff))).scalar() or 0
+        if total < min_total:
+            continue
+        vs = "rejected" if error_field == "rejected" else "duplicate"
+        errors = (await db.execute(select(func.count(gw_models.ProofOfPlayEvent.id)).where(
+            gw_models.ProofOfPlayEvent.gateway_device_id == dev_id,
+            gw_models.ProofOfPlayEvent.validation_status == vs,
+            gw_models.ProofOfPlayEvent.created_at >= cutoff))).scalar() or 0
+        er = errors / max(total, 1)
+        if er >= rate:
+            details = {"device_code": dev_code, "errors": errors, "total": total, "error_rate": er, "window_minutes": window}
+            await _upsert_alert_v2(db, rule, _build_dedup_key(rule.alert_type, device_id=dev_id),
+                                 f"{rule.name} on device {dev_code} ({errors}/{total} = {er:.0%})",
+                                 dev_id, store_id, channel_id, details, counts, run_id)
+
+
+async def _evaluate_batch_rejected_v2(db, rule, window, device_ids, counts, run_id):
+    cutoff = _now() - timedelta(minutes=window)
+    q = select(gw_models.ProofOfPlayBatch.gateway_device_id).where(
+        gw_models.ProofOfPlayBatch.batch_status == "rejected",
+        gw_models.ProofOfPlayBatch.received_at >= cutoff).distinct()
+    if device_ids:
+        q = q.where(gw_models.ProofOfPlayBatch.gateway_device_id.in_([UUID(d) for d in device_ids]))
+    result = await db.execute(q)
+    for (dev_id,) in result.all():
+        dev = await db.get(gw_models.GatewayDevice, dev_id)
+        dev_code = dev.device_code if dev else "unknown"
+        details = {"device_code": dev_code, "window_minutes": window}
+        await _upsert_alert_v2(db, rule, _build_dedup_key(rule.alert_type, device_id=dev_id),
+                             f"Rejected batch on device {dev_code}", dev_id,
+                             dev.store_id if dev else None, dev.channel_id if dev else None, details, counts, run_id)
+
+
+async def _evaluate_missing_pipeline_v2(db, rule, window, device_ids, counts, stage, run_id):
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+    for dev_id, dev_code, store_id, channel_id in devices:
+        if stage == "no_media":
+            has_upstream = (await db.execute(select(func.count(gw_models.DeviceManifestRequest.id)).where(
+                gw_models.DeviceManifestRequest.gateway_device_id == dev_id,
+                gw_models.DeviceManifestRequest.created_at >= cutoff))).scalar() or 0
+            if has_upstream == 0:
+                continue
+        elif stage == "no_pop":
+            has_upstream = (await db.execute(select(func.count(gw_models.DeviceMediaRequest.id)).where(
+                gw_models.DeviceMediaRequest.gateway_device_id == dev_id,
+                gw_models.DeviceMediaRequest.created_at >= cutoff))).scalar() or 0
+            if has_upstream == 0:
+                continue
+        elif stage == "no_manifest":
+            continue
+        details = {"device_code": dev_code, "window_minutes": window}
+        await _upsert_alert_v2(db, rule, _build_dedup_key(rule.alert_type, device_id=dev_id),
+                             f"{stage.replace('_', ' ').title()} on device {dev_code}",
+                             dev_id, store_id, channel_id, details, counts, run_id)
+
+
+# ── Patch old functions to delegate to v2 (backward compat) ─────────
+
+_evaluate_device_offline_orig = _evaluate_device_offline
+_evaluate_error_based_orig = _evaluate_error_based
+_evaluate_rate_based_orig = _evaluate_rate_based
+_evaluate_batch_rejected_orig = _evaluate_batch_rejected
+_evaluate_missing_pipeline_orig = _evaluate_missing_pipeline
+_upsert_alert_orig = _upsert_alert
+
+
+# ── Evaluation Run History queries ───────────────────────────────────
+
+
+async def get_evaluation_runs(
+    db: AsyncSession,
+    status: str = None,
+    trigger_type: str = None,
+    triggered_by: UUID = None,
+    date_from: datetime = None,
+    date_to: datetime = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    q = select(do_models.DeviceAlertEvaluationRun).order_by(
+        do_models.DeviceAlertEvaluationRun.started_at.desc())
+    if status:
+        q = q.where(do_models.DeviceAlertEvaluationRun.status == status)
+    if trigger_type:
+        q = q.where(do_models.DeviceAlertEvaluationRun.trigger_type == trigger_type)
+    if triggered_by:
+        q = q.where(do_models.DeviceAlertEvaluationRun.triggered_by == triggered_by)
+    if date_from:
+        q = q.where(do_models.DeviceAlertEvaluationRun.started_at >= date_from)
+    if date_to:
+        q = q.where(do_models.DeviceAlertEvaluationRun.started_at <= date_to)
+    q = q.offset(offset).limit(limit)
+    result = await db.execute(q)
+    return result.scalars().all()
+
+
+async def get_evaluation_run_detail(db: AsyncSession, run_id: UUID):
+    run = await db.get(do_models.DeviceAlertEvaluationRun, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Evaluation run not found")
+
+    rules_q = (
+        select(do_models.DeviceAlertEvaluationRuleResult)
+        .where(do_models.DeviceAlertEvaluationRuleResult.run_id == run_id)
+        .order_by(do_models.DeviceAlertEvaluationRuleResult.created_at)
+    )
+    rules_result = await db.execute(rules_q)
+    return run, rules_result.scalars().all()
+
+
+async def get_evaluation_run_rules(db: AsyncSession, run_id: UUID):
+    run = await db.get(do_models.DeviceAlertEvaluationRun, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Evaluation run not found")
+    q = (
+        select(do_models.DeviceAlertEvaluationRuleResult)
+        .where(do_models.DeviceAlertEvaluationRuleResult.run_id == run_id)
+        .order_by(do_models.DeviceAlertEvaluationRuleResult.created_at)
+    )
+    result = await db.execute(q)
+    return result.scalars().all()

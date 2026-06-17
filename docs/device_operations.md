@@ -84,7 +84,57 @@ DEVICE_HEALTH_DEFAULT_PERIOD_HOURS = 24
 
 ---
 
-## Шаг 16 — Alert Rules Core
+## Шаг 17 — Alert Evaluation Run History
+
+### Overview
+
+История запусков проверки alert rules: кто, когда, какие правила, сколько alerts создано/repeated/reopened. Audit-only, ручной запуск через `POST /alerts/evaluate`.
+
+### Таблицы
+
+| Таблица | Назначение |
+|---|---|
+| `device_alert_evaluation_runs` | Записи о каждом запуске evaluate |
+| `device_alert_evaluation_rule_results` | Per-rule результаты в рамках запуска |
+
++ `device_alert_events.evaluation_run_id` — связь alert events с запуском.
+
+### Endpoints
+
+| Method | Path | Permission |
+|---|---|---|
+| `GET` | `/alert-evaluations` | `devices.gateway.read` |
+| `GET` | `/alert-evaluations/{id}` | `devices.gateway.read` |
+| `GET` | `/alert-evaluations/{id}/rules` | `devices.gateway.read` |
+
+`POST /alerts/evaluate` теперь возвращает `evaluation_run_id` в ответе.
+
+### Run Statuses
+
+`running` → `completed` / `completed_with_errors` / `failed`
+
+### Error Policy
+
+- Ошибка одного rule не валит весь evaluate
+- Failed rule → rule_result со status=failed
+- Часть failed → run status `completed_with_errors`
+- Всё failed → run status `failed`
+- Error messages: safe, без stacktrace, без секретов, ≤500 символов
+
+### Security
+
+- `evaluation_run_id` заполняется только для событий evaluate (created/repeated/reopened)
+- Acknowledge/resolve события: `evaluation_run_id = NULL`
+- Старые события: `evaluation_run_id = NULL`
+- Без новых permissions
+- Без секретов в ответах
+
+### Что НЕ в Шаге 17
+
+- ❌ Cron/scheduler/Celery
+- ❌ Background worker
+- ❌ Telegram/email/push
+- ❌ SLA/billing/compensation
 
 ### Overview
 
