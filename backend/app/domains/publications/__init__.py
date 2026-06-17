@@ -1,0 +1,1 @@
+"""Manifest & Publication Core domain."""

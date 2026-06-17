@@ -67,6 +67,10 @@ PERMISSIONS = [
     ("scheduling.read", "View schedules", "scheduling", "read", "View schedule runs and items"),
     ("scheduling.manage", "Manage schedules", "scheduling", "manage", "Create and manage schedule runs"),
     ("scheduling.approve", "Approve schedules", "scheduling", "approve", "Approve schedule runs"),
+    ("publications.read", "View publications", "publications", "read", "View publication batches and manifests"),
+    ("publications.manage", "Manage publications", "publications", "manage", "Create and manage publication batches"),
+    ("publications.approve", "Approve publications", "publications", "approve", "Approve publication batches"),
+    ("publications.publish", "Publish", "publications", "publish", "Publish approved manifests"),
 ]
 
 # ── Roles ────────────────────────────────────────────────────────────────
@@ -101,6 +105,7 @@ ROLE_PERMISSIONS = {
         "inventory.read", "inventory.manage",
         "bookings.read", "bookings.manage", "bookings.approve",
         "scheduling.read", "scheduling.manage", "scheduling.approve",
+        "publications.read", "publications.manage", "publications.approve", "publications.publish",
         "reports.read", "reports.export",
         "audit.read",
         "emergency.manage",
@@ -116,6 +121,7 @@ ROLE_PERMISSIONS = {
         "inventory.read",
         "bookings.read",
         "scheduling.read",
+        "publications.read", "publications.approve",
         "audit.read",
     ],
     "ad_manager": [
@@ -130,6 +136,7 @@ ROLE_PERMISSIONS = {
         "inventory.read",
         "bookings.read", "bookings.manage",
         "scheduling.read", "scheduling.manage",
+        "publications.read", "publications.manage",
         "reports.read",
     ],
     "approver": [
@@ -141,6 +148,7 @@ ROLE_PERMISSIONS = {
         "inventory.read",
         "bookings.read", "bookings.approve",
         "scheduling.read", "scheduling.approve",
+        "publications.read", "publications.approve",
         "reports.read",
     ],
     "analyst": [
@@ -152,6 +160,7 @@ ROLE_PERMISSIONS = {
         "inventory.read",
         "bookings.read",
         "scheduling.read",
+        "publications.read",
         "reports.read", "reports.export",
     ],
     "advertiser": [
@@ -167,6 +176,7 @@ ROLE_PERMISSIONS = {
         "inventory.read", "inventory.manage",
         "bookings.read",
         "scheduling.read",
+        "publications.read", "publications.publish",
     ],
     "device_service": [
         # No interactive permissions — service account only

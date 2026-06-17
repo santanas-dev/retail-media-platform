@@ -98,6 +98,9 @@ class Settings(BaseSettings):
     # Scheduling
     MAX_SCHEDULE_ITEMS_PER_RUN: int = 100_000
 
+    # Publications
+    MAX_MANIFEST_JSON_BYTES: int = 10 * 1024 * 1024  # 10 MB
+
     # Identity — initial admin user (created by seed script)
     INITIAL_ADMIN_USERNAME: str = "admin"
     INITIAL_ADMIN_PASSWORD: str = ""
