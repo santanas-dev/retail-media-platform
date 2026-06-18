@@ -142,6 +142,19 @@ python3 -m kso_sidecar_agent.cli secret-store-delete \
 
 **Когда Device Auth Client будет реализован (будущие шаги), `TokenState` будет хранить JWT, полученный от `POST /api/device-gateway/auth/token`.**
 
+## SafeHttpClient (внутренний модуль)
+
+Внутренний Python-модуль `http_client.py` — безопасный HTTP-клиент на stdlib:
+
+- **Нет новых зависимостей** — только `urllib.request`
+- **Пока не используется для device auth** — backend-вызовы ещё не реализованы
+- Не логирует request/response body
+- Не логирует Authorization headers
+- Не логирует secrets/passwords/api_keys
+- Path validation: только `/`, без `..`, без forbidden substrings
+- Header validation: reject значений с forbidden substrings
+- HTTP ошибки классифицируются как retryable/non-retryable
+
 ## Безопасность
 
 - ❌ Не хранит `device_secret`
