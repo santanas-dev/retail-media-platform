@@ -108,6 +108,26 @@ python3 -m kso_sidecar_agent.cli doctor --root /tmp/kso-agent-root
 
 **Правила:** max 20 errors, каждая ≤200 символов, forbidden substrings — reject. Атомарная запись через `.tmp` → `os.replace()`.
 
+## Dev Secret Store (dev-only)
+
+**Production secret storage ещё не реализован.** Только dev-only fallback.
+
+```bash
+# Включить dev режим: флаг --dev-secret-store или KSO_DEV_SECRET_STORE=1
+# Secret только через stdin, НЕ через CLI аргументы
+
+printf "dev-value-1234567890" | python3 -m kso_sidecar_agent.cli secret-store-set \
+  --root /tmp/kso-agent-root --dev-secret-store --stdin
+
+python3 -m kso_sidecar_agent.cli secret-store-check \
+  --root /tmp/kso-agent-root --dev-secret-store
+
+python3 -m kso_sidecar_agent.cli secret-store-delete \
+  --root /tmp/kso-agent-root --dev-secret-store
+```
+
+**Secret НЕ передаётся через CLI аргументы** (видны в /proc). Только stdin или env.
+
 ## Безопасность
 
 - ❌ Не хранит `device_secret`

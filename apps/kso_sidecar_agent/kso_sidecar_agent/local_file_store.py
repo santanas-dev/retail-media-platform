@@ -8,7 +8,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from kso_sidecar_agent import agent_status, local_config
+from kso_sidecar_agent import agent_status, local_config, secret_store
 from kso_sidecar_agent.atomic_io import atomic_write_json
 from kso_sidecar_agent.paths import SUB_DIRS, AGENT_STATUS_FILE, default_agent_status
 
@@ -31,7 +31,7 @@ def init_local_root(root: str | Path) -> None:
     atomic_write_json(status_path, status_data)
 
 
-def doctor(root: str | Path) -> dict:
+def doctor(root: str | Path, dev_secret_store: bool = False) -> dict:
     """Check folder structure, agent_status.json, and agent_config.json health.
 
     Returns a dict with health summary. Does NOT read secrets or call backend.
@@ -75,5 +75,18 @@ def doctor(root: str | Path) -> dict:
         result["config_error"] = config_status.get("error", "MISSING")
     else:
         result["config_details"] = config_status
+
+    # Check dev secret store if enabled
+    if dev_secret_store:
+        try:
+            ds = secret_store.check_secret_store(root, dev_secret_store=True)
+            result["dev_secret_store_checked"] = True
+            result["dev_secret_store"] = ds
+            if ds["present"] and ds["permissions_ok"] is False:
+                result["dev_secret_store"]["warning"] = (
+                    "Dev secret file has insecure permissions (expected 0600)"
+                )
+        except RuntimeError:
+            pass  # dev mode not enabled — skip
 
     return result

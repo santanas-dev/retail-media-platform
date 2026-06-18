@@ -20,6 +20,9 @@ AGENT_STATUS_FILE = "status/agent_status.json"
 # Agent config file (non-secret)
 CONFIG_FILE = "config/agent_config.json"
 
+# Dev-only secret store file
+DEV_SECRET_FILE = "config/device_secret.dev"
+
 # ── Agent status template ────────────────────────────────────────────
 
 AGENT_STATUS_TEMPLATE = {

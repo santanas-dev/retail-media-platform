@@ -1,12 +1,15 @@
 """KSO Sidecar Agent CLI — skeleton only.
 
 Commands:
-    version          Show version
-    init-local-root  Create folder structure + agent_status.json
-    doctor           Check folder + agent_status.json + config health
-    set-status       Update agent status
-    write-config     Create/update agent config
-    config-status    Show config health
+    version             Show version
+    init-local-root     Create folder structure + agent_status.json
+    doctor              Check folder + agent_status.json + config health
+    set-status          Update agent status
+    write-config        Create/update agent config
+    config-status       Show config health
+    secret-store-check  Check dev secret store
+    secret-store-set    Write dev secret (stdin only)
+    secret-store-delete Delete dev secret
 
 This is a SKELETON. No backend calls, no secrets, no media sync yet.
 """
@@ -14,7 +17,9 @@ This is a SKELETON. No backend calls, no secrets, no media sync yet.
 import argparse
 import sys
 
-from kso_sidecar_agent import agent_status, local_config, local_file_store, safe_logger
+from kso_sidecar_agent import (
+    agent_status, local_config, local_file_store, safe_logger, secret_store,
+)
 
 try:
     from importlib.metadata import version as _version
@@ -36,7 +41,7 @@ def cmd_init_local_root(args: argparse.Namespace) -> None:
 
 
 def cmd_doctor(args: argparse.Namespace) -> None:
-    result = local_file_store.doctor(args.root)
+    result = local_file_store.doctor(args.root, dev_secret_store=args.dev_secret_store)
 
     print(f"Doctor check for: {args.root}")
     print(f"  root_exists:       {result['root_exists']}")
@@ -60,6 +65,13 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         d = result["config_details"]
         print(f"  backend:           {d.get('backend_scheme', '')}://{d.get('backend_host', '')}")
         print(f"  device_code:       {d.get('device_code', '')}")
+
+    # Dev secret store
+    if result.get("dev_secret_store_checked"):
+        ds = result["dev_secret_store"]
+        print(f"  dev_secret_store:  present={ds['present']}, permissions_ok={ds['permissions_ok']}")
+        if ds.get("warning"):
+            print(f"  dev_secret_warn:   {ds['warning']}")
 
     all_ok = (result["root_exists"] and result["folders_ok"]
               and result["agent_status_ok"] and result["config_ok"])
@@ -122,7 +134,7 @@ def cmd_config_status(args: argparse.Namespace) -> None:
         return
 
     if not result["ok"]:
-        print(f"Config: INVALID")
+        print("Config: INVALID")
         print(f"  Error: {result['error']}")
         sys.exit(1)
 
@@ -132,6 +144,54 @@ def cmd_config_status(args: argparse.Namespace) -> None:
     print(f"  tls_verify:       {result['tls_verify']}")
     print(f"  timeout_sec:      {result['request_timeout_sec']}")
     print(f"  interface_ver:    {result['local_interface_version']}")
+
+
+# ── Secret store commands ─────────────────────────────────────────
+
+def cmd_secret_store_check(args: argparse.Namespace) -> None:
+    """Check dev secret store status (never prints secret value)."""
+    try:
+        result = secret_store.check_secret_store(args.root, args.dev_secret_store)
+    except RuntimeError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print("Secret store: dev-only")
+    print(f"  present:          {result['present']}")
+    perms = result["permissions_ok"]
+    if perms is None:
+        perms = "unknown (not supported on this OS)"
+    print(f"  permissions_ok:   {perms}")
+    print(f"  readable_by_agent: {result['readable_by_agent']}")
+
+
+def cmd_secret_store_set(args: argparse.Namespace) -> None:
+    """Write secret from stdin. Never prints or logs the secret."""
+    try:
+        if not args.stdin:
+            print("ERROR: Secret must be provided via stdin with --stdin flag.",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        raw = sys.stdin.read()
+        secret_store.write_secret(args.root, raw, args.dev_secret_store)
+        print("Secret stored (dev-only).")
+    except (ValueError, FileNotFoundError, RuntimeError) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def cmd_secret_store_delete(args: argparse.Namespace) -> None:
+    """Delete dev secret store file."""
+    try:
+        deleted = secret_store.delete_secret(args.root, args.dev_secret_store)
+        if deleted:
+            print("Secret deleted.")
+        else:
+            print("Secret store: already absent.")
+    except (ValueError, RuntimeError) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def main() -> None:
@@ -153,6 +213,8 @@ def main() -> None:
     # doctor
     p_doc = sub.add_parser("doctor", help="Check folder + status + config health")
     p_doc.add_argument("--root", required=True, help="Root path")
+    p_doc.add_argument("--dev-secret-store", action="store_true", default=False,
+                       help="Check dev secret store")
     p_doc.set_defaults(func=cmd_doctor)
 
     # set-status
@@ -169,22 +231,39 @@ def main() -> None:
     # write-config
     p_wc = sub.add_parser("write-config", help="Create/update agent config")
     p_wc.add_argument("--root", required=True, help="Root path")
-    p_wc.add_argument("--backend-base-url", required=True,
-                      help="Backend URL (https://example.com)")
-    p_wc.add_argument("--device-code", required=True,
-                      help="Device code (e.g. a-05954)")
-    p_wc.add_argument("--tls-verify", type=str, default="true",
-                      help="TLS verification (true/false)")
-    p_wc.add_argument("--request-timeout-sec", type=int, default=10,
-                      help="Request timeout in sec (1-120)")
-    p_wc.add_argument("--local-interface-version", type=str, default="1.0",
-                      help="Interface version")
+    p_wc.add_argument("--backend-base-url", required=True)
+    p_wc.add_argument("--device-code", required=True)
+    p_wc.add_argument("--tls-verify", type=str, default="true")
+    p_wc.add_argument("--request-timeout-sec", type=int, default=10)
+    p_wc.add_argument("--local-interface-version", type=str, default="1.0")
     p_wc.set_defaults(func=cmd_write_config)
 
     # config-status
     p_cs = sub.add_parser("config-status", help="Show config health")
     p_cs.add_argument("--root", required=True, help="Root path")
     p_cs.set_defaults(func=cmd_config_status)
+
+    # ── Secret store commands ──────────────────────────────────────
+
+    p_sc = sub.add_parser("secret-store-check", help="Check dev secret store")
+    p_sc.add_argument("--root", required=True, help="Root path")
+    p_sc.add_argument("--dev-secret-store", action="store_true", default=False,
+                      help="Enable dev secret store")
+    p_sc.set_defaults(func=cmd_secret_store_check)
+
+    p_ss_set = sub.add_parser("secret-store-set", help="Write secret from stdin")
+    p_ss_set.add_argument("--root", required=True, help="Root path")
+    p_ss_set.add_argument("--dev-secret-store", action="store_true", default=False,
+                          help="Enable dev secret store")
+    p_ss_set.add_argument("--stdin", action="store_true", default=False,
+                          help="Read secret from stdin")
+    p_ss_set.set_defaults(func=cmd_secret_store_set)
+
+    p_ss_del = sub.add_parser("secret-store-delete", help="Delete dev secret")
+    p_ss_del.add_argument("--root", required=True, help="Root path")
+    p_ss_del.add_argument("--dev-secret-store", action="store_true", default=False,
+                          help="Enable dev secret store")
+    p_ss_del.set_defaults(func=cmd_secret_store_delete)
 
     args = parser.parse_args()
 

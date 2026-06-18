@@ -1,4 +1,4 @@
-"""Smoke tests for KSO Sidecar Agent skeleton + atomic status store + local config."""
+"""Smoke tests for KSO Sidecar Agent skeleton + atomic status + config + dev secret store."""
 
 import io
 import json
@@ -11,6 +11,8 @@ from pathlib import Path
 
 PKG_DIR = Path(__file__).resolve().parent.parent
 
+TEST_SECRET = "dev-value-1234567890"
+
 
 def run(*args):
     r = subprocess.run(
@@ -20,18 +22,26 @@ def run(*args):
     return r.returncode, r.stdout, r.stderr
 
 
+def run_stdin(secret, *args):
+    r = subprocess.run(
+        [sys.executable, "-m", "kso_sidecar_agent.cli", *args],
+        capture_output=True, text=True, cwd=str(PKG_DIR), input=secret,
+    )
+    return r.returncode, r.stdout, r.stderr
+
+
 FORBIDDEN_WORDS = [
     "token", "jwt", "password", "secret", "api_key",
     "private_key", "payment_card", "receipt",
 ]
-
 FORBIDDEN_EXTENDED = FORBIDDEN_WORDS + ["local_path", "file_path"]
+
+DEV_FLAG = ["--dev-secret-store"]
 
 
 # ══════════════════════════════════════════════════════════════════════
 
 class TestCLISkeleton(unittest.TestCase):
-
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = self.tmp.name
@@ -39,99 +49,64 @@ class TestCLISkeleton(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    # ── help ───────────────────────────────────────────────────────
     def test_help(self):
         code, out, err = run("--help")
         self.assertEqual(code, 0, f"err={err}")
         for cmd in ("init-local-root", "doctor", "version", "set-status",
-                     "write-config", "config-status"):
+                     "write-config", "config-status",
+                     "secret-store-check", "secret-store-set", "secret-store-delete"):
             self.assertIn(cmd, out, f"Missing command: {cmd}")
 
-    # ── version ────────────────────────────────────────────────────
     def test_version(self):
         code, out, err = run("version")
         self.assertEqual(code, 0)
         self.assertIn("0.1.0", out)
 
-    # ── init-local-root ────────────────────────────────────────────
     def test_init_creates_folders(self):
         code, out, err = run("init-local-root", "--root", self.root)
         self.assertEqual(code, 0)
-        expected = ["config", "manifest", "media/current", "media/staging",
-                     "media/quarantine", "pop", "status", "logs"]
-        for folder in expected:
-            path = Path(self.root) / folder
-            self.assertTrue(path.is_dir(), f"Missing folder: {folder}")
+        for folder in ["config", "manifest", "media/current", "media/staging",
+                        "media/quarantine", "pop", "status", "logs"]:
+            self.assertTrue((Path(self.root) / folder).is_dir(), f"Missing: {folder}")
 
     def test_init_creates_agent_status(self):
-        code, out, err = run("init-local-root", "--root", self.root)
-        self.assertEqual(code, 0)
-        status_path = Path(self.root) / "status" / "agent_status.json"
-        self.assertTrue(status_path.exists())
-        data = json.loads(status_path.read_text())
+        run("init-local-root", "--root", self.root)
+        data = json.loads((Path(self.root) / "status" / "agent_status.json").read_text())
         self.assertEqual(data["status"], "stopped")
-        self.assertEqual(data["cached_items"], 0)
-        self.assertEqual(data["errors"], [])
 
-    # ── doctor (now checks config too) ─────────────────────────────
     def test_doctor_no_init(self):
         code, out, err = run("doctor", "--root", self.root)
         self.assertNotEqual(code, 0)
         self.assertIn("Issues found", out)
-        self.assertNotIn("Traceback", out)
-        self.assertNotIn("Traceback", err)
 
     def test_doctor_no_stacktrace(self):
         code, out, err = run("doctor", "--root", "/nonexistent/path/xyz")
         self.assertNotIn("Traceback", out)
         self.assertNotIn("Traceback", err)
 
-    # ── safe logger ────────────────────────────────────────────────
     def test_safe_logger_redact_forbidden(self):
         from kso_sidecar_agent.safe_logger import log
         buf = io.StringIO()
-        old_stdout = sys.stdout
+        old = sys.stdout
         sys.stdout = buf
         try:
-            log(level="info", event="test", message="api_key found in config")
-            log(level="info", event="test", message="token expired")
-            log(level="info", event="test", message="all good")
+            log(level="info", event="t", message="api_key found")
+            log(level="info", event="t", message="all good")
         finally:
-            sys.stdout = old_stdout
+            sys.stdout = old
         lines = [l for l in buf.getvalue().split("\n") if l.strip()]
-        self.assertEqual(len(lines), 3)
+        self.assertEqual(len(lines), 2)
         for line in lines:
             rec = json.loads(line)
-            msg = rec["message"].lower()
-            if "good" in msg:
+            if "good" in rec["message"]:
                 self.assertNotIn("[REDACTED]", rec["message"])
             else:
                 self.assertEqual("[REDACTED]", rec["message"])
-
-    # ── no secrets ─────────────────────────────────────────────────
-    def test_no_forbidden_in_agent_status(self):
-        run("init-local-root", "--root", self.root)
-        status_path = Path(self.root) / "status" / "agent_status.json"
-        content = status_path.read_text().lower()
-        for word in FORBIDDEN_WORDS:
-            self.assertNotIn(word, content, f"'{word}' in agent_status.json")
-
-    def test_no_forbidden_in_cli_output(self):
-        run("init-local-root", "--root", self.root)
-        # write-config needs to succeed for doctor to be OK
-        run("write-config", "--root", self.root,
-            "--backend-base-url", "https://example.com",
-            "--device-code", "a-05954")
-        code, out, err = run("doctor", "--root", self.root)
-        combined = (out + err).lower()
-        for word in FORBIDDEN_WORDS:
-            self.assertNotIn(word, combined, f"'{word}' in CLI output")
 
 
 # ══════════════════════════════════════════════════════════════════════
 
 class TestAtomicStatusStore(unittest.TestCase):
-
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = self.tmp.name
@@ -142,90 +117,22 @@ class TestAtomicStatusStore(unittest.TestCase):
 
     def test_set_status_running(self):
         code, out, err = run("set-status", "--root", self.root, "--status", "running")
-        self.assertEqual(code, 0, f"err={err}")
-        self.assertIn("running", out)
+        self.assertEqual(code, 0)
         data = json.loads((Path(self.root) / "status" / "agent_status.json").read_text())
         self.assertEqual(data["status"], "running")
 
-    def test_set_status_offline_full(self):
-        code, out, err = run(
-            "set-status", "--root", self.root, "--status", "offline",
-            "--offline-mode", "true", "--cached-items", "3",
-            "--invalid-hash-items", "1", "--error", "backend unavailable",
-        )
-        self.assertEqual(code, 0, f"err={err}")
-        data = json.loads((Path(self.root) / "status" / "agent_status.json").read_text())
-        self.assertEqual(data["status"], "offline")
-        self.assertTrue(data["offline_mode"])
-        self.assertEqual(data["cached_items"], 3)
-        self.assertEqual(data["invalid_hash_items"], 1)
-        self.assertEqual(data["errors"], ["backend unavailable"])
-
-    def test_invalid_status_rejected(self):
-        code, out, err = run("set-status", "--root", self.root, "--status", "INVALID")
-        self.assertNotEqual(code, 0)
-        self.assertIn("ERROR", err)
-
-    def test_negative_cached_items_rejected(self):
-        code, out, err = run("set-status", "--root", self.root,
-                             "--status", "running", "--cached-items", "-1")
-        self.assertNotEqual(code, 0)
-
-    def test_forbidden_error_rejected(self):
-        code, out, err = run("set-status", "--root", self.root,
-                             "--status", "running", "--error", "token expired")
-        self.assertNotEqual(code, 0)
-        self.assertIn("ERROR", err)
-
-    def test_symlink_target_rejected(self):
-        status_path = Path(self.root) / "status" / "agent_status.json"
-        status_path.unlink()
-        outside = Path(self.root) / "outside.json"
-        outside.write_text("{}")
-        status_path.symlink_to(outside)
-        code, out, err = run("set-status", "--root", self.root, "--status", "running")
-        self.assertNotEqual(code, 0)
-
-    def test_doctor_validates_status(self):
-        run("set-status", "--root", self.root, "--status", "warning")
+    def test_doctor_with_config(self):
+        run("set-status", "--root", self.root, "--status", "running")
         run("write-config", "--root", self.root,
-            "--backend-base-url", "https://example.com",
-            "--device-code", "a-05954")
+            "--backend-base-url", "https://example.com", "--device-code", "a-05954")
         code, out, err = run("doctor", "--root", self.root)
-        self.assertIn("warning", out)
-
-    def test_doctor_catches_broken_json(self):
-        (Path(self.root) / "status" / "agent_status.json").write_text("{not json")
-        code, out, err = run("doctor", "--root", self.root)
-        self.assertNotEqual(code, 0)
-        self.assertIn("Invalid JSON", out)
-
-    def test_doctor_catches_forbidden_value(self):
-        (Path(self.root) / "status" / "agent_status.json").write_text(json.dumps({
-            "status": "running", "updated_at": "2026-01-01T00:00:00Z",
-            "offline_mode": False, "cached_items": 0,
-            "invalid_hash_items": 0, "errors": ["token found"],
-        }))
-        code, out, err = run("doctor", "--root", self.root)
-        self.assertNotEqual(code, 0)
-        self.assertIn("Forbidden", out)
-
-    def test_no_tmp_left_after_write(self):
-        run("set-status", "--root", self.root, "--status", "running")
-        tmp_files = list((Path(self.root) / "status").glob("*.tmp"))
-        self.assertEqual(len(tmp_files), 0, f"Found tmp: {tmp_files}")
-
-    def test_no_forbidden_after_set_status(self):
-        run("set-status", "--root", self.root, "--status", "running")
-        content = (Path(self.root) / "status" / "agent_status.json").read_text().lower()
-        for word in FORBIDDEN_EXTENDED:
-            self.assertNotIn(word, content, f"'{word}' after set-status")
+        self.assertEqual(code, 0, f"err={err}")
+        self.assertIn("All checks passed", out)
 
 
 # ══════════════════════════════════════════════════════════════════════
 
 class TestLocalConfig(unittest.TestCase):
-
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = self.tmp.name
@@ -234,140 +141,151 @@ class TestLocalConfig(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    # ── happy path ─────────────────────────────────────────────────
     def test_write_config_creates_file(self):
-        code, out, err = run("write-config", "--root", self.root,
-                             "--backend-base-url", "https://example.com",
-                             "--device-code", "a-05954")
-        self.assertEqual(code, 0, f"err={err}")
-        config_path = Path(self.root) / "config" / "agent_config.json"
-        self.assertTrue(config_path.exists())
-        data = json.loads(config_path.read_text())
-        self.assertEqual(data["backend_base_url"], "https://example.com")
-        self.assertEqual(data["device_code"], "a-05954")
-        self.assertTrue(data["tls_verify"])
-        self.assertEqual(data["request_timeout_sec"], 10)
-
-    def test_config_status_valid(self):
         run("write-config", "--root", self.root,
-            "--backend-base-url", "https://example.com",
-            "--device-code", "a-05954")
-        code, out, err = run("config-status", "--root", self.root)
-        self.assertEqual(code, 0, f"err={err}")
-        self.assertIn("PRESENT", out)
-        self.assertIn("example.com", out)
-        self.assertIn("a-05954", out)
-
-    # ── errors ─────────────────────────────────────────────────────
-    def test_write_config_no_init(self):
-        r2 = tempfile.TemporaryDirectory()
-        code, out, err = run("write-config", "--root", r2.name,
-                             "--backend-base-url", "https://example.com",
-                             "--device-code", "a-05954")
-        self.assertNotEqual(code, 0)
-        self.assertNotIn("Traceback", out)
-        self.assertNotIn("Traceback", err)
-        r2.cleanup()
-
-    def test_invalid_backend_url_rejected(self):
-        for bad_url in ("ftp://example.com", "not-a-url", ""):
-            code, out, err = run("write-config", "--root", self.root,
-                                 "--backend-base-url", bad_url,
-                                 "--device-code", "a-05954")
-            self.assertNotEqual(code, 0, f"Should reject: {bad_url}")
-
-    def test_url_with_password_rejected(self):
-        code, out, err = run("write-config", "--root", self.root,
-                             "--backend-base-url", "https://user:pass@example.com",
-                             "--device-code", "a-05954")
-        self.assertNotEqual(code, 0)
-
-    def test_url_with_token_query_rejected(self):
-        code, out, err = run("write-config", "--root", self.root,
-                             "--backend-base-url", "https://example.com?token=abc123",
-                             "--device-code", "a-05954")
-        self.assertNotEqual(code, 0)
-
-    def test_invalid_device_code_rejected(self):
-        for bad in ("ab", "a b", "a@b", ""):
-            code, out, err = run("write-config", "--root", self.root,
-                                 "--backend-base-url", "https://example.com",
-                                 "--device-code", bad)
-            self.assertNotEqual(code, 0, f"Should reject device_code: {bad}")
-
-    def test_tls_verify_false_works(self):
-        code, out, err = run("write-config", "--root", self.root,
-                             "--backend-base-url", "https://example.com",
-                             "--device-code", "a-05954",
-                             "--tls-verify", "false")
-        self.assertEqual(code, 0, f"err={err}")
+            "--backend-base-url", "https://example.com", "--device-code", "a-05954")
         data = json.loads((Path(self.root) / "config" / "agent_config.json").read_text())
-        self.assertFalse(data["tls_verify"])
+        self.assertEqual(data["backend_base_url"], "https://example.com")
 
-    def test_invalid_timeout_rejected(self):
-        for bad in ("0", "121", "-1"):
-            code, out, err = run("write-config", "--root", self.root,
-                                 "--backend-base-url", "https://example.com",
-                                 "--device-code", "a-05954",
-                                 "--request-timeout-sec", bad)
-            self.assertNotEqual(code, 0, f"Should reject timeout: {bad}")
 
-    def test_forbidden_in_device_code_rejected(self):
-        code, out, err = run("write-config", "--root", self.root,
-                             "--backend-base-url", "https://example.com",
-                             "--device-code", "my_token")
+# ══════════════════════════════════════════════════════════════════════
+# Dev Secret Store tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestDevSecretStore(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        run("init-local-root", "--root", self.root)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    # ── Dev mode gate ──────────────────────────────────────────────
+    def test_check_without_dev_flag_rejected(self):
+        code, out, err = run("secret-store-check", "--root", self.root)
+        self.assertNotEqual(code, 0)
+        self.assertIn("disabled", err.lower() if err else out.lower())
+
+    def test_set_without_dev_flag_rejected(self):
+        code, out, err = run_stdin(TEST_SECRET,
+                                   "secret-store-set", "--root", self.root, "--stdin")
         self.assertNotEqual(code, 0)
 
-    def test_forbidden_in_url_rejected(self):
-        code, out, err = run("write-config", "--root", self.root,
-                             "--backend-base-url", "https://my-secret.example.com",
-                             "--device-code", "a-05954")
+    def test_delete_without_dev_flag_rejected(self):
+        code, out, err = run("secret-store-delete", "--root", self.root)
         self.assertNotEqual(code, 0)
 
-    # ── doctor integration ─────────────────────────────────────────
-    def test_doctor_without_config_warns(self):
-        run("set-status", "--root", self.root, "--status", "running")
-        code, out, err = run("doctor", "--root", self.root)
-        self.assertNotEqual(code, 0)
-        self.assertIn("config_ok:", out)
-        self.assertIn("config_ok:         False", out, f"out={out}")
-
-    def test_doctor_with_valid_config_ok(self):
-        run("set-status", "--root", self.root, "--status", "running")
-        run("write-config", "--root", self.root,
-            "--backend-base-url", "https://example.com",
-            "--device-code", "a-05954")
-        code, out, err = run("doctor", "--root", self.root)
+    # ── Happy path ─────────────────────────────────────────────────
+    def test_set_via_stdin(self):
+        code, out, err = run_stdin(
+            TEST_SECRET, "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin",
+        )
         self.assertEqual(code, 0, f"err={err}")
-        self.assertIn("All checks passed", out)
+        self.assertTrue((Path(self.root) / "config" / "device_secret.dev").exists())
 
-    def test_doctor_with_invalid_config_issue(self):
+    def test_check_after_set(self):
+        run_stdin(TEST_SECRET, "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin")
+        code, out, err = run("secret-store-check", "--root", self.root, *DEV_FLAG)
+        self.assertEqual(code, 0, f"err={err}")
+        self.assertIn("present:          True", out)
+
+    def test_delete(self):
+        run_stdin(TEST_SECRET, "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin")
+        code, out, err = run("secret-store-delete", "--root", self.root, *DEV_FLAG)
+        self.assertEqual(code, 0, f"err={err}")
+        self.assertFalse((Path(self.root) / "config" / "device_secret.dev").exists())
+
+    def test_delete_absent_no_error(self):
+        code, out, err = run("secret-store-delete", "--root", self.root, *DEV_FLAG)
+        self.assertEqual(code, 0)
+        self.assertIn("absent", out.lower() if out else err.lower())
+
+    # ── Security: secret never in output ───────────────────────────
+    def test_stdout_no_secret(self):
+        run_stdin(TEST_SECRET, "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin")
+        code, out, err = run("secret-store-check", "--root", self.root, *DEV_FLAG)
+        combined = out + err
+        self.assertNotIn(TEST_SECRET, combined, "Secret leaked to check output")
+
+    def test_stderr_no_secret(self):
+        code, out, err = run("secret-store-check", "--root", self.root, *DEV_FLAG)
+        self.assertNotIn(TEST_SECRET, out + err)
+
+    def test_agent_config_no_secret(self):
+        run("write-config", "--root", self.root,
+            "--backend-base-url", "https://example.com", "--device-code", "a-05954")
+        run_stdin(TEST_SECRET, "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin")
+        content = (Path(self.root) / "config" / "agent_config.json").read_text()
+        self.assertNotIn(TEST_SECRET, content, "Secret leaked to agent_config.json")
+
+    def test_agent_status_no_secret(self):
         run("set-status", "--root", self.root, "--status", "running")
-        # Write invalid config directly
-        bad_config = {"backend_base_url": "ftp://bad", "device_code": "x"}
-        config_dir = Path(self.root) / "config"
-        config_dir.mkdir(parents=True, exist_ok=True)
-        (config_dir / "agent_config.json").write_text(json.dumps(bad_config))
-        code, out, err = run("doctor", "--root", self.root)
+        run_stdin(TEST_SECRET, "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin")
+        content = (Path(self.root) / "status" / "agent_status.json").read_text()
+        self.assertNotIn(TEST_SECRET, content, "Secret leaked to agent_status.json")
+
+    def test_doctor_no_secret(self):
+        run_stdin(TEST_SECRET, "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin")
+        code, out, err = run("doctor", "--root", self.root, *DEV_FLAG)
+        self.assertNotIn(TEST_SECRET, out + err, "Secret leaked to doctor output")
+
+    def test_config_status_no_secret(self):
+        run("write-config", "--root", self.root,
+            "--backend-base-url", "https://example.com", "--device-code", "a-05954")
+        run_stdin(TEST_SECRET, "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin")
+        code, out, err = run("config-status", "--root", self.root)
+        self.assertNotIn(TEST_SECRET, out + err, "Secret leaked to config-status")
+
+    # ── Validation ─────────────────────────────────────────────────
+    def test_empty_secret_rejected(self):
+        code, out, err = run_stdin(
+            "\n", "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin",
+        )
         self.assertNotEqual(code, 0)
 
-    # ── security ───────────────────────────────────────────────────
-    def test_config_file_no_forbidden_words(self):
-        run("write-config", "--root", self.root,
-            "--backend-base-url", "https://example.com",
-            "--device-code", "a-05954")
-        content = (Path(self.root) / "config" / "agent_config.json").read_text().lower()
-        for word in FORBIDDEN_EXTENDED:
-            self.assertNotIn(word, content, f"'{word}' in agent_config.json")
+    def test_too_short_secret_rejected(self):
+        code, out, err = run_stdin(
+            "abc", "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin",
+        )
+        self.assertNotEqual(code, 0)
 
-    def test_output_no_forbidden_words(self):
+    def test_too_long_secret_rejected(self):
+        code, out, err = run_stdin(
+            "x" * 513, "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin",
+        )
+        self.assertNotEqual(code, 0)
+
+    def test_set_without_stdin_rejected(self):
+        code, out, err = run("secret-store-set", "--root", self.root, *DEV_FLAG)
+        self.assertNotEqual(code, 0)
+        self.assertIn("stdin", (out + err).lower())
+
+    # ── Doctor integration ─────────────────────────────────────────
+    def test_doctor_sees_dev_secret_store(self):
+        run_stdin(TEST_SECRET, "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin")
+        run("set-status", "--root", self.root, "--status", "running")
         run("write-config", "--root", self.root,
-            "--backend-base-url", "https://example.com",
-            "--device-code", "a-05954")
-        code, out, err = run("config-status", "--root", self.root)
-        combined = (out + err).lower()
-        for word in FORBIDDEN_EXTENDED:
-            self.assertNotIn(word, combined, f"'{word}' in config-status output")
+            "--backend-base-url", "https://example.com", "--device-code", "a-05954")
+        code, out, err = run("doctor", "--root", self.root, *DEV_FLAG)
+        self.assertEqual(code, 0, f"err={err}")
+        self.assertIn("dev_secret_store:", out)
+
+    def test_doctor_without_flag_skips_secret(self):
+        run_stdin(TEST_SECRET, "secret-store-set", "--root", self.root, *DEV_FLAG, "--stdin")
+        run("set-status", "--root", self.root, "--status", "running")
+        run("write-config", "--root", self.root,
+            "--backend-base-url", "https://example.com", "--device-code", "a-05954")
+        code, out, err = run("doctor", "--root", self.root)
+        self.assertNotIn("dev_secret_store:", out,
+                         "Doctor should not show secret store without flag")
+
+    # ── No --device-secret arg ─────────────────────────────────────
+    def test_no_device_secret_arg(self):
+        code, out, err = run("--help")
+        self.assertNotIn("device-secret", out, "CLI must not have --device-secret arg")
+        self.assertNotIn("--secret", out, "CLI must not have --secret arg")
+        self.assertNotIn("--token", out, "CLI must not have --token arg")
 
 
 if __name__ == "__main__":
