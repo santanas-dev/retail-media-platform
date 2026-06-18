@@ -1,4 +1,4 @@
-"""Smoke tests for KSO Sidecar Agent skeleton."""
+"""Smoke tests for KSO Sidecar Agent skeleton + atomic status store."""
 
 import io
 import json
@@ -44,6 +44,7 @@ class TestCLISkeleton(unittest.TestCase):
         self.assertIn("init-local-root", out)
         self.assertIn("doctor", out)
         self.assertIn("version", out)
+        self.assertIn("set-status", out)
 
     # ── version ────────────────────────────────────────────────────
     def test_version(self):
@@ -137,6 +138,136 @@ class TestCLISkeleton(unittest.TestCase):
         for word in FORBIDDEN_WORDS:
             self.assertNotIn(word, combined,
                              f"'{word}' found in CLI output")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Atomic Status Store tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestAtomicStatusStore(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        run("init-local-root", "--root", self.root)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    # ── set-status running ─────────────────────────────────────────
+    def test_set_status_running(self):
+        code, out, err = run("set-status", "--root", self.root, "--status", "running")
+        self.assertEqual(code, 0, f"err={err}")
+        self.assertIn("running", out)
+
+        data = json.loads((Path(self.root) / "status" / "agent_status.json").read_text())
+        self.assertEqual(data["status"], "running")
+
+    # ── set-status with args ───────────────────────────────────────
+    def test_set_status_offline_full(self):
+        code, out, err = run(
+            "set-status", "--root", self.root,
+            "--status", "offline",
+            "--offline-mode", "true",
+            "--cached-items", "3",
+            "--invalid-hash-items", "1",
+            "--error", "backend unavailable",
+        )
+        self.assertEqual(code, 0, f"err={err}")
+
+        data = json.loads((Path(self.root) / "status" / "agent_status.json").read_text())
+        self.assertEqual(data["status"], "offline")
+        self.assertTrue(data["offline_mode"])
+        self.assertEqual(data["cached_items"], 3)
+        self.assertEqual(data["invalid_hash_items"], 1)
+        self.assertEqual(data["errors"], ["backend unavailable"])
+
+    # ── invalid status ─────────────────────────────────────────────
+    def test_invalid_status_rejected(self):
+        code, out, err = run("set-status", "--root", self.root, "--status", "INVALID")
+        self.assertNotEqual(code, 0)
+        self.assertIn("ERROR", err)
+
+    # ── negative cached_items ──────────────────────────────────────
+    def test_negative_cached_items_rejected(self):
+        code, out, err = run(
+            "set-status", "--root", self.root,
+            "--status", "running", "--cached-items", "-1",
+        )
+        self.assertNotEqual(code, 0)
+
+    # ── forbidden error with token → reject ────────────────────────
+    def test_forbidden_error_rejected(self):
+        code, out, err = run(
+            "set-status", "--root", self.root,
+            "--status", "running",
+            "--error", "token expired",
+        )
+        self.assertNotEqual(code, 0)
+        self.assertIn("ERROR", err)
+
+    # ── target symlink reject ──────────────────────────────────────
+    def test_symlink_target_rejected(self):
+        status_path = Path(self.root) / "status" / "agent_status.json"
+        # Remove original, create symlink
+        status_path.unlink()
+        outside = Path(self.root) / "outside.json"
+        outside.write_text("{}")
+        status_path.symlink_to(outside)
+
+        code, out, err = run("set-status", "--root", self.root, "--status", "running")
+        self.assertNotEqual(code, 0)
+
+    # ── doctor validates correct status ────────────────────────────
+    def test_doctor_validates_status(self):
+        run("set-status", "--root", self.root, "--status", "warning")
+        code, out, err = run("doctor", "--root", self.root)
+        self.assertEqual(code, 0)
+        self.assertIn("warning", out)
+
+    # ── doctor catches broken JSON ─────────────────────────────────
+    def test_doctor_catches_broken_json(self):
+        status_path = Path(self.root) / "status" / "agent_status.json"
+        status_path.write_text("{not json")
+        code, out, err = run("doctor", "--root", self.root)
+        self.assertNotEqual(code, 0)
+        self.assertIn("Invalid JSON", out)
+
+    # ── doctor catches forbidden value ─────────────────────────────
+    def test_doctor_catches_forbidden_value(self):
+        status_path = Path(self.root) / "status" / "agent_status.json"
+        status_path.write_text(json.dumps({
+            "status": "running",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "offline_mode": False,
+            "cached_items": 0,
+            "invalid_hash_items": 0,
+            "errors": ["token found"],
+        }))
+        code, out, err = run("doctor", "--root", self.root)
+        self.assertNotEqual(code, 0)
+        self.assertIn("Forbidden", out)
+
+    # ── atomic write: no .tmp left after success ───────────────────
+    def test_no_tmp_left_after_write(self):
+        run("set-status", "--root", self.root, "--status", "running")
+        status_dir = Path(self.root) / "status"
+        tmp_files = list(status_dir.glob("*.tmp"))
+        self.assertEqual(len(tmp_files), 0, f"Found tmp files: {tmp_files}")
+
+    # ── no forbidden in runtime files after set-status ─────────────
+    def test_no_forbidden_after_set_status(self):
+        run("set-status", "--root", self.root, "--status", "running")
+        status_path = Path(self.root) / "status" / "agent_status.json"
+        content = status_path.read_text().lower()
+        FORBIDDEN_EXTENDED = [
+            "token", "jwt", "password", "secret", "api_key",
+            "private_key", "payment_card", "receipt",
+            "local_path", "file_path",
+        ]
+        for word in FORBIDDEN_EXTENDED:
+            self.assertNotIn(word, content,
+                             f"'{word}' found in agent_status.json after set-status")
 
 
 if __name__ == "__main__":

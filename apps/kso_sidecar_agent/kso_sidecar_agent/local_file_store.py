@@ -5,11 +5,12 @@ This is a DEV SKELETON. No secrets, no backend calls, no media.
 """
 
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from kso_sidecar_agent.paths import SUB_DIRS, default_agent_status
+from kso_sidecar_agent import agent_status
+from kso_sidecar_agent.atomic_io import atomic_write_json
+from kso_sidecar_agent.paths import SUB_DIRS, AGENT_STATUS_FILE, default_agent_status
 
 
 def init_local_root(root: str | Path) -> None:
@@ -23,14 +24,12 @@ def init_local_root(root: str | Path) -> None:
     for sub in SUB_DIRS:
         (root / sub).mkdir(parents=True, exist_ok=True)
 
-    # Write agent_status.json
+    # Write agent_status.json atomically
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     status_data = default_agent_status(now)
 
-    status_path = root / "status" / "agent_status.json"
-    status_path.parent.mkdir(parents=True, exist_ok=True)
-    content = json.dumps(status_data, indent=2, ensure_ascii=False) + "\n"
-    status_path.write_text(content, encoding="utf-8")
+    status_path = root / AGENT_STATUS_FILE
+    atomic_write_json(status_path, status_data)
 
 
 def doctor(root: str | Path) -> dict:
@@ -59,23 +58,13 @@ def doctor(root: str | Path) -> dict:
             result["folders_ok"] = False
             result["missing_folders"].append(sub)
 
-    # Check agent_status.json
-    status_path = root / "status" / "agent_status.json"
-    if not status_path.exists():
-        result["agent_status_error"] = "MISSING"
+    # Validate agent_status.json via agent_status module
+    validation = agent_status.validate_status_file(root)
+
+    if validation["ok"]:
+        result["agent_status_ok"] = True
+        result["agent_status"] = validation.get("status", "")
     else:
-        try:
-            data = json.loads(status_path.read_text())
-            if not isinstance(data, dict):
-                result["agent_status_error"] = "Invalid format (not an object)"
-            elif "status" not in data:
-                result["agent_status_error"] = "Missing 'status' field"
-            else:
-                result["agent_status_ok"] = True
-                result["agent_status"] = data.get("status")
-        except json.JSONDecodeError:
-            result["agent_status_error"] = "Invalid JSON"
-        except OSError:
-            result["agent_status_error"] = "Cannot read file"
+        result["agent_status_error"] = validation["error"]
 
     return result

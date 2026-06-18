@@ -4,6 +4,7 @@ Commands:
     version         Show version
     init-local-root Create folder structure + agent_status.json
     doctor          Check folder + agent_status.json health
+    set-status      Update agent status
 
 This is a SKELETON. No backend calls, no secrets, no media sync yet.
 """
@@ -11,7 +12,7 @@ This is a SKELETON. No backend calls, no secrets, no media sync yet.
 import argparse
 import sys
 
-from kso_sidecar_agent import local_file_store, safe_logger
+from kso_sidecar_agent import agent_status, local_file_store, safe_logger
 
 try:
     from importlib.metadata import version as _version
@@ -33,7 +34,8 @@ def cmd_init_local_root(args: argparse.Namespace) -> None:
     safe_logger.log(
         level="info",
         event="init_local_root",
-        message=f"Agent root initialized: {root}",
+        message=f"Agent root initialized",
+        extra={"root": root},
     )
 
 
@@ -64,6 +66,30 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_set_status(args: argparse.Namespace) -> None:
+    """Update agent status."""
+    try:
+        errors = args.error if args.error else []
+        data = agent_status.update_status(
+            root=args.root,
+            status=args.status,
+            offline_mode=args.offline_mode,
+            cached_items=args.cached_items,
+            invalid_hash_items=args.invalid_hash_items,
+            errors=errors,
+        )
+        print(f"Status updated: {data['status']}")
+        print(f"  updated_at:       {data['updated_at']}")
+        print(f"  offline_mode:     {data['offline_mode']}")
+        print(f"  cached_items:     {data['cached_items']}")
+        print(f"  invalid_hash_items: {data['invalid_hash_items']}")
+        if data["errors"]:
+            print(f"  errors:           {len(data['errors'])}")
+    except (ValueError, FileNotFoundError) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-agent",
@@ -85,7 +111,28 @@ def main() -> None:
     p_doc.add_argument("--root", required=True, help="Root path to check")
     p_doc.set_defaults(func=cmd_doctor)
 
+    # set-status
+    p_ss = sub.add_parser("set-status", help="Update agent status")
+    p_ss.add_argument("--root", required=True, help="Root path")
+    p_ss.add_argument("--status", required=True,
+                      choices=sorted(agent_status.ALLOWED_STATUSES),
+                      help="Agent status")
+    p_ss.add_argument("--offline-mode", type=str, default="false",
+                      help="Offline mode (true/false)")
+    p_ss.add_argument("--cached-items", type=int, default=0,
+                      help="Cached items count")
+    p_ss.add_argument("--invalid-hash-items", type=int, default=0,
+                      help="Invalid hash items count")
+    p_ss.add_argument("--error", action="append", default=[],
+                      help="Error message (repeatable)")
+    p_ss.set_defaults(func=cmd_set_status)
+
     args = parser.parse_args()
+
+    # Convert --offline-mode string to bool
+    if hasattr(args, "offline_mode") and isinstance(args.offline_mode, str):
+        args.offline_mode = args.offline_mode.lower() in ("true", "1", "yes")
+
     args.func(args)
 
 
