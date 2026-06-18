@@ -67,7 +67,7 @@ class HttpClientConfig:
 
 @dataclass
 class HttpResponse:
-    """Successful HTTP response."""
+    """Successful JSON HTTP response."""
     status_code: int
     json_body: Any
     elapsed_ms: float
@@ -76,6 +76,28 @@ class HttpResponse:
         """Return metadata only — no body, no headers."""
         return {
             "status_code": self.status_code,
+            "elapsed_ms": round(self.elapsed_ms, 1),
+        }
+
+
+@dataclass
+class HttpBinaryResponse:
+    """Successful binary HTTP response — raw bytes, no body dump in logs."""
+    status_code: int
+    body_bytes: bytes
+    headers: dict[str, str]
+    elapsed_ms: float
+
+    def safe_summary(self) -> dict:
+        """Return metadata only — no body bytes, no Authorization header."""
+        safe_headers = {
+            k: v for k, v in self.headers.items()
+            if k.lower() not in ("authorization", "set-cookie", "cookie")
+        }
+        return {
+            "status_code": self.status_code,
+            "content_length": len(self.body_bytes),
+            "headers": safe_headers,
             "elapsed_ms": round(self.elapsed_ms, 1),
         }
 
@@ -108,7 +130,21 @@ class HttpClientError(Exception):
 # Every entry is a known backend endpoint from device-gateway router.
 EXACT_ALLOWED_PATHS: frozenset[str] = frozenset({
     "/api/device-gateway/auth/token",
+    "/api/device-gateway/manifest/current",
+    "/api/device-gateway/heartbeat",
+    "/api/device-gateway/media/cache/report",
+    "/api/device-gateway/config/current",
 })
+
+# Media and manifest paths with dynamic segments — validated separately.
+# Pattern: /api/device-gateway/media/{manifest_item_id}[/metadata]
+# Pattern: /api/device-gateway/manifest/{manifest_version_id}
+# Pattern: /api/device-gateway/pop/events
+_ALLOWED_PREFIXES: tuple[str, ...] = (
+    "/api/device-gateway/media/",
+    "/api/device-gateway/manifest/",
+    "/api/device-gateway/pop/",
+)
 
 
 def _validate_path(path: str) -> str:
@@ -124,6 +160,29 @@ def _validate_path(path: str) -> str:
     # Exact allowlist check: only these specific paths bypass forbidden check
     if path in EXACT_ALLOWED_PATHS:
         return path
+
+    # Prefix allowlist: paths like /api/device-gateway/media/{id} or /manifest/{id}
+    # Supports one optional additional segment: /api/device-gateway/media/{id}/metadata
+    for prefix in _ALLOWED_PREFIXES:
+        if path.startswith(prefix):
+            remainder = path[len(prefix):]
+            if not remainder:
+                raise ValueError(f"path '{path}' has invalid dynamic segment")
+            if ".." in remainder:
+                raise ValueError(f"path '{path}' must not contain '..'")
+            if "?" in remainder:
+                raise ValueError(f"path '{path}' must not contain query string")
+            # Allow one optional suffix segment after the dynamic ID
+            if "/" in remainder:
+                parts = remainder.split("/", 1)
+                if len(parts) != 2 or not parts[0] or not parts[1]:
+                    raise ValueError(f"path '{path}' has invalid dynamic segment")
+                if "/" in parts[1]:
+                    raise ValueError(f"path '{path}' has too many path segments")
+                # parts[0] is the dynamic ID, parts[1] is the suffix (e.g. "metadata")
+                if ".." in parts[1] or "?" in parts[1]:
+                    raise ValueError(f"path '{path}' has invalid suffix segment")
+            return path
 
     lower = path.lower()
     for forbidden in FORBIDDEN_PATH_SUBSTRINGS:
@@ -180,6 +239,105 @@ class SafeHttpClient:
     def post_json(self, path: str, payload: Any, headers: Optional[dict[str, str]] = None) -> HttpResponse:
         """POST request with JSON body, return parsed JSON."""
         return self._request("POST", path, payload=payload, headers=headers)
+
+    def get_bytes(
+        self,
+        path: str,
+        headers: Optional[dict[str, str]] = None,
+        max_bytes: Optional[int] = None,
+    ) -> HttpBinaryResponse:
+        """GET request, return raw bytes with response headers.
+
+        Args:
+            path: Allowed API path.
+            headers: Request headers (Authorization is forbidden).
+            max_bytes: Max response size in bytes. Raises HttpClientError if exceeded.
+
+        Returns:
+            HttpBinaryResponse with body_bytes, headers dict, status_code, elapsed_ms.
+
+        Raises:
+            HttpClientError: HTTP/network/size-limit errors.
+            ValueError: Path/header validation error.
+        """
+        _validate_path(path)
+        validated_headers = _validate_headers(headers)
+
+        url = urljoin(self._config.base_url, path.lstrip("/"))
+
+        req_headers = {"Accept": "*/*"}
+        req_headers.update(validated_headers)
+
+        req = urllib.request.Request(url, headers=req_headers, method="GET")
+
+        start = time.monotonic()
+        try:
+            resp = urllib.request.urlopen(
+                req, timeout=self._config.timeout_sec, context=self._ssl_context,
+            )
+        except urllib.error.HTTPError as e:
+            elapsed = (time.monotonic() - start) * 1000
+            code = e.code
+            raise HttpClientError(
+                status_code=code,
+                message=f"HTTP {code} ({elapsed:.0f}ms)",
+                retryable=_is_retryable(code),
+            ) from None
+        except urllib.error.URLError as e:
+            elapsed = (time.monotonic() - start) * 1000
+            reason = str(e.reason) if e.reason else "Unknown network error"
+            raise HttpClientError(
+                status_code=0,
+                message=f"Network error: {reason} ({elapsed:.0f}ms)",
+                retryable=True,
+            ) from None
+        except (TimeoutError, OSError) as e:
+            elapsed = (time.monotonic() - start) * 1000
+            raise HttpClientError(
+                status_code=0,
+                message=f"Connection failed: {e} ({elapsed:.0f}ms)",
+                retryable=True,
+            ) from None
+
+        elapsed = (time.monotonic() - start) * 1000
+        status_code = resp.getcode()
+
+        if not (200 <= status_code < 300):
+            retryable = _is_retryable(status_code)
+            raise HttpClientError(
+                status_code=status_code,
+                message=f"HTTP {status_code} ({elapsed:.0f}ms)",
+                retryable=retryable,
+            )
+
+        # Read response headers (strip Authorization if present)
+        resp_headers = {}
+        for key, value in resp.getheaders():
+            resp_headers[key] = value
+
+        # Read body with optional size limit
+        try:
+            raw = resp.read()
+        except Exception as e:
+            elapsed = (time.monotonic() - start) * 1000
+            raise HttpClientError(
+                status_code=status_code,
+                message=f"Failed to read response body: {e} ({elapsed:.0f}ms)",
+                retryable=True,
+            ) from None
+        if max_bytes is not None and len(raw) > max_bytes:
+            raise HttpClientError(
+                status_code=status_code,
+                message=f"Response too large: {len(raw)} bytes (max {max_bytes})",
+                retryable=False,
+            )
+
+        return HttpBinaryResponse(
+            status_code=status_code,
+            body_bytes=raw,
+            headers=resp_headers,
+            elapsed_ms=elapsed,
+        )
 
     # ── Internal ────────────────────────────────────────────────────
 
