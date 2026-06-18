@@ -261,6 +261,37 @@ def cmd_show_once(args: argparse.Namespace) -> None:
     sys.exit(1)
 
 
+def cmd_run_idle_loop(args: argparse.Namespace) -> None:
+    """Run an idle loop through manifest items."""
+    result = playback_simulator.run_idle_loop(
+        root=args.root,
+        iterations=args.iterations,
+        interval_ms=args.interval_ms,
+        stop_on_blocked=args.stop_on_blocked,
+    )
+
+    # Per-item lines
+    for res in result.items:
+        mid = res.device_event_id[:8] + "..." if res.device_event_id else "-"
+        if res.status == playback_simulator.SHOW_COMPLETED:
+            print(f"ITEM_COMPLETED manifest_item_id={mid} duration_ms={res.duration_ms}")
+        elif res.status == playback_simulator.SHOW_BLOCKED:
+            print(f"ITEM_BLOCKED reason={res.reason}")
+        else:
+            print(f"ITEM_FAILED reason={res.reason}")
+
+    # Summary
+    stopped = ""
+    if result.stopped_early:
+        stopped = " stopped_early=true"
+    print(f"\nLOOP_DONE iterations={result.iterations} attempted={result.attempted} "
+          f"completed={result.completed} blocked={result.blocked} "
+          f"failed={result.failed}{stopped}")
+
+    if result.failed > 0 or (result.blocked > 0 and result.completed == 0):
+        sys.exit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-sim",
@@ -317,6 +348,17 @@ def main() -> None:
     p_so.add_argument("--duration-ms", type=int, default=None,
                       help="Override duration (default: from manifest)")
     p_so.set_defaults(func=cmd_show_once)
+
+    # run-idle-loop
+    p_loop = sub.add_parser("run-idle-loop", help="Loop through manifest items with safety")
+    p_loop.add_argument("--root", required=True, help="Root path")
+    p_loop.add_argument("--iterations", type=int, default=1,
+                        help="Max show attempts (default: 1)")
+    p_loop.add_argument("--interval-ms", type=int, default=1000,
+                        help="Sleep between items in ms (default: 1000)")
+    p_loop.add_argument("--stop-on-blocked", action="store_true", default=False,
+                        help="Stop loop on first non-completed result")
+    p_loop.set_defaults(func=cmd_run_idle_loop)
 
     args = parser.parse_args()
     args.func(args)

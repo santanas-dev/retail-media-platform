@@ -6,6 +6,8 @@ This is a DEV TOOL. No secrets, no tokens, no network, no real UI/playback.
 
 import hashlib
 import json
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -219,3 +221,91 @@ def show_once(
         duration_ms=ms,
         detail=f"PoP completed written to pop/events.log",
     )
+
+
+# ── Idle Loop ─────────────────────────────────────────────────────────
+
+@dataclass
+class IdleLoopResult:
+    """Aggregate result of a run-idle-loop cycle."""
+    iterations: int = 0         # requested iterations
+    attempted: int = 0          # items actually tried
+    completed: int = 0          # successful completed shows
+    blocked: int = 0            # SHOW_BLOCKED count
+    failed: int = 0             # SHOW_FAILED count
+    items: list[ShowResult] = field(default_factory=list)  # per-item results
+    stopped_early: bool = False # true if --stop-on-blocked hit
+
+
+def run_idle_loop(
+    root: str | Path,
+    iterations: int = 1,
+    interval_ms: int = 1000,
+    stop_on_blocked: bool = False,
+) -> IdleLoopResult:
+    """Iterate through manifest items by order, calling show-once on each.
+
+    Safety rules match show_once: completed only when state=idle,
+    can_show_ads=true, manifest valid, media sha256 match.
+
+    Args:
+        root: kso-adapter root directory
+        iterations: max number of show attempts (default 1)
+        interval_ms: sleep between items (default 1000)
+        stop_on_blocked: halt loop on first non-completed result
+    """
+    root = Path(root)
+
+    # ── Read manifest once ────────────────────────────────────────
+    try:
+        manifest = manifest_reader.read_manifest(root)
+    except FileNotFoundError:
+        return IdleLoopResult(
+            iterations=iterations,
+            attempted=0,
+            items=[ShowResult(status=SHOW_FAILED, reason="manifest_invalid",
+                              detail="Manifest not found")],
+        )
+    except (ValueError, json.JSONDecodeError) as e:
+        return IdleLoopResult(
+            iterations=iterations,
+            attempted=0,
+            items=[ShowResult(status=SHOW_FAILED, reason="manifest_invalid",
+                              detail=str(e))],
+        )
+
+    # Sort items by order
+    sorted_items = sorted(manifest.items, key=lambda it: it.order)
+
+    loop = IdleLoopResult(iterations=iterations)
+
+    for i in range(iterations):
+        if not sorted_items:
+            break
+
+        item = sorted_items[i % len(sorted_items)]
+
+        result = show_once(
+            root=root,
+            manifest_item_id=item.manifest_item_id,
+            duration_ms=None,  # use manifest duration
+        )
+
+        loop.attempted += 1
+        loop.items.append(result)
+
+        if result.status == SHOW_COMPLETED:
+            loop.completed += 1
+        elif result.status == SHOW_BLOCKED:
+            loop.blocked += 1
+        else:
+            loop.failed += 1
+
+        if stop_on_blocked and result.status != SHOW_COMPLETED:
+            loop.stopped_early = True
+            break
+
+        if i < iterations - 1:
+            time.sleep(interval_ms / 1000.0)
+
+    return loop

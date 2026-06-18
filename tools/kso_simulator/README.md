@@ -201,6 +201,58 @@ python3 -m kso_simulator.cli show-once \
 - Во всех остальных случаях — fail-silent: без PoP, без stacktrace, без сети
 - Не меняет состояние КСО
 
+### Idle Loop (run-idle-loop)
+
+Команда `run-idle-loop` идёт по manifest items (сортируя по `order`), вызывая безопасную `show-once` логику для каждого. Имитирует цикличный показ на idle-экране КСО.
+
+```bash
+cd tools/kso_simulator
+
+# Одиночный проход по первому item
+python3 -m kso_simulator.cli run-idle-loop --root /tmp/kso-adapter
+
+# 3 попытки с интервалом 100ms
+python3 -m kso_simulator.cli run-idle-loop \
+  --root /tmp/kso-adapter \
+  --iterations 3 \
+  --interval-ms 100
+
+# Остановка при первом blocked/failed
+python3 -m kso_simulator.cli run-idle-loop \
+  --root /tmp/kso-adapter \
+  --iterations 10 \
+  --stop-on-blocked
+```
+
+**Пример: idle → completed (2 items, 3 iterations):**
+```
+ITEM_COMPLETED manifest_item_id=66111111... duration_ms=10000
+ITEM_COMPLETED manifest_item_id=66222222... duration_ms=5000
+ITEM_COMPLETED manifest_item_id=66111111... duration_ms=10000
+
+LOOP_DONE iterations=3 attempted=3 completed=3 blocked=0 failed=0
+```
+
+**Пример: payment → blocked:**
+```
+ITEM_BLOCKED reason=kso_not_idle
+
+LOOP_DONE iterations=1 attempted=1 completed=0 blocked=1 failed=0
+```
+
+**Параметры:**
+- `--root` — путь к kso-adapter (обязателен)
+- `--iterations` — макс. попыток показа (default: 1)
+- `--interval-ms` — пауза между итерациями в мс (default: 1000)
+- `--stop-on-blocked` — остановиться при первом non-completed
+
+**Особенности:**
+- Читает manifest один раз перед началом цикла
+- Идёт по items согласно полю `order`
+- Использует ту же safety-логику что и `show-once`
+- При blocked/failed — не пишет PoP, переходит к следующему item (если не `--stop-on-blocked`)
+- Не бесконечный по умолчанию (`--iterations` обязателен для >1)
+
 ## Создаваемые файлы
 
 После `init` создаётся:
