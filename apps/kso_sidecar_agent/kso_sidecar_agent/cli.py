@@ -30,6 +30,7 @@ from kso_sidecar_agent import (
 )
 from kso_sidecar_agent.http_client import HttpClientConfig, HttpClientError, SafeHttpClient
 from kso_sidecar_agent.manifest_client import ManifestClient
+from kso_sidecar_agent.media_client import MediaClient
 from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager
 from kso_sidecar_agent.runtime_config_client import RuntimeConfigClient
 
@@ -659,6 +660,163 @@ def cmd_sync_manifest(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+# ── Media sync command ───────────────────────────────────────────────
+
+def cmd_sync_media(args: argparse.Namespace) -> None:
+    """Full media sync: auth → read local manifest → download media → save locally.
+    Never prints token/secret/Authorization/media bytes.
+    """
+    # ── 1. Read config ─────────────────────────────────────────────
+    try:
+        cfg = local_config.read_config(args.root)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"ERROR: Config — {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        # ── 2. Secret reader ──────────────────────────────────────
+        dev_flag = args.dev_secret_store
+        def _read_secret() -> str:
+            return secret_store.read_secret(args.root, dev_secret_store=dev_flag)
+
+        secret = _read_secret()
+        if not secret:
+            print("ERROR: Device secret is empty.", file=sys.stderr)
+            sys.exit(1)
+
+        # ── 3. HTTP client ─────────────────────────────────────────
+        http_config = HttpClientConfig(
+            base_url=cfg["backend_base_url"],
+            timeout_sec=cfg.get("request_timeout_sec", 10),
+            tls_verify=cfg.get("tls_verify", True),
+        )
+        http_client = SafeHttpClient(http_config)
+
+        # ── 4. Auth ────────────────────────────────────────────────
+        retry_manager = None
+        if args.retry_auth:
+            policy = BackoffPolicy(max_attempts=args.auth_max_attempts)
+            retry_manager = RetryBackoffManager(policy)
+
+        auth = device_auth_client.DeviceAuthClient(
+            http_client=http_client,
+            config=cfg,
+            secret_reader=_read_secret,
+        )
+        token_state = auth.authenticate(retry_manager=retry_manager)
+
+        # ── 5. Read local manifest ─────────────────────────────────
+        manifest = manifest_store.read_current_manifest(args.root)
+        items = manifest.get("items", [])
+        if not items:
+            print("media_sync:           empty_manifest")
+            return
+
+        # ── 6. For each item ───────────────────────────────────────
+        media_cl = MediaClient(http_client=http_client)
+        ensure = media_cache.ensure_media_dirs(args.root)
+
+        items_total = len(items)
+        items_cached = 0
+        items_downloaded = 0
+        items_skipped = 0
+        items_missing = 0
+        items_failed = 0
+
+        for item in items:
+            # Validate item
+            filename = item.get("filename", "")
+            if not filename:
+                items_failed += 1
+                continue
+
+            # Verify existing file
+            try:
+                verify = media_cache.verify_media_file(args.root, item)
+            except ValueError:
+                items_failed += 1
+                continue
+
+            if verify["status"] == "ok":
+                # Already valid in cache
+                items_cached += 1
+                continue
+
+            if verify["status"] == "missing":
+                # Download needed
+                pass
+            elif verify["status"] == "invalid":
+                # Corrupted — remove and re-download
+                media_cache.quarantine_media_file(args.root, filename, reason="invalid hash")
+            else:
+                # rejected/error — skip
+                items_skipped += 1
+                continue
+
+            # Download media
+            try:
+                manifest_item_id = item.get("manifest_item_id", "")
+                if not manifest_item_id:
+                    items_failed += 1
+                    continue
+
+                content = media_cl.fetch_media(
+                    token_state,
+                    manifest_item_id,
+                    expected_sha256=item.get("sha256", ""),
+                    expected_size_bytes=item.get("size_bytes", 0),
+                    expected_content_type=item.get("content_type", ""),
+                )
+
+                # Write to cache
+                result = media_cache.write_media_atomic(args.root, item, content)
+
+                if result["status"] == "written":
+                    items_downloaded += 1
+                elif result["status"] in ("rejected", "quarantined"):
+                    items_failed += 1
+                else:
+                    items_failed += 1
+
+            except HttpClientError as e:
+                if e.status_code == 404:
+                    items_missing += 1
+                else:
+                    items_failed += 1
+                # Non-fatal: continue with next item
+
+            except (ValueError, RuntimeError):
+                items_failed += 1
+                # Non-fatal per item
+
+        # ── 7. Safe output ─────────────────────────────────────────
+        cache_complete = (items_cached + items_downloaded) == items_total
+        status = "complete" if cache_complete else "incomplete"
+
+        print(f"media_sync:           {status}")
+        print(f"items_total:          {items_total}")
+        print(f"items_cached:         {items_cached}")
+        print(f"items_downloaded:     {items_downloaded}")
+        print(f"items_skipped:        {items_skipped}")
+        print(f"items_missing:        {items_missing}")
+        print(f"items_failed:         {items_failed}")
+        print(f"cache_complete:       {str(cache_complete).lower()}")
+
+    except RuntimeError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+    except HttpClientError as e:
+        print(f"ERROR: Media sync failed — {e}", file=sys.stderr)
+        print(f"retryable:           {e.retryable}", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"ERROR: Media validation — {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: Unexpected — {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-agent",
@@ -789,6 +947,16 @@ def main() -> None:
     p_smf.add_argument("--auth-max-attempts", type=int, default=3,
                        help="Max auth attempts (default: 3)")
     p_smf.set_defaults(func=cmd_sync_manifest)
+
+    p_smd = sub.add_parser("sync-media", help="Sync media: auth→read manifest→download media→save")
+    p_smd.add_argument("--root", required=True, help="Root path")
+    p_smd.add_argument("--dev-secret-store", action="store_true", default=False,
+                       help="Read secret from dev secret store")
+    p_smd.add_argument("--retry-auth", action="store_true", default=False,
+                       help="Enable retry for auth step")
+    p_smd.add_argument("--auth-max-attempts", type=int, default=3,
+                       help="Max auth attempts (default: 3)")
+    p_smd.set_defaults(func=cmd_sync_media)
 
     # ── Auth commands ──────────────────────────────────────────────
 
