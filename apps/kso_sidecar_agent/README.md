@@ -283,6 +283,30 @@ python3 -m kso_sidecar_agent.cli runtime-config-status --root /tmp/kso-agent-roo
 #   config_keys_count: 2
 ```
 
+### CLI: `sync-runtime-config`
+
+Полный цикл: auth → config/current → локальное сохранение.
+
+```bash
+python3 -m kso_sidecar_agent.cli sync-runtime-config \
+  --root /tmp/kso-agent-root --dev-secret-store
+
+# Опционально:
+#   --retry-auth           Retry для auth при 5xx/429
+#   --auth-max-attempts 5  Максимум попыток auth (default: 3)
+
+# Вывод (updated):
+#   runtime_config_sync: updated
+#   config_hash:        abc123hash123
+#   config_keys_count:  2
+
+# Вывод (not_modified):
+#   runtime_config_sync: not_modified
+#   etag_present:       true
+```
+
+**Никогда не выводит:** access token, device_secret, Authorization header, response body, полный config.
+
 ### Doctor integration
 
 `doctor` проверяет `runtime_config.json`:

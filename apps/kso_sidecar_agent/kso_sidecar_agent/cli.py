@@ -11,6 +11,7 @@ Commands:
     secret-store-set    Write dev secret (stdin only)
     secret-store-delete Delete dev secret
     runtime-config-status Show runtime config health
+    sync-runtime-config Full runtime config sync: auth→fetch→save
     auth-check          Check device auth (safe summary only)
 
 This is a SKELETON. No backend calls, no secrets, no media sync yet.
@@ -25,6 +26,7 @@ from kso_sidecar_agent import (
 )
 from kso_sidecar_agent.http_client import HttpClientConfig, SafeHttpClient
 from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager
+from kso_sidecar_agent.runtime_config_client import RuntimeConfigClient
 
 try:
     from importlib.metadata import version as _version
@@ -227,6 +229,84 @@ def cmd_runtime_config_status(args: argparse.Namespace) -> None:
     print(f"  config_keys_count: {result.get('config_keys_count')}")
 
 
+def cmd_sync_runtime_config(args: argparse.Namespace) -> None:
+    """Full runtime config sync: auth → fetch → save. Never prints token/secret."""
+    # ── 1. Read config ─────────────────────────────────────────────
+    try:
+        cfg = local_config.read_config(args.root)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"ERROR: Config — {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        # ── 2. Secret reader ──────────────────────────────────────
+        dev_flag = args.dev_secret_store
+        def _read_secret() -> str:
+            return secret_store.read_secret(args.root, dev_secret_store=dev_flag)
+
+        secret = _read_secret()
+        if not secret:
+            print("ERROR: Device secret is empty.", file=sys.stderr)
+            sys.exit(1)
+
+        # ── 3. HTTP client ─────────────────────────────────────────
+        http_config = HttpClientConfig(
+            base_url=cfg["backend_base_url"],
+            timeout_sec=cfg.get("request_timeout_sec", 10),
+            tls_verify=cfg.get("tls_verify", True),
+        )
+        http_client = SafeHttpClient(http_config)
+
+        # ── 4. Auth ────────────────────────────────────────────────
+        retry_manager = None
+        if args.retry_auth:
+            policy = BackoffPolicy(max_attempts=args.auth_max_attempts)
+            retry_manager = RetryBackoffManager(policy)
+
+        auth = device_auth_client.DeviceAuthClient(
+            http_client=http_client,
+            config=cfg,
+            secret_reader=_read_secret,
+        )
+        token_state = auth.authenticate(retry_manager=retry_manager)
+
+        # ── 5. Existing ETag ───────────────────────────────────────
+        existing_etag = None
+        try:
+            existing = runtime_config_store.read_runtime_config(args.root)
+            existing_etag = existing.get("etag")
+        except (FileNotFoundError, ValueError):
+            pass  # no local file or invalid — fetch fresh
+
+        # ── 6. Fetch runtime config ────────────────────────────────
+        rc_client = RuntimeConfigClient(http_client=http_client)
+        snapshot = rc_client.fetch_current(token_state, etag=existing_etag)
+
+        # ── 7. Save ────────────────────────────────────────────────
+        store_result = runtime_config_store.write_runtime_config(args.root, snapshot)
+
+        # ── 8. Safe output ─────────────────────────────────────────
+        if snapshot.not_modified:
+            print("runtime_config_sync: not_modified")
+            print(f"etag_present:       {existing_etag is not None}")
+        else:
+            print("runtime_config_sync: updated")
+            summary = snapshot.safe_summary()
+            print(f"config_hash:        {summary['config_hash']}")
+            print(f"config_keys_count:  {summary['config_keys_count']}")
+
+    except RuntimeError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+    except device_auth_client.HttpClientError as e:
+        print(f"ERROR: Runtime config sync failed — {e}", file=sys.stderr)
+        print(f"retryable:          {e.retryable}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: Unexpected — {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 # ── Auth commands ─────────────────────────────────────────────────
 
 
@@ -372,6 +452,16 @@ def main() -> None:
     p_rc = sub.add_parser("runtime-config-status", help="Show runtime config health")
     p_rc.add_argument("--root", required=True, help="Root path")
     p_rc.set_defaults(func=cmd_runtime_config_status)
+
+    p_sync = sub.add_parser("sync-runtime-config", help="Full runtime config sync: auth→fetch→save")
+    p_sync.add_argument("--root", required=True, help="Root path")
+    p_sync.add_argument("--dev-secret-store", action="store_true", default=False,
+                        help="Read secret from dev secret store")
+    p_sync.add_argument("--retry-auth", action="store_true", default=False,
+                        help="Enable retry for auth step")
+    p_sync.add_argument("--auth-max-attempts", type=int, default=3,
+                        help="Max auth attempts (default: 3)")
+    p_sync.set_defaults(func=cmd_sync_runtime_config)
 
     # ── Auth commands ──────────────────────────────────────────────
 
