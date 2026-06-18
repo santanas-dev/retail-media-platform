@@ -314,6 +314,54 @@ python3 -m kso_sidecar_agent.cli sync-runtime-config \
 - Валиден → `runtime_config_ok: True`
 - Invalid → `runtime_config_ok: False` + error
 
+## HeartbeatClient (внутренний модуль)
+
+Внутренний Python-модуль `heartbeat_client.py` — клиент для отправки heartbeat:
+
+- **`HeartbeatClient`** — выполняет `POST /api/device-gateway/heartbeat` с Authorization header
+- **`HeartbeatPayload`** — валидирует status (ok/warning/error), message, device_time, версии, storage, manifest_hash
+- **`HeartbeatResult`** — safe результат: status, backend_status, heartbeat_id
+- **Heartbeat loop пока не реализован** — только одиночная отправка
+- **Forbidden substrings в payload reject** — token, secret, api_key, …
+
+### Backend endpoint
+
+```
+POST /api/device-gateway/heartbeat
+Authorization: Bearer <device_jwt>
+
+Request (DeviceHeartbeatRequest):
+{
+  "status": "ok",
+  "message": "agent alive",           // optional, max 200
+  "device_time": "2026-...",          // optional
+  "app_version": "0.1.0",            // optional, max 128
+  "os_version": "linux",             // optional, max 128
+  "storage_free_mb": 1024,           // optional, >=0
+  "cache_items_count": 0,            // optional, >=0
+  "current_manifest_hash": "ab..64", // optional, 64 hex
+  "details_json": {}                 // optional
+}
+
+Response (DeviceHeartbeatResponse):
+{"id": "uuid", "gateway_device_id": "uuid", "status": "ok", ...}
+```
+
+### CLI: `heartbeat-once`
+
+```bash
+python3 -m kso_sidecar_agent.cli heartbeat-once \
+  --root /tmp/kso-agent-root --dev-secret-store \
+  --status ok --message "agent alive"
+
+# Вывод:
+#   heartbeat:         sent
+#   status:            ok
+#   backend_status:    accepted
+```
+
+**Никогда не выводит:** access token, device_secret, Authorization header, request body, response body.
+
 ## Безопасность
 
 - ❌ Не хранит `device_secret`

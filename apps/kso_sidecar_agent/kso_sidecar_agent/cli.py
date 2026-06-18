@@ -12,6 +12,7 @@ Commands:
     secret-store-delete Delete dev secret
     runtime-config-status Show runtime config health
     sync-runtime-config Full runtime config sync: auth→fetch→save
+    heartbeat-once      Send a single heartbeat
     auth-check          Check device auth (safe summary only)
 
 This is a SKELETON. No backend calls, no secrets, no media sync yet.
@@ -21,8 +22,8 @@ import argparse
 import sys
 
 from kso_sidecar_agent import (
-    agent_status, device_auth_client, local_config, local_file_store, safe_logger,
-    runtime_config_store, secret_store,
+    agent_status, device_auth_client, heartbeat_client, local_config,
+    local_file_store, runtime_config_store, safe_logger, secret_store,
 )
 from kso_sidecar_agent.http_client import HttpClientConfig, SafeHttpClient
 from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager
@@ -307,6 +308,82 @@ def cmd_sync_runtime_config(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+# ── Heartbeat commands ─────────────────────────────────────────────
+
+
+def cmd_heartbeat_once(args: argparse.Namespace) -> None:
+    """Send a single heartbeat. Never prints token/secret."""
+    try:
+        cfg = local_config.read_config(args.root)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"ERROR: Config — {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        # ── Secret ────────────────────────────────────────────────
+        dev_flag = args.dev_secret_store
+        def _read_secret() -> str:
+            return secret_store.read_secret(args.root, dev_secret_store=dev_flag)
+
+        secret = _read_secret()
+        if not secret:
+            print("ERROR: Device secret is empty.", file=sys.stderr)
+            sys.exit(1)
+
+        # ── HTTP client ───────────────────────────────────────────
+        http_config = HttpClientConfig(
+            base_url=cfg["backend_base_url"],
+            timeout_sec=cfg.get("request_timeout_sec", 10),
+            tls_verify=cfg.get("tls_verify", True),
+        )
+        http_client = SafeHttpClient(http_config)
+
+        # ── Auth ──────────────────────────────────────────────────
+        retry_manager = None
+        if args.retry_auth:
+            policy = BackoffPolicy(max_attempts=args.auth_max_attempts)
+            retry_manager = RetryBackoffManager(policy)
+
+        auth = device_auth_client.DeviceAuthClient(
+            http_client=http_client, config=cfg, secret_reader=_read_secret,
+        )
+        token_state = auth.authenticate(retry_manager=retry_manager)
+
+        # ── Build payload ─────────────────────────────────────────
+        payload = heartbeat_client.HeartbeatPayload(
+            status=args.status,
+            message=args.message,
+            app_version=args.app_version,
+            os_version=args.os_version,
+            storage_free_mb=args.storage_free_mb,
+            cache_items_count=args.cache_items_count,
+            current_manifest_hash=args.current_manifest_hash,
+        )
+
+        # ── Send heartbeat ────────────────────────────────────────
+        hb = heartbeat_client.HeartbeatClient(http_client=http_client)
+        result = hb.send_heartbeat(token_state, payload)
+
+        # ── Safe output ───────────────────────────────────────────
+        print(f"heartbeat:         sent")
+        print(f"status:            {payload.status}")
+        print(f"backend_status:    {result.backend_status or 'accepted'}")
+
+    except RuntimeError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"ERROR: Invalid payload — {e}", file=sys.stderr)
+        sys.exit(1)
+    except heartbeat_client.HttpClientError as e:
+        print(f"ERROR: Heartbeat failed — {e}", file=sys.stderr)
+        print(f"retryable:         {e.retryable}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: Unexpected — {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 # ── Auth commands ─────────────────────────────────────────────────
 
 
@@ -462,6 +539,26 @@ def main() -> None:
     p_sync.add_argument("--auth-max-attempts", type=int, default=3,
                         help="Max auth attempts (default: 3)")
     p_sync.set_defaults(func=cmd_sync_runtime_config)
+
+    # ── Heartbeat commands ─────────────────────────────────────────
+
+    p_hb = sub.add_parser("heartbeat-once", help="Send a single heartbeat")
+    p_hb.add_argument("--root", required=True, help="Root path")
+    p_hb.add_argument("--dev-secret-store", action="store_true", default=False,
+                      help="Read secret from dev secret store")
+    p_hb.add_argument("--status", type=str, default="ok",
+                      help="Heartbeat status: ok/warning/error")
+    p_hb.add_argument("--message", type=str, default=None)
+    p_hb.add_argument("--app-version", type=str, default=None)
+    p_hb.add_argument("--os-version", type=str, default=None)
+    p_hb.add_argument("--storage-free-mb", type=int, default=None)
+    p_hb.add_argument("--cache-items-count", type=int, default=None)
+    p_hb.add_argument("--current-manifest-hash", type=str, default=None)
+    p_hb.add_argument("--retry-auth", action="store_true", default=False,
+                      help="Enable retry for auth step")
+    p_hb.add_argument("--auth-max-attempts", type=int, default=3,
+                      help="Max auth attempts (default: 3)")
+    p_hb.set_defaults(func=cmd_heartbeat_once)
 
     # ── Auth commands ──────────────────────────────────────────────
 

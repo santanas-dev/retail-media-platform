@@ -57,6 +57,7 @@ class TestCLISkeleton(unittest.TestCase):
                      "secret-store-check", "secret-store-set", "secret-store-delete",
                      "runtime-config-status",
                      "sync-runtime-config",
+                     "heartbeat-once",
                      "auth-check"):
             self.assertIn(cmd, out, f"Missing command: {cmd}")
 
