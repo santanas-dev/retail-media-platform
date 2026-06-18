@@ -12,10 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.domains.device_gateway import models as gw_models
-from app.domains.channels.models import Channel
+from app.domains.channels.models import Channel, LogicalCarrier, DisplaySurface
 from app.domains.organization.models import Store
 from app.domains.device_operations import models as do_models
 from app.domains.device_operations import models as content_sync_models
+from app.domains.publications.models import ManifestVersion, PublicationTarget
 
 HEALTH_STATUSES = frozenset({
     "healthy", "warning", "critical", "offline", "disabled",
@@ -71,6 +72,7 @@ def _compute_health_status(
     cache_failed_ratio: float = 0.0,
     cs_missing_critical_ratio: float = 0.50,
     cs_failed_critical_ratio: float = 0.50,
+    applied_manifest_outdated: bool = False,
 ) -> str:
     settings = get_settings()
 
@@ -105,6 +107,8 @@ def _compute_health_status(
         return "critical"
     if manifest_apply_failed:
         return "warning"
+    if applied_manifest_outdated:
+        return "warning"
     if cache_missing_ratio > 0:
         return "warning"
     if cache_failed_ratio > 0:
@@ -133,6 +137,7 @@ def _compute_problem_types(
     cs_last_cache_report_at: datetime | None = None,
     cs_current_manifest_version_id: str | None = None,
     has_manifest_activity: bool = False,
+    applied_manifest_outdated: bool = False,
 ) -> list[str]:
     problems: list[str] = []
 
@@ -185,6 +190,9 @@ def _compute_problem_types(
             minutes=settings.DEVICE_HEALTH_CACHE_REPORT_STALE_MINUTES)
         if cs_last_cache_report_at is None or cs_last_cache_report_at < stale_cutoff:
             problems.append("cache_report_stale")
+
+    if applied_manifest_outdated:
+        problems.append("applied_manifest_outdated")
 
     return problems
 
@@ -311,6 +319,32 @@ async def _fetch_device_aggregates(
                mv.id as latest_published_manifest_id
         FROM manifest_versions mv
         WHERE mv.status = 'published'
+    ),
+    device_target AS (
+        SELECT gd.id as device_id, pt.id as target_id
+        FROM gateway_devices gd
+        JOIN publication_targets pt ON pt.display_surface_id = gd.display_surface_id
+            AND pt.channel_id = gd.channel_id AND pt.store_id = gd.store_id
+        WHERE gd.display_surface_id IS NOT NULL
+        UNION
+        SELECT gd.id, pt.id
+        FROM gateway_devices gd
+        JOIN publication_targets pt ON pt.logical_carrier_id = gd.logical_carrier_id
+            AND pt.channel_id = gd.channel_id AND pt.store_id = gd.store_id
+        WHERE gd.display_surface_id IS NULL AND gd.logical_carrier_id IS NOT NULL
+        UNION
+        SELECT gd.id, pt.id
+        FROM gateway_devices gd
+        JOIN logical_carriers lc ON lc.physical_device_id = gd.physical_device_id
+        JOIN display_surfaces ds ON ds.logical_carrier_id = lc.id
+        JOIN publication_targets pt ON pt.display_surface_id = ds.id
+            AND pt.channel_id = gd.channel_id AND pt.store_id = gd.store_id
+        WHERE gd.display_surface_id IS NULL AND gd.logical_carrier_id IS NULL AND gd.physical_device_id IS NOT NULL
+    ),
+    device_latest_published AS (
+        SELECT dt.device_id, pm.latest_published_manifest_id
+        FROM device_target dt
+        JOIN published_manifest pm ON pm.publication_target_id = dt.target_id
     )
     SELECT
         d.id as device_id, d.device_code, d.device_name, d.status as device_status,
@@ -337,7 +371,8 @@ async def _fetch_device_aggregates(
         COALESCE(csci.missing_items, 0) as cs_missing_items,
         COALESCE(csci.failed_items, 0) as cs_failed_items,
         COALESCE(csci.invalid_hash_items, 0) as cs_invalid_hash_items,
-        COALESCE(csci.total_cache_items, 0) as cs_total_cache_items
+        COALESCE(csci.total_cache_items, 0) as cs_total_cache_items,
+        dlp.latest_published_manifest_id
     FROM devices d
     LEFT JOIN heartbeat_agg h ON h.gateway_device_id = d.id
     LEFT JOIN manifest_agg m ON m.gateway_device_id = d.id
@@ -348,6 +383,7 @@ async def _fetch_device_aggregates(
     LEFT JOIN cs_manifest csm ON csm.gateway_device_id = d.id
     LEFT JOIN cs_cache_reports cscr ON cscr.gateway_device_id = d.id
     LEFT JOIN cs_cache_items csci ON csci.gateway_device_id = d.id
+    LEFT JOIN device_latest_published dlp ON dlp.device_id = d.id
     """)
 
     result = await db.execute(q, {"start": start, "end": end})
@@ -387,6 +423,16 @@ async def _fetch_device_aggregates(
 
         cs_missing_ratio = row["cs_missing_items"] / max(row["cs_total_cache_items"], 1)
         cs_failed_ratio = row["cs_failed_items"] / max(row["cs_total_cache_items"], 1)
+
+        # Check if applied manifest is outdated
+        cur_mv_id = row["current_manifest_version_id"]
+        latest_pub_id = row["latest_published_manifest_id"]
+        applied_manifest_outdated = (
+            cur_mv_id is not None
+            and latest_pub_id is not None
+            and str(cur_mv_id) != str(latest_pub_id)
+        )
+
         settings = get_settings()
         health = _compute_health_status(
             row["device_status"], has_hb, has_mr, has_med, has_pop, error_rate, mins_since,
@@ -396,6 +442,7 @@ async def _fetch_device_aggregates(
             cache_failed_ratio=cs_failed_ratio,
             cs_missing_critical_ratio=settings.DEVICE_HEALTH_CACHE_MISSING_CRITICAL_RATIO,
             cs_failed_critical_ratio=settings.DEVICE_HEALTH_CACHE_FAILED_CRITICAL_RATIO,
+            applied_manifest_outdated=applied_manifest_outdated,
         )
         problems = _compute_problem_types(
             row["device_status"], has_hb, has_mr, has_med, has_pop,
@@ -411,6 +458,7 @@ async def _fetch_device_aggregates(
             cs_last_cache_report_at=row["last_cache_report_at"],
             cs_current_manifest_version_id=row["current_manifest_version_id"],
             has_manifest_activity=has_mr,
+            applied_manifest_outdated=applied_manifest_outdated,
         )
 
         si = store_map.get(row["store_id"]) if row["store_id"] else None
@@ -460,6 +508,8 @@ async def _fetch_device_aggregates(
             "cs_failed_items": row["cs_failed_items"],
             "cs_invalid_hash_items": row["cs_invalid_hash_items"],
             "cs_total_cache_items": row["cs_total_cache_items"],
+            "cs_applied_manifest_outdated": applied_manifest_outdated,
+            "cs_latest_published_manifest_id": str(row["latest_published_manifest_id"]) if row["latest_published_manifest_id"] else None,
         }
 
     return aggregates
@@ -1117,6 +1167,8 @@ async def evaluate_alerts(db: AsyncSession) -> dict:
             await _evaluate_manifest_apply_failed(db, rule, window, device_ids, counts)
         elif rule.alert_type == "cache_report_stale":
             await _evaluate_cache_report_stale(db, rule, window, device_ids, counts)
+        elif rule.alert_type == "applied_manifest_outdated":
+            await _evaluate_applied_manifest_outdated(db, rule, window, device_ids, counts)
         # remaining content sync types — only evaluate if rule.enabled
         # (disabled rules are filtered out before evaluate_alerts is called)
         else:
@@ -2307,6 +2359,141 @@ async def _evaluate_cache_report_stale(
                 f"Device {dev_code} cache report is stale",
                 dev_id, store_id, channel_id,
                 {"device_code": dev_code, "last_report": str(last_report) if last_report else None},
+                counts,
+            )
+
+
+async def _evaluate_applied_manifest_outdated(
+    db: AsyncSession, rule, window: int, device_ids, counts,
+) -> None:
+    """Alert devices whose applied manifest is outdated vs latest published.
+    Uses the same three-priority matching as _match_publication_targets."""
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+
+    # Pre-load device details for target matching
+    device_details = {}
+    dev_id_list = [d[0] for d in devices]
+    if not dev_id_list:
+        return
+
+    dev_result = await db.execute(
+        select(
+            gw_models.GatewayDevice.id,
+            gw_models.GatewayDevice.channel_id,
+            gw_models.GatewayDevice.store_id,
+            gw_models.GatewayDevice.display_surface_id,
+            gw_models.GatewayDevice.logical_carrier_id,
+            gw_models.GatewayDevice.physical_device_id,
+        ).where(gw_models.GatewayDevice.id.in_(dev_id_list))
+    )
+    for row in dev_result.all():
+        device_details[row[0]] = {
+            "channel_id": row[1], "store_id": row[2],
+            "display_surface_id": row[3], "logical_carrier_id": row[4],
+            "physical_device_id": row[5],
+        }
+
+    # Pre-load current manifest states
+    csm_result = await db.execute(
+        select(
+            content_sync_models.DeviceCurrentManifestState.gateway_device_id,
+            content_sync_models.DeviceCurrentManifestState.manifest_version_id,
+        ).where(content_sync_models.DeviceCurrentManifestState.gateway_device_id.in_(dev_id_list))
+    )
+    csm_map = {row[0]: row[1] for row in csm_result.all()}
+
+    # Build list of (device_id, target_ids) by matching
+
+    # Get all publication targets
+    all_pts = (await db.execute(select(PublicationTarget))).scalars().all()
+    # Get all logical carriers and display surfaces for physical_device matching
+    all_lcs = (await db.execute(select(LogicalCarrier))).scalars().all()
+    all_dss = (await db.execute(select(DisplaySurface))).scalars().all()
+
+    lc_by_pd: dict = {}
+    for lc in all_lcs:
+        if lc.physical_device_id:
+            lc_by_pd.setdefault(lc.physical_device_id, []).append(lc.id)
+
+    ds_by_lc: dict = {}
+    for ds_item in all_dss:
+        if ds_item.logical_carrier_id:
+            ds_by_lc.setdefault(ds_item.logical_carrier_id, []).append(ds_item.id)
+
+    # Build target_id -> latest_published_manifest_id map
+    pm_result = await db.execute(
+        select(
+            ManifestVersion.publication_target_id,
+            ManifestVersion.id,
+        ).where(ManifestVersion.status == "published")
+        .order_by(ManifestVersion.created_at.desc())
+    )
+    latest_by_target: dict = {}
+    for pt_id, mv_id in pm_result.all():
+        if pt_id not in latest_by_target:
+            latest_by_target[pt_id] = mv_id
+
+    for dev_id, dev_code, store_id, channel_id in devices:
+        cur_mv = csm_map.get(dev_id)
+        if not cur_mv:
+            continue  # No applied manifest — can't be outdated
+
+        dd = device_details.get(dev_id)
+        if not dd:
+            continue
+
+        # Find matching targets
+        matched_target_ids: set = set()
+
+        # Priority 1: display_surface
+        if dd["display_surface_id"]:
+            for pt in all_pts:
+                if (pt.display_surface_id == dd["display_surface_id"]
+                        and pt.channel_id == dd["channel_id"]
+                        and pt.store_id == dd["store_id"]):
+                    matched_target_ids.add(pt.id)
+
+        # Priority 2: logical_carrier
+        elif dd["logical_carrier_id"]:
+            for pt in all_pts:
+                if (pt.logical_carrier_id == dd["logical_carrier_id"]
+                        and pt.channel_id == dd["channel_id"]
+                        and pt.store_id == dd["store_id"]):
+                    matched_target_ids.add(pt.id)
+
+        # Priority 3: physical_device
+        elif dd["physical_device_id"]:
+            pd_id = dd["physical_device_id"]
+            lc_ids = lc_by_pd.get(pd_id, [])
+            ds_ids = set()
+            for lc_id in lc_ids:
+                ds_ids.update(ds_by_lc.get(lc_id, []))
+            for pt in all_pts:
+                if (pt.channel_id == dd["channel_id"]
+                        and pt.store_id == dd["store_id"]
+                        and (pt.logical_carrier_id in lc_ids or pt.display_surface_id in ds_ids)):
+                    matched_target_ids.add(pt.id)
+
+        # Find latest published manifest for matched targets
+        latest_mv_id = None
+        for tid in matched_target_ids:
+            if tid in latest_by_target:
+                latest_mv_id = latest_by_target[tid]
+                break  # Take first (targets are unique per device)
+
+        if latest_mv_id is None:
+            continue  # Can't determine latest — skip
+
+        if str(cur_mv) != str(latest_mv_id):
+            await _upsert_alert(
+                db, rule,
+                _build_dedup_key(rule.alert_type, device_id=dev_id),
+                f"Device {dev_code} has outdated manifest",
+                dev_id, store_id, channel_id,
+                {"device_code": dev_code,
+                 "applied_manifest": str(cur_mv),
+                 "latest_published_manifest": str(latest_mv_id)},
                 counts,
             )
 

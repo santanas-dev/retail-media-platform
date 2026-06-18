@@ -695,6 +695,28 @@ DEVICE_HEALTH_CACHE_FAILED_CRITICAL_RATIO = 0.50
 - `manifest_not_applied` — только если есть manifest-активность (manifest requests)
 - `applied_manifest_outdated` — 1 target = 1 published manifest (deterministic)
 
+### Шаг 21.1 — Content Sync Health & Alerts Hardening (2026-06-18)
+
+**applied_manifest_outdated evaluator реализован:**
+- SQL CTE `device_target` + `device_latest_published` для маппинга device→latest_published_manifest
+- `_compute_health_status` — `applied_manifest_outdated` → warning
+- `_compute_problem_types` — добавляет `applied_manifest_outdated` если current ≠ latest
+- `_evaluate_applied_manifest_outdated` — трёхприоритетный матчинг (display_surface → logical_carrier → physical_device)
+- Правило **disabled по умолчанию**; при ручном включении создаёт alerts
+- Определение latest published manifest однозначно (1 published manifest на target)
+
+**Disabled rules:**
+- 5 disabled default rules не оцениваются в evaluate (не пополняют skipped)
+- `applied_manifest_outdated` disabled — alert создаётся только при ручном включении
+
+**Security false positive:**
+- `credential_issued` / `credential_revoked` — только event_type, без payload секретов
+- Никаких secrets (password, token, api_key, secret, private_key, local_path, file_path) в ответах
+
+**Permissions:**
+- Без изменений (read: devices.gateway.read, manage: devices.gateway.manage)
+- Advertiser/device_service → 403 (не протестировано — нет активных пользователей с этими ролями, pre-existing)
+
 ### Что НЕ в Шаге 21
 
 - ❌ Новые endpoints
