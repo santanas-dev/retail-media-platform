@@ -102,6 +102,15 @@ class HttpClientError(Exception):
 # Validation helpers
 # ══════════════════════════════════════════════════════════════════════
 
+# ── Allowed path exceptions ───────────────────────────────────────────
+
+# Exact allowlist: these paths bypass the forbidden-substring check.
+# Every entry is a known backend endpoint from device-gateway router.
+EXACT_ALLOWED_PATHS: frozenset[str] = frozenset({
+    "/api/device-gateway/auth/token",
+})
+
+
 def _validate_path(path: str) -> str:
     if not path or not isinstance(path, str):
         raise ValueError("path is required")
@@ -109,6 +118,12 @@ def _validate_path(path: str) -> str:
         raise ValueError("path must start with '/'")
     if ".." in path:
         raise ValueError("path must not contain '..'")
+    if "?" in path:
+        raise ValueError("path must not contain query string")
+
+    # Exact allowlist check: only these specific paths bypass forbidden check
+    if path in EXACT_ALLOWED_PATHS:
+        return path
 
     lower = path.lower()
     for forbidden in FORBIDDEN_PATH_SUBSTRINGS:
