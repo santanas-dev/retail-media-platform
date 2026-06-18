@@ -197,6 +197,37 @@ python3 -m kso_sidecar_agent.cli auth-check \
 
 **Никогда не выводит:** access_token, device_secret.
 
+## RetryBackoffManager (внутренний модуль)
+
+Внутренний Python-модуль `retry_backoff.py` — менеджер retry/backoff для будущих backend-вызовов:
+
+- **`BackoffPolicy`** — конфигурация: max_attempts, base_delay_sec, max_delay_sec, multiplier, jitter_ratio
+- **`RetryDecision`** — результат решения: retryable, should_retry, delay_sec, reason (без forbidden substrings)
+- **`RetryBackoffManager`** — классификация ошибок, exponential backoff + jitter, принятие решений
+- **`execute_with_retries()`** — простой helper для выполнения с повторами
+- **Пока не подключён к DeviceAuthClient** — retry для auth будет отдельным шагом
+- **Не хранит token/secret** — reason сообщения редактируются: forbidden → `[REDACTED]`
+- **Не логирует payload/body**
+
+### Default policy
+
+| Параметр | Значение |
+|---|---|
+| max_attempts | 3 |
+| base_delay_sec | 2.0 |
+| max_delay_sec | 60.0 |
+| multiplier | 2.0 |
+| jitter_ratio | 0.25 ( ±25%) |
+
+### Error classification
+
+| Тип ошибки | Retryable |
+|---|---|
+| `HttpClientError` (429/5xx/timeout/network) | ✅ |
+| `HttpClientError` (400/401/403/404/409/422/TLS) | ❌ |
+| `TimeoutError`, `ConnectionError`, `OSError` | ✅ |
+| `ValueError`, `RuntimeError` | ❌ |
+
 ## Безопасность
 
 - ❌ Не хранит `device_secret`
