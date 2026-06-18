@@ -10,6 +10,7 @@ Commands:
     secret-store-check  Check dev secret store
     secret-store-set    Write dev secret (stdin only)
     secret-store-delete Delete dev secret
+    auth-check          Check device auth (safe summary only)
 
 This is a SKELETON. No backend calls, no secrets, no media sync yet.
 """
@@ -18,8 +19,10 @@ import argparse
 import sys
 
 from kso_sidecar_agent import (
-    agent_status, local_config, local_file_store, safe_logger, secret_store,
+    agent_status, device_auth_client, local_config, local_file_store, safe_logger,
+    secret_store,
 )
+from kso_sidecar_agent.http_client import HttpClientConfig, SafeHttpClient
 
 try:
     from importlib.metadata import version as _version
@@ -194,6 +197,65 @@ def cmd_secret_store_delete(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+# ── Auth commands ─────────────────────────────────────────────────
+
+
+def cmd_auth_check(args: argparse.Namespace) -> None:
+    """Check device auth — prints only safe summary, never token/secret."""
+    try:
+        # ── Read config ─────────────────────────────────────────────
+        cfg = local_config.read_config(args.root)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"ERROR: Config — {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        # ── Secret reader ───────────────────────────────────────────
+        dev_flag = args.dev_secret_store
+        def _read_secret() -> str:
+            return secret_store.read_secret(args.root, dev_secret_store=dev_flag)
+
+        # Verify secret is readable
+        secret = _read_secret()
+        if not secret:
+            print("ERROR: Device secret is empty. Run 'secret-store-set' first.", file=sys.stderr)
+            sys.exit(1)
+
+        # ── Build HTTP client ───────────────────────────────────────
+        http_config = HttpClientConfig(
+            base_url=cfg["backend_base_url"],
+            timeout_sec=cfg.get("request_timeout_sec", 10),
+            tls_verify=cfg.get("tls_verify", True),
+        )
+        http_client = SafeHttpClient(http_config)
+
+        # ── Auth ────────────────────────────────────────────────────
+        auth = device_auth_client.DeviceAuthClient(
+            http_client=http_client,
+            config=cfg,
+            secret_reader=_read_secret,
+        )
+        token_state = auth.authenticate()
+
+        # ── Print safe summary (no token!) ──────────────────────────
+        summary = token_state.safe_summary()
+        print(f"authenticated:     {summary['authenticated']}")
+        print(f"device_code:       {summary['device_code']}")
+        print(f"device_id:         {summary['device_id']}")
+        print(f"status:            {summary['status']}")
+        print(f"expires_in_sec:    {summary['expires_in_sec']}")
+
+    except RuntimeError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+    except device_auth_client.HttpClientError as e:
+        print(f"ERROR: Auth failed — {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: Unexpected — {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-agent",
@@ -264,6 +326,14 @@ def main() -> None:
     p_ss_del.add_argument("--dev-secret-store", action="store_true", default=False,
                           help="Enable dev secret store")
     p_ss_del.set_defaults(func=cmd_secret_store_delete)
+
+    # ── Auth commands ──────────────────────────────────────────────
+
+    p_auth = sub.add_parser("auth-check", help="Check device auth (safe summary only)")
+    p_auth.add_argument("--root", required=True, help="Root path")
+    p_auth.add_argument("--dev-secret-store", action="store_true", default=False,
+                        help="Read secret from dev secret store")
+    p_auth.set_defaults(func=cmd_auth_check)
 
     args = parser.parse_args()
 

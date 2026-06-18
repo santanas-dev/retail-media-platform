@@ -54,7 +54,8 @@ class TestCLISkeleton(unittest.TestCase):
         self.assertEqual(code, 0, f"err={err}")
         for cmd in ("init-local-root", "doctor", "version", "set-status",
                      "write-config", "config-status",
-                     "secret-store-check", "secret-store-set", "secret-store-delete"):
+                     "secret-store-check", "secret-store-set", "secret-store-delete",
+                     "auth-check"):
             self.assertIn(cmd, out, f"Missing command: {cmd}")
 
     def test_version(self):
