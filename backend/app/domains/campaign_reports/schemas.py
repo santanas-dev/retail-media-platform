@@ -81,7 +81,7 @@ class ChannelReportItem(DeliveryMetrics):
 class DeviceReportItem(DeliveryMetrics):
     gateway_device_id: UUID
     device_code: str
-    device_name: str
+    device_name: Optional[str] = None
     store_id: UUID
     store_code: str
     channel_id: UUID

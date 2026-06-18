@@ -466,7 +466,7 @@ async def get_by_device(
         items.append(schemas.DeviceReportItem(
             gateway_device_id=r.gateway_device_id,
             device_code=r.device_code,
-            device_name=r.device_name,
+            device_name=r.device_name or r.device_code,
             store_id=r.store_id,
             store_code=r.store_code,
             channel_id=r.channel_id,
