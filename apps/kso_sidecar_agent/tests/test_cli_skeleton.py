@@ -288,5 +288,136 @@ class TestDevSecretStore(unittest.TestCase):
         self.assertNotIn("--token", out, "CLI must not have --token arg")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Memory Token State tests
+# ══════════════════════════════════════════════════════════════════════
+
+TOKEN_VALUE = "opaque-value-1234567890"
+NOW = 1_750_000_000.0  # фиксированное время для тестов
+
+
+class TestTokenState(unittest.TestCase):
+
+    def _valid_response(self, **overrides):
+        return {
+            "access_token": TOKEN_VALUE,
+            "token_type": "bearer",
+            "expires_in": 3600,
+            "device_id": "550e8400-e29b-41d4-a716-446655440000",
+            "device_code": "a-05954",
+            "status": "active",
+            **overrides,
+        }
+
+    # ── from_auth_response ────────────────────────────────────────
+    def test_from_auth_response_valid(self):
+        from kso_sidecar_agent.token_state import TokenState
+        ts = TokenState.from_auth_response(self._valid_response(), now=NOW)
+        self.assertEqual(ts.device_code, "a-05954")
+        self.assertEqual(ts.device_id, "550e8400-e29b-41d4-a716-446655440000")
+        self.assertEqual(ts.expires_at, NOW + 3600)
+        self.assertTrue(ts.access_token)
+
+    # ── is_valid ───────────────────────────────────────────────────
+    def test_is_valid_true(self):
+        from kso_sidecar_agent.token_state import TokenState
+        ts = TokenState.from_auth_response(self._valid_response(), now=NOW)
+        # Сейчас (NOW) + safety 30s → expires_at = NOW+3600 > NOW+30
+        self.assertTrue(ts.is_valid(now=NOW, safety_window_sec=30))
+
+    def test_is_valid_false_inside_safety_window(self):
+        from kso_sidecar_agent.token_state import TokenState
+        ts = TokenState.from_auth_response(self._valid_response(expires_in=10), now=NOW)
+        # expires_at = NOW+10, now+30 > NOW+10
+        self.assertFalse(ts.is_valid(now=NOW, safety_window_sec=30))
+
+    def test_is_valid_false_after_expiry(self):
+        from kso_sidecar_agent.token_state import TokenState
+        ts = TokenState.from_auth_response(self._valid_response(expires_in=10), now=NOW)
+        # После истечения
+        self.assertFalse(ts.is_valid(now=NOW + 20, safety_window_sec=0))
+
+    def test_is_valid_false_no_token(self):
+        from kso_sidecar_agent.token_state import TokenState
+        ts = TokenState()
+        self.assertFalse(ts.is_valid())
+
+    # ── authorization_header ───────────────────────────────────────
+    def test_authorization_header_bearer(self):
+        from kso_sidecar_agent.token_state import TokenState
+        ts = TokenState.from_auth_response(self._valid_response(), now=NOW)
+        hdr = ts.authorization_header(now=NOW)
+        self.assertEqual(hdr, f"Bearer {TOKEN_VALUE}")
+
+    def test_authorization_header_invalid_raises(self):
+        from kso_sidecar_agent.token_state import TokenState
+        ts = TokenState()
+        with self.assertRaises(ValueError):
+            ts.authorization_header()
+
+    # ── safe_summary ───────────────────────────────────────────────
+    def test_safe_summary_no_token(self):
+        from kso_sidecar_agent.token_state import TokenState
+        ts = TokenState.from_auth_response(self._valid_response(), now=NOW)
+        summary = ts.safe_summary(now=NOW)
+        self.assertNotIn("access_token", summary)
+        self.assertNotIn(TOKEN_VALUE, str(summary))
+        self.assertIn("device_code", summary)
+        self.assertEqual(summary["device_code"], "a-05954")
+
+    # ── repr / str ─────────────────────────────────────────────────
+    def test_repr_no_token(self):
+        from kso_sidecar_agent.token_state import TokenState
+        ts = TokenState.from_auth_response(self._valid_response(), now=NOW)
+        r = repr(ts)
+        self.assertNotIn(TOKEN_VALUE, r, f"Token found in repr: {r}")
+
+    def test_str_no_token(self):
+        from kso_sidecar_agent.token_state import TokenState
+        ts = TokenState.from_auth_response(self._valid_response(), now=NOW)
+        s = str(ts)
+        self.assertNotIn(TOKEN_VALUE, s, f"Token found in str: {s}")
+
+    # ── clear ──────────────────────────────────────────────────────
+    def test_clear_removes_token(self):
+        from kso_sidecar_agent.token_state import TokenState
+        ts = TokenState.from_auth_response(self._valid_response(), now=NOW)
+        ts.clear()
+        self.assertEqual(ts.access_token, "")
+        self.assertFalse(ts.is_valid())
+
+    # ── Validation errors ──────────────────────────────────────────
+    def test_missing_access_token_rejected(self):
+        from kso_sidecar_agent.token_state import TokenState
+        with self.assertRaises(ValueError):
+            TokenState.from_auth_response(self._valid_response(access_token=""))
+
+    def test_invalid_token_type_rejected(self):
+        from kso_sidecar_agent.token_state import TokenState
+        with self.assertRaises(ValueError):
+            TokenState.from_auth_response(self._valid_response(token_type="mac"))
+
+    def test_invalid_expires_in_rejected(self):
+        from kso_sidecar_agent.token_state import TokenState
+        with self.assertRaises(ValueError):
+            TokenState.from_auth_response(self._valid_response(expires_in=0))
+        with self.assertRaises(ValueError):
+            TokenState.from_auth_response(self._valid_response(expires_in=-1))
+
+    def test_invalid_device_id_rejected(self):
+        from kso_sidecar_agent.token_state import TokenState
+        with self.assertRaises(ValueError):
+            TokenState.from_auth_response(self._valid_response(device_id=""))
+
+    # ── Token never in test output ─────────────────────────────────
+    def test_token_not_in_test_file(self):
+        """Ensure TOKEN_VALUE is not in THIS test file's directory runtime files."""
+        # Это тест на сам тест — тестовый токен не должен быть валидным JWT и не должен
+        # содержать forbidden words
+        self.assertNotIn("eyJ", TOKEN_VALUE)
+        for word in ["token", "jwt", "password", "secret", "api_key"]:
+            self.assertNotIn(word, TOKEN_VALUE.lower())
+
+
 if __name__ == "__main__":
     unittest.main()
