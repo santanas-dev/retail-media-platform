@@ -128,6 +128,20 @@ python3 -m kso_sidecar_agent.cli secret-store-delete \
 
 **Secret НЕ передаётся через CLI аргументы** (видны в /proc). Только stdin или env.
 
+## TokenState (внутренний модуль)
+
+Внутренний Python-модуль `token_state.py` для будущего Device Auth Client:
+
+- **HTTP auth ещё не реализован** — backend-вызовов нет
+- **Access token хранится только в памяти** (`TokenState` dataclass)
+- **Access token не пишется на диск** (ни в `config/`, ни в `status/`, ни в `logs/`)
+- **Access token не выводится в logs/status/doctor**
+- `safe_summary()` возвращает только метаданные (authenticated, device_code, expires_at, status) — без значения токена
+- `repr()` и `str()` не раскрывают токен
+- CLI-команд для token нет
+
+**Когда Device Auth Client будет реализован (будущие шаги), `TokenState` будет хранить JWT, полученный от `POST /api/device-gateway/auth/token`.**
+
 ## Безопасность
 
 - ❌ Не хранит `device_secret`
