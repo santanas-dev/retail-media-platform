@@ -14,6 +14,7 @@ Commands:
     sync-runtime-config Full runtime config sync: auth→fetch→save
     heartbeat-once      Send a single heartbeat
     manifest-status     Show local manifest health
+    sync-manifest        Sync manifest: auth→fetch→save
     auth-check          Check device auth (safe summary only)
 
 This is a SKELETON. No backend calls, no secrets, no media sync yet.
@@ -26,7 +27,8 @@ from kso_sidecar_agent import (
     agent_status, device_auth_client, heartbeat_client, local_config,
     local_file_store, manifest_store, runtime_config_store, safe_logger, secret_store,
 )
-from kso_sidecar_agent.http_client import HttpClientConfig, SafeHttpClient
+from kso_sidecar_agent.http_client import HttpClientConfig, HttpClientError, SafeHttpClient
+from kso_sidecar_agent.manifest_client import ManifestClient
 from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager
 from kso_sidecar_agent.runtime_config_client import RuntimeConfigClient
 
@@ -506,6 +508,100 @@ def cmd_manifest_status(args: argparse.Namespace) -> None:
     print(f"  items_count:       {status['items_count']}")
 
 
+# ── Manifest sync commands ─────────────────────────────────────────
+
+def cmd_sync_manifest(args: argparse.Namespace) -> None:
+    """Full manifest sync: auth → fetch manifest → save locally. Never prints token/secret."""
+    # ── 1. Read config ─────────────────────────────────────────────
+    try:
+        cfg = local_config.read_config(args.root)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"ERROR: Config — {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        # ── 2. Secret reader ──────────────────────────────────────
+        dev_flag = args.dev_secret_store
+        def _read_secret() -> str:
+            return secret_store.read_secret(args.root, dev_secret_store=dev_flag)
+
+        secret = _read_secret()
+        if not secret:
+            print("ERROR: Device secret is empty.", file=sys.stderr)
+            sys.exit(1)
+
+        # ── 3. HTTP client ─────────────────────────────────────────
+        http_config = HttpClientConfig(
+            base_url=cfg["backend_base_url"],
+            timeout_sec=cfg.get("request_timeout_sec", 10),
+            tls_verify=cfg.get("tls_verify", True),
+        )
+        http_client = SafeHttpClient(http_config)
+
+        # ── 4. Auth ────────────────────────────────────────────────
+        retry_manager = None
+        if args.retry_auth:
+            policy = BackoffPolicy(max_attempts=args.auth_max_attempts)
+            retry_manager = RetryBackoffManager(policy)
+
+        auth = device_auth_client.DeviceAuthClient(
+            http_client=http_client,
+            config=cfg,
+            secret_reader=_read_secret,
+        )
+        token_state = auth.authenticate(retry_manager=retry_manager)
+
+        # ── 5. Fetch manifest ─────────────────────────────────────
+        mc = ManifestClient(http_client=http_client)
+        snapshot = mc.fetch_current(token_state)
+
+        # ── 6. Write locally ───────────────────────────────────────
+        result = manifest_store.write_current_manifest(args.root, snapshot)
+
+        # ── 7. Safe output ─────────────────────────────────────────
+        if result["status"] == "not_modified":
+            print("manifest_sync:        not_modified")
+            # Check if local file exists
+            local_present = False
+            try:
+                manifest_store.read_current_manifest(args.root)
+                local_present = True
+            except (FileNotFoundError, ValueError):
+                pass
+            print(f"local_manifest_present: {str(local_present).lower()}")
+        elif result["status"] == "no_manifest":
+            print("manifest_sync:        no_manifest")
+            local_present = False
+            try:
+                manifest_store.read_current_manifest(args.root)
+                local_present = True
+            except (FileNotFoundError, ValueError):
+                pass
+            print(f"local_manifest_present: {str(local_present).lower()}")
+        else:
+            print("manifest_sync:        updated")
+            mvid = result.get("manifest_version_id", "")
+            if len(mvid) > 12:
+                mvid = mvid[:12] + "..."
+            print(f"manifest_version_id:  {mvid}")
+            print(f"manifest_hash:       {snapshot.manifest_hash[:12] if snapshot.manifest_hash else 'N/A'}...")
+            print(f"items_count:         {result['items_count']}")
+
+    except RuntimeError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+    except HttpClientError as e:
+        print(f"ERROR: Manifest sync failed — {e}", file=sys.stderr)
+        print(f"retryable:           {e.retryable}", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"ERROR: Manifest validation — {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: Unexpected — {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-agent",
@@ -622,6 +718,16 @@ def main() -> None:
     p_ms = sub.add_parser("manifest-status", help="Show local manifest health")
     p_ms.add_argument("--root", required=True, help="Root path")
     p_ms.set_defaults(func=cmd_manifest_status)
+
+    p_smf = sub.add_parser("sync-manifest", help="Sync manifest: auth→fetch→save")
+    p_smf.add_argument("--root", required=True, help="Root path")
+    p_smf.add_argument("--dev-secret-store", action="store_true", default=False,
+                       help="Read secret from dev secret store")
+    p_smf.add_argument("--retry-auth", action="store_true", default=False,
+                       help="Enable retry for auth step")
+    p_smf.add_argument("--auth-max-attempts", type=int, default=3,
+                       help="Max auth attempts (default: 3)")
+    p_smf.set_defaults(func=cmd_sync_manifest)
 
     # ── Auth commands ──────────────────────────────────────────────
 
