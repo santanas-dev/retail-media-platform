@@ -13,6 +13,8 @@ import sys
 
 from kso_simulator import local_fs
 from kso_simulator import state_writer
+from kso_simulator import pop_writer
+from kso_simulator.pop_writer import ALLOWED_RESULTS
 from kso_simulator.safety import ALLOWED_STATES
 
 try:
@@ -89,6 +91,36 @@ def cmd_status(args: argparse.Namespace) -> None:
         media_files = list(media_dir.iterdir())
         print(f"\nmedia/current: {len(media_files)} files")
 
+    # Count PoP events
+    pop_log = root / "pop" / "events.log"
+    if pop_log.exists():
+        lines = pop_log.read_text().strip().split("\n")
+        n = len([l for l in lines if l.strip()])
+        print(f"pop/events.log: {n} events")
+
+
+def cmd_write_pop(args: argparse.Namespace) -> None:
+    """Write a PoP event to pop/events.log (JSONL append)."""
+    try:
+        event_id = pop_writer.write_pop_event(
+            root=args.root,
+            manifest_item_id=args.manifest_item_id,
+            result=args.result,
+            duration_ms=args.duration_ms,
+            reason=args.reason,
+            started_at=args.started_at,
+            ended_at=args.ended_at,
+        )
+        print(f"PoP event written: {event_id}")
+        print(f"  manifest_item_id: {args.manifest_item_id}")
+        print(f"  result:           {args.result}")
+        print(f"  duration_ms:      {args.duration_ms}")
+        if args.reason:
+            print(f"  reason:           {args.reason}")
+    except (ValueError, RuntimeError) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -112,6 +144,17 @@ def main() -> None:
     p_status = sub.add_parser("status", help="Show current status")
     p_status.add_argument("--root", required=True, help="Root path")
     p_status.set_defaults(func=cmd_status)
+
+    # write-pop
+    p_pop = sub.add_parser("write-pop", help="Write PoP event to JSONL log")
+    p_pop.add_argument("--root", required=True, help="Root path")
+    p_pop.add_argument("--manifest-item-id", required=True, help="Media item UUID")
+    p_pop.add_argument("--result", required=True, choices=sorted(ALLOWED_RESULTS), help="PoP result")
+    p_pop.add_argument("--duration-ms", required=True, type=int, help="Duration in ms (>=0)")
+    p_pop.add_argument("--reason", default=None, help="Optional reason")
+    p_pop.add_argument("--started-at", default=None, help="ISO8601 start time")
+    p_pop.add_argument("--ended-at", default=None, help="ISO8601 end time (>= started-at)")
+    p_pop.set_defaults(func=cmd_write_pop)
 
     args = parser.parse_args()
     args.func(args)
