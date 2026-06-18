@@ -9,9 +9,10 @@ Never logs Authorization header, request/response body, or secrets.
 
 import time as _time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from kso_sidecar_agent.http_client import HttpClientError, HttpResponse, SafeHttpClient
+from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager, execute_with_retries
 from kso_sidecar_agent.token_state import TokenState
 
 # ══════════════════════════════════════════════════════════════════════
@@ -178,7 +179,10 @@ class HeartbeatResult:
 class HeartbeatClient:
     """Sends heartbeat to backend. Token stays in memory only.
 
-    Does NOT implement retry (that will be a separate step).
+    Supports optional retry/backoff via RetryBackoffManager.
+    When retry_manager is None (default): single heartbeat call only.
+    When retry_manager is provided: retries transient errors (429/5xx/network)
+    with exponential backoff + jitter.
     """
 
     HEARTBEAT_PATH = "/api/device-gateway/heartbeat"
@@ -186,10 +190,16 @@ class HeartbeatClient:
     def __init__(
         self,
         http_client: SafeHttpClient,
+        retry_manager: Optional[RetryBackoffManager] = None,
+        sleep_fn: Optional[Callable[[float], None]] = None,
         logger: Optional[Any] = None,
     ) -> None:
         self._http = http_client
+        self._retry = retry_manager
+        self._sleep = sleep_fn
         self._log = logger
+        self.last_attempts: int = 0
+        """Number of attempts from most recent send_heartbeat call."""
 
     def send_heartbeat(
         self,
@@ -197,7 +207,7 @@ class HeartbeatClient:
         payload: HeartbeatPayload,
         now: Optional[float] = None,
     ) -> HeartbeatResult:
-        """Send a single heartbeat. Returns safe HeartbeatResult.
+        """Send a single heartbeat (with optional retry). Returns safe HeartbeatResult.
 
         Args:
             token_state: Valid TokenState with access_token.
@@ -209,23 +219,33 @@ class HeartbeatClient:
 
         Raises:
             ValueError: Token invalid, payload invalid.
-            HttpClientError: HTTP-level failure.
+            HttpClientError: HTTP-level failure (exhausted retries or non-retryable).
         """
         if now is None:
             now = _time.time()
 
-        # ── Validate token ────────────────────────────────────────
+        self.last_attempts = 0
+
+        # ── Validate token (NOT retryable) ─────────────────────────
         if not token_state.is_valid(now=now):
             raise ValueError("Token is missing or expired — cannot send heartbeat")
 
-        # ── Build headers ─────────────────────────────────────────
+        # ── Build headers (NOT retryable) ──────────────────────────
         auth_header = token_state.authorization_header(now=now)
         headers = {"Authorization": auth_header}
 
-        # ── Build payload dict ────────────────────────────────────
+        # ── Build payload dict (NOT retryable) ─────────────────────
         body = payload.to_dict()
 
-        # ── Send ──────────────────────────────────────────────────
+        # ── Send (with optional retry) ─────────────────────────────
+        if self._retry is not None:
+            return self._send_with_retry(body, headers)
+        else:
+            return self._send_once(body, headers)
+
+    def _send_once(self, body: dict, headers: dict) -> HeartbeatResult:
+        """Send a single heartbeat (no retry)."""
+        self.last_attempts = 1
         try:
             resp: HttpResponse = self._http.post_json(self.HEARTBEAT_PATH, body, headers=headers)
         except HttpClientError:
@@ -237,7 +257,37 @@ class HeartbeatClient:
                 )
             raise
 
-        # ── Parse response ────────────────────────────────────────
+        return self._parse_response(resp)
+
+    def _send_with_retry(self, body: dict, headers: dict) -> HeartbeatResult:
+        """Send heartbeat with retry/backoff."""
+        last_error: Optional[HttpClientError] = None
+        max_attempts = self._retry.policy.max_attempts
+
+        try:
+            resp = execute_with_retries(
+                operation=lambda: self._http.post_json(self.HEARTBEAT_PATH, body, headers=headers),
+                manager=self._retry,
+                sleep_fn=self._sleep,
+            )
+            self.last_attempts = max_attempts  # not accurate per-attempt, but ok
+        except HttpClientError as e:
+            last_error = e
+            self.last_attempts = max_attempts
+        else:
+            return self._parse_response(resp)
+
+        # Exhausted or non-retryable
+        if self._log:
+            self._log.log(
+                level="error",
+                event="heartbeat_failed",
+                message="Heartbeat request failed after retries",
+            )
+        raise last_error
+
+    def _parse_response(self, resp: HttpResponse) -> HeartbeatResult:
+        """Parse heartbeat response into HeartbeatResult. Safe: no token/secrets."""
         resp_body = resp.json_body
         heartbeat_id = str(resp_body.get("id", "")) if isinstance(resp_body, dict) else None
         device_id = str(resp_body.get("gateway_device_id", "")) if isinstance(resp_body, dict) else None

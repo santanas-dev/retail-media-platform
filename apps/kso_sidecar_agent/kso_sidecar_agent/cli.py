@@ -361,13 +361,22 @@ def cmd_heartbeat_once(args: argparse.Namespace) -> None:
         )
 
         # ── Send heartbeat ────────────────────────────────────────
-        hb = heartbeat_client.HeartbeatClient(http_client=http_client)
+        hb_retry = None
+        if args.retry_heartbeat:
+            hb_policy = BackoffPolicy(max_attempts=args.heartbeat_max_attempts)
+            hb_retry = RetryBackoffManager(hb_policy)
+
+        hb = heartbeat_client.HeartbeatClient(
+            http_client=http_client, retry_manager=hb_retry,
+        )
         result = hb.send_heartbeat(token_state, payload)
 
         # ── Safe output ───────────────────────────────────────────
+        attempts = auth.last_attempts
         print(f"heartbeat:         sent")
         print(f"status:            {payload.status}")
         print(f"backend_status:    {result.backend_status or 'accepted'}")
+        print(f"attempts:          {attempts}")
 
     except RuntimeError as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -378,6 +387,7 @@ def cmd_heartbeat_once(args: argparse.Namespace) -> None:
     except heartbeat_client.HttpClientError as e:
         print(f"ERROR: Heartbeat failed — {e}", file=sys.stderr)
         print(f"retryable:         {e.retryable}", file=sys.stderr)
+        print(f"attempts:          {auth.last_attempts}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"ERROR: Unexpected — {e}", file=sys.stderr)
@@ -558,6 +568,10 @@ def main() -> None:
                       help="Enable retry for auth step")
     p_hb.add_argument("--auth-max-attempts", type=int, default=3,
                       help="Max auth attempts (default: 3)")
+    p_hb.add_argument("--retry-heartbeat", action="store_true", default=False,
+                      help="Enable retry for heartbeat step")
+    p_hb.add_argument("--heartbeat-max-attempts", type=int, default=3,
+                      help="Max heartbeat attempts when --retry-heartbeat (default: 3)")
     p_hb.set_defaults(func=cmd_heartbeat_once)
 
     # ── Auth commands ──────────────────────────────────────────────
