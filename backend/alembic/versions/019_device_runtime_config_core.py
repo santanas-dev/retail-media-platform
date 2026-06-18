@@ -211,6 +211,22 @@ def upgrade() -> None:
         "max_media_file_mb": 500,
         "clock_skew_tolerance_sec": 300,
         "log_level": "info",
+        # ── KSO runtime config (Step 23.1/23.2) ──────────────────
+        "max_offline_duration_sec": 86400,
+        "manifest_ttl_sec": 86400,
+        "diagnostics_enabled": False,
+        "diagnostics_sample_interval_sec": 300,
+        "media_prefetch_enabled": False,
+        "media_prefetch_max_items": 10,
+        "local_storage_reserved_mb": 512,
+        "kso_safety": {
+            "stop_on_service_mode": True,
+            "fail_behavior": "fail_silent",
+            "screen_zone": "idle_screen",
+            "max_overlay_area_percent": 100,
+            "max_cpu_percent": 30,
+            "max_memory_mb": 512,
+        },
     }
     config_str = json.dumps(default_config, sort_keys=True, separators=(",", ":"))
     config_hash = hashlib.sha256(config_str.encode()).hexdigest()

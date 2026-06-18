@@ -743,3 +743,39 @@ DEVICE_HEALTH_CACHE_FAILED_CRITICAL_RATIO = 0.50
 - ❌ КСО-плеер, Android player, frontend, push, scheduler
 - ❌ SLA/billing/auto-remediation
 - ❌ Изменение таблиц (только seed миграция)
+
+## Шаг 23 — KSO Runtime Config Fields
+
+**Добавлено в Шагах 23.1–23.2:** расширение allowlist/validation для будущего КСО-плеера.
+
+### Новые top-level поля
+
+| Поле | Тип | Default | Описание |
+|---|---|---|---|
+| `max_offline_duration_sec` | int (0–604800) | 86400 | Макс. длительность offline-режима |
+| `manifest_ttl_sec` | int (0–604800) | 86400 | TTL манифеста в кеше плеера |
+| `player_build_min_version` | str (0–64) | null | Мин. версия сборки плеера (semver) |
+| `player_build_recommended_version` | str (0–64) | null | Рекомендуемая версия плеера |
+| `diagnostics_enabled` | bool | false | Включена ли диагностика |
+| `diagnostics_sample_interval_sec` | int (0–86400) | 300 | Интервал сбора диагностики |
+| `media_prefetch_enabled` | bool | false | Включён ли prefetch медиа |
+| `media_prefetch_max_items` | int (0–1000) | 10 | Макс. элементов prefetch |
+| `local_storage_reserved_mb` | int (0–102400) | 512 | Квота локального хранилища |
+
+### kso_safety (вложенный объект)
+
+| Поле | Тип | Enum/Диапазон | Default | Описание |
+|---|---|---|---|---|
+| `stop_on_service_mode` | bool | — | true | Остановка при service mode |
+| `fail_behavior` | str | fail_silent / fail_closed | fail_silent | Поведение при ошибке |
+| `screen_zone` | str | idle_screen / side_panel / full_screen_idle_only | idle_screen | Разрешённая зона экрана |
+| `max_overlay_area_percent` | int | 0–100 | 100 | Макс. % площади оверлея |
+| `max_cpu_percent` | int | 1–100 | 30 | Макс. CPU для плеера |
+| `max_memory_mb` | int | 16–4096 | 512 | Макс. RAM для плеера |
+
+### Важно
+
+- **Плеер НЕ реализован** — это только подготовка контракта и allowlist'а.
+- `player_build_min_version` и `player_build_recommended_version` — nullable, в default config отсутствуют.
+- Все поля валидируются: unknown key → 422, invalid enum → 422, out-of-range → 422.
+- Default config обновлён в БД (UPDATE существующего профиля) и в seed миграции 019.
