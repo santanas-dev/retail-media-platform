@@ -23,6 +23,7 @@ from kso_sidecar_agent import (
     secret_store,
 )
 from kso_sidecar_agent.http_client import HttpClientConfig, SafeHttpClient
+from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager
 
 try:
     from importlib.metadata import version as _version
@@ -229,13 +230,21 @@ def cmd_auth_check(args: argparse.Namespace) -> None:
         )
         http_client = SafeHttpClient(http_config)
 
-        # ── Auth ────────────────────────────────────────────────────
+        # ── Build auth client ───────────────────────────────────────
         auth = device_auth_client.DeviceAuthClient(
             http_client=http_client,
             config=cfg,
             secret_reader=_read_secret,
         )
-        token_state = auth.authenticate()
+
+        # ── Build retry manager (optional) ──────────────────────────
+        retry_manager = None
+        if args.retry_auth:
+            policy = BackoffPolicy(max_attempts=args.auth_max_attempts)
+            retry_manager = RetryBackoffManager(policy)
+
+        # ── Auth ────────────────────────────────────────────────────
+        token_state = auth.authenticate(retry_manager=retry_manager)
 
         # ── Print safe summary (no token!) ──────────────────────────
         summary = token_state.safe_summary()
@@ -244,12 +253,14 @@ def cmd_auth_check(args: argparse.Namespace) -> None:
         print(f"device_id:         {summary['device_id']}")
         print(f"status:            {summary['status']}")
         print(f"expires_in_sec:    {summary['expires_in_sec']}")
+        print(f"attempts:          {auth.last_attempts}")
 
     except RuntimeError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
     except device_auth_client.HttpClientError as e:
         print(f"ERROR: Auth failed — {e}", file=sys.stderr)
+        print(f"retryable:         {e.retryable}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"ERROR: Unexpected — {e}", file=sys.stderr)
@@ -333,6 +344,10 @@ def main() -> None:
     p_auth.add_argument("--root", required=True, help="Root path")
     p_auth.add_argument("--dev-secret-store", action="store_true", default=False,
                         help="Read secret from dev secret store")
+    p_auth.add_argument("--retry-auth", action="store_true", default=False,
+                        help="Enable retry with exponential backoff")
+    p_auth.add_argument("--auth-max-attempts", type=int, default=3,
+                        help="Max auth attempts when --retry-auth (default: 3)")
     p_auth.set_defaults(func=cmd_auth_check)
 
     args = parser.parse_args()

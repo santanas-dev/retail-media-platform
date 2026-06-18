@@ -90,6 +90,53 @@ class AuthInvalidJsonHandler(AuthOkHandler):
         self.wfile.write(b"<html>not json</html>")
 
 
+class AuthSequenceHandler(BaseHTTPRequestHandler):
+    """Stateful handler: returns a configurable sequence of (status, body) per call."""
+
+    SEQUENCE: list = []   # list of (status_code, body_bytes)
+    _call_count: int = 0
+
+    @classmethod
+    def reset(cls, sequence):
+        cls.SEQUENCE = list(sequence)
+        cls._call_count = 0
+
+    def do_POST(self):
+        body_len = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(body_len) if body_len else b""
+        idx = AuthSequenceHandler._call_count
+        AuthSequenceHandler._call_count += 1
+
+        if idx < len(self.SEQUENCE):
+            status, body = self.SEQUENCE[idx]
+        else:
+            status, body = 500, b"exhausted"
+
+        self.send_response(status)
+        if status == 200:
+            self.send_header("Content-Type", "application/json")
+        else:
+            self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format, *args):
+        pass
+
+
+# ── Retry helpers ──────────────────────────────────────────────────
+
+from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager
+
+
+def _build_retry_client(http_port, secret=TEST_SECRET, max_attempts=3):
+    """Build a DeviceAuthClient with retry_manager."""
+    auth = _build_client(http_port, secret)
+    policy = BackoffPolicy(max_attempts=max_attempts, jitter_ratio=0.0)
+    retry_mgr = RetryBackoffManager(policy)
+    return auth, retry_mgr
+
+
 # ══════════════════════════════════════════════════════════════════════
 # Helpers
 # ══════════════════════════════════════════════════════════════════════
@@ -322,6 +369,169 @@ class TestDeviceAuthClientErrors(unittest.TestCase):
             auth.authenticate()
         self.assertNotIn("Traceback", str(ctx.exception))
         self.assertNotIn("File ", str(ctx.exception))
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Tests — Retry integration
+# ══════════════════════════════════════════════════════════════════════
+
+class TestDeviceAuthRetry(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls._seq_server, cls._seq_thread, cls._seq_port = _start_server(AuthSequenceHandler)
+        cls._ok_body = json.dumps(_valid_auth_body()).encode()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._seq_server.shutdown()
+
+    def setUp(self):
+        self.slept: list = []
+
+    def _fake_sleep(self, sec):
+        self.slept.append(sec)
+
+    # ── Without retry_manager — single call ────────────────────────
+
+    def test_no_retry_manager_single_call(self):
+        auth, _ = _build_retry_client(self._seq_port)
+        AuthSequenceHandler.reset([(200, self._ok_body)])
+        ts = auth.authenticate(now=NOW)
+        self.assertTrue(ts.is_valid(now=NOW))
+        self.assertEqual(auth.last_attempts, 1)
+        self.assertEqual(AuthSequenceHandler._call_count, 1)
+
+    # ── 500 → 500 → 200: success after 2 retries ───────────────────
+
+    def test_retry_500_twice_then_success(self):
+        auth, retry_mgr = _build_retry_client(self._seq_port, max_attempts=3)
+        AuthSequenceHandler.reset([
+            (500, b"bang"),
+            (500, b"bang"),
+            (200, self._ok_body),
+        ])
+        ts = auth.authenticate(now=NOW, retry_manager=retry_mgr, sleep_fn=self._fake_sleep)
+        self.assertTrue(ts.is_valid(now=NOW))
+        self.assertEqual(auth.last_attempts, 3)
+        self.assertEqual(AuthSequenceHandler._call_count, 3)
+        self.assertEqual(len(self.slept), 2)  # slept after attempts 1 and 2
+
+    # ── 429 → 200: success after 1 retry ───────────────────────────
+
+    def test_retry_429_then_success(self):
+        auth, retry_mgr = _build_retry_client(self._seq_port, max_attempts=3)
+        AuthSequenceHandler.reset([
+            (429, b"rate limited"),
+            (200, self._ok_body),
+        ])
+        ts = auth.authenticate(now=NOW, retry_manager=retry_mgr, sleep_fn=self._fake_sleep)
+        self.assertTrue(ts.is_valid(now=NOW))
+        self.assertEqual(auth.last_attempts, 2)
+        self.assertEqual(len(self.slept), 1)
+
+    # ── 500 exhaust ────────────────────────────────────────────────
+
+    def test_retry_500_exhaust(self):
+        auth, retry_mgr = _build_retry_client(self._seq_port, max_attempts=3)
+        AuthSequenceHandler.reset([
+            (500, b"bang"),
+            (500, b"bang"),
+            (500, b"bang"),
+        ])
+        with self.assertRaises(HttpClientError) as ctx:
+            auth.authenticate(now=NOW, retry_manager=retry_mgr, sleep_fn=self._fake_sleep)
+        self.assertEqual(ctx.exception.status_code, 500)
+        self.assertTrue(ctx.exception.retryable)
+        self.assertEqual(auth.last_attempts, 3)
+        self.assertEqual(AuthSequenceHandler._call_count, 3)
+        self.assertEqual(len(self.slept), 2)
+
+    # ── Non-retryable: 401 ─────────────────────────────────────────
+
+    def test_401_no_retry(self):
+        auth, retry_mgr = _build_retry_client(self._seq_port, max_attempts=3)
+        AuthSequenceHandler.reset([(401, b"unauthorized")])
+        with self.assertRaises(HttpClientError) as ctx:
+            auth.authenticate(now=NOW, retry_manager=retry_mgr, sleep_fn=self._fake_sleep)
+        self.assertEqual(ctx.exception.status_code, 401)
+        self.assertFalse(ctx.exception.retryable)
+        self.assertEqual(auth.last_attempts, 1)
+        self.assertEqual(AuthSequenceHandler._call_count, 1)
+        self.assertEqual(len(self.slept), 0)
+
+    # ── Non-retryable: 403 ─────────────────────────────────────────
+
+    def test_403_no_retry(self):
+        auth, retry_mgr = _build_retry_client(self._seq_port, max_attempts=3)
+        AuthSequenceHandler.reset([(403, b"forbidden")])
+        with self.assertRaises(HttpClientError) as ctx:
+            auth.authenticate(now=NOW, retry_manager=retry_mgr, sleep_fn=self._fake_sleep)
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(auth.last_attempts, 1)
+        self.assertEqual(len(self.slept), 0)
+
+    # ── Non-retryable: 422 ─────────────────────────────────────────
+
+    def test_422_no_retry(self):
+        auth, retry_mgr = _build_retry_client(self._seq_port, max_attempts=3)
+        AuthSequenceHandler.reset([(422, b"validation")])
+        with self.assertRaises(HttpClientError) as ctx:
+            auth.authenticate(now=NOW, retry_manager=retry_mgr, sleep_fn=self._fake_sleep)
+        self.assertEqual(ctx.exception.status_code, 422)
+        self.assertEqual(auth.last_attempts, 1)
+        self.assertEqual(len(self.slept), 0)
+
+    # ── Non-retryable: invalid JSON ────────────────────────────────
+
+    def test_invalid_json_no_retry(self):
+        auth, retry_mgr = _build_retry_client(self._seq_port, max_attempts=3)
+        AuthSequenceHandler.reset([(200, b"<html>bad</html>")])
+        with self.assertRaises(HttpClientError) as ctx:
+            auth.authenticate(now=NOW, retry_manager=retry_mgr, sleep_fn=self._fake_sleep)
+        self.assertFalse(ctx.exception.retryable)
+        self.assertEqual(auth.last_attempts, 1)
+        self.assertEqual(len(self.slept), 0)
+
+    # ── Non-retryable: missing secret ──────────────────────────────
+
+    def test_missing_secret_no_retry(self):
+        auth, _ = _build_retry_client(self._seq_port, secret="", max_attempts=3)
+        with self.assertRaises(RuntimeError):
+            auth.authenticate(now=NOW)
+        self.assertEqual(auth.last_attempts, 0)  # never tried
+
+    # ── Security: no secret/token in errors ────────────────────────
+
+    def test_retry_error_no_secret(self):
+        auth, retry_mgr = _build_retry_client(self._seq_port, max_attempts=2)
+        AuthSequenceHandler.reset([(500, b"explosion")])
+        with self.assertRaises(HttpClientError) as ctx:
+            auth.authenticate(now=NOW, retry_manager=retry_mgr, sleep_fn=self._fake_sleep)
+        self.assertNotIn(TEST_SECRET, ctx.exception.message)
+
+    def test_retry_error_no_token(self):
+        auth, retry_mgr = _build_retry_client(self._seq_port, max_attempts=2)
+        AuthSequenceHandler.reset([(500, b"explosion")])
+        with self.assertRaises(HttpClientError) as ctx:
+            auth.authenticate(now=NOW, retry_manager=retry_mgr, sleep_fn=self._fake_sleep)
+        self.assertNotIn(TEST_TOKEN, ctx.exception.message)
+
+    # ── Fake sleep receives correct delays ─────────────────────────
+
+    def test_fake_sleep_called_with_expected_delays(self):
+        auth, retry_mgr = _build_retry_client(self._seq_port, max_attempts=3)
+        AuthSequenceHandler.reset([
+            (500, b"a"),
+            (500, b"b"),
+            (200, self._ok_body),
+        ])
+        auth.authenticate(now=NOW, retry_manager=retry_mgr, sleep_fn=self._fake_sleep)
+        # Delays: after attempt 1 delay for attempt 2 = base*2^1 = 4.0
+        #         after attempt 2 delay for attempt 3 = base*2^2 = 8.0
+        self.assertEqual(len(self.slept), 2)
+        self.assertAlmostEqual(self.slept[0], 4.0)
+        self.assertAlmostEqual(self.slept[1], 8.0)
 
 
 # ══════════════════════════════════════════════════════════════════════

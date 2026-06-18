@@ -164,8 +164,10 @@ python3 -m kso_sidecar_agent.cli secret-store-delete \
 
 Внутренний Python-модуль `device_auth_client.py` — базовый клиент для device auth:
 
-- **`DeviceAuthClient`** — выполняет один `POST /api/device-gateway/auth/token` и возвращает `TokenState` в память
-- **Retry/backoff пока не реализован** — только один вызов без повторов
+- **`DeviceAuthClient`** — выполняет `POST /api/device-gateway/auth/token` и возвращает `TokenState` в память
+- **Retry/backoff подключён** — при передаче `retry_manager` делает повторы на transient ошибках (429/5xx/network/timeout)
+- **Retry включается явно** — через `--retry-auth` в CLI или `retry_manager=` в API
+- **401/403/422 не retry** — не спамим backend при неверных credentials
 - **Token refresh не реализован** — будет отдельным шагом
 - **Token хранится только в памяти** — не пишется на диск, не логируется, не выводится
 - **Secret читается через callable** — не привязан жёстко к dev secret store
@@ -183,9 +185,9 @@ python3 -m kso_sidecar_agent.cli write-config \
 printf "dev-value-1234567890" | python3 -m kso_sidecar_agent.cli secret-store-set \
   --root /tmp/kso-agent-root --dev-secret-store --stdin
 
-# Проверить auth (выводит только safe summary — без токена!)
+# Проверить auth с retry:
 python3 -m kso_sidecar_agent.cli auth-check \
-  --root /tmp/kso-agent-root --dev-secret-store
+  --root /tmp/kso-agent-root --dev-secret-store --retry-auth --auth-max-attempts 5
 
 # Вывод:
 #   authenticated:     True
