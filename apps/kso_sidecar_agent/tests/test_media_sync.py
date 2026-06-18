@@ -27,7 +27,6 @@ TEST_ITEM_1_SHA = _hl.sha256(TEST_CONTENT_1).hexdigest()
 TEST_ITEM_2_SHA = _hl.sha256(TEST_CONTENT_2).hexdigest()
 
 DEV_FLAG = ["--dev-secret-store"]
-NOW = 1_750_000_000.0
 
 
 def _run(*args):
@@ -208,6 +207,8 @@ class TestMediaSync(unittest.TestCase):
     def setUp(self):
         MediaSyncHandler.reset()
 
+    # ── Core ────────────────────────────────────────────────────────
+
     def test_sync_success_both_downloaded(self):
         server, thr, port = _start_server(MediaSyncHandler)
         try:
@@ -268,6 +269,8 @@ class TestMediaSync(unittest.TestCase):
         finally:
             server.shutdown()
 
+    # ── Sha256 / 404 / 500 ──────────────────────────────────────────
+
     def test_sha256_mismatch_not_cached(self):
         server, thr, port = _start_server(MediaSyncHandler)
         try:
@@ -275,7 +278,6 @@ class TestMediaSync(unittest.TestCase):
                 _setup_root(root, f"http://127.0.0.1:{port}")
                 _run("sync-manifest", "--root", root, *DEV_FLAG)
 
-                # Content doesn't match manifest sha
                 MediaSyncHandler.MEDIA_1_CONTENT = b"wrong"
                 MediaSyncHandler.MEDIA_1_SHA = _hl.sha256(b"wrong").hexdigest()
 
@@ -327,6 +329,8 @@ class TestMediaSync(unittest.TestCase):
         finally:
             server.shutdown()
 
+    # ── Auth errors ────────────────────────────────────────────────
+
     def test_auth_401_fatal(self):
         server, thr, port = _start_server(MediaSyncHandler)
         try:
@@ -341,7 +345,7 @@ class TestMediaSync(unittest.TestCase):
         finally:
             server.shutdown()
 
-    # Auth retry tested in test_manifest_sync.py — same mechanism
+    # ── Fatal errors ───────────────────────────────────────────────
 
     def test_missing_config_fatal(self):
         with tempfile.TemporaryDirectory() as root:
@@ -373,6 +377,8 @@ class TestMediaSync(unittest.TestCase):
                 self.assertIn("Manifest", err)
         finally:
             server.shutdown()
+
+    # ── Security ───────────────────────────────────────────────────
 
     def test_no_token_secret_auth_in_output(self):
         server, thr, port = _start_server(MediaSyncHandler)
@@ -430,6 +436,162 @@ class TestMediaSync(unittest.TestCase):
                 rc, out, err = _run("sync-media", "--root", root, *DEV_FLAG)
                 self.assertNotIn("Traceback", err)
                 self.assertNotIn("stacktrace", (out + err).lower())
+        finally:
+            server.shutdown()
+
+    # ═══════════════════════════════════════════════════════════════
+    # HARDENING TESTS
+    # ═══════════════════════════════════════════════════════════════
+
+    def test_content_type_mismatch_not_cached(self):
+        server, thr, port = _start_server(MediaSyncHandler)
+        try:
+            with tempfile.TemporaryDirectory() as root:
+                _setup_root(root, f"http://127.0.0.1:{port}")
+                _run("sync-manifest", "--root", root, *DEV_FLAG)
+
+                MediaSyncHandler.MEDIA_1_CONTENT_TYPE = "video/mp4"
+
+                rc, out, err = _run("sync-media", "--root", root, *DEV_FLAG)
+                self.assertEqual(rc, 0)
+
+                self.assertIn("incomplete", out)
+                self.assertIn("items_failed:         1", out)
+                self.assertIn("cache_complete:       false", out)
+
+                current = Path(root) / "media" / "current"
+                self.assertFalse((current / f"{TEST_ITEM_1_ID}.png").exists())
+
+                self.assertNotIn(TEST_TOKEN, out + err)
+                self.assertNotIn("Authorization", out)
+        finally:
+            server.shutdown()
+
+    def test_size_mismatch_not_cached(self):
+        server, thr, port = _start_server(MediaSyncHandler)
+        try:
+            with tempfile.TemporaryDirectory() as root:
+                _setup_root(root, f"http://127.0.0.1:{port}")
+                _run("sync-manifest", "--root", root, *DEV_FLAG)
+
+                # Patch local manifest: set size_bytes to huge value
+                manifest_path = Path(root) / "manifest" / "current_manifest.json"
+                manifest = json.loads(manifest_path.read_text())
+                for item in manifest["items"]:
+                    item["size_bytes"] = 999999
+                manifest_path.write_text(json.dumps(manifest))
+
+                rc, out, err = _run("sync-media", "--root", root, *DEV_FLAG)
+                self.assertEqual(rc, 0)
+
+                self.assertIn("incomplete", out)
+                self.assertIn("cache_complete:       false", out)
+
+                current = Path(root) / "media" / "current"
+                self.assertFalse((current / f"{TEST_ITEM_1_ID}.png").exists())
+                self.assertFalse((current / f"{TEST_ITEM_2_ID}.png").exists())
+
+                self.assertNotIn(TEST_TOKEN, out + err)
+        finally:
+            server.shutdown()
+
+    def test_corrupted_existing_redownload_success(self):
+        server, thr, port = _start_server(MediaSyncHandler)
+        try:
+            with tempfile.TemporaryDirectory() as root:
+                _setup_root(root, f"http://127.0.0.1:{port}")
+                _run("sync-manifest", "--root", root, *DEV_FLAG)
+                _run("sync-media", "--root", root, *DEV_FLAG)
+
+                # Corrupt item 1
+                current = Path(root) / "media" / "current"
+                item1_path = current / f"{TEST_ITEM_1_ID}.png"
+                item1_path.write_bytes(b"corrupted data")
+
+                MediaSyncHandler.calls = 0
+                rc, out, err = _run("sync-media", "--root", root, *DEV_FLAG)
+                self.assertEqual(rc, 0)
+
+                self.assertIn("complete", out)
+                self.assertIn("items_downloaded:     1", out)
+                self.assertIn("items_cached:         1", out)
+                self.assertIn("cache_complete:       true", out)
+
+                self.assertEqual(item1_path.read_bytes(), TEST_CONTENT_1)
+        finally:
+            server.shutdown()
+
+    def test_corrupted_existing_download_fails_not_valid(self):
+        server, thr, port = _start_server(MediaSyncHandler)
+        try:
+            with tempfile.TemporaryDirectory() as root:
+                _setup_root(root, f"http://127.0.0.1:{port}")
+                _run("sync-manifest", "--root", root, *DEV_FLAG)
+                _run("sync-media", "--root", root, *DEV_FLAG)
+
+                current = Path(root) / "media" / "current"
+                item1_path = current / f"{TEST_ITEM_1_ID}.png"
+                item1_path.write_bytes(b"corrupted")
+
+                MediaSyncHandler.MEDIA_1_FAIL = 500
+
+                rc, out, err = _run("sync-media", "--root", root, *DEV_FLAG)
+                self.assertEqual(rc, 0)
+
+                self.assertIn("incomplete", out)
+                self.assertIn("cache_complete:       false", out)
+                self.assertFalse(item1_path.exists())
+
+                item2_path = current / f"{TEST_ITEM_2_ID}.png"
+                self.assertTrue(item2_path.exists())
+
+                quarantine = Path(root) / "media" / "quarantine"
+                bad_files = list(quarantine.glob("*.bad"))
+                self.assertGreater(len(bad_files), 0)
+
+                self.assertNotIn(TEST_TOKEN, out + err)
+                self.assertNotIn("Traceback", err)
+        finally:
+            server.shutdown()
+
+    # Auth retry tested in test_device_auth_client.py — same mechanism
+
+    def test_media_verifier_compatibility_after_sync(self):
+        server, thr, port = _start_server(MediaSyncHandler)
+        try:
+            with tempfile.TemporaryDirectory() as root:
+                _setup_root(root, f"http://127.0.0.1:{port}")
+                _run("sync-manifest", "--root", root, *DEV_FLAG)
+                rc, out, err = _run("sync-media", "--root", root, *DEV_FLAG)
+                self.assertEqual(rc, 0)
+
+                # Direct verification — same logic as simulator/media_verifier.py
+                current = Path(root) / "media" / "current"
+                manifest_path = Path(root) / "manifest" / "current_manifest.json"
+                manifest = json.loads(manifest_path.read_text())
+
+                for item in manifest["items"]:
+                    filename = item["filename"]
+                    self.assertNotIn("..", filename)
+                    self.assertNotIn("/", filename)
+                    self.assertNotIn("\\", filename)
+
+                    filepath = current / filename
+                    self.assertTrue(filepath.exists(),
+                                    f"File {filename} missing from media/current")
+
+                    sha = _hl.sha256()
+                    with open(filepath, "rb") as f:
+                        for chunk in iter(lambda: f.read(65536), b""):
+                            sha.update(chunk)
+                    actual_sha = sha.hexdigest()
+                    expected_sha = item["sha256"]
+                    self.assertEqual(actual_sha, expected_sha,
+                                     f"SHA256 mismatch for {filename}")
+
+                    actual_size = filepath.stat().st_size
+                    expected_size = len(TEST_CONTENT_1 if TEST_ITEM_1_ID in filename else TEST_CONTENT_2)
+                    self.assertEqual(actual_size, expected_size)
         finally:
             server.shutdown()
 
