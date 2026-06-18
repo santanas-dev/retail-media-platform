@@ -10,6 +10,7 @@ Commands:
     secret-store-check  Check dev secret store
     secret-store-set    Write dev secret (stdin only)
     secret-store-delete Delete dev secret
+    runtime-config-status Show runtime config health
     auth-check          Check device auth (safe summary only)
 
 This is a SKELETON. No backend calls, no secrets, no media sync yet.
@@ -20,7 +21,7 @@ import sys
 
 from kso_sidecar_agent import (
     agent_status, device_auth_client, local_config, local_file_store, safe_logger,
-    secret_store,
+    runtime_config_store, secret_store,
 )
 from kso_sidecar_agent.http_client import HttpClientConfig, SafeHttpClient
 from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager
@@ -76,6 +77,11 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         print(f"  dev_secret_store:  present={ds['present']}, permissions_ok={ds['permissions_ok']}")
         if ds.get("warning"):
             print(f"  dev_secret_warn:   {ds['warning']}")
+
+    # Runtime config
+    print(f"  runtime_config_ok: {result['runtime_config_ok']}")
+    if result.get("runtime_config_error"):
+        print(f"  runtime_config_err: {result['runtime_config_error']}")
 
     all_ok = (result["root_exists"] and result["folders_ok"]
               and result["agent_status_ok"] and result["config_ok"])
@@ -196,6 +202,29 @@ def cmd_secret_store_delete(args: argparse.Namespace) -> None:
     except (ValueError, RuntimeError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+# ── Runtime config commands ────────────────────────────────────────
+
+
+def cmd_runtime_config_status(args: argparse.Namespace) -> None:
+    """Show runtime_config.json health (never prints full config)."""
+    result = runtime_config_store.runtime_config_status(args.root)
+    if not result["present"]:
+        print("Runtime config: MISSING (no config/runtime_config.json)")
+        return
+
+    if not result["ok"]:
+        print("Runtime config: INVALID")
+        print(f"  Error: {result['error']}")
+        sys.exit(1)
+
+    print("Runtime config: PRESENT (valid)")
+    print(f"  config_hash:       {result.get('config_hash', '')[:12]}...")
+    print(f"  etag_present:      {result.get('etag_present')}")
+    print(f"  generated_at:      {result.get('generated_at')}")
+    print(f"  fetched_at:        {result.get('fetched_at')}")
+    print(f"  config_keys_count: {result.get('config_keys_count')}")
 
 
 # ── Auth commands ─────────────────────────────────────────────────
@@ -337,6 +366,12 @@ def main() -> None:
     p_ss_del.add_argument("--dev-secret-store", action="store_true", default=False,
                           help="Enable dev secret store")
     p_ss_del.set_defaults(func=cmd_secret_store_delete)
+
+    # ── Runtime config commands ────────────────────────────────────
+
+    p_rc = sub.add_parser("runtime-config-status", help="Show runtime config health")
+    p_rc.add_argument("--root", required=True, help="Root path")
+    p_rc.set_defaults(func=cmd_runtime_config_status)
 
     # ── Auth commands ──────────────────────────────────────────────
 

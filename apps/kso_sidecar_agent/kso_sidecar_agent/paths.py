@@ -23,6 +23,9 @@ CONFIG_FILE = "config/agent_config.json"
 # Dev-only secret store file
 DEV_SECRET_FILE = "config/device_secret.dev"
 
+# Runtime config file (local cache)
+RUNTIME_CONFIG_FILE = "config/runtime_config.json"
+
 # ── Agent status template ────────────────────────────────────────────
 
 AGENT_STATUS_TEMPLATE = {

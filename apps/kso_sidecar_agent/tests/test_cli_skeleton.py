@@ -55,6 +55,7 @@ class TestCLISkeleton(unittest.TestCase):
         for cmd in ("init-local-root", "doctor", "version", "set-status",
                      "write-config", "config-status",
                      "secret-store-check", "secret-store-set", "secret-store-delete",
+                     "runtime-config-status",
                      "auth-check"):
             self.assertIn(cmd, out, f"Missing command: {cmd}")
 

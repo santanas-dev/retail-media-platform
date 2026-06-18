@@ -261,6 +261,35 @@ ETag: "<config_hash>"
 304: (empty body)
 ```
 
+## RuntimeConfigStore (внутренний модуль)
+
+Внутренний Python-модуль `runtime_config_store.py` — локальное сохранение runtime config:
+
+- **`write_runtime_config(root, snapshot)`** — атомарная запись `config/runtime_config.json`
+- **`read_runtime_config(root)`** — чтение и валидация
+- **`runtime_config_status(root)`** — safe summary без полного config
+- **Forbidden keys/values reject** — token, jwt, password, secret, api_key, private_key, payment_card, receipt, local_path, file_path, authorization, bearer
+- **Файл `config/runtime_config.json`** — только проверенные данные, без secrets
+
+### CLI: `runtime-config-status`
+
+```bash
+python3 -m kso_sidecar_agent.cli runtime-config-status --root /tmp/kso-agent-root
+# Runtime config: PRESENT (valid)
+#   config_hash:       abc123hash12...
+#   etag_present:      True
+#   generated_at:      2026-06-18T10:00:00+00:00
+#   fetched_at:        2026-06-18T10:01:00+00:00
+#   config_keys_count: 2
+```
+
+### Doctor integration
+
+`doctor` проверяет `runtime_config.json`:
+- Отсутствует → warning (не fatal)
+- Валиден → `runtime_config_ok: True`
+- Invalid → `runtime_config_ok: False` + error
+
 ## Безопасность
 
 - ❌ Не хранит `device_secret`
