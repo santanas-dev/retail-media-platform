@@ -8,7 +8,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from kso_sidecar_agent import agent_status
+from kso_sidecar_agent import agent_status, local_config
 from kso_sidecar_agent.atomic_io import atomic_write_json
 from kso_sidecar_agent.paths import SUB_DIRS, AGENT_STATUS_FILE, default_agent_status
 
@@ -24,7 +24,6 @@ def init_local_root(root: str | Path) -> None:
     for sub in SUB_DIRS:
         (root / sub).mkdir(parents=True, exist_ok=True)
 
-    # Write agent_status.json atomically
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     status_data = default_agent_status(now)
 
@@ -33,7 +32,7 @@ def init_local_root(root: str | Path) -> None:
 
 
 def doctor(root: str | Path) -> dict:
-    """Check folder structure and agent_status.json health.
+    """Check folder structure, agent_status.json, and agent_config.json health.
 
     Returns a dict with health summary. Does NOT read secrets or call backend.
     """
@@ -45,6 +44,9 @@ def doctor(root: str | Path) -> dict:
         "total_folders": len(SUB_DIRS),
         "missing_folders": [],
         "agent_status_error": "",
+        "config_ok": False,
+        "config_error": "",
+        "config_details": {},
     }
 
     if not root.is_dir():
@@ -58,13 +60,20 @@ def doctor(root: str | Path) -> dict:
             result["folders_ok"] = False
             result["missing_folders"].append(sub)
 
-    # Validate agent_status.json via agent_status module
+    # Validate agent_status.json
     validation = agent_status.validate_status_file(root)
-
     if validation["ok"]:
         result["agent_status_ok"] = True
         result["agent_status"] = validation.get("status", "")
     else:
         result["agent_status_error"] = validation["error"]
+
+    # Validate config
+    config_status = local_config.config_status(root)
+    result["config_ok"] = config_status["ok"]
+    if not config_status["ok"]:
+        result["config_error"] = config_status.get("error", "MISSING")
+    else:
+        result["config_details"] = config_status
 
     return result

@@ -17,6 +17,9 @@ SUB_DIRS = [
 # Agent-owned status file
 AGENT_STATUS_FILE = "status/agent_status.json"
 
+# Agent config file (non-secret)
+CONFIG_FILE = "config/agent_config.json"
+
 # ── Agent status template ────────────────────────────────────────────
 
 AGENT_STATUS_TEMPLATE = {
