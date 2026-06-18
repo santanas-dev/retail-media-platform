@@ -238,6 +238,67 @@ class TestSafeHttpClient(unittest.TestCase):
         self.assertNotIn("json_body", summary)
         self.assertNotIn("path", str(summary))
 
+    # ── Auth endpoint allowlist ────────────────────────────────────
+
+    def test_auth_endpoint_allowed(self):
+        client = self._ok_client()
+        resp = client.post_json("/api/device-gateway/auth/token", {"test": "ok"})
+        self.assertEqual(resp.status_code, 200)
+
+    def test_auth_endpoint_extra_rejected(self):
+        client = self._ok_client()
+        with self.assertRaises(ValueError):
+            client.post_json("/api/device-gateway/auth/token/extra", {})
+
+    def test_auth_endpoint_query_rejected(self):
+        client = self._ok_client()
+        with self.assertRaises(ValueError):
+            client.get_json("/api/device-gateway/auth/token?debug=1")
+
+    def test_bare_token_rejected(self):
+        client = self._ok_client()
+        with self.assertRaises(ValueError):
+            client.get_json("/token")
+
+    def test_api_token_rejected(self):
+        client = self._ok_client()
+        with self.assertRaises(ValueError):
+            client.get_json("/api/token")
+
+    def test_secret_path_rejected(self):
+        client = self._ok_client()
+        with self.assertRaises(ValueError):
+            client.get_json("/api/device-gateway/auth/secret")
+
+    def test_request_body_not_in_error(self):
+        ErrorHandler.STATUS = 500
+        ErrorHandler.BODY = b"error"
+        client = self._err_client()
+        with self.assertRaises(HttpClientError) as ctx:
+            client.post_json(
+                "/api/device-gateway/auth/token",
+                {"device_secret": "dev-value-1234567890"},
+            )
+        self.assertNotIn("dev-value-1234567890", ctx.exception.message)
+
+    def test_response_body_not_in_safe_summary(self):
+        ErrorHandler.STATUS = 200
+        ErrorHandler.BODY = b'{"access_token": "dev-value-1234567890"}'
+        client = self._err_client()
+        resp = client.get_json("/api/device-gateway/auth/token")
+        summary = resp.safe_summary()
+        self.assertNotIn("access_token", str(summary).lower())
+        self.assertNotIn("dev-value-1234567890", str(summary))
+
+    def test_auth_endpoint_invalid_json_safe(self):
+        ErrorHandler.STATUS = 200
+        ErrorHandler.BODY = b"<html>not json</html>"
+        client = self._err_client()
+        with self.assertRaises(HttpClientError) as ctx:
+            client.get_json("/api/device-gateway/auth/token")
+        self.assertIn("Invalid JSON", ctx.exception.message)
+        self.assertNotIn("<html>", ctx.exception.message)
+
 
 # ══════════════════════════════════════════════════════════════════════
 
