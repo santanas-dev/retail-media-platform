@@ -26,6 +26,9 @@ DEV_SECRET_FILE = "config/device_secret.dev"
 # Runtime config file (local cache)
 RUNTIME_CONFIG_FILE = "config/runtime_config.json"
 
+# Manifest file (local cache, read by KSO ПО / simulator)
+CURRENT_MANIFEST_FILE = "manifest/current_manifest.json"
+
 # ── Agent status template ────────────────────────────────────────────
 
 AGENT_STATUS_TEMPLATE = {

@@ -58,6 +58,7 @@ class TestCLISkeleton(unittest.TestCase):
                      "runtime-config-status",
                      "sync-runtime-config",
                      "heartbeat-once",
+                     "manifest-status",
                      "auth-check"):
             self.assertIn(cmd, out, f"Missing command: {cmd}")
 

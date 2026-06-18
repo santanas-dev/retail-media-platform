@@ -13,6 +13,7 @@ Commands:
     runtime-config-status Show runtime config health
     sync-runtime-config Full runtime config sync: auth→fetch→save
     heartbeat-once      Send a single heartbeat
+    manifest-status     Show local manifest health
     auth-check          Check device auth (safe summary only)
 
 This is a SKELETON. No backend calls, no secrets, no media sync yet.
@@ -23,7 +24,7 @@ import sys
 
 from kso_sidecar_agent import (
     agent_status, device_auth_client, heartbeat_client, local_config,
-    local_file_store, runtime_config_store, safe_logger, secret_store,
+    local_file_store, manifest_store, runtime_config_store, safe_logger, secret_store,
 )
 from kso_sidecar_agent.http_client import HttpClientConfig, SafeHttpClient
 from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager
@@ -85,6 +86,16 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     print(f"  runtime_config_ok: {result['runtime_config_ok']}")
     if result.get("runtime_config_error"):
         print(f"  runtime_config_err: {result['runtime_config_error']}")
+
+    # Manifest
+    print(f"  manifest_ok:       {result['manifest_ok']}")
+    if result.get("manifest_error"):
+        print(f"  manifest_error:    {result['manifest_error']}")
+    elif result.get("manifest_details"):
+        d = result["manifest_details"]
+        print(f"  manifest_present:  {d.get('present')}")
+        if d.get("present"):
+            print(f"  manifest_items:    {d.get('items_count')}")
 
     all_ok = (result["root_exists"] and result["folders_ok"]
               and result["agent_status_ok"] and result["config_ok"])
@@ -463,6 +474,38 @@ def cmd_auth_check(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+# ── Manifest commands ──────────────────────────────────────────────
+
+def cmd_manifest_status(args: argparse.Namespace) -> None:
+    """Show local manifest status — reads only local file, no backend.
+
+    Never prints full manifest or local_path.
+    """
+    try:
+        status = manifest_store.manifest_store_status(args.root)
+    except Exception as e:
+        print(f"ERROR: Cannot read manifest — {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not status["present"]:
+        print("Manifest: MISSING (no manifest/current_manifest.json)")
+        print("  Run 'sync-manifest' once implemented to fetch from backend.")
+        return
+
+    if status["validation_status"] == "error":
+        print("Manifest: INVALID")
+        print(f"  File exists but fails validation.")
+        sys.exit(1)
+
+    print("Manifest: PRESENT (valid)")
+    print(f"  version_id:        {status['manifest_version_id']}")
+    print(f"  hash:              {status['manifest_hash']}")
+    print(f"  source:            {status['source']}")
+    print(f"  generated_at:      {status['generated_at']}")
+    print(f"  fetched_at:        {status['fetched_at']}")
+    print(f"  items_count:       {status['items_count']}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-agent",
@@ -573,6 +616,12 @@ def main() -> None:
     p_hb.add_argument("--heartbeat-max-attempts", type=int, default=3,
                       help="Max heartbeat attempts when --retry-heartbeat (default: 3)")
     p_hb.set_defaults(func=cmd_heartbeat_once)
+
+    # ── Manifest commands ───────────────────────────────────────────
+
+    p_ms = sub.add_parser("manifest-status", help="Show local manifest health")
+    p_ms.add_argument("--root", required=True, help="Root path")
+    p_ms.set_defaults(func=cmd_manifest_status)
 
     # ── Auth commands ──────────────────────────────────────────────
 

@@ -8,7 +8,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from kso_sidecar_agent import agent_status, local_config, runtime_config_store, secret_store
+from kso_sidecar_agent import agent_status, local_config, manifest_store, runtime_config_store, secret_store
 from kso_sidecar_agent.atomic_io import atomic_write_json
 from kso_sidecar_agent.paths import SUB_DIRS, AGENT_STATUS_FILE, default_agent_status
 
@@ -49,6 +49,9 @@ def doctor(root: str | Path, dev_secret_store: bool = False) -> dict:
         "config_details": {},
         "runtime_config_ok": False,
         "runtime_config_error": "",
+        "manifest_ok": False,
+        "manifest_error": "",
+        "manifest_details": {},
     }
 
     if not root.is_dir():
@@ -96,5 +99,12 @@ def doctor(root: str | Path, dev_secret_store: bool = False) -> dict:
                 )
         except RuntimeError:
             pass  # dev mode not enabled — skip
+
+    # Check manifest (warning, not fatal)
+    mstatus = manifest_store.manifest_store_status(root)
+    result["manifest_ok"] = mstatus["validation_status"] == "ok"
+    if not result["manifest_ok"]:
+        result["manifest_error"] = mstatus["validation_status"]
+    result["manifest_details"] = mstatus
 
     return result
