@@ -17,6 +17,7 @@ from kso_simulator import state_writer
 from kso_simulator import pop_writer
 from kso_simulator import manifest_reader
 from kso_simulator import media_verifier
+from kso_simulator import playback_simulator
 from kso_simulator.pop_writer import ALLOWED_RESULTS
 from kso_simulator.safety import ALLOWED_STATES
 
@@ -235,6 +236,31 @@ def cmd_verify_media(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_show_once(args: argparse.Namespace) -> None:
+    """Simulate a single safe media playback."""
+    try:
+        result = playback_simulator.show_once(
+            root=args.root,
+            manifest_item_id=args.manifest_item_id,
+            duration_ms=args.duration_ms,
+        )
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if result.status == playback_simulator.SHOW_COMPLETED:
+        print(f"SHOW_COMPLETED manifest_item_id={result.device_event_id[:8]}... "
+              f"duration_ms={result.duration_ms}")
+        return
+
+    # SHOW_BLOCKED or SHOW_FAILED
+    label = "SHOW_BLOCKED" if result.status == playback_simulator.SHOW_BLOCKED else "SHOW_FAILED"
+    print(f"{label} reason={result.reason}")
+    if result.detail:
+        print(f"  {result.detail}")
+    sys.exit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-sim",
@@ -283,6 +309,14 @@ def main() -> None:
     p_vm = sub.add_parser("verify-media", help="Verify media files against manifest")
     p_vm.add_argument("--root", required=True, help="Root path")
     p_vm.set_defaults(func=cmd_verify_media)
+
+    # show-once
+    p_so = sub.add_parser("show-once", help="Simulate one safe media playback")
+    p_so.add_argument("--root", required=True, help="Root path")
+    p_so.add_argument("--manifest-item-id", required=True, help="Media item UUID")
+    p_so.add_argument("--duration-ms", type=int, default=None,
+                      help="Override duration (default: from manifest)")
+    p_so.set_defaults(func=cmd_show_once)
 
     args = parser.parse_args()
     args.func(args)

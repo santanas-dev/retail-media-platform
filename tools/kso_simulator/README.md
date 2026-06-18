@@ -159,6 +159,48 @@ ID                                       filename                       status  
 - Не ходит в сеть, не использует device_secret/JWT
 - Не выводит полные local_path
 
+### Симуляция показа (show-once)
+
+Команда `show-once` имитирует один безопасный показ media item: проверяет состояние КСО (idle), читает manifest, сверяет sha256 media-файла, и если всё безопасно — пишет PoP `completed`. На реальных КСО эту логику выполняет КСО ПО.
+
+```bash
+cd tools/kso_simulator
+
+# Подготовка: init, idle state, manifest + media файл
+python3 -m kso_simulator.cli init --root /tmp/kso-adapter
+python3 -m kso_simulator.cli set-state idle --root /tmp/kso-adapter
+# (создать manifest/current_manifest.json и media/current/promo_01.jpg)
+
+# Успешный показ
+python3 -m kso_simulator.cli show-once \
+  --root /tmp/kso-adapter \
+  --manifest-item-id 66111111-a111-1111-a111-111111111111
+# → SHOW_COMPLETED manifest_item_id=... duration_ms=10000
+
+# Переопределить duration
+python3 -m kso_simulator.cli show-once \
+  --root /tmp/kso-adapter \
+  --manifest-item-id 66111111-a111-1111-a111-111111111111 \
+  --duration-ms 5000
+# → SHOW_COMPLETED ... duration_ms=5000
+```
+
+**Safe failure cases (PoP completed НЕ пишется):**
+
+| Ситуация | Вывод | PoP |
+|---|---|---|
+| KSO не в idle (payment/error/transaction) | `SHOW_BLOCKED reason=kso_not_idle` | ❌ нет |
+| can_show_ads=false | `SHOW_BLOCKED reason=kso_not_idle` | ❌ нет |
+| Manifest не найден / invalid | `SHOW_FAILED reason=manifest_invalid` | ❌ нет |
+| Item не найден в manifest | `SHOW_FAILED reason=item_not_found` | ❌ нет |
+| Media файл отсутствует | `SHOW_FAILED reason=media_missing` | ❌ нет |
+| SHA256 не совпадает | `SHOW_FAILED reason=hash_mismatch` | ❌ нет |
+
+**Safety rules:**
+- `completed` PoP пишется только если: state=idle, can_show_ads=true, manifest валиден, item найден, media sha256 совпал
+- Во всех остальных случаях — fail-silent: без PoP, без stacktrace, без сети
+- Не меняет состояние КСО
+
 ## Создаваемые файлы
 
 После `init` создаётся:
