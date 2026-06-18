@@ -9,11 +9,13 @@ This is a DEV TOOL, NOT a KSO player.
 """
 
 import argparse
+import json
 import sys
 
 from kso_simulator import local_fs
 from kso_simulator import state_writer
 from kso_simulator import pop_writer
+from kso_simulator import manifest_reader
 from kso_simulator.pop_writer import ALLOWED_RESULTS
 from kso_simulator.safety import ALLOWED_STATES
 
@@ -122,6 +124,64 @@ def cmd_write_pop(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_manifest_status(args: argparse.Namespace) -> None:
+    """Show manifest status: exists, expired, validation, items count."""
+    root = args.root
+    try:
+        info = manifest_reader.read_manifest(root)
+    except FileNotFoundError:
+        print("Manifest: MISSING (no manifest/current_manifest.json)")
+        print("  Run 'init' first, then create a valid manifest file.")
+        return
+    except (ValueError, json.JSONDecodeError) as e:
+        print(f"Manifest: INVALID")
+        print(f"  Error: {e}")
+        sys.exit(1)
+
+    hash_short = info.manifest_hash[:12]
+    expired = "true" if info.expired else "false"
+    status = "ok" if not info.expired else "expired"
+    print(f"Manifest: PRESENT (validation: {status})")
+    print(f"  manifest_version_id: {info.manifest_version_id}")
+    print(f"  manifest_hash:       {hash_short}...")
+    print(f"  generated_at:        {info.generated_at.isoformat()}")
+    print(f"  valid_until:         {info.valid_until.isoformat()}")
+    print(f"  expired:             {expired}")
+    print(f"  items_count:         {info.items_count}")
+    if info.campaign_id:
+        print(f"  campaign_id:         {info.campaign_id}")
+
+
+def cmd_list_items(args: argparse.Namespace) -> None:
+    """List manifest items with key fields."""
+    try:
+        info = manifest_reader.read_manifest(args.root)
+    except FileNotFoundError:
+        print("ERROR: Manifest not found.", file=sys.stderr)
+        sys.exit(1)
+    except (ValueError, json.JSONDecodeError) as e:
+        print(f"ERROR: Invalid manifest: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if info.items_count == 0:
+        print("No items in manifest.")
+        return
+
+    print(f"{'ID':38s} {'filename':30s} {'mime':20s} {'dur_ms':>7s} {'order':>5s} {'sha256':>14s}")
+    print("-" * 140)
+    for item in info.items:
+        mid = item.manifest_item_id[:8] + "..."
+        sha = item.sha256[:12] + "..."
+        print(
+            f"{mid:38s} "
+            f"{item.filename[:30]:30s} "
+            f"{item.content_type[:20]:20s} "
+            f"{item.duration_ms:>7d} "
+            f"{item.order:>5d} "
+            f"{sha:>14s}"
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-sim",
@@ -155,6 +215,16 @@ def main() -> None:
     p_pop.add_argument("--started-at", default=None, help="ISO8601 start time")
     p_pop.add_argument("--ended-at", default=None, help="ISO8601 end time (>= started-at)")
     p_pop.set_defaults(func=cmd_write_pop)
+
+    # manifest-status
+    p_ms = sub.add_parser("manifest-status", help="Show manifest status")
+    p_ms.add_argument("--root", required=True, help="Root path")
+    p_ms.set_defaults(func=cmd_manifest_status)
+
+    # list-items
+    p_li = sub.add_parser("list-items", help="List manifest items")
+    p_li.add_argument("--root", required=True, help="Root path")
+    p_li.set_defaults(func=cmd_list_items)
 
     args = parser.parse_args()
     args.func(args)

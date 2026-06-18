@@ -62,7 +62,43 @@ python -m kso_simulator write-pop \
   --result failed \
   --duration-ms 0 \
   --reason "sha256_mismatch"
+
+# Посмотреть статус манифеста
+python -m kso_simulator manifest-status --root /tmp/kso-adapter
+
+# Вывести список media items
+python -m kso_simulator list-items --root /tmp/kso-adapter
 ```
+
+### Тестовый manifest
+
+Для работы `manifest-status` и `list-items` нужен файл `manifest/current_manifest.json`.
+Пример минимального валидного manifest:
+
+```json
+{
+  "manifest_version_id": "550e8400-e29b-41d4-a716-446655440000",
+  "manifest_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "generated_at": "2026-06-18T10:00:00Z",
+  "valid_until": "2026-12-31T23:59:59Z",
+  "items": [
+    {
+      "manifest_item_id": "550e8400-e29b-41d4-a716-446655440001",
+      "filename": "promo_01.jpg",
+      "content_type": "image/jpeg",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 245760,
+      "duration_ms": 10000,
+      "order": 1
+    }
+  ]
+}
+```
+
+Сохраните этот JSON в `<root>/manifest/current_manifest.json` перед вызовом manifest-команд.
+
+Manifest reader **не скачивает media**, **не ходит в backend**, **не проверяет sha256 файлов**.
+Он только читает и валидирует структуру манифеста.
 
 ## Создаваемые файлы
 
