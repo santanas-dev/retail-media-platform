@@ -1,0 +1,13 @@
+[project]
+name = "kso-sidecar-agent"
+version = "0.1.0"
+description = "KSO Sidecar Agent — syncs manifest/media with backend for KSO display"
+requires-python = ">=3.11"
+readme = "README.md"
+
+[project.scripts]
+kso-agent = "kso_sidecar_agent.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
