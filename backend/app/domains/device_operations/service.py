@@ -1463,6 +1463,12 @@ async def _do_evaluate(
                 await _evaluate_batch_rejected_v2(db, rule, window, device_ids, per_counts, run_id)
             elif rule.alert_type in ("no_manifest", "no_media", "no_pop"):
                 await _evaluate_missing_pipeline_v2(db, rule, window, device_ids, per_counts, rule.alert_type, run_id)
+            elif rule.alert_type == "cache_invalid_hash":
+                await _evaluate_cache_invalid_hash_v2(db, rule, window, device_ids, per_counts, run_id)
+            elif rule.alert_type == "manifest_apply_failed":
+                await _evaluate_manifest_apply_failed_v2(db, rule, window, device_ids, per_counts, run_id)
+            elif rule.alert_type == "applied_manifest_outdated":
+                await _evaluate_applied_manifest_outdated_v2(db, rule, window, device_ids, per_counts, run_id)
             else:
                 per_counts["skipped"] += 1
                 rr.status = "skipped"
@@ -2552,6 +2558,132 @@ async def _evaluate_manifest_apply_failed_v2(
                 f"Device {dev_code} manifest apply failed",
                 dev_id, store_id, channel_id,
                 {"device_code": dev_code},
+                per_counts, run_id,
+            )
+
+
+async def _evaluate_applied_manifest_outdated_v2(
+    db: AsyncSession, rule, window: int, device_ids, per_counts, run_id,
+) -> None:
+    """V2: Alert devices whose applied manifest is outdated vs latest published."""
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+
+    if not devices:
+        return
+
+    dev_id_list = [d[0] for d in devices]
+
+    # Pre-load device details
+    dev_result = await db.execute(
+        select(
+            gw_models.GatewayDevice.id,
+            gw_models.GatewayDevice.channel_id,
+            gw_models.GatewayDevice.store_id,
+            gw_models.GatewayDevice.display_surface_id,
+            gw_models.GatewayDevice.logical_carrier_id,
+            gw_models.GatewayDevice.physical_device_id,
+        ).where(gw_models.GatewayDevice.id.in_(dev_id_list))
+    )
+    device_details = {}
+    for row in dev_result.all():
+        device_details[row[0]] = {
+            "channel_id": row[1], "store_id": row[2],
+            "display_surface_id": row[3], "logical_carrier_id": row[4],
+            "physical_device_id": row[5],
+        }
+
+    # Pre-load current manifest states
+    csm_result = await db.execute(
+        select(
+            content_sync_models.DeviceCurrentManifestState.gateway_device_id,
+            content_sync_models.DeviceCurrentManifestState.manifest_version_id,
+        ).where(content_sync_models.DeviceCurrentManifestState.gateway_device_id.in_(dev_id_list))
+    )
+    csm_map = {row[0]: row[1] for row in csm_result.all()}
+
+    # Get all publication targets
+    all_pts = (await db.execute(select(PublicationTarget))).scalars().all()
+    all_lcs = (await db.execute(select(LogicalCarrier))).scalars().all()
+    all_dss = (await db.execute(select(DisplaySurface))).scalars().all()
+
+    lc_by_pd: dict = {}
+    for lc in all_lcs:
+        if lc.physical_device_id:
+            lc_by_pd.setdefault(lc.physical_device_id, []).append(lc.id)
+
+    ds_by_lc: dict = {}
+    for ds_item in all_dss:
+        if ds_item.logical_carrier_id:
+            ds_by_lc.setdefault(ds_item.logical_carrier_id, []).append(ds_item.id)
+
+    # Latest published per target
+    pm_result = await db.execute(
+        select(
+            ManifestVersion.publication_target_id,
+            ManifestVersion.id,
+        ).where(ManifestVersion.status == "published")
+        .order_by(ManifestVersion.created_at.desc())
+    )
+    latest_by_target: dict = {}
+    for pt_id, mv_id in pm_result.all():
+        if pt_id not in latest_by_target:
+            latest_by_target[pt_id] = mv_id
+
+    for dev_id, dev_code, store_id, channel_id in devices:
+        cur_mv = csm_map.get(dev_id)
+        if not cur_mv:
+            continue
+
+        dd = device_details.get(dev_id)
+        if not dd:
+            continue
+
+        # Find matching targets (same 3-priority logic as health)
+        matched_target_ids: set = set()
+
+        if dd["display_surface_id"]:
+            for pt in all_pts:
+                if (pt.display_surface_id == dd["display_surface_id"]
+                        and pt.channel_id == dd["channel_id"]
+                        and pt.store_id == dd["store_id"]):
+                    matched_target_ids.add(pt.id)
+        elif dd["logical_carrier_id"]:
+            for pt in all_pts:
+                if (pt.logical_carrier_id == dd["logical_carrier_id"]
+                        and pt.channel_id == dd["channel_id"]
+                        and pt.store_id == dd["store_id"]):
+                    matched_target_ids.add(pt.id)
+        elif dd["physical_device_id"]:
+            pd_id = dd["physical_device_id"]
+            lc_ids = lc_by_pd.get(pd_id, [])
+            ds_ids = set()
+            for lc_id in lc_ids:
+                ds_ids.update(ds_by_lc.get(lc_id, []))
+            for pt in all_pts:
+                if (pt.channel_id == dd["channel_id"]
+                        and pt.store_id == dd["store_id"]
+                        and (pt.logical_carrier_id in lc_ids or pt.display_surface_id in ds_ids)):
+                    matched_target_ids.add(pt.id)
+
+        latest_mv_id = None
+        for tid in matched_target_ids:
+            if tid in latest_by_target:
+                latest_mv_id = latest_by_target[tid]
+                break
+
+        if latest_mv_id is None:
+            continue
+
+        if str(cur_mv) != str(latest_mv_id):
+            await _upsert_alert_v2(
+                db, rule,
+                _build_dedup_key(rule.alert_type, device_id=dev_id),
+                f"Device {dev_code} has outdated manifest",
+                dev_id, store_id, channel_id,
+                {"device_code": dev_code,
+                 "applied_manifest": str(cur_mv),
+                 "latest_published_manifest": str(latest_mv_id)},
                 per_counts, run_id,
             )
 

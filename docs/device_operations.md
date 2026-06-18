@@ -717,6 +717,24 @@ DEVICE_HEALTH_CACHE_FAILED_CRITICAL_RATIO = 0.50
 - Без изменений (read: devices.gateway.read, manage: devices.gateway.manage)
 - Advertiser/device_service → 403 (не протестировано — нет активных пользователей с этими ролями, pre-existing)
 
+### Шаг 21.4 — Content Sync Evaluator Dispatch Fix (2026-06-18)
+
+**Баг:** content-sync evaluators (`cache_invalid_hash`, `manifest_apply_failed`, `applied_manifest_outdated`) не вызывались в основном цикле `_do_evaluate`. Они попадали в `else: skipped`, хотя правила были enabled. Причина: `_do_evaluate` не имел `elif`-блоков для этих alert_type.
+
+**Исправление:**
+- Добавлены 3 `elif` блока в `_do_evaluate` для `cache_invalid_hash`, `manifest_apply_failed`, `applied_manifest_outdated`
+- Создан `_evaluate_applied_manifest_outdated_v2` (V2-обёртка с `run_id` для evaluation history)
+- `_evaluate_cache_invalid_hash_v2` и `_evaluate_manifest_apply_failed_v2` уже существовали — добавлены только вызовы
+
+**Результат:**
+- `created: 0, skipped: 3` → `created: 4, skipped: 0`
+- 1 `cache_invalid_hash` alert + 3 `applied_manifest_outdated` alerts
+- Repeated evaluate: без дублей (`created=0, repeated=N`)
+- Disabled rules: не оцениваются, не skipped
+- Правило `applied_manifest_outdated` disabled по умолчанию; alert создаётся только при ручном включении
+
+**Row duplication:** `/api/device-operations/devices` — 62 строки, 62 уникальных device_code, без дублей. CTE `DISTINCT ON` из 21.2 сохранён.
+
 ### Что НЕ в Шаге 21
 
 - ❌ Новые endpoints
