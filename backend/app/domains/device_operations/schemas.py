@@ -523,6 +523,16 @@ ALLOWED_CONFIG_KEYS = {
     "clock_skew_tolerance_sec",
     "log_level",
     "kso_safety",
+    # ── KSO Player Runtime (Step 23.1) ──
+    "max_offline_duration_sec",
+    "manifest_ttl_sec",
+    "player_build_min_version",
+    "player_build_recommended_version",
+    "diagnostics_enabled",
+    "diagnostics_sample_interval_sec",
+    "media_prefetch_enabled",
+    "media_prefetch_max_items",
+    "local_storage_reserved_mb",
 }
 
 ALLOWED_KSO_KEYS = {
@@ -530,6 +540,13 @@ ALLOWED_KSO_KEYS = {
     "stop_on_transaction",
     "stop_on_payment",
     "stop_on_error_screen",
+    # ── KSO Safety extensions (Step 23.1) ──
+    "stop_on_service_mode",
+    "fail_behavior",
+    "screen_zone",
+    "max_overlay_area_percent",
+    "max_cpu_percent",
+    "max_memory_mb",
 }
 
 NUMERIC_RANGES = {
@@ -541,6 +558,12 @@ NUMERIC_RANGES = {
     "pop_flush_interval_sec": (30, 3600),
     "max_media_file_mb": (1, 2000),
     "clock_skew_tolerance_sec": (0, 3600),
+    # ── KSO Player Runtime (Step 23.1) ──
+    "max_offline_duration_sec": (0, 604800),
+    "manifest_ttl_sec": (60, 604800),
+    "diagnostics_sample_interval_sec": (30, 86400),
+    "media_prefetch_max_items": (0, 100),
+    "local_storage_reserved_mb": (0, 102400),
 }
 
 ALLOWED_LOG_LEVELS = {"debug", "info", "warning", "error"}
@@ -550,6 +573,15 @@ ALLOWED_MIME_TYPES = {
     "image/png",
     "video/mp4",
     "video/webm",
+}
+
+# ── KSO Safety enums (Step 23.1) ──
+ALLOWED_FAIL_BEHAVIORS = {"fail_silent", "fail_closed"}
+ALLOWED_SCREEN_ZONES = {"idle_screen", "side_panel", "full_screen_idle_only"}
+KSO_INT_RANGES = {
+    "max_overlay_area_percent": (1, 100),
+    "max_cpu_percent": (1, 100),
+    "max_memory_mb": (16, 4096),
 }
 
 FORBIDDEN_CONFIG_KEYS = {
@@ -615,8 +647,41 @@ def _validate_config_json(value: dict) -> dict:
                 f"Unknown kso_safety keys: {', '.join(sorted(unknown_kso))}"
             )
         for k, v in kso.items():
-            if not isinstance(v, bool):
-                raise ValueError(f"kso_safety.{k} must be boolean")
+            if k in ("fail_behavior",):
+                if v not in ALLOWED_FAIL_BEHAVIORS:
+                    raise ValueError(
+                        f"kso_safety.fail_behavior must be one of "
+                        f"{sorted(ALLOWED_FAIL_BEHAVIORS)}, got {v!r}"
+                    )
+            elif k in ("screen_zone",):
+                if v not in ALLOWED_SCREEN_ZONES:
+                    raise ValueError(
+                        f"kso_safety.screen_zone must be one of "
+                        f"{sorted(ALLOWED_SCREEN_ZONES)}, got {v!r}"
+                    )
+            elif k in KSO_INT_RANGES:
+                lo, hi = KSO_INT_RANGES[k]
+                if not isinstance(v, (int, float)) or v < lo or v > hi:
+                    raise ValueError(
+                        f"kso_safety.{k} must be between {lo} and {hi}, got {v}"
+                    )
+            else:
+                # Remaining kso keys are booleans
+                if not isinstance(v, bool):
+                    raise ValueError(f"kso_safety.{k} must be boolean")
+
+    # ── String-only fields (Step 23.1) ──
+    string_fields = {"player_build_min_version", "player_build_recommended_version"}
+    for key in string_fields:
+        if key in value and value[key] is not None:
+            if not isinstance(value[key], str) or len(value[key]) > 64:
+                raise ValueError(f"{key} must be a string (max 64 chars)")
+
+    # ── Boolean fields (Step 23.1) ──
+    bool_fields = {"diagnostics_enabled", "media_prefetch_enabled"}
+    for key in bool_fields:
+        if key in value and not isinstance(value[key], bool):
+            raise ValueError(f"{key} must be boolean")
 
     return value
 
