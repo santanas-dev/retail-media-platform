@@ -315,10 +315,11 @@ async def _fetch_device_aggregates(
         GROUP BY gateway_device_id
     ),
     published_manifest AS (
-        SELECT mv.publication_target_id,
+        SELECT DISTINCT ON (mv.publication_target_id) mv.publication_target_id,
                mv.id as latest_published_manifest_id
         FROM manifest_versions mv
         WHERE mv.status = 'published'
+        ORDER BY mv.publication_target_id, mv.created_at DESC
     ),
     device_target AS (
         SELECT gd.id as device_id, pt.id as target_id
@@ -342,9 +343,10 @@ async def _fetch_device_aggregates(
         WHERE gd.display_surface_id IS NULL AND gd.logical_carrier_id IS NULL AND gd.physical_device_id IS NOT NULL
     ),
     device_latest_published AS (
-        SELECT dt.device_id, pm.latest_published_manifest_id
+        SELECT DISTINCT ON (dt.device_id) dt.device_id, pm.latest_published_manifest_id
         FROM device_target dt
         JOIN published_manifest pm ON pm.publication_target_id = dt.target_id
+        ORDER BY dt.device_id
     )
     SELECT
         d.id as device_id, d.device_code, d.device_name, d.status as device_status,
