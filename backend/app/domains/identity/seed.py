@@ -74,6 +74,8 @@ PERMISSIONS = [
     ("devices.gateway.read", "View gateway devices", "devices.gateway", "read", "View gateway devices and heartbeats"),
     ("devices.gateway.manage", "Manage gateway devices", "devices.gateway", "manage", "Register and manage gateway devices"),
     ("devices.gateway.credentials", "Manage device credentials", "devices.gateway", "credentials", "Issue and revoke device credentials"),
+    ("campaign_reports.read", "Read campaign delivery reports", "campaign_reports", "read", "View campaign delivery reports"),
+    ("campaign_reports.manage", "Manage campaign delivery reports", "campaign_reports", "manage", "Generate campaign delivery snapshots"),
 ]
 
 # ── Roles ────────────────────────────────────────────────────────────────
@@ -111,6 +113,7 @@ ROLE_PERMISSIONS = {
         "publications.read", "publications.manage", "publications.approve", "publications.publish",
         "devices.gateway.read", "devices.gateway.manage", "devices.gateway.credentials",
         "reports.read", "reports.export",
+        "campaign_reports.read", "campaign_reports.manage",
         "audit.read",
         "emergency.manage",
     ],
@@ -127,6 +130,7 @@ ROLE_PERMISSIONS = {
         "scheduling.read",
         "publications.read", "publications.approve",
         "devices.gateway.read", "devices.gateway.manage", "devices.gateway.credentials",
+        "campaign_reports.read",
         "audit.read",
     ],
     "ad_manager": [
@@ -144,6 +148,7 @@ ROLE_PERMISSIONS = {
         "publications.read", "publications.manage",
         "devices.gateway.read",
         "reports.read",
+        "campaign_reports.read", "campaign_reports.manage",
     ],
     "approver": [
         "channels.read", "devices.read",
@@ -170,6 +175,7 @@ ROLE_PERMISSIONS = {
         "publications.read",
         "devices.gateway.read",
         "reports.read", "reports.export",
+        "campaign_reports.read", "campaign_reports.manage",
     ],
     "advertiser": [
         "campaigns.read",
@@ -186,6 +192,7 @@ ROLE_PERMISSIONS = {
         "scheduling.read",
         "publications.read", "publications.publish",
         "devices.gateway.read", "devices.gateway.manage", "devices.gateway.credentials",
+        "campaign_reports.read", "campaign_reports.manage",
     ],
     "device_service": [
         # No interactive permissions — service account only
