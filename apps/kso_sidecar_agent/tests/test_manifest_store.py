@@ -150,15 +150,139 @@ class TestNormalizeManifestSnapshot(unittest.TestCase):
         data2 = normalize_manifest_snapshot(snap2, now=NOW_ISO)
         self.assertEqual(data2["items"][0]["order"], 7)
 
-    def test_forbidden_key_in_snapshot_items_skipped(self):
+    def test_forbidden_key_in_snapshot_items_rejected(self):
+        """Forbidden key in any item → ValueError, entire manifest reject."""
         from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
         snap = _make_snapshot(items=[{
             "id": TEST_ITEM_ID, "sha256": "a" * 64,
             "media_path": "creatives/test.mp4", "token": "bad",
         }])
-        # Normalize itself doesn't scan for forbidden — validate step will catch it
-        data = normalize_manifest_snapshot(snap, now=NOW_ISO)
-        self.assertTrue(True)  # normalize doesn't crash on extra keys
+        with self.assertRaises(ValueError):
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Strict reject tests — any invalid item → ValueError (no silent skip)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestNormalizeStrictReject(unittest.TestCase):
+
+    def test_invalid_sha256_rejects_entire_manifest(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=[
+            {"id": TEST_ITEM_ID, "sha256": "a" * 64, "media_path": "creatives/ok.mp4", "duration_ms": 1000, "loop_position": 0},
+            {"id": "bad22222-2222-2222-2222-222222222222", "sha256": "BAD", "media_path": "creatives/bad.mp4"},
+        ])
+        with self.assertRaises(ValueError) as ctx:
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+        self.assertIn("sha256", ctx.exception.args[0].lower())
+
+    def test_invalid_uuid_rejects_entire_manifest(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=[
+            {"id": "not-a-uuid", "sha256": "a" * 64, "media_path": "creatives/test.mp4"},
+        ])
+        with self.assertRaises(ValueError):
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+
+    def test_negative_duration_rejects_entire_manifest(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=[
+            {"id": TEST_ITEM_ID, "sha256": "a" * 64, "media_path": "creatives/test.mp4", "duration_ms": -5000},
+        ])
+        with self.assertRaises(ValueError) as ctx:
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+        self.assertIn("duration_ms", ctx.exception.args[0].lower())
+
+    def test_negative_loop_position_rejects(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=[
+            {"id": TEST_ITEM_ID, "sha256": "a" * 64, "media_path": "creatives/test.mp4", "loop_position": -1},
+        ])
+        with self.assertRaises(ValueError) as ctx:
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+        self.assertIn("loop_position", ctx.exception.args[0].lower())
+
+    def test_negative_spot_position_rejects(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=[
+            {"id": TEST_ITEM_ID, "sha256": "a" * 64, "media_path": "creatives/test.mp4", "spot_position": -99},
+        ])
+        with self.assertRaises(ValueError) as ctx:
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+        self.assertIn("spot_position", ctx.exception.args[0].lower())
+
+    def test_negative_order_rejects(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=[
+            {"id": TEST_ITEM_ID, "sha256": "a" * 64, "media_path": "creatives/test.mp4", "order": -1},
+        ])
+        with self.assertRaises(ValueError) as ctx:
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+        self.assertIn("order", ctx.exception.args[0].lower())
+
+    def test_unsafe_media_path_rejects(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=[
+            {"id": TEST_ITEM_ID, "sha256": "a" * 64, "media_path": "../evil.mp4"},
+        ])
+        with self.assertRaises(ValueError) as ctx:
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+        self.assertIn("unsafe", ctx.exception.args[0].lower())
+
+    def test_forbidden_value_in_item_rejects(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=[
+            {"id": TEST_ITEM_ID, "sha256": "a" * 64, "media_path": "creatives/test.mp4", "note": "access_token_here"},
+        ])
+        with self.assertRaises(ValueError):
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+
+    def test_missing_id_rejects(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=[
+            {"sha256": "a" * 64, "media_path": "creatives/test.mp4"},
+        ])
+        with self.assertRaises(ValueError):
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+
+    def test_non_dict_item_rejects(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=["not-a-dict"])
+        with self.assertRaises(ValueError):
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+
+    def test_duration_not_int_rejects(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=[
+            {"id": TEST_ITEM_ID, "sha256": "a" * 64, "media_path": "creatives/test.mp4", "duration_ms": "five"},
+        ])
+        with self.assertRaises(ValueError) as ctx:
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+        self.assertIn("duration_ms", ctx.exception.args[0].lower())
+
+    def test_error_message_no_secret_or_token(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=[
+            {"id": "not-a-uuid", "sha256": "a" * 64},
+        ])
+        try:
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+        except ValueError as e:
+            msg = str(e)
+            self.assertNotIn("token", msg.lower())
+            self.assertNotIn("secret", msg.lower())
+            self.assertNotIn("authorization", msg.lower())
+
+    def test_error_message_no_full_dump(self):
+        from kso_sidecar_agent.manifest_store import normalize_manifest_snapshot
+        snap = _make_snapshot(items=[
+            {"id": "not-a-uuid", "sha256": "a" * 64, "media_path": "creatives/test.mp4"},
+        ])
+        try:
+            normalize_manifest_snapshot(snap, now=NOW_ISO)
+        except ValueError as e:
+            self.assertNotIn("creatives/", str(e))
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -246,10 +370,28 @@ class TestWriteReadManifest(unittest.TestCase):
 
     def test_symlink_target_rejected(self):
         """Symlink rejection tested via atomic_write_json (pre-existing behavior)."""
-        # atomic_write_json resolves the path first, so direct symlink test
-        # requires setting up a scenario where the target itself is a symlink.
-        # This is covered by atomic_io unit tests.
         pass
+
+    def test_invalid_snapshot_does_not_overwrite_existing_valid_manifest(self):
+        """One bad item among two → ValueError, existing valid file untouched."""
+        from kso_sidecar_agent.manifest_store import write_current_manifest, read_current_manifest
+        # Write a valid manifest first
+        snap_valid = _make_snapshot()
+        result = write_current_manifest(str(self.root), snap_valid, now=NOW_ISO)
+        self.assertEqual(result["status"], "written")
+
+        # Try to write an invalid snapshot — should fail and leave original intact
+        snap_bad = _make_snapshot(items=[
+            {"id": TEST_ITEM_ID, "sha256": "a" * 64, "media_path": "creatives/ok.mp4", "duration_ms": 1000, "loop_position": 0},
+            {"id": "bad22222-2222-2222-2222-222222222222", "sha256": "BAD", "media_path": "creatives/bad.mp4"},
+        ])
+        with self.assertRaises(ValueError):
+            write_current_manifest(str(self.root), snap_bad, now=NOW_ISO)
+
+        # Original valid manifest is still intact
+        data = read_current_manifest(str(self.root))
+        self.assertEqual(data["manifest_version_id"], TEST_MANIFEST_VERSION_ID)
+        self.assertEqual(len(data["items"]), 1)
 
 
 # ══════════════════════════════════════════════════════════════════════

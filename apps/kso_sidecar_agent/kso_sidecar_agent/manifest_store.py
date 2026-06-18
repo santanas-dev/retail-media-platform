@@ -245,48 +245,76 @@ def normalize_manifest_snapshot(snapshot: Any, now: Optional[str] = None) -> dic
     source = getattr(snapshot, "source", "unknown")
     items = getattr(snapshot, "items", [])
 
-    # Normalize items
+    # Normalize items (STRICT: any invalid item → reject entire manifest)
     normalized_items = []
-    for item in (items or []):
+    for idx, item in enumerate(items or []):
         if not isinstance(item, dict):
-            continue
+            raise ValueError(
+                f"Manifest item[{idx}] is not an object — rejecting entire manifest"
+            )
 
-        item_id = item.get("id") or item.get("manifest_item_id") or ""
+        item_id = item.get("id") or item.get("manifest_item_id")
         if not item_id:
-            continue
+            raise ValueError(
+                f"Manifest item[{idx}] missing id/manifest_item_id — rejecting entire manifest"
+            )
 
         # Validate item_id is UUID
         try:
             _UUID(str(item_id))
         except (ValueError, AttributeError):
-            continue
+            raise ValueError(
+                f"Manifest item[{idx}] has invalid id: not a UUID — rejecting entire manifest"
+            ) from None
 
-        # Content type from media_path extension
+        # Check for forbidden keys/values inside this item
+        item_id_str = str(item_id)
+        _security_scan(item, f"item[{idx}]")
+
+        # Content type from media_path extension (raises on unsafe path)
         media_path = item.get("media_path")
-        content_type = _derive_content_type(media_path)
+        try:
+            content_type = _derive_content_type(media_path)
+        except ValueError:
+            raise  # re-raise _derive_content_type errors
 
         # Filename from item_id + extension
-        filename = _derive_filename(str(item_id), content_type)
+        filename = _derive_filename(item_id_str, content_type)
 
-        # sha256
+        # sha256 — MUST be valid 64 hex
         sha256 = item.get("sha256", "")
         if not isinstance(sha256, str) or not SHA256_RE.match(sha256):
-            continue  # skip items with invalid sha256
+            raise ValueError(
+                f"Manifest item[{idx}] has invalid sha256 — rejecting entire manifest"
+            )
 
         # Order: priority order > loop_position > spot_position > 0
         order = 0
+        found = False
         for key in ("order", "loop_position", "spot_position"):
             v = item.get(key)
-            if isinstance(v, int) and v >= 0:
-                order = v
-                break
+            if isinstance(v, int):
+                if v < 0:
+                    raise ValueError(
+                        f"Manifest item[{idx}].{key} is negative ({v}) — rejecting entire manifest"
+                    )
+                if not found:
+                    order = v
+                    found = True
+                # If found a higher-priority key, subsequent keys are ignored
 
         duration_ms = item.get("duration_ms", 0)
-        if not isinstance(duration_ms, int) or duration_ms < 0:
-            duration_ms = 0
+        if not isinstance(duration_ms, int):
+            raise ValueError(
+                f"Manifest item[{idx}].duration_ms is not an integer — rejecting entire manifest"
+            )
+        if duration_ms < 0:
+            raise ValueError(
+                f"Manifest item[{idx}].duration_ms is negative ({duration_ms}) — rejecting entire manifest"
+            )
 
         normalized_items.append({
-            "manifest_item_id": str(item_id),
+            "manifest_item_id": item_id_str,
             "filename": filename,
             "content_type": content_type,
             "sha256": sha256,
