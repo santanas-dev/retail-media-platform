@@ -100,6 +100,65 @@ python -m kso_simulator list-items --root /tmp/kso-adapter
 Manifest reader **не скачивает media**, **не ходит в backend**, **не проверяет sha256 файлов**.
 Он только читает и валидирует структуру манифеста.
 
+### Проверка media-файлов (verify-media)
+
+Команда `verify-media` проверяет локальные файлы из `media/current/` на соответствие manifest:
+
+```bash
+cd tools/kso_simulator
+
+# Создать тестовый media-файл с известным sha256 (пустой файл)
+mkdir -p /tmp/kso-adapter/media/current
+touch /tmp/kso-adapter/media/current/promo_01.jpg
+
+# Посчитать его sha256 (все нули — e3b0c44298fc...)
+sha256sum /tmp/kso-adapter/media/current/promo_01.jpg
+
+# Проверить соответствие
+python -m kso_simulator verify-media --root /tmp/kso-adapter
+```
+
+**Пример вывода (all ok):**
+```
+Total items:       1
+  present:         1
+  missing:         0
+  hash_ok:         1
+  hash_mismatch:   0
+  invalid_items:   0
+
+ID                                       filename                       status               expected_sha   actual_sha
+------------------------------------------------------------------------------------------------------------------------
+550e8400...                              promo_01.jpg                   ok                   e3b0c44298fc... e3b0c44298fc...
+```
+
+**Пример вывода (missing file):**
+```
+Total items:       2
+  present:         1
+  missing:         1
+  ...
+
+ID                                       filename                       status               expected_sha   actual_sha
+------------------------------------------------------------------------------------------------------------------------
+550e8400...                              promo_01.jpg                   ok                   e3b0c44298fc... e3b0c44298fc...
+550e8400...                              missing_file.jpg               missing              e3b0c44298fc... -
+```
+
+**Пример вывода (hash mismatch):**
+```
+ID                                       filename                       status               expected_sha   actual_sha
+------------------------------------------------------------------------------------------------------------------------
+550e8400...                              promo_01.jpg                   hash_mismatch        e3b0c44298fc... a1b2c3d4e5f6...
+```
+
+**Особенности:**
+- Expired manifest не блокирует проверку — выводит WARNING и проверяет файлы
+- Symlink файлы — reject (статус `symlink_rejected`)
+- Path traversal filenames — reject на этапе чтения manifest
+- Не ходит в сеть, не использует device_secret/JWT
+- Не выводит полные local_path
+
 ## Создаваемые файлы
 
 После `init` создаётся:

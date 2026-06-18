@@ -16,6 +16,7 @@ from kso_simulator import local_fs
 from kso_simulator import state_writer
 from kso_simulator import pop_writer
 from kso_simulator import manifest_reader
+from kso_simulator import media_verifier
 from kso_simulator.pop_writer import ALLOWED_RESULTS
 from kso_simulator.safety import ALLOWED_STATES
 
@@ -182,6 +183,58 @@ def cmd_list_items(args: argparse.Namespace) -> None:
         )
 
 
+def cmd_verify_media(args: argparse.Namespace) -> None:
+    """Verify local media files against manifest."""
+    try:
+        result = media_verifier.verify_media(args.root)
+    except FileNotFoundError:
+        print("ERROR: Manifest not found.", file=sys.stderr)
+        sys.exit(1)
+    except (ValueError, json.JSONDecodeError) as e:
+        print(f"ERROR: Invalid manifest: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if result.manifest_expired:
+        print("WARNING: manifest is expired — verifying files anyway.\n")
+
+    print(f"Total items:       {result.total_items}")
+    print(f"  present:         {result.present}")
+    print(f"  missing:         {result.missing}")
+    print(f"  hash_ok:         {result.hash_ok}")
+    print(f"  hash_mismatch:   {result.hash_mismatch}")
+    print(f"  invalid_items:   {result.invalid_items}")
+    print()
+
+    STATUS_LABELS = {
+        "ok": "ok",
+        "missing": "missing",
+        "hash_mismatch": "hash_mismatch",
+        "invalid_manifest_item": "invalid_item",
+        "invalid_media_file": "symlink_rejected",
+    }
+
+    print(
+        f"{'ID':38s} {'filename':30s} {'status':20s} {'expected_sha':14s} {'actual_sha':14s}"
+    )
+    print("-" * 120)
+    for item in result.items:
+        mid = item.manifest_item_id[:8] + "..."
+        exp = item.expected_sha256[:12] + "..."
+        act = item.actual_sha256[:12] + "..." if item.actual_sha256 else "-"
+        status_label = STATUS_LABELS.get(item.status, item.status)
+        print(
+            f"{mid:38s} "
+            f"{item.filename[:30]:30s} "
+            f"{status_label:20s} "
+            f"{exp:14s} "
+            f"{act:14s}"
+        )
+
+    # Non-zero exit if any errors
+    if result.hash_mismatch > 0 or result.missing > 0 or result.invalid_items > 0:
+        sys.exit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-sim",
@@ -225,6 +278,11 @@ def main() -> None:
     p_li = sub.add_parser("list-items", help="List manifest items")
     p_li.add_argument("--root", required=True, help="Root path")
     p_li.set_defaults(func=cmd_list_items)
+
+    # verify-media
+    p_vm = sub.add_parser("verify-media", help="Verify media files against manifest")
+    p_vm.add_argument("--root", required=True, help="Root path")
+    p_vm.set_defaults(func=cmd_verify_media)
 
     args = parser.parse_args()
     args.func(args)
