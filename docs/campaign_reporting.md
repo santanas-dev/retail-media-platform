@@ -52,13 +52,40 @@
 
 | Status | Condition |
 |---|---|
-| `not_started` | No published targets |
+| `not_started` | No published targets AND no PoP events |
+| `delivering` | PoP events exist (even without published targets) |
 | `publishing` | Published targets, no applied manifests |
 | `delivering` | Applied manifests + PoP |
 | `partially_delivered` | Some devices applied/cache/PoP |
 | `delivered` | All metrics ≥ planned |
 | `delivery_with_errors` | manifest_failed or cache_invalid_hash |
 | `failed` | Published targets but 0 applied manifests (period ended) |
+
+PoP fallback: если `published_targets == 0`, но `unique_devices_with_pop > 0`, статус `delivering` (или `delivery_with_errors` при ошибках sync/cache). Отчёт не может быть `not_started` при наличии фактических показов.
+
+## PoP Fallback
+
+Все разрезы используют PoP как fallback, когда нет published targets:
+
+- **by-store**: UNION stores из `publication_targets` + stores из PoP-устройств
+- **by-device**: UNION devices из `publication_targets` + PoP-устройства; `DISTINCT ON` гарантирует 0 дублей, одна строка на устройство
+- **by-channel**: per-channel агрегация PoP через `gateway_devices.channel_id`
+- **by-creative**: основной путь через `poe.campaign_rendition_id`, fallback через `poe.manifest_item_id → manifest_items → campaign_renditions`. **Ограничение:** PoP не приписывается к creative чужой кампании (проверка `poe.campaign_id == cr.campaign_id`)
+
+## Snapshot Date Parameters
+
+`POST /{campaign_id}/snapshots` по умолчанию берёт период из `campaigns.planned_start_date` / `planned_end_date`. Для снапшота за другой период передать даты в body:
+
+```json
+{
+  "period_from": "2026-06-01T00:00:00Z",
+  "period_to": "2026-12-31T23:59:59Z"
+}
+```
+
+## Planned Metrics
+
+`planned_devices` и `planned_stores` зависят от `campaign_targets`. Если таблица пуста, planned-метрики = 0 — это допустимо и не является ошибкой отчётности.
 
 ## Permissions
 
