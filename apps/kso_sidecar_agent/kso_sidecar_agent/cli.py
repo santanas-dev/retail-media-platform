@@ -22,10 +22,11 @@ This is a SKELETON. No backend calls, no secrets, no media sync yet.
 
 import argparse
 import sys
+from pathlib import Path
 
 from kso_sidecar_agent import (
     agent_status, device_auth_client, heartbeat_client, local_config,
-    local_file_store, manifest_store, runtime_config_store, safe_logger, secret_store,
+    local_file_store, manifest_store, media_cache, runtime_config_store, safe_logger, secret_store,
 )
 from kso_sidecar_agent.http_client import HttpClientConfig, HttpClientError, SafeHttpClient
 from kso_sidecar_agent.manifest_client import ManifestClient
@@ -98,6 +99,20 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         print(f"  manifest_present:  {d.get('present')}")
         if d.get("present"):
             print(f"  manifest_items:    {d.get('items_count')}")
+
+    # Media cache
+    if result.get("media_cache_details"):
+        cd = result["media_cache_details"]
+        print(f"  media_cache_ok:    {result.get('media_cache_ok', True)}")
+        print(f"  cache_items_total: {cd.get('items_total')}")
+        print(f"  cache_items_cached:{cd.get('items_cached')}")
+        if cd.get("items_missing", 0) > 0:
+            print(f"  cache_missing:     {cd['items_missing']}")
+        if cd.get("items_invalid_hash", 0) > 0:
+            print(f"  cache_invalid_hash:{cd['items_invalid_hash']}")
+    elif result.get("media_cache_issues"):
+        for issue in result["media_cache_issues"]:
+            print(f"  media_cache_issue: {issue}")
 
     all_ok = (result["root_exists"] and result["folders_ok"]
               and result["agent_status_ok"] and result["config_ok"])
@@ -508,6 +523,48 @@ def cmd_manifest_status(args: argparse.Namespace) -> None:
     print(f"  items_count:       {status['items_count']}")
 
 
+# ── Media cache status command ──────────────────────────────────────
+
+def cmd_media_cache_status(args: argparse.Namespace) -> None:
+    """Show local media cache status. No backend calls, no token/secret."""
+    root = Path(args.root)
+
+    # Try to read manifest for detailed status
+    manifest_items = None
+    try:
+        manifest = manifest_store.read_current_manifest(root)
+        manifest_items = manifest.get("items", [])
+    except (FileNotFoundError, ValueError, Exception):
+        pass  # no manifest — show basic status
+
+    status = media_cache.media_cache_status(root, manifest_items=manifest_items)
+
+    print(f"Media cache status for: {args.root}")
+
+    if manifest_items is not None:
+        print(f"  items_total:       {status['items_total']}")
+        print(f"  items_cached:      {status['items_cached']}")
+        print(f"  items_missing:     {status['items_missing']}")
+        print(f"  invalid_hash:      {status['items_invalid_hash']}")
+        print(f"  invalid_size:      {status['items_invalid_size']}")
+        print(f"  cache_complete:    {status['cache_complete']}")
+    else:
+        print(f"  present:           {status['present']}")
+        print(f"  current_files:     {status['current_files_count']}")
+        print(f"  staging_files:     {status['staging_files_count']}")
+        print(f"  quarantine_files:  {status['quarantine_files_count']}")
+
+    if manifest_items is not None and not status.get("cache_complete"):
+        issues = []
+        if status.get("items_missing", 0) > 0:
+            issues.append(f"{status['items_missing']} missing")
+        if status.get("items_invalid_hash", 0) > 0:
+            issues.append(f"{status['items_invalid_hash']} invalid hash")
+        if status.get("items_invalid_size", 0) > 0:
+            issues.append(f"{status['items_invalid_size']} size mismatch")
+        print(f"  issues:            {', '.join(issues)}")
+
+
 # ── Manifest sync commands ─────────────────────────────────────────
 
 def cmd_sync_manifest(args: argparse.Namespace) -> None:
@@ -718,6 +775,10 @@ def main() -> None:
     p_ms = sub.add_parser("manifest-status", help="Show local manifest health")
     p_ms.add_argument("--root", required=True, help="Root path")
     p_ms.set_defaults(func=cmd_manifest_status)
+
+    p_mcs = sub.add_parser("media-cache-status", help="Show local media cache health")
+    p_mcs.add_argument("--root", required=True, help="Root path")
+    p_mcs.set_defaults(func=cmd_media_cache_status)
 
     p_smf = sub.add_parser("sync-manifest", help="Sync manifest: auth→fetch→save")
     p_smf.add_argument("--root", required=True, help="Root path")

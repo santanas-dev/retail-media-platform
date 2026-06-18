@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from kso_sidecar_agent import agent_status, local_config, manifest_store, runtime_config_store, secret_store
+from kso_sidecar_agent import media_cache as _media_cache
 from kso_sidecar_agent.atomic_io import atomic_write_json
 from kso_sidecar_agent.paths import SUB_DIRS, AGENT_STATUS_FILE, default_agent_status
 
@@ -52,6 +53,8 @@ def doctor(root: str | Path, dev_secret_store: bool = False) -> dict:
         "manifest_ok": False,
         "manifest_error": "",
         "manifest_details": {},
+        "media_cache_ok": True,
+        "media_cache_issues": [],
     }
 
     if not root.is_dir():
@@ -106,5 +109,33 @@ def doctor(root: str | Path, dev_secret_store: bool = False) -> dict:
     if not result["manifest_ok"]:
         result["manifest_error"] = mstatus["validation_status"]
     result["manifest_details"] = mstatus
+
+    # Check media cache (warning, not fatal)
+    if mstatus["validation_status"] == "ok" and mstatus.get("present"):
+        try:
+            manifest = manifest_store.read_current_manifest(root)
+            items = manifest.get("items", [])
+            if items:
+                cache_status = _media_cache.media_cache_status(root, manifest_items=items)
+                result["media_cache_details"] = cache_status
+                if cache_status["items_missing"] > 0:
+                    result["media_cache_ok"] = False
+                    result["media_cache_issues"].append(
+                        f"{cache_status['items_missing']} media files missing from cache"
+                    )
+                if cache_status["items_invalid_hash"] > 0:
+                    result["media_cache_ok"] = False
+                    result["media_cache_issues"].append(
+                        f"{cache_status['items_invalid_hash']} media files have invalid hash"
+                    )
+                if cache_status["items_invalid_size"] > 0:
+                    result["media_cache_issues"].append(
+                        f"{cache_status['items_invalid_size']} media files have size mismatch"
+                    )
+        except Exception:
+            result["media_cache_ok"] = False
+            result["media_cache_issues"].append("Failed to check media cache")
+    elif not mstatus.get("present"):
+        pass  # no manifest — skip media cache check
 
     return result

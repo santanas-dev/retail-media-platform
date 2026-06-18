@@ -29,6 +29,11 @@ RUNTIME_CONFIG_FILE = "config/runtime_config.json"
 # Manifest file (local cache, read by KSO ПО / simulator)
 CURRENT_MANIFEST_FILE = "manifest/current_manifest.json"
 
+# Media cache directories
+MEDIA_CURRENT_DIR = "media/current"
+MEDIA_STAGING_DIR = "media/staging"
+MEDIA_QUARANTINE_DIR = "media/quarantine"
+
 # ── Agent status template ────────────────────────────────────────────
 
 AGENT_STATUS_TEMPLATE = {
