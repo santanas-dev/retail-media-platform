@@ -612,3 +612,94 @@ Backend-слой синхронизации состояния контента 
 - Human token на device endpoint → 401
 - Advertiser/device_service → 403 на admin endpoints
 - `expected_sha256` всегда берётся из backend, device не может его переопределить
+
+---
+
+## Шаг 21 — Content Sync Health & Alerts Integration
+
+**Создан:** 2026-06-17  
+**Статус:** ✅ Реализован  
+**Миграция:** `021_content_sync_alerts.py` (seed only)
+
+### Сводка
+
+Интеграция данных content sync (Шаг 20) в Device Operations health, problem types, store/channel агрегации и alert rules evaluation. Эксплуатация видит реальное состояние применения manifest и локального media-кэша на устройствах.
+
+**НЕ является:** плеером, КСО-интеграцией, Android-приложением, frontend, push, scheduler, remote commands, SLA/billing.
+
+### Новые problem types (7)
+
+| Problem type | Условие | Severity |
+|---|---|---|
+| `cache_invalid_hash` | device_media_cache_items.status = invalid_hash > 0 | → critical |
+| `manifest_apply_failed` | current_manifest_status = failed | → warning |
+| `cache_missing_items` | missing items > 0 | → warning (≥50% → critical) |
+| `cache_failed_items` | failed items > 0 | → warning (≥50% → critical) |
+| `cache_report_stale` | last report старше 120 min, только для устройств с историей | → warning |
+| `manifest_not_applied` | manifest доставлен, но не applied (gated: только при manifest-активности) | → warning |
+| `applied_manifest_outdated` | applied manifest ≠ latest published (1 target = 1 published) | → warning |
+
+### Новые alert types (7)
+
+Добавлены в `ALLOWED_ALERT_TYPES` (Python-level, без DB CHECK).
+
+| Alert type | Default rule | Severity | Enabled | Window |
+|---|---|---|---|---|
+| `cache_invalid_hash` | ✅ | critical | ✅ | 60 min |
+| `manifest_apply_failed` | ✅ | warning | ✅ | 60 min |
+| `cache_report_stale` | ✅ | warning | ❌ | 120 min |
+| `manifest_not_applied` | ✅ | warning | ❌ | 120 min |
+| `cache_missing_high` | ✅ | warning | ❌ | 120 min |
+| `cache_failed_high` | ✅ | warning | ❌ | 120 min |
+| `applied_manifest_outdated` | ✅ | warning | ❌ | 240 min |
+
+### API Response additions
+
+**DeviceHealthItem** — новое поле `content_sync: ContentSyncDeviceItem`:
+- `current_manifest_status`, `current_manifest_hash`
+- `last_manifest_applied_at`, `last_manifest_failed_at`
+- `last_cache_report_at`
+- `cached_items`, `missing_items`, `failed_items`, `invalid_hash_items`
+- `cache_health_status` (healthy/warning/critical/unknown)
+
+**OverviewResponse** — новое поле `content_sync: ContentSyncSummary`:
+- `manifest_applied_devices`, `manifest_failed_devices`
+- `devices_with_cache_reports`, `devices_with_invalid_hash`
+- `devices_with_missing_items`, `devices_with_failed_items`
+
+**StoreHealthItem / ChannelHealthItem** — новые поля:
+- `manifest_applied_devices`, `manifest_failed_devices`
+- `devices_with_cache_reports`, `devices_with_invalid_hash`
+- `devices_with_missing_items`, `devices_with_failed_items`
+
+### Config
+
+```ini
+DEVICE_HEALTH_CACHE_REPORT_STALE_MINUTES = 120
+DEVICE_HEALTH_CACHE_MISSING_CRITICAL_RATIO = 0.50
+DEVICE_HEALTH_CACHE_FAILED_CRITICAL_RATIO = 0.50
+```
+
+### Data Sources
+
+- `device_current_manifest_states` — текущее состояние manifest (1 CTE)
+- `device_media_cache_reports` — last_cache_report_at + report_count (1 CTE)
+- `device_media_cache_items` — текущие counts по status (1 CTE, не сумма reports)
+- `manifest_versions` / `publication_targets` — latest published manifest
+
+Все через CTE в существующем bulk-запросе, без N+1.
+
+### Gating
+
+- `cache_report_stale` — только если устройство имеет историю (cache reports или applied manifest)
+- `manifest_not_applied` — только если есть manifest-активность (manifest requests)
+- `applied_manifest_outdated` — 1 target = 1 published manifest (deterministic)
+
+### Что НЕ в Шаге 21
+
+- ❌ Новые endpoints
+- ❌ Новые permissions
+- ❌ Device endpoints изменения
+- ❌ КСО-плеер, Android player, frontend, push, scheduler
+- ❌ SLA/billing/auto-remediation
+- ❌ Изменение таблиц (только seed миграция)

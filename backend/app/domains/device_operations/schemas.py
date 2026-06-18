@@ -41,6 +41,35 @@ class OverviewResponse(BaseModel):
     summary: OverviewSummary
     pipeline: PipelineCounts
     errors: ErrorCounts
+    content_sync: "ContentSyncSummary" = Field(default_factory=lambda: ContentSyncSummary())
+
+
+class ContentSyncDeviceItem(BaseModel):
+    """Per-device content sync state for health responses."""
+    current_manifest_status: Optional[str] = None  # applied / failed / unknown
+    current_manifest_hash: Optional[str] = None
+    last_manifest_applied_at: Optional[datetime] = None
+    last_manifest_failed_at: Optional[datetime] = None
+    last_cache_report_at: Optional[datetime] = None
+    cached_items: int = 0
+    missing_items: int = 0
+    failed_items: int = 0
+    invalid_hash_items: int = 0
+    cache_health_status: str = "unknown"  # healthy / warning / critical / unknown
+
+    model_config = {"from_attributes": True}
+
+
+class ContentSyncSummary(BaseModel):
+    """Aggregate content sync summary for overview."""
+    manifest_applied_devices: int = 0
+    manifest_failed_devices: int = 0
+    devices_with_cache_reports: int = 0
+    devices_with_invalid_hash: int = 0
+    devices_with_missing_items: int = 0
+    devices_with_failed_items: int = 0
+
+    model_config = {"from_attributes": True}
 
 
 class DeviceHealthItem(BaseModel):
@@ -65,9 +94,9 @@ class DeviceHealthItem(BaseModel):
     pop_events_count: int = 0
     error_count: int = 0
     problem_types: list[str] = Field(default_factory=list)
+    content_sync: Optional[ContentSyncDeviceItem] = None
 
     model_config = {"from_attributes": True}
-
 
 class SafeHeartbeatItem(BaseModel):
     id: UUID
@@ -153,6 +182,13 @@ class StoreHealthItem(BaseModel):
     devices_with_pop: int = 0
     error_count: int = 0
     top_problem_types: list[str] = Field(default_factory=list)
+    # Content sync
+    manifest_applied_devices: int = 0
+    manifest_failed_devices: int = 0
+    devices_with_cache_reports: int = 0
+    devices_with_invalid_hash: int = 0
+    devices_with_missing_items: int = 0
+    devices_with_failed_items: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -172,6 +208,13 @@ class ChannelHealthItem(BaseModel):
     devices_with_pop: int = 0
     error_count: int = 0
     top_problem_types: list[str] = Field(default_factory=list)
+    # Content sync
+    manifest_applied_devices: int = 0
+    manifest_failed_devices: int = 0
+    devices_with_cache_reports: int = 0
+    devices_with_invalid_hash: int = 0
+    devices_with_missing_items: int = 0
+    devices_with_failed_items: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -187,6 +230,11 @@ ALLOWED_ALERT_TYPES = {
     "manifest_validation_failed", "media_validation_failed",
     "media_storage_error", "pop_rejected_high", "duplicate_events_high",
     "batch_rejected",
+    # Step 21 — content sync alert types
+    "manifest_not_applied", "manifest_apply_failed",
+    "cache_missing_high", "cache_failed_high",
+    "cache_invalid_hash", "cache_report_stale",
+    "applied_manifest_outdated",
 }
 ALLOWED_SEVERITIES = {"info", "warning", "critical"}
 ALLOWED_SCOPE_KEYS = {"gateway_device_ids", "store_ids", "channel_ids"}

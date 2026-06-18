@@ -15,6 +15,7 @@ from app.domains.device_gateway import models as gw_models
 from app.domains.channels.models import Channel
 from app.domains.organization.models import Store
 from app.domains.device_operations import models as do_models
+from app.domains.device_operations import models as content_sync_models
 
 HEALTH_STATUSES = frozenset({
     "healthy", "warning", "critical", "offline", "disabled",
@@ -63,6 +64,13 @@ def _compute_health_status(
     has_pop: bool,
     error_rate: float,
     minutes_since_activity: float | None,
+    *,
+    has_invalid_hash: bool = False,
+    manifest_apply_failed: bool = False,
+    cache_missing_ratio: float = 0.0,
+    cache_failed_ratio: float = 0.0,
+    cs_missing_critical_ratio: float = 0.50,
+    cs_failed_critical_ratio: float = 0.50,
 ) -> str:
     settings = get_settings()
 
@@ -88,6 +96,20 @@ def _compute_health_status(
     if error_rate >= settings.DEVICE_HEALTH_ERROR_RATE_WARNING:
         return "warning"
 
+    # Content sync health
+    if has_invalid_hash:
+        return "critical"
+    if cache_missing_ratio >= cs_missing_critical_ratio:
+        return "critical"
+    if cache_failed_ratio >= cs_failed_critical_ratio:
+        return "critical"
+    if manifest_apply_failed:
+        return "warning"
+    if cache_missing_ratio > 0:
+        return "warning"
+    if cache_failed_ratio > 0:
+        return "warning"
+
     return "healthy"
 
 
@@ -103,6 +125,14 @@ def _compute_problem_types(
     pop_rejected_ratio: float,
     duplicate_ratio: float,
     has_batch_rejected: bool,
+    *,
+    cs_current_manifest_status: str | None = None,
+    cs_invalid_hash_items: int = 0,
+    cs_missing_items: int = 0,
+    cs_failed_items: int = 0,
+    cs_last_cache_report_at: datetime | None = None,
+    cs_current_manifest_version_id: str | None = None,
+    has_manifest_activity: bool = False,
 ) -> list[str]:
     problems: list[str] = []
 
@@ -130,6 +160,31 @@ def _compute_problem_types(
         problems.append("duplicate_events_high")
     if has_batch_rejected:
         problems.append("batch_rejected")
+
+    # Content sync problem types
+    if cs_invalid_hash_items > 0:
+        problems.append("cache_invalid_hash")
+
+    if cs_current_manifest_status == "failed":
+        problems.append("manifest_apply_failed")
+
+    if cs_missing_items > 0:
+        problems.append("cache_missing_items")
+
+    if cs_failed_items > 0:
+        problems.append("cache_failed_items")
+
+    # manifest_not_applied: only if there IS manifest activity but no applied state
+    if has_manifest_activity and cs_current_manifest_status not in ("applied",):
+        problems.append("manifest_not_applied")
+
+    # cache_report_stale: only if device has cache reports or applied manifest
+    if cs_last_cache_report_at is not None or cs_current_manifest_status == "applied":
+        settings = get_settings()
+        stale_cutoff = datetime.now(timezone.utc) - timedelta(
+            minutes=settings.DEVICE_HEALTH_CACHE_REPORT_STALE_MINUTES)
+        if cs_last_cache_report_at is None or cs_last_cache_report_at < stale_cutoff:
+            problems.append("cache_report_stale")
 
     return problems
 
@@ -223,6 +278,39 @@ async def _fetch_device_aggregates(
         FROM device_events
         WHERE created_at >= :start AND created_at <= :end
         GROUP BY gateway_device_id
+    ),
+    cs_manifest AS (
+        SELECT gateway_device_id,
+               status as current_manifest_status,
+               manifest_hash as current_manifest_hash,
+               manifest_version_id as current_manifest_version_id,
+               last_applied_at,
+               last_failed_at
+        FROM device_current_manifest_states
+    ),
+    cs_cache_reports AS (
+        SELECT gateway_device_id,
+               max(reported_at) as last_cache_report_at,
+               count(*) as cache_report_count
+        FROM device_media_cache_reports
+        WHERE reported_at >= :start AND reported_at <= :end
+        GROUP BY gateway_device_id
+    ),
+    cs_cache_items AS (
+        SELECT gateway_device_id,
+               count(*) as total_cache_items,
+               count(*) FILTER (WHERE status = 'cached') as cached_items,
+               count(*) FILTER (WHERE status = 'missing') as missing_items,
+               count(*) FILTER (WHERE status = 'failed') as failed_items,
+               count(*) FILTER (WHERE status = 'invalid_hash') as invalid_hash_items
+        FROM device_media_cache_items
+        GROUP BY gateway_device_id
+    ),
+    published_manifest AS (
+        SELECT mv.publication_target_id,
+               mv.id as latest_published_manifest_id
+        FROM manifest_versions mv
+        WHERE mv.status = 'published'
     )
     SELECT
         d.id as device_id, d.device_code, d.device_name, d.status as device_status,
@@ -237,7 +325,19 @@ async def _fetch_device_aggregates(
         COALESCE(p.pop_rejected, 0) as pop_rejected,
         COALESCE(p.pop_duplicate, 0) as pop_duplicate,
         COALESCE(b.batch_rejected, 0) as batch_rejected,
-        e.last_ev as last_device_event_at
+        e.last_ev as last_device_event_at,
+        csm.current_manifest_status,
+        csm.current_manifest_hash,
+        csm.current_manifest_version_id,
+        csm.last_applied_at as cs_last_applied_at,
+        csm.last_failed_at as cs_last_failed_at,
+        cscr.last_cache_report_at,
+        COALESCE(cscr.cache_report_count, 0) as cache_report_count,
+        COALESCE(csci.cached_items, 0) as cs_cached_items,
+        COALESCE(csci.missing_items, 0) as cs_missing_items,
+        COALESCE(csci.failed_items, 0) as cs_failed_items,
+        COALESCE(csci.invalid_hash_items, 0) as cs_invalid_hash_items,
+        COALESCE(csci.total_cache_items, 0) as cs_total_cache_items
     FROM devices d
     LEFT JOIN heartbeat_agg h ON h.gateway_device_id = d.id
     LEFT JOIN manifest_agg m ON m.gateway_device_id = d.id
@@ -245,6 +345,9 @@ async def _fetch_device_aggregates(
     LEFT JOIN pop_agg p ON p.gateway_device_id = d.id
     LEFT JOIN batch_agg b ON b.gateway_device_id = d.id
     LEFT JOIN device_event_agg e ON e.gateway_device_id = d.id
+    LEFT JOIN cs_manifest csm ON csm.gateway_device_id = d.id
+    LEFT JOIN cs_cache_reports cscr ON cscr.gateway_device_id = d.id
+    LEFT JOIN cs_cache_items csci ON csci.gateway_device_id = d.id
     """)
 
     result = await db.execute(q, {"start": start, "end": end})
@@ -282,8 +385,17 @@ async def _fetch_device_aggregates(
         pop_rejected_ratio = (row["pop_rejected"] or 0) / max(row["pop_total"] or 1, 1)
         duplicate_ratio = (row["pop_duplicate"] or 0) / max(row["pop_total"] or 1, 1)
 
+        cs_missing_ratio = row["cs_missing_items"] / max(row["cs_total_cache_items"], 1)
+        cs_failed_ratio = row["cs_failed_items"] / max(row["cs_total_cache_items"], 1)
+        settings = get_settings()
         health = _compute_health_status(
             row["device_status"], has_hb, has_mr, has_med, has_pop, error_rate, mins_since,
+            has_invalid_hash=row["cs_invalid_hash_items"] > 0,
+            manifest_apply_failed=row["current_manifest_status"] == "failed",
+            cache_missing_ratio=cs_missing_ratio,
+            cache_failed_ratio=cs_failed_ratio,
+            cs_missing_critical_ratio=settings.DEVICE_HEALTH_CACHE_MISSING_CRITICAL_RATIO,
+            cs_failed_critical_ratio=settings.DEVICE_HEALTH_CACHE_FAILED_CRITICAL_RATIO,
         )
         problems = _compute_problem_types(
             row["device_status"], has_hb, has_mr, has_med, has_pop,
@@ -292,6 +404,13 @@ async def _fetch_device_aggregates(
             (row["med_storage_error"] or 0) > 0,
             pop_rejected_ratio, duplicate_ratio,
             (row["batch_rejected"] or 0) > 0,
+            cs_current_manifest_status=row["current_manifest_status"],
+            cs_invalid_hash_items=row["cs_invalid_hash_items"],
+            cs_missing_items=row["cs_missing_items"],
+            cs_failed_items=row["cs_failed_items"],
+            cs_last_cache_report_at=row["last_cache_report_at"],
+            cs_current_manifest_version_id=row["current_manifest_version_id"],
+            has_manifest_activity=has_mr,
         )
 
         si = store_map.get(row["store_id"]) if row["store_id"] else None
@@ -328,12 +447,49 @@ async def _fetch_device_aggregates(
             "_med_se": (row["med_storage_error"] or 0),
             "_pop_rej": (row["pop_rejected"] or 0),
             "_batch_rej": (row["batch_rejected"] or 0),
+            # Content sync
+            "cs_current_manifest_status": row["current_manifest_status"],
+            "cs_current_manifest_hash": row["current_manifest_hash"],
+            "cs_current_manifest_version_id": row["current_manifest_version_id"],
+            "cs_last_applied_at": row["cs_last_applied_at"],
+            "cs_last_failed_at": row["cs_last_failed_at"],
+            "cs_last_cache_report_at": row["last_cache_report_at"],
+            "cs_cache_report_count": row["cache_report_count"],
+            "cs_cached_items": row["cs_cached_items"],
+            "cs_missing_items": row["cs_missing_items"],
+            "cs_failed_items": row["cs_failed_items"],
+            "cs_invalid_hash_items": row["cs_invalid_hash_items"],
+            "cs_total_cache_items": row["cs_total_cache_items"],
         }
 
     return aggregates
 
 
 # ── Public API ─────────────────────────────────────────────────────
+
+def _build_content_sync_item(agg: dict) -> dict | None:
+    """Build ContentSyncDeviceItem from aggregate dict."""
+    status = agg.get("cs_current_manifest_status") or "unknown"
+    cs = {
+        "current_manifest_status": status,
+        "current_manifest_hash": agg.get("cs_current_manifest_hash"),
+        "last_manifest_applied_at": agg.get("cs_last_applied_at"),
+        "last_manifest_failed_at": agg.get("cs_last_failed_at"),
+        "last_cache_report_at": agg.get("cs_last_cache_report_at"),
+        "cached_items": agg.get("cs_cached_items", 0),
+        "missing_items": agg.get("cs_missing_items", 0),
+        "failed_items": agg.get("cs_failed_items", 0),
+        "invalid_hash_items": agg.get("cs_invalid_hash_items", 0),
+        "cache_health_status": "unknown",
+    }
+    # Compute cache_health_status
+    if agg.get("cs_invalid_hash_items", 0) > 0:
+        cs["cache_health_status"] = "critical"
+    elif agg.get("cs_missing_items", 0) > 0 or agg.get("cs_failed_items", 0) > 0:
+        cs["cache_health_status"] = "warning"
+    elif agg.get("cs_cached_items", 0) > 0:
+        cs["cache_health_status"] = "healthy"
+    return cs
 
 
 async def get_overview(
@@ -351,6 +507,9 @@ async def get_overview(
     summary = {"total_devices": 0, "healthy": 0, "warning": 0, "critical": 0, "offline": 0, "disabled": 0}
     pipeline = {"heartbeat_devices": 0, "manifest_devices": 0, "media_devices": 0, "pop_devices": 0}
     errors = {"manifest_validation_failed": 0, "media_storage_error": 0, "pop_rejected": 0, "batch_rejected": 0}
+    content_sync = {"manifest_applied_devices": 0, "manifest_failed_devices": 0,
+                    "devices_with_cache_reports": 0, "devices_with_invalid_hash": 0,
+                    "devices_with_missing_items": 0, "devices_with_failed_items": 0}
 
     for agg in aggs.values():
         summary["total_devices"] += 1
@@ -363,6 +522,18 @@ async def get_overview(
         errors["media_storage_error"] += agg["_med_se"]
         errors["pop_rejected"] += agg["_pop_rej"]
         errors["batch_rejected"] += agg["_batch_rej"]
+        if agg.get("cs_current_manifest_status") == "applied":
+            content_sync["manifest_applied_devices"] += 1
+        elif agg.get("cs_current_manifest_status") == "failed":
+            content_sync["manifest_failed_devices"] += 1
+        if agg.get("cs_last_cache_report_at"):
+            content_sync["devices_with_cache_reports"] += 1
+        if agg.get("cs_invalid_hash_items", 0) > 0:
+            content_sync["devices_with_invalid_hash"] += 1
+        if agg.get("cs_missing_items", 0) > 0:
+            content_sync["devices_with_missing_items"] += 1
+        if agg.get("cs_failed_items", 0) > 0:
+            content_sync["devices_with_failed_items"] += 1
 
     return {
         "status": "ok",
@@ -370,6 +541,7 @@ async def get_overview(
         "summary": summary,
         "pipeline": pipeline,
         "errors": errors,
+        "content_sync": content_sync,
     }
 
 
@@ -383,6 +555,8 @@ async def get_devices(
     device_status: str | None = None,
     health_status: str | None = None,
     problem_type: str | None = None,
+    manifest_status: str | None = None,
+    cache_health_status: str | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> list[dict]:
@@ -400,6 +574,10 @@ async def get_devices(
         items = [i for i in items if i["health_status"] == health_status]
     if problem_type:
         items = [i for i in items if problem_type in i["problem_types"]]
+    if manifest_status:
+        items = [i for i in items if (i.get("content_sync") or {}).get("current_manifest_status") == manifest_status]
+    if cache_health_status:
+        items = [i for i in items if (i.get("content_sync") or {}).get("cache_health_status") == cache_health_status]
 
     # Sort by device_code for stability
     items.sort(key=lambda i: i["device_code"])
@@ -433,6 +611,7 @@ async def get_devices(
             "pop_events_count": item["pop_events_count"],
             "error_count": item["error_count"],
             "problem_types": item["problem_types"],
+            "content_sync": _build_content_sync_item(item),
             "_total": total,
         })
     return result
@@ -552,6 +731,7 @@ async def get_device_detail(
 
     return {
         "device": device_item,
+        "content_sync": _build_content_sync_item(agg) if agg else None,
         "recent_heartbeats": recent_hb,
         "recent_manifest_requests": recent_mr,
         "recent_media_requests": recent_med,
@@ -590,6 +770,9 @@ async def get_stores_health(
                 "devices_with_manifest": 0, "devices_with_media": 0, "devices_with_pop": 0,
                 "error_count": 0,
                 "problems": {},
+                "cs_manifest_applied": 0, "cs_manifest_failed": 0,
+                "cs_cache_reports": 0, "cs_invalid_hash": 0,
+                "cs_missing_items": 0, "cs_failed_items": 0,
             }
         g = store_groups[sid]
         g["total_devices"] += 1
@@ -600,6 +783,18 @@ async def get_stores_health(
         g["error_count"] += agg["error_count"]
         for pt in agg["problem_types"]:
             g["problems"][pt] = g["problems"].get(pt, 0) + 1
+        if agg.get("cs_current_manifest_status") == "applied":
+            g["cs_manifest_applied"] += 1
+        elif agg.get("cs_current_manifest_status") == "failed":
+            g["cs_manifest_failed"] += 1
+        if agg.get("cs_last_cache_report_at"):
+            g["cs_cache_reports"] += 1
+        if agg.get("cs_invalid_hash_items", 0) > 0:
+            g["cs_invalid_hash"] += 1
+        if agg.get("cs_missing_items", 0) > 0:
+            g["cs_missing_items"] += 1
+        if agg.get("cs_failed_items", 0) > 0:
+            g["cs_failed_items"] += 1
 
     result = []
     for sid, g in sorted(store_groups.items(), key=lambda x: x[1].get("store_name", "")):
@@ -619,6 +814,12 @@ async def get_stores_health(
             "devices_with_pop": g["devices_with_pop"],
             "error_count": g["error_count"],
             "top_problem_types": [t[0] for t in top],
+            "manifest_applied_devices": g["cs_manifest_applied"],
+            "manifest_failed_devices": g["cs_manifest_failed"],
+            "devices_with_cache_reports": g["cs_cache_reports"],
+            "devices_with_invalid_hash": g["cs_invalid_hash"],
+            "devices_with_missing_items": g["cs_missing_items"],
+            "devices_with_failed_items": g["cs_failed_items"],
         })
     return result
 
@@ -652,6 +853,9 @@ async def get_channels_health(
                 "devices_with_manifest": 0, "devices_with_media": 0, "devices_with_pop": 0,
                 "error_count": 0,
                 "problems": {},
+                "cs_manifest_applied": 0, "cs_manifest_failed": 0,
+                "cs_cache_reports": 0, "cs_invalid_hash": 0,
+                "cs_missing_items": 0, "cs_failed_items": 0,
             }
         g = chan_groups[cid]
         g["total_devices"] += 1
@@ -662,6 +866,18 @@ async def get_channels_health(
         g["error_count"] += agg["error_count"]
         for pt in agg["problem_types"]:
             g["problems"][pt] = g["problems"].get(pt, 0) + 1
+        if agg.get("cs_current_manifest_status") == "applied":
+            g["cs_manifest_applied"] += 1
+        elif agg.get("cs_current_manifest_status") == "failed":
+            g["cs_manifest_failed"] += 1
+        if agg.get("cs_last_cache_report_at"):
+            g["cs_cache_reports"] += 1
+        if agg.get("cs_invalid_hash_items", 0) > 0:
+            g["cs_invalid_hash"] += 1
+        if agg.get("cs_missing_items", 0) > 0:
+            g["cs_missing_items"] += 1
+        if agg.get("cs_failed_items", 0) > 0:
+            g["cs_failed_items"] += 1
 
     result = []
     for cid, g in sorted(chan_groups.items(), key=lambda x: x[1].get("channel_name", "")):
@@ -681,6 +897,12 @@ async def get_channels_health(
             "devices_with_pop": g["devices_with_pop"],
             "error_count": g["error_count"],
             "top_problem_types": [t[0] for t in top],
+            "manifest_applied_devices": g["cs_manifest_applied"],
+            "manifest_failed_devices": g["cs_manifest_failed"],
+            "devices_with_cache_reports": g["cs_cache_reports"],
+            "devices_with_invalid_hash": g["cs_invalid_hash"],
+            "devices_with_missing_items": g["cs_missing_items"],
+            "devices_with_failed_items": g["cs_failed_items"],
         })
     return result
 
@@ -889,6 +1111,14 @@ async def evaluate_alerts(db: AsyncSession) -> dict:
             await _evaluate_batch_rejected(db, rule, window, device_ids, counts)
         elif rule.alert_type in ("no_manifest", "no_media", "no_pop"):
             await _evaluate_missing_pipeline(db, rule, window, device_ids, counts, rule.alert_type)
+        elif rule.alert_type == "cache_invalid_hash":
+            await _evaluate_cache_invalid_hash(db, rule, window, device_ids, counts)
+        elif rule.alert_type == "manifest_apply_failed":
+            await _evaluate_manifest_apply_failed(db, rule, window, device_ids, counts)
+        elif rule.alert_type == "cache_report_stale":
+            await _evaluate_cache_report_stale(db, rule, window, device_ids, counts)
+        # remaining content sync types — only evaluate if rule.enabled
+        # (disabled rules are filtered out before evaluate_alerts is called)
         else:
             counts["skipped"] += 1
 
@@ -1980,3 +2210,196 @@ async def get_cache_items(
     if status: q = q.where(do_models.DeviceMediaCacheItem.status == status)
     q = q.order_by(do_models.DeviceMediaCacheItem.last_seen_at.desc()).offset(offset).limit(min(limit, 500))
     return (await db.execute(q)).scalars().all()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Step 21 — Content Sync Alert Evaluators
+# ═══════════════════════════════════════════════════════════════════════
+
+async def _evaluate_cache_invalid_hash(
+    db: AsyncSession, rule, window: int, device_ids, counts,
+) -> None:
+    """Alert devices with invalid_hash cache items."""
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+
+    for dev_id, dev_code, store_id, channel_id in devices:
+        result = await db.execute(
+            select(func.count(content_sync_models.DeviceMediaCacheItem.id))
+            .where(
+                content_sync_models.DeviceMediaCacheItem.gateway_device_id == dev_id,
+                content_sync_models.DeviceMediaCacheItem.status == "invalid_hash",
+            )
+        )
+        count = result.scalar() or 0
+        if count > 0:
+            await _upsert_alert(
+                db, rule,
+                _build_dedup_key(rule.alert_type, device_id=dev_id),
+                f"Device {dev_code} has {count} invalid-hash cache items",
+                dev_id, store_id, channel_id,
+                {"device_code": dev_code, "invalid_hash_count": count},
+                counts,
+            )
+
+
+async def _evaluate_manifest_apply_failed(
+    db: AsyncSession, rule, window: int, device_ids, counts,
+) -> None:
+    """Alert devices where manifest apply failed."""
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+
+    for dev_id, dev_code, store_id, channel_id in devices:
+        result = await db.execute(
+            select(content_sync_models.DeviceCurrentManifestState)
+            .where(
+                content_sync_models.DeviceCurrentManifestState.gateway_device_id == dev_id,
+                content_sync_models.DeviceCurrentManifestState.status == "failed",
+            )
+        )
+        state = result.scalar_one_or_none()
+        if state and state.last_failed_at and state.last_failed_at >= cutoff:
+            await _upsert_alert(
+                db, rule,
+                _build_dedup_key(rule.alert_type, device_id=dev_id),
+                f"Device {dev_code} manifest apply failed",
+                dev_id, store_id, channel_id,
+                {"device_code": dev_code},
+                counts,
+            )
+
+
+async def _evaluate_cache_report_stale(
+    db: AsyncSession, rule, window: int, device_ids, counts,
+) -> None:
+    """Alert devices that haven't sent a cache report recently.
+    Only evaluates devices that HAVE had cache reports or applied manifests."""
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+
+    for dev_id, dev_code, store_id, channel_id in devices:
+        # Gate: only check if device has cache reports or applied manifest
+        result = await db.execute(
+            select(content_sync_models.DeviceCurrentManifestState)
+            .where(content_sync_models.DeviceCurrentManifestState.gateway_device_id == dev_id)
+        )
+        manifest_state = result.scalar_one_or_none()
+
+        result2 = await db.execute(
+            select(func.max(content_sync_models.DeviceMediaCacheReport.reported_at))
+            .where(content_sync_models.DeviceMediaCacheReport.gateway_device_id == dev_id)
+        )
+        last_report = result2.scalar()
+
+        # Only alert if device has ever interacted with content sync
+        has_history = (
+            (manifest_state and manifest_state.status in ("applied", "failed"))
+            or last_report is not None
+        )
+        if not has_history:
+            continue
+
+        if last_report is None or last_report < cutoff:
+            await _upsert_alert(
+                db, rule,
+                _build_dedup_key(rule.alert_type, device_id=dev_id),
+                f"Device {dev_code} cache report is stale",
+                dev_id, store_id, channel_id,
+                {"device_code": dev_code, "last_report": str(last_report) if last_report else None},
+                counts,
+            )
+
+
+# ── V2 evaluators (with run_id for history tracking) ──
+
+async def _evaluate_cache_invalid_hash_v2(
+    db: AsyncSession, rule, window: int, device_ids, per_counts, run_id,
+) -> None:
+    """V2: Alert devices with invalid_hash cache items."""
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+
+    for dev_id, dev_code, store_id, channel_id in devices:
+        result = await db.execute(
+            select(func.count(content_sync_models.DeviceMediaCacheItem.id))
+            .where(
+                content_sync_models.DeviceMediaCacheItem.gateway_device_id == dev_id,
+                content_sync_models.DeviceMediaCacheItem.status == "invalid_hash",
+            )
+        )
+        count = result.scalar() or 0
+        if count > 0:
+            await _upsert_alert_v2(
+                db, rule,
+                _build_dedup_key(rule.alert_type, device_id=dev_id),
+                f"Device {dev_code} has {count} invalid-hash cache items",
+                dev_id, store_id, channel_id,
+                {"device_code": dev_code, "invalid_hash_count": count},
+                per_counts, run_id,
+            )
+
+
+async def _evaluate_manifest_apply_failed_v2(
+    db: AsyncSession, rule, window: int, device_ids, per_counts, run_id,
+) -> None:
+    """V2: Alert devices where manifest apply failed."""
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+
+    for dev_id, dev_code, store_id, channel_id in devices:
+        result = await db.execute(
+            select(content_sync_models.DeviceCurrentManifestState)
+            .where(
+                content_sync_models.DeviceCurrentManifestState.gateway_device_id == dev_id,
+                content_sync_models.DeviceCurrentManifestState.status == "failed",
+            )
+        )
+        state = result.scalar_one_or_none()
+        if state and state.last_failed_at and state.last_failed_at >= cutoff:
+            await _upsert_alert_v2(
+                db, rule,
+                _build_dedup_key(rule.alert_type, device_id=dev_id),
+                f"Device {dev_code} manifest apply failed",
+                dev_id, store_id, channel_id,
+                {"device_code": dev_code},
+                per_counts, run_id,
+            )
+
+
+async def _evaluate_cache_report_stale_v2(
+    db: AsyncSession, rule, window: int, device_ids, per_counts, run_id,
+) -> None:
+    """V2: Alert devices with stale cache reports."""
+    cutoff = _now() - timedelta(minutes=window)
+    devices = await _get_devices_in_scope(db, device_ids, window)
+
+    for dev_id, dev_code, store_id, channel_id in devices:
+        result = await db.execute(
+            select(content_sync_models.DeviceCurrentManifestState)
+            .where(content_sync_models.DeviceCurrentManifestState.gateway_device_id == dev_id)
+        )
+        manifest_state = result.scalar_one_or_none()
+
+        result2 = await db.execute(
+            select(func.max(content_sync_models.DeviceMediaCacheReport.reported_at))
+            .where(content_sync_models.DeviceMediaCacheReport.gateway_device_id == dev_id)
+        )
+        last_report = result2.scalar()
+
+        has_history = (
+            (manifest_state and manifest_state.status in ("applied", "failed"))
+            or last_report is not None
+        )
+        if not has_history:
+            continue
+
+        if last_report is None or last_report < cutoff:
+            await _upsert_alert_v2(
+                db, rule,
+                _build_dedup_key(rule.alert_type, device_id=dev_id),
+                f"Device {dev_code} cache report is stale",
+                dev_id, store_id, channel_id,
+                {"device_code": dev_code, "last_report": str(last_report) if last_report else None},
+                per_counts, run_id,
+            )

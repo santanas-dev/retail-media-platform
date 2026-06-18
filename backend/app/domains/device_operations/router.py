@@ -44,6 +44,8 @@ async def get_devices(
     device_status: Optional[str] = Query(None),
     health_status: Optional[str] = Query(None),
     problem_type: Optional[str] = Query(None),
+    manifest_status: Optional[str] = Query(None),
+    cache_health_status: Optional[str] = Query(None),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(require_permission("devices.gateway.read")),
@@ -52,7 +54,8 @@ async def get_devices(
         db, date_from=date_from, date_to=date_to,
         channel_id=channel_id, store_id=store_id,
         device_status=device_status, health_status=health_status,
-        problem_type=problem_type, limit=limit, offset=offset,
+        problem_type=problem_type, manifest_status=manifest_status,
+        cache_health_status=cache_health_status, limit=limit, offset=offset,
     )
 
 

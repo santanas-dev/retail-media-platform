@@ -128,6 +128,9 @@ class Settings(BaseSettings):
     DEVICE_HEALTH_ERROR_RATE_CRITICAL: float = 0.50
     DEVICE_HEALTH_MAX_PERIOD_DAYS: int = 30
     DEVICE_HEALTH_DEFAULT_PERIOD_HOURS: int = 24
+    DEVICE_HEALTH_CACHE_REPORT_STALE_MINUTES: int = 120
+    DEVICE_HEALTH_CACHE_MISSING_CRITICAL_RATIO: float = 0.50
+    DEVICE_HEALTH_CACHE_FAILED_CRITICAL_RATIO: float = 0.50
 
     @model_validator(mode="after")
     def _validate_device_jwt_secret(self) -> "Settings":
