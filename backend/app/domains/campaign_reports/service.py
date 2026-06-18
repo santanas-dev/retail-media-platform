@@ -30,6 +30,11 @@ def _delivery_status(
     period_ended: bool,
 ) -> str:
     if published_targets == 0:
+        if pop_devices > 0:
+            # PoP exists but no published targets — delivery in progress
+            if manifest_failed > 0 or cache_invalid_hash > 0:
+                return "delivery_with_errors"
+            return "delivering"
         return "not_started"
     if manifest_applied == 0 and published_targets > 0:
         if period_ended:
@@ -310,6 +315,11 @@ async def get_by_store(
             FROM publication_targets pt
             JOIN publication_batches pb ON pb.id = pt.publication_batch_id
             WHERE pb.campaign_id = :campaign_id AND pb.status = 'published'
+            UNION
+            SELECT DISTINCT gd.store_id
+            FROM gateway_devices gd
+            JOIN proof_of_play_events poe ON poe.gateway_device_id = gd.id
+            WHERE poe.campaign_id = :campaign_id
         )
     """)
     result = await db.execute(stores_sql, {"campaign_id": campaign_id})
@@ -354,14 +364,42 @@ async def get_by_channel(
     if data is None:
         return []
 
+    if date_from is None:
+        date_from = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    if date_to is None:
+        date_to = datetime(2099, 12, 31, tzinfo=timezone.utc)
+
+    # Per-channel PoP aggregation via gateway_devices.channel_id
+    channel_pop_sql = text("""
+        SELECT
+            c.id AS channel_id, c.code, c.name,
+            COUNT(DISTINCT gd.id)::int AS devices_with_pop,
+            COUNT(*)::int AS actual_play_count,
+            COUNT(DISTINCT gd.store_id)::int AS stores_with_pop,
+            MAX(poe.played_at) AS last_pop_at
+        FROM channels c
+        JOIN gateway_devices gd ON gd.channel_id = c.id
+        JOIN proof_of_play_events poe ON poe.gateway_device_id = gd.id
+        WHERE poe.campaign_id = :campaign_id
+          AND poe.played_at >= :df AND poe.played_at <= :dt
+          AND c.code IN ('android_tv','kso')
+        GROUP BY c.id, c.code, c.name
+    """)
+    result = await db.execute(channel_pop_sql, {
+        "campaign_id": campaign_id, "df": date_from, "dt": date_to,
+    })
+    channel_pop = {row.channel_id: row for row in result.all()}
+
     channels_sql = text("SELECT id, code, name FROM channels WHERE code IN ('android_tv','kso')")
     result = await db.execute(channels_sql)
     channels = result.all()
 
     items = []
     for ch in channels:
+        ch_id, ch_code, ch_name = ch[0], ch[1], ch[2]
+        cp = channel_pop.get(ch_id)
         items.append(schemas.ChannelReportItem(
-            channel_id=ch[0], channel_code=ch[1], channel_name=ch[2],
+            channel_id=ch_id, channel_code=ch_code, channel_name=ch_name,
             planned_stores=data["planned_stores"],
             planned_devices=data["planned_devices"],
             published_targets=data["published_targets"],
@@ -375,10 +413,10 @@ async def get_by_channel(
             cache_missing_devices=data["cache_missing_devices"],
             cache_failed_devices=data["cache_failed_devices"],
             cache_invalid_hash_devices=data["cache_invalid_hash_devices"],
-            actual_play_count=data["actual_play_count"],
-            unique_devices_with_pop=data["unique_devices_with_pop"],
-            unique_stores_with_pop=data["unique_stores_with_pop"],
-            last_pop_at=data["last_pop_at"],
+            actual_play_count=cp.actual_play_count if cp else 0,
+            unique_devices_with_pop=cp.devices_with_pop if cp else 0,
+            unique_stores_with_pop=cp.stores_with_pop if cp else 0,
+            last_pop_at=cp.last_pop_at if cp else None,
             devices_ok=data["devices_ok"],
             devices_warning=data["devices_warning"],
             devices_critical=data["devices_critical"],
@@ -396,62 +434,103 @@ async def get_by_device(
     channel_id: Optional[UUID] = None,
     limit: int = 100, offset: int = 0,
 ) -> list[schemas.DeviceReportItem]:
-    """Devices matched to published targets for this campaign — one row per device."""
+    """Devices for this campaign: from published targets UNION PoP devices."""
     if date_from is None:
         date_from = datetime(2000, 1, 1, tzinfo=timezone.utc)
     if date_to is None:
         date_to = datetime(2099, 12, 31, tzinfo=timezone.utc)
 
+    # Union of two sources: (A) devices from published targets, (B) devices from PoP
+    # Outer DISTINCT ON ensures one row per device
     base_sql = """
-        SELECT DISTINCT ON (gd.id)
-            gd.id AS gateway_device_id,
-            gd.device_code,
-            gd.device_name,
-            gd.store_id,
-            s.code AS store_code,
-            gd.channel_id,
-            c.code AS channel_code,
-            gd.status AS device_status,
-            gd.last_seen_at,
-            gd.disabled_at,
+        WITH device_sources AS (
+            -- Source A: devices matched to published targets
+            SELECT DISTINCT ON (gd.id)
+                gd.id AS gateway_device_id,
+                gd.device_code,
+                gd.device_name,
+                gd.store_id,
+                s.code AS store_code,
+                gd.channel_id,
+                c.code AS channel_code,
+                gd.status AS device_status,
+                gd.last_seen_at,
+                gd.disabled_at,
+                true AS has_publication
+            FROM gateway_devices gd
+            JOIN stores s ON s.id = gd.store_id
+            JOIN channels c ON c.id = gd.channel_id
+            JOIN publication_targets pt ON pt.channel_id = gd.channel_id
+                AND pt.store_id = gd.store_id
+            JOIN publication_batches pb ON pb.id = pt.publication_batch_id
+            WHERE pb.campaign_id = :campaign_id AND pb.status = 'published'
+
+            UNION
+
+            -- Source B: devices from PoP events (not already in published targets)
+            SELECT DISTINCT ON (gd.id)
+                gd.id AS gateway_device_id,
+                gd.device_code,
+                gd.device_name,
+                gd.store_id,
+                s.code AS store_code,
+                gd.channel_id,
+                c.code AS channel_code,
+                gd.status AS device_status,
+                gd.last_seen_at,
+                gd.disabled_at,
+                false AS has_publication
+            FROM gateway_devices gd
+            JOIN stores s ON s.id = gd.store_id
+            JOIN channels c ON c.id = gd.channel_id
+            JOIN proof_of_play_events poe ON poe.gateway_device_id = gd.id
+            WHERE poe.campaign_id = :campaign_id
+              AND poe.played_at >= :df AND poe.played_at <= :dt
+        )
+        SELECT DISTINCT ON (ds.gateway_device_id)
+            ds.gateway_device_id,
+            ds.device_code,
+            ds.device_name,
+            ds.store_id,
+            ds.store_code,
+            ds.channel_id,
+            ds.channel_code,
+            ds.device_status,
+            ds.last_seen_at,
+            ds.disabled_at,
+            ds.has_publication,
             dcms.status AS current_manifest_status,
             COALESCE(pop_agg.pop_count, 0)::int AS actual_play_count,
             pop_agg.last_pop_at
-        FROM gateway_devices gd
-        JOIN stores s ON s.id = gd.store_id
-        JOIN channels c ON c.id = gd.channel_id
-        JOIN publication_targets pt ON pt.channel_id = gd.channel_id
-            AND pt.store_id = gd.store_id
-        JOIN publication_batches pb ON pb.id = pt.publication_batch_id
+        FROM device_sources ds
         LEFT JOIN LATERAL (
             SELECT dcms2.status FROM device_current_manifest_states dcms2
             JOIN manifest_versions mv2 ON mv2.id = dcms2.manifest_version_id
             JOIN publication_targets pt2 ON pt2.id = mv2.publication_target_id
             JOIN publication_batches pb2 ON pb2.id = pt2.publication_batch_id
-            WHERE dcms2.gateway_device_id = gd.id
+            WHERE dcms2.gateway_device_id = ds.gateway_device_id
               AND pb2.campaign_id = :campaign_id
             LIMIT 1
         ) dcms ON true
         LEFT JOIN LATERAL (
             SELECT COUNT(*)::int AS pop_count, MAX(poe.played_at) AS last_pop_at
             FROM proof_of_play_events poe
-            WHERE poe.gateway_device_id = gd.id
+            WHERE poe.gateway_device_id = ds.gateway_device_id
               AND poe.campaign_id = :campaign_id
               AND poe.played_at >= :df AND poe.played_at <= :dt
         ) pop_agg ON true
-        WHERE pb.campaign_id = :campaign_id AND pb.status = 'published'
     """
 
     params = {"campaign_id": campaign_id, "df": date_from, "dt": date_to}
     extra_where = ""
     if store_id:
-        extra_where += " AND gd.store_id = :store_id"
+        extra_where += " AND ds.store_id = :store_id"
         params["store_id"] = store_id
     if channel_id:
-        extra_where += " AND gd.channel_id = :channel_id"
+        extra_where += " AND ds.channel_id = :channel_id"
         params["channel_id"] = channel_id
 
-    sql = base_sql + extra_where + " ORDER BY gd.id LIMIT :limit OFFSET :offset"
+    sql = base_sql + extra_where + " ORDER BY ds.gateway_device_id LIMIT :limit OFFSET :offset"
     params["limit"] = limit
     params["offset"] = offset
 
@@ -501,9 +580,15 @@ async def get_by_creative(
             COUNT(DISTINCT pt.id)::int AS published_targets,
             COUNT(DISTINCT dmci.gateway_device_id)
                 FILTER (WHERE dmci.status = 'cached')::int AS cache_ready,
-            COUNT(DISTINCT poe.id)::int AS pop_count,
-            COUNT(DISTINCT poe.gateway_device_id)::int AS pop_devices,
-            MAX(poe.played_at) AS last_pop
+            COALESCE(
+                COUNT(DISTINCT poe.id),
+                COUNT(DISTINCT poe_fallback.id)
+            )::int AS pop_count,
+            COALESCE(
+                COUNT(DISTINCT poe.gateway_device_id),
+                COUNT(DISTINCT poe_fallback.gateway_device_id)
+            )::int AS pop_devices,
+            COALESCE(MAX(poe.played_at), MAX(poe_fallback.played_at)) AS last_pop
         FROM campaign_renditions cr
         JOIN renditions r ON r.id = cr.rendition_id
         JOIN creative_versions cv ON cv.id = r.creative_version_id
@@ -515,6 +600,13 @@ async def get_by_creative(
         LEFT JOIN device_media_cache_items dmci ON dmci.manifest_item_id = mi.id
         LEFT JOIN proof_of_play_events poe ON poe.campaign_rendition_id = cr.id
             AND poe.played_at >= :df AND poe.played_at <= :dt
+        -- Fallback: PoP without campaign_rendition_id, linked via manifest_item_id
+        -- Only if the manifest_item belongs to the same campaign
+        LEFT JOIN proof_of_play_events poe_fallback
+            ON poe_fallback.manifest_item_id = mi.id
+            AND poe_fallback.campaign_id = :campaign_id
+            AND poe_fallback.played_at >= :df AND poe_fallback.played_at <= :dt
+            AND poe.campaign_rendition_id IS NULL
         WHERE cr.campaign_id = :campaign_id
         GROUP BY cr.id, cr.rendition_id, cv.original_filename, cv.mime_type
         ORDER BY pop_count DESC
