@@ -284,6 +284,25 @@ Simulator **не использует и не хранит:**
 
 Simulator **не делает** сетевых запросов.
 
+## Тесты
+
+```bash
+cd tools/kso_simulator
+
+# Запустить все smoke-тесты
+python3 -m unittest discover -s tests -v
+```
+
+Тесты используют только stdlib (`unittest`, `tempfile`, `subprocess`), без новых зависимостей. Создают временные папки и не пишут в проект.
+
+**Покрытие:**
+- init/status (создание папок, kso_status.json)
+- set-state (idle, payment, invalid)
+- manifest + media (status, list, verify)
+- show-once (idle → completed, payment → blocked)
+- run-idle-loop (idle → 2 completed, transaction → 2 blocked)
+- negative/security (path traversal, forbidden words, no local path)
+
 ## Связанные документы
 
 - `docs/kso_local_interface_contract.md` — контракт локального интерфейса
