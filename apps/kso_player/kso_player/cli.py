@@ -3,6 +3,7 @@
 Commands:
     playlist-status    Check local playlist readiness (read-only)
     safety-check       Check playlist + safety gate (reads local files + manual state)
+    playback-dry-run   Full dry-run: playlist → safety gate → session decision
     --help             Show help
 
 Only reads manifest/current_manifest.json and media/current/.
@@ -19,65 +20,80 @@ from kso_player.safety import (
     PlaybackSafetySnapshot,
     decide_playback_safety,
     ALLOWED_STATES,
+    ACTION_PLAY as SAFETY_PLAY,
 )
-from kso_player.safe_output import format_playlist_summary, format_safety_decision
+from kso_player.session import select_next_item
+from kso_player.safe_output import (
+    format_playlist_summary,
+    format_safety_decision,
+    format_session_decision,
+)
 
 
 def cmd_playlist_status(args: argparse.Namespace) -> None:
-    """Print safe playlist status and exit with appropriate code.
-
-    Exit codes:
-        0 — playlist ready (all items verified)
-        1 — playlist not_ready or error
-        2 — invalid CLI args (handled by argparse)
-    """
     root = Path(args.root)
     playlist = build_playlist(root)
     print(format_playlist_summary(playlist))
-
-    if playlist.ready:
-        sys.exit(0)
-    else:
-        sys.exit(1)
+    sys.exit(0 if playlist.ready else 1)
 
 
 def cmd_safety_check(args: argparse.Namespace) -> None:
-    """Check playlist readiness + safety gate for a given KSO state.
+    root = Path(args.root)
+    state = args.state.strip().lower()
+    playlist = build_playlist(root)
+    snapshot = PlaybackSafetySnapshot(state=state)
+    decision = decide_playback_safety(snapshot, playlist)
+    print(format_playlist_summary(playlist))
+    print(f"state: {state}")
+    print(format_safety_decision(decision))
+    sys.exit(0 if decision.allowed else 1)
 
-    Builds playlist from local files, creates a safety snapshot with
-    the given --state, and prints the combined safe decision.
 
-    Does NOT read real KSO state — the state is passed manually.
-    No backend, no auth, no secret, no playback.
+def cmd_playback_dry_run(args: argparse.Namespace) -> None:
+    """Full dry-run: playlist → safety gate → session decision.
+
+    Builds playlist, checks safety gate with the given --state,
+    selects next item, prints combined safe summary.
+
+    Does NOT play media. Does NOT read real KSO state.
+    No backend, no auth, no secret.
 
     Exit codes:
-        0 — playback_allowed=true
-        1 — playback_allowed=false
-        2 — invalid CLI args (handled by argparse)
+        0 — session_action=play
+        1 — session_action=hold/stop
+        2 — invalid CLI args
     """
     root = Path(args.root)
     state = args.state.strip().lower()
 
-    # ── Build playlist ────────────────────────────────────────────
+    # ── Step 1: Build playlist ────────────────────────────────────
     playlist = build_playlist(root)
 
-    # ── Safety decision ───────────────────────────────────────────
+    # ── Step 2: Safety gate ───────────────────────────────────────
     snapshot = PlaybackSafetySnapshot(state=state)
-    decision = decide_playback_safety(snapshot, playlist)
+    safety_decision = decide_playback_safety(snapshot, playlist)
 
-    # ── Safe output ───────────────────────────────────────────────
-    print(format_playlist_summary(playlist))
-    print(f"state: {state}")
-    print(format_safety_decision(decision))
+    # ── Step 3: Session decision ──────────────────────────────────
+    session_decision = select_next_item(playlist, safety_decision, state=None)
 
-    if decision.allowed:
-        sys.exit(0)
-    else:
-        sys.exit(1)
+    # ── Combined safe output ──────────────────────────────────────
+    print(f"playlist_ready: {str(playlist.ready).lower()}")
+    print(f"playback_allowed: {str(safety_decision.allowed).lower()}")
+    print(f"safety_action: {safety_decision.action}")
+    print(f"safety_reason: {safety_decision.reason}")
+    print(f"session_action: {session_decision.action}")
+    print(f"session_reason: {session_decision.reason}")
+
+    if session_decision.selected_item is not None:
+        item = session_decision.selected_item
+        print(f"selected_order: {item.order}")
+        print(f"selected_content_type: {item.content_type}")
+        print(f"selected_duration_ms: {item.duration_ms}")
+
+    sys.exit(0 if session_decision.action == "play" else 1)
 
 
 def _validate_state(value: str) -> str:
-    """Validate --state argument. Returns normalized state or raises argparse error."""
     normalized = value.strip().lower()
     if normalized not in ALLOWED_STATES:
         raise argparse.ArgumentTypeError(
@@ -129,12 +145,30 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sc.add_argument("--root", required=True, help="Agent root path")
     sc.add_argument(
-        "--state",
-        required=True,
-        type=_validate_state,
+        "--state", required=True, type=_validate_state,
         help=f"KSO screen state. Allowed: {', '.join(sorted(ALLOWED_STATES))}",
     )
     sc.set_defaults(func=cmd_safety_check)
+
+    # ── playback-dry-run ──────────────────────────────────────────
+    pdr = sub.add_parser(
+        "playback-dry-run",
+        help="Full dry-run: playlist → safety → session (no media played)",
+        description=(
+            "Full dry-run of the player pipeline.\n\n"
+            "Builds playlist → checks safety gate → selects next item.\n"
+            "Only reads manifest/current_manifest.json and media/current/.\n"
+            "Uses the given --state (does NOT read real KSO state).\n"
+            "No backend calls, no auth, no secret. Does NOT play media.\n\n"
+            "Exit codes: 0=play, 1=hold/stop, 2=invalid args."
+        ),
+    )
+    pdr.add_argument("--root", required=True, help="Agent root path")
+    pdr.add_argument(
+        "--state", required=True, type=_validate_state,
+        help=f"KSO screen state. Allowed: {', '.join(sorted(ALLOWED_STATES))}",
+    )
+    pdr.set_defaults(func=cmd_playback_dry_run)
 
     return parser
 

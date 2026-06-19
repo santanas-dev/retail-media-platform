@@ -15,6 +15,7 @@ KSO Player — будущий UI-плеер для показа контента
 - `format_playlist_summary(playlist)` — safe агрегированный вывод
 - `playlist-status` CLI — проверка готовности playlist (read-only)
 - `safety-check` CLI — проверка playlist + safety gate (read-only, state вручную)
+- `playback-dry-run` CLI — полный сухой прогон: playlist → safety → session
 - `decide_playback_safety(snapshot, playlist)` — safety gate: разрешить/запретить playback
 - `format_safety_decision(decision)` — safe вывод решения
 - `select_next_item(playlist, safety_decision, state=None)` — выбор следующего media item
@@ -154,6 +155,58 @@ reason: payment_active
 | 1 | Playback blocked (любое не-idle состояние или playlist not ready) |
 | 2 | Invalid CLI args |
 
+## CLI: `playback-dry-run`
+
+```bash
+cd apps/kso_player
+
+# Полный сухой прогон: playlist → safety → session
+python3 -m kso_player.cli playback-dry-run --root /tmp/kso-agent-root --state idle
+
+# Проверить с другими состояниями
+python3 -m kso_player.cli playback-dry-run --root /tmp/kso-agent-root --state payment
+
+# Help
+python3 -m kso_player.cli playback-dry-run --help
+```
+
+**Важно:** это сухой прогон без реального playback. Media не проигрывается.
+State передаётся вручную, реальное состояние КСО не читается.
+Следующий шаг — playback simulator core.
+
+### Пример вывода (idle + ready)
+
+```
+playlist_ready: true
+playback_allowed: true
+safety_action: play
+safety_reason: ready
+session_action: play
+session_reason: ready
+selected_order: 0
+selected_content_type: image/png
+selected_duration_ms: 5000
+```
+
+### Пример вывода (payment + ready)
+
+```
+playlist_ready: true
+playback_allowed: false
+safety_action: stop
+safety_reason: payment_active
+session_action: stop
+session_reason: safety_blocked
+```
+
+### Exit codes (playback-dry-run)
+
+| Код | Значение |
+|---|---|
+| 0 | session_action=play |
+| 1 | session_action=hold/stop |
+| 2 | Invalid CLI args |
+
 ## Playback Session Core
 
 **In-memory only** — выбор следующего media item для показа.
@@ -241,4 +294,5 @@ tests/
   test_cli.py
   test_safety.py
   test_safety_cli.py
-```
+  test_session.py
+  test_playback_dry_run_cli.py
