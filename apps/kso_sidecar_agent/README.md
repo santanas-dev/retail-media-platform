@@ -141,6 +141,51 @@ python3 -m kso_sidecar_agent.cli pop-payload-preview --root /tmp/kso-agent-root 
 | 1 | Warning/error/invalid/quarantine |
 | 2 | Invalid CLI args (включая --max-events <= 0) |
 
+## PoP Sender Response Classifier Core
+
+🧠 **Реализован:** `pop_sender.py`. Безопасная классификация будущего ответа backend после отправки PoP batch.
+
+### `classify_pop_send_response(http_status, response_json, error_type, elapsed_ms, attempted_events) -> PopSendResult`
+
+- Pure logic — без HTTP, backend send, retry runner, file I/O
+- Классифицирует ответ backend: HTTP статус + JSON response body → safe result
+- Извлекает только safe count-поля (accepted/duplicate/rejected) из backend response
+- Forbidden поля в response → `invalid_response`, pending_should_remain=True
+- `pending_should_remain=False` ТОЛЬКО при подтверждённом `processed` или `duplicate_batch`
+
+### Response cases
+
+| Статус/ошибка | send_status | reason | retryable | pending_remain |
+|---|---|---|---|---|
+| 200 + status=processed | ok | processed | false | **false** |
+| 200 + partial (accepted + rejected) | warning | partial_success | false | true |
+| 200 + all duplicate (no accepted/rejected) | ok | duplicate_events | false | false |
+| 200 + status=duplicate_batch | warning | duplicate_batch | false | false |
+| 200 + invalid schema | warning | invalid_response | false | true |
+| 400 | error | bad_request | false | true |
+| 401 | warning | unauthorized | **true** | true |
+| 403 | error | forbidden | false | true |
+| 404 | error | not_found | false | true |
+| 409 | warning | duplicate_batch | false | false |
+| 422 | error | validation_error | false | true |
+| 429 | warning | rate_limited | **true** | true |
+| 5xx | error | server_error | **true** | true |
+| network error | error | network_error | **true** | true |
+| timeout | error | timeout | **true** | true |
+| unknown | error | unknown_response | false | true |
+
+### `PopSendResult`
+
+Safe dataclass: send_status, attempted/accepted/duplicate/rejected_events, http_status, elapsed_ms, retryable, auth_refresh_required, pending_should_remain, reason. Никогда не содержит payload body, raw backend response, IDs, token, backend URL, filename, sha256, paths.
+
+### `format_pop_send_result(result) -> str`
+
+Только safe aggregates. Без raw response/IDs/secrets.
+
+**HTTP sender — отдельный шаг (26.24+).** Rotation/move — отдельный шаг (26.25+). Pending не трогать без confirmed backend success.
+
+---
+
 ## PoP Backend Sender Design
 
 📝 **Mini-design создан:** `docs/pop_backend_sender_design.md`. Спроектирована безопасная отправка eligible PoP payload в backend через `POST /device-gateway/pop/events/batch`.
