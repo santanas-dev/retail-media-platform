@@ -1000,6 +1000,36 @@ def cmd_run_once(args: argparse.Namespace) -> None:
 
 # ── Player readiness command ──────────────────────────────────────────
 
+def cmd_pop_pickup_scan(args: argparse.Namespace) -> None:
+    """Scan pop/pending/player_events.jsonl — safe aggregated classification only.
+
+    Read-only: no backend send, no file move, no delete.
+    Returns only aggregate counts, never raw events or paths.
+    """
+    from kso_sidecar_agent.pop_pickup import (
+        scan_pending_pop_events,
+        SCAN_OK,
+    )
+
+    try:
+        result = scan_pending_pop_events(args.root)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"scan_status: {result.status}")
+    print(f"total_lines: {result.total_lines}")
+    print(f"valid_events: {result.valid_events}")
+    print(f"invalid_lines: {result.invalid_lines}")
+    print(f"draft_events: {result.draft_events}")
+    print(f"eligible_events: {result.eligible_events}")
+    print(f"diagnostic_events: {result.diagnostic_events}")
+    print(f"quarantine_events: {result.quarantine_events}")
+    print(f"backend_eligible_events: {result.backend_eligible_events}")
+
+    sys.exit(0 if result.status == SCAN_OK else 1)
+
+
 def cmd_player_readiness(args: argparse.Namespace) -> None:
     """Show local content readiness snapshot for KSO Player. No backend, no secret."""
     from kso_sidecar_agent.player_readiness import build_player_readiness_snapshot
@@ -1220,6 +1250,13 @@ def main() -> None:
                           help="Check local content readiness for KSO Player (no backend, no secret)")
     p_pr.add_argument("--root", required=True, help="Root path")
     p_pr.set_defaults(func=cmd_player_readiness)
+
+    # ── PoP pickup ──────────────────────────────────────────────────
+
+    p_pps = sub.add_parser("pop-pickup-scan",
+                           help="Scan pop/pending/player_events.jsonl — safe aggregated classification only (no backend send, no move)")
+    p_pps.add_argument("--root", required=True, help="Root path")
+    p_pps.set_defaults(func=cmd_pop_pickup_scan)
 
     # ── Auth commands ──────────────────────────────────────────────
 
