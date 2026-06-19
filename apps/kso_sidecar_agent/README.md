@@ -141,7 +141,33 @@ python3 -m kso_sidecar_agent.cli pop-payload-preview --root /tmp/kso-agent-root 
 | 1 | Warning/error/invalid/quarantine |
 | 2 | Invalid CLI args (включая --max-events <= 0) |
 
----
+## PoP Backend Sender Design
+
+📝 **Mini-design создан:** `docs/pop_backend_sender_design.md`. Спроектирована безопасная отправка eligible PoP payload в backend через `POST /device-gateway/pop/events/batch`.
+
+### Что описано
+
+- Auth/HTTP модель: существующий `SafeHttpClient` + `DeviceAuthClient` + `RetryBackoffManager`
+- Endpoint policy: batch endpoint, allowlist path `/api/device-gateway/pop/`
+- Токен только in-memory, Authorization header не логируется
+- Success: 2xx + valid response schema → `accepted_events`
+- Partial success: accepted + rejected/discarded → `warning`, rejected → quarantine на rotation
+- Failure: network/timeout/5xx → retry (до 3 попыток), 4xx → не retry, auth refresh при 401
+- **Главное правило: нет подтверждения backend → pending не удалять и не перемещать**
+- Idempotency: batch_id + device_event_id, backend duplicate detection
+- Safe result: status + accepted/duplicate/rejected counts, без payload body/IDs
+
+### Что НЕ делает sender (будет отдельными шагами)
+
+- ❌ Не перемещает файлы (rotation — шаг 26.24+)
+- ❌ Не удаляет pending
+- ❌ Не создаёт sent/quarantine/dry_run
+- ❌ Не читает media bytes
+- ❌ Не логирует payload body
+- ❌ Не делает произвольные URL (только allowlisted paths)
+- ❌ Не отправляет draft/blocked/failed
+
+**Реализация HTTP sender — отдельный шаг (26.23+).** Rotation/move sent/quarantine — отдельный шаг (26.24+). Pending нельзя трогать без backend confirmation.
 
 ---
 
