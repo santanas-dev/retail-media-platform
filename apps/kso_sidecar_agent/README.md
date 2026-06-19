@@ -295,6 +295,29 @@ Exponential backoff без jitter: 1→1000, 2→2000, 3→4000, capped.
 
 **Реализация rotation — отдельный шаг (26.28+).**
 
+## PoP Pending Lock Core
+
+🔒 **Реализован:** `pop_pending_lock.py`. Безопасный file lock на стороне sidecar для будущей rotation/pickup.
+
+### Lock path
+
+`{root}/pop/pending/player_events.lock` — **тот же lock-файл, что у player writer.**
+
+### API
+
+- `try_acquire_pop_pending_lock(root) -> PopPendingLockResult` — атомарный acquire (`O_CREAT | O_EXCL`), неблокирующий
+- `release_pop_pending_lock(lock_result) -> PopPendingLockResult` — удаляет lock, fail-silent
+- `pop_pending_lock(lock_result)` — context manager (релиз в `__exit__`)
+
+### Правила
+
+- Lock маркер: `"locked\n"` (без secrets/paths/IDs)
+- Если lock занят → `status=skipped, reason=lock_unavailable`
+- `release` не бросает исключений
+- `PopPendingLockResult` не содержит absolute paths, lock path, token, IDs
+
+**Rotation пока не реализована. Destructive rotation запрещена без lock.**
+
 ---
 
 ## PoP Backend Sender Design
