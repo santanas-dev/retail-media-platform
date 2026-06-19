@@ -5,6 +5,7 @@ absolute paths, secrets, tokens, or backend URLs.
 """
 
 from kso_player.playlist import PlayerPlaylist
+from kso_player.safety import PlaybackSafetyDecision
 
 
 def format_playlist_summary(playlist: PlayerPlaylist) -> str:
@@ -21,5 +22,18 @@ def format_playlist_summary(playlist: PlayerPlaylist) -> str:
         f"items_ready: {playlist.items_ready}",
         f"items_missing: {playlist.items_missing}",
         f"items_failed: {playlist.items_failed}",
+    ]
+    return "\n".join(lines)
+
+
+def format_safety_decision(decision: PlaybackSafetyDecision) -> str:
+    """Return a safe aggregated summary of a safety decision.
+
+    Never prints: secrets, tokens, paths, backend URLs, stacktrace.
+    """
+    lines = [
+        f"playback_allowed: {str(decision.allowed).lower()}",
+        f"action: {decision.action}",
+        f"reason: {decision.reason}",
     ]
     return "\n".join(lines)
