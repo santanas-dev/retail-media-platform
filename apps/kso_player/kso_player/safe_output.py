@@ -7,6 +7,7 @@ absolute paths, secrets, tokens, or backend URLs.
 from kso_player.playlist import PlayerPlaylist
 from kso_player.safety import PlaybackSafetyDecision
 from kso_player.session import PlaybackSessionDecision
+from kso_player.simulator import PlaybackSimulationResult
 
 
 def format_playlist_summary(playlist: PlayerPlaylist) -> str:
@@ -56,5 +57,27 @@ def format_session_decision(decision: PlaybackSessionDecision) -> str:
         lines.append(f"selected_order: {item.order}")
         lines.append(f"selected_content_type: {item.content_type}")
         lines.append(f"selected_duration_ms: {item.duration_ms}")
+
+    return "\n".join(lines)
+
+
+def format_simulation_result(result: PlaybackSimulationResult) -> str:
+    """Return a safe aggregated summary of a simulation result.
+
+    Never prints: filename, manifest_item_id, sha256, absolute paths,
+    media bytes, secrets, tokens.
+    """
+    lines = [
+        f"simulation_status: {result.simulated_status}",
+        f"session_action: {result.session_action}",
+        f"session_reason: {result.session_reason}",
+    ]
+
+    if result.selected_order is not None:
+        lines.append(f"selected_order: {result.selected_order}")
+    if result.selected_content_type is not None:
+        lines.append(f"selected_content_type: {result.selected_content_type}")
+    if result.selected_duration_ms is not None:
+        lines.append(f"selected_duration_ms: {result.selected_duration_ms}")
 
     return "\n".join(lines)

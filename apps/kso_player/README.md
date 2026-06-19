@@ -254,6 +254,46 @@ session_reason: safety_blocked
 
 **Следующий шаг:** CLI `playback-dry-run`.
 
+## Playback Simulator Core
+
+**Simulation only** — моделирует один шаг плеера без реального playback.
+Не проигрывает media, не делает sleep, не пишет PoP, не использует UI.
+
+### `simulate_playback_step(playlist, safety_decision, session_state=None, now=None)`
+
+Оборачивает полный пайплайн: playlist → safety → session → simulated result.
+
+**Simulated status:**
+- `would_play` — всё разрешено, выбрали бы этот item
+- `blocked` — safety или session заблокировали playback
+- `not_ready` — playlist не готов
+- `error` — неожиданная ошибка
+
+**Timestamps:** `started_at` и `would_end_at` — ISO8601 UTC, рассчитываются без реальной задержки.
+
+### Пример вывода (would_play)
+
+```
+simulation_status: would_play
+session_action: play
+session_reason: ready
+selected_order: 0
+selected_content_type: image/png
+selected_duration_ms: 5000
+```
+
+### Пример вывода (blocked)
+
+```
+simulation_status: blocked
+session_action: stop
+session_reason: safety_blocked
+```
+
+**Не выводится:** filename, manifest_item_id, sha256, absolute paths, media bytes.
+
+**Следующий шаг:** simulator CLI.
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay

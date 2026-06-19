@@ -20,6 +20,7 @@ from kso_player.safe_output import (
     format_playlist_summary,
     format_safety_decision,
     format_session_decision,
+    format_simulation_result,
 )
 from kso_player.safety import (
     PlaybackSafetyDecision,
@@ -51,6 +52,14 @@ from kso_player.session import (
     REASON_SESSION_PLAYLIST_NOT_READY,
     REASON_SESSION_NO_ITEMS,
     REASON_SESSION_INVALID_STATE,
+)
+from kso_player.simulator import (
+    PlaybackSimulationResult,
+    simulate_playback_step,
+    SIM_STATUS_WOULD_PLAY,
+    SIM_STATUS_BLOCKED,
+    SIM_STATUS_NOT_READY,
+    SIM_STATUS_ERROR,
 )
 
 __all__ = [
@@ -93,8 +102,16 @@ __all__ = [
     "REASON_SESSION_PLAYLIST_NOT_READY",
     "REASON_SESSION_NO_ITEMS",
     "REASON_SESSION_INVALID_STATE",
+    # Simulator
+    "PlaybackSimulationResult",
+    "simulate_playback_step",
+    "SIM_STATUS_WOULD_PLAY",
+    "SIM_STATUS_BLOCKED",
+    "SIM_STATUS_NOT_READY",
+    "SIM_STATUS_ERROR",
     # Output
     "format_playlist_summary",
     "format_safety_decision",
     "format_session_decision",
+    "format_simulation_result",
 ]
