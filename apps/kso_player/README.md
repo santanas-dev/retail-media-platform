@@ -438,7 +438,32 @@ session_reason: safety_blocked
 
 ## PoP Local Writer Design
 
-📝 **Mini-design создан:** `docs/pop_local_writer_design.md`. Описывает безопасную локальную запись PoP/events в `pop/pending/player_events.jsonl`. Writer пишет только локально, не отправляет в backend. Sidecar будет забирать события отдельным шагом. Реализация writer — отдельный шаг.
+📝 **Mini-design создан:** `docs/pop_local_writer_design.md`. Описывает безопасную локальную запись PoP/events в `pop/pending/player_events.jsonl`. Writer пишет только локально, не отправляет в backend. Sidecar будет забирать события отдельным шагом.
+
+## PoP Local Writer Core
+
+📝 **Реализован:** `pop_writer.py`. Безопасный append-only JSONL writer для KSO Player.
+
+### `write_pop_event(root, event_draft, safety_state, now=None) -> PopWriteResult`
+
+- Строит safe JSONL record из `PlaybackEventDraft`
+- Валидирует safety_state (только 9 допустимых состояний)
+- Проверяет forbidden substrings во всех строковых значениях
+- Создаёт `pop/pending/` при необходимости
+- Пишет одну JSON-строку + `\n` в `player_events.jsonl`
+- flush + fsync после каждой записи
+- Fail silent: некорректная запись → skipped, ошибка диска → error (не крашит)
+
+### Пример JSONL записи
+
+```json
+{"created_at":"...","duration_ms":5000,"ended_at":"...","event_status":"draft",
+"event_type":"would_play","playback_allowed":true,"result":"would_play",
+"safety_state":"idle","schema_version":1,"selected_content_type":"image/png",
+"selected_order":0,"session_action":"play","session_reason":"ready","started_at":"..."}
+```
+
+**Это ещё НЕ sidecar pickup и НЕ backend send.** Sidecar будет забирать события отдельным шагом run-cycle. CLI появится отдельным шагом.
 
 ---
 
