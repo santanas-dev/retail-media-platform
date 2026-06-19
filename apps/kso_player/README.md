@@ -166,9 +166,12 @@ Fail-closed логика выбора следующего item:
 1. Safety gate не разрешил → блокировка
 2. Playlist not ready → блокировка
 3. Нет items → блокировка
-4. Иначе → выбор по order:
-   - Без state: первый item (order=0)
-   - С state: item после `current_index`, с зацикливанием
+4. Session state невалиден → блокировка (hold / invalid_state)
+5. Иначе → выбор по order:
+   - Без state (None): первый item (order=0)
+   - С валидным state: item после `current_index`, с зацикливанием
+
+**Если session state повреждён или невалиден — fail closed: hold / invalid_state.**
 
 ### Session state (`PlaybackSessionState`)
 

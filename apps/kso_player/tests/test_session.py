@@ -225,7 +225,7 @@ class TestSessionBlocked(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class TestSessionInvalidState(unittest.TestCase):
-    """Invalid state → fail safe, select first item."""
+    """Invalid state → fail closed (hold / invalid_state)."""
 
     def test_invalid_index_too_high(self):
         items = [_item("a", order=0), _item("b", order=1)]
@@ -234,9 +234,11 @@ class TestSessionInvalidState(unittest.TestCase):
         state = PlaybackSessionState(current_index=99, cycle_count=0)
 
         decision = select_next_item(pl, sd, state)
-        self.assertTrue(decision.allowed)
-        self.assertEqual(decision.next_index, 0)
-        self.assertEqual(decision.cycle_count, 0)
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.action, ACTION_HOLD)
+        self.assertEqual(decision.reason, REASON_SESSION_INVALID_STATE)
+        self.assertIsNone(decision.selected_item)
+        self.assertIsNone(decision.next_index)
 
     def test_negative_index(self):
         items = [_item("a", order=0)]
@@ -245,11 +247,13 @@ class TestSessionInvalidState(unittest.TestCase):
         state = PlaybackSessionState(current_index=-1, cycle_count=5)
 
         decision = select_next_item(pl, sd, state)
-        self.assertTrue(decision.allowed)
-        self.assertEqual(decision.next_index, 0)
-        self.assertEqual(decision.cycle_count, 0)
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.action, ACTION_HOLD)
+        self.assertEqual(decision.reason, REASON_SESSION_INVALID_STATE)
+        self.assertIsNone(decision.selected_item)
 
-    def test_none_index(self):
+    def test_none_index_is_valid_first_run(self):
+        """current_index=None is valid — means first run, starts from first item."""
         items = [_item("a", order=0)]
         pl = _ready_playlist(*items)
         sd = _allowed_safety()
@@ -257,8 +261,8 @@ class TestSessionInvalidState(unittest.TestCase):
 
         decision = select_next_item(pl, sd, state)
         self.assertTrue(decision.allowed)
+        self.assertEqual(decision.action, ACTION_PLAY)
         self.assertEqual(decision.next_index, 0)
-        self.assertEqual(decision.cycle_count, 0)
 
     def test_non_int_index(self):
         items = [_item("a", order=0)]
@@ -267,19 +271,81 @@ class TestSessionInvalidState(unittest.TestCase):
         state = PlaybackSessionState(current_index="not_int", cycle_count=0)
 
         decision = select_next_item(pl, sd, state)
-        self.assertTrue(decision.allowed)
-        self.assertEqual(decision.next_index, 0)
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.action, ACTION_HOLD)
+        self.assertEqual(decision.reason, REASON_SESSION_INVALID_STATE)
+        self.assertIsNone(decision.selected_item)
 
     def test_non_playback_session_state(self):
-        """Passing a non-PlaybackSessionState should fall back to first item."""
+        """Passing a non-PlaybackSessionState → hold."""
         items = [_item("a", order=0)]
         pl = _ready_playlist(*items)
         sd = _allowed_safety()
         fake_state = {"current_index": 1}
 
         decision = select_next_item(pl, sd, fake_state)
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.action, ACTION_HOLD)
+        self.assertEqual(decision.reason, REASON_SESSION_INVALID_STATE)
+        self.assertIsNone(decision.selected_item)
+
+    def test_negative_cycle_count(self):
+        items = [_item("a", order=0)]
+        pl = _ready_playlist(*items)
+        sd = _allowed_safety()
+        state = PlaybackSessionState(current_index=0, cycle_count=-1)
+
+        decision = select_next_item(pl, sd, state)
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.reason, REASON_SESSION_INVALID_STATE)
+
+    def test_non_int_cycle_count(self):
+        items = [_item("a", order=0)]
+        pl = _ready_playlist(*items)
+        sd = _allowed_safety()
+        state = PlaybackSessionState(current_index=0, cycle_count="abc")
+
+        decision = select_next_item(pl, sd, state)
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.reason, REASON_SESSION_INVALID_STATE)
+
+    def test_last_id_with_forbidden(self):
+        items = [_item("a", order=0)]
+        pl = _ready_playlist(*items)
+        sd = _allowed_safety()
+        state = PlaybackSessionState(
+            current_index=0,
+            last_manifest_item_id="token_secret_key",
+        )
+
+        decision = select_next_item(pl, sd, state)
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.reason, REASON_SESSION_INVALID_STATE)
+
+    def test_last_id_with_path_chars(self):
+        items = [_item("a", order=0)]
+        pl = _ready_playlist(*items)
+        sd = _allowed_safety()
+        state = PlaybackSessionState(
+            current_index=0,
+            last_manifest_item_id="/tmp/bad",
+        )
+
+        decision = select_next_item(pl, sd, state)
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.reason, REASON_SESSION_INVALID_STATE)
+
+    def test_state_none_still_works(self):
+        """state=None is the normal first-run case — must still work."""
+        items = [_item("a", order=0), _item("b", order=1)]
+        pl = _ready_playlist(*items)
+        sd = _allowed_safety()
+
+        decision = select_next_item(pl, sd, state=None)
         self.assertTrue(decision.allowed)
+        self.assertEqual(decision.action, ACTION_PLAY)
         self.assertEqual(decision.next_index, 0)
+        self.assertEqual(decision.reason, REASON_SESSION_READY)
 
 
 # ══════════════════════════════════════════════════════════════════════

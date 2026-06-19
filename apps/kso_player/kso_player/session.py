@@ -7,6 +7,8 @@ Pure logic that selects the next media item to play based on:
 
 No file I/O, no HTTP, no media bytes, no auth, no secret.
 Session state is in-memory only — never written to disk.
+
+Invalid session state → fail closed (hold / invalid_state).
 """
 
 from dataclasses import dataclass, field
@@ -60,6 +62,59 @@ class PlaybackSessionDecision:
 
 
 # ══════════════════════════════════════════════════════════════════════
+# State validation
+# ══════════════════════════════════════════════════════════════════════
+
+# Substrings that make last_manifest_item_id invalid
+_FORBIDDEN_IN_STATE = frozenset({
+    "token", "secret", "password", "api_key",
+    "private_key", "payment_card", "receipt_data",
+    "card_number", "pan", "authorization", "bearer",
+    "device_secret", "access_token",
+    "media_path", "creatives/", "backend_base_url",
+    "127.0.0.1", "device_code",
+})
+
+_PATH_CHARS = frozenset({"/", "\\", "."})
+
+
+def _is_valid_state(state, item_count: int) -> bool:
+    """Check whether a PlaybackSessionState is valid for the given item count.
+
+    Returns True if state is valid and can be used for progression.
+    None current_index is valid (means first run).
+    """
+    if not isinstance(state, PlaybackSessionState):
+        return False
+
+    # ── Validate cycle_count ────────────────────────────────────
+    cc = state.cycle_count
+    if not isinstance(cc, int) or cc < 0:
+        return False
+
+    # ── Validate current_index ──────────────────────────────────
+    ci = state.current_index
+    if ci is not None:
+        if not isinstance(ci, int) or ci < 0 or ci >= item_count:
+            return False
+
+    # ── Validate last_manifest_item_id ──────────────────────────
+    lmid = state.last_manifest_item_id
+    if lmid is not None:
+        if not isinstance(lmid, str):
+            return False
+        lower = lmid.lower()
+        for fb in _FORBIDDEN_IN_STATE:
+            if fb in lower:
+                return False
+        # Reject path-like values
+        if any(c in lmid for c in _PATH_CHARS if c != "."):
+            return False
+
+    return True
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Item selection logic
 # ══════════════════════════════════════════════════════════════════════
 
@@ -76,14 +131,17 @@ def select_next_item(
         1. If safety_decision.allowed is not True → blocked.
         2. If playlist is not ready → blocked.
         3. If playlist has no items → blocked.
-        4. Otherwise, select item by order:
-           - Without state: first item (lowest order).
+        4. If state is present but invalid → blocked (hold / invalid_state).
+        5. Otherwise, select item by order:
+           - Without state (None): first item (lowest order).
            - With valid state: item after current_index; wrap around.
 
     Args:
         playlist: PlayerPlaylist from build_playlist(). Must have .ready and .items.
         safety_decision: PlaybackSafetyDecision from decide_playback_safety().
         state: Optional session state for sequential progression.
+               None = first run (starts from first item).
+               Invalid state = fail closed (hold / invalid_state).
 
     Returns:
         PlaybackSessionDecision — always safe, never raises.
@@ -148,18 +206,35 @@ def select_next_item(
 
     n = len(sorted_items)
 
+    # ── Validate session state ────────────────────────────────────
+    # None = first run (valid — start from first item).
+    # Non-None but invalid = fail closed.
+    if state is not None:
+        if not _is_valid_state(state, n):
+            return PlaybackSessionDecision(
+                allowed=False,
+                action=ACTION_HOLD,
+                reason=REASON_SESSION_INVALID_STATE,
+                selected_item=None,
+                next_index=None,
+                cycle_count=0,
+            )
+
     # ── Determine next index ──────────────────────────────────────
-    if state is not None and isinstance(state, PlaybackSessionState):
+    if state is not None:
+        # state is valid PlaybackSessionState
         current = state.current_index
-        if isinstance(current, int) and 0 <= current < n:
+        if current is not None:
             next_index = (current + 1) % n
             cycle_count = state.cycle_count
             if next_index == 0 and current == n - 1:
                 cycle_count += 1
         else:
+            # current_index is None — first run with state object
             next_index = 0
             cycle_count = 0
     else:
+        # state is None — first run without state object
         next_index = 0
         cycle_count = 0
 
