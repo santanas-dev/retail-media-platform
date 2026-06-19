@@ -55,6 +55,7 @@ KSO Sidecar Agent — будущий production-агент, который бу�
 - ✅ Run cycle final heartbeat: initial + final heartbeat в backend режиме
 - ✅ Full run-cycle E2E smoke test на fake backend
 - ✅ Run-once CLI backend mode: `run-once --backend --dev-secret-store`
+- ✅ Degraded/offline fallback: backend outage + local cache complete → degraded
 - ❌ Run loop / scheduler
 - ❌ Media retry (retry для media download пока не подключён)
 - ❌ PoP flush (`/pop/events/batch`)

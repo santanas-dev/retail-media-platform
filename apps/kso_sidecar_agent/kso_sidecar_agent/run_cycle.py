@@ -187,6 +187,9 @@ class RunCycleResult:
     media_items_missing: int = 0
     media_items_failed: int = 0
     last_error_code: Optional[str] = None
+    offline_ready: bool = False                    # local cache full, can play without backend
+    can_play_local_content: bool = False           # manifest valid + media cache complete
+    degraded_reason: Optional[str] = None           # backend_unavailable | none | local_cache_incomplete | auth_failed
 
     def __post_init__(self) -> None:
         if self.status not in ALLOWED_CYCLE_STATUSES:
@@ -202,6 +205,8 @@ class RunCycleResult:
             _check_forbidden(self.manifest_status, "manifest_status")
         if self.media_report_status:
             _check_forbidden(self.media_report_status, "media_report_status")
+        if self.degraded_reason:
+            _check_forbidden(self.degraded_reason, "degraded_reason")
 
     def safe_summary(self) -> dict:
         """Return safe metadata only — no secrets, no paths, no full IDs."""
@@ -227,6 +232,12 @@ class RunCycleResult:
             summary["runtime_config_status"] = self.runtime_config_status
         if self.manifest_status:
             summary["manifest_status"] = self.manifest_status
+        if self.offline_ready:
+            summary["offline_ready"] = self.offline_ready
+        if self.can_play_local_content:
+            summary["can_play_local_content"] = self.can_play_local_content
+        if self.degraded_reason:
+            summary["degraded_reason"] = self.degraded_reason
         return summary
 
     def _cycle_block(self) -> dict:
@@ -272,6 +283,14 @@ class RunCycleResult:
         if self.media_report_status:
             _check_forbidden(self.media_report_status, "media_report_status")
             block["media_report_status"] = self.media_report_status
+
+        if self.offline_ready:
+            block["offline_ready"] = self.offline_ready
+        if self.can_play_local_content:
+            block["can_play_local_content"] = self.can_play_local_content
+        if self.degraded_reason:
+            _check_forbidden(self.degraded_reason, "degraded_reason")
+            block["degraded_reason"] = self.degraded_reason
 
         # Security scan
         block_str = _json.dumps(block).lower()
@@ -805,6 +824,48 @@ def update_cycle_status(root, result: RunCycleResult) -> dict:
     return merged
 
 
+# ── Degraded / offline fallback ──────────────────────────────────────
+
+def _is_degradable_backend_error(auth_result) -> bool:
+    """Check if the auth failure is a backend-unavailable error (not credentials)."""
+    step = auth_result.step if auth_result else None
+    if step is None or step.status != "error":
+        return False
+    return step.retryable and step.fatal
+
+
+def _check_local_content_ready(root) -> bool:
+    """Check if local manifest + media cache is complete (can serve content offline)."""
+    try:
+        from kso_sidecar_agent.manifest_store import read_current_manifest as _rm
+        from kso_sidecar_agent.media_cache import media_cache_status as _mcs
+        manifest = _rm(root)
+        items = manifest.get("items", [])
+        if not items:
+            return False
+        mc = _mcs(root, manifest_items=items)
+        return mc.get("cache_complete", False)
+    except Exception:
+        return False
+
+
+def _apply_degraded_fallback(root, result, options, auth_result) -> None:
+    """If backend is unreachable but local cache is complete, override to degraded."""
+    if not options.backend_enabled:
+        return
+    if result.status != "error":
+        return
+    if not _is_degradable_backend_error(auth_result):
+        return
+    if not _check_local_content_ready(root):
+        result.degraded_reason = "local_cache_incomplete"
+        return
+    result.status = "degraded"
+    result.offline_ready = True
+    result.can_play_local_content = True
+    result.degraded_reason = "backend_unavailable"
+
+
 def run_once(
     root,
     options: Optional[RunCycleOptions] = None,
@@ -1142,6 +1203,9 @@ def run_once(
         result.final_heartbeat_attempts = final_hb_result.attempts
     elif options.backend_enabled and auth_result.step.status == "error":
         result.final_heartbeat_status = "skipped"
+
+    # ── Degraded / offline fallback ─────────────────────────────────
+    _apply_degraded_fallback(root, result, options, auth_result)
 
     # ── Update agent_status ────────────────────────────────────────
     try:

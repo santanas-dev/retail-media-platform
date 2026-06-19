@@ -981,6 +981,12 @@ def cmd_run_once(args: argparse.Namespace) -> None:
     if result.final_heartbeat_status:
         print(f"final_heartbeat_status: {result.final_heartbeat_status}")
 
+    if result.degraded_reason:
+        print(f"degraded_reason:        {result.degraded_reason}")
+    if result.offline_ready:
+        print(f"offline_ready:          {str(result.offline_ready).lower()}")
+    if result.can_play_local_content:
+        print(f"can_play_local_content: {str(result.can_play_local_content).lower()}")
     if result.last_error_code:
         print(f"last_error_code:        {result.last_error_code}")
 
