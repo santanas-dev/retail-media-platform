@@ -392,6 +392,43 @@ python3 -m kso_sidecar_agent.cli pop-rotation-plan --root /tmp/kso-agent-root --
 
 Подробнее см. секцию **CLI: `pop-rotation-plan`**.
 
+## PoP Rotation Atomic File Ops Core
+
+🧱 **Реализован:** `pop_rotation_files.py`. Атомарная запись safe JSONL records в rotation target directories.
+
+### `write_pop_rotation_records_atomic(root, target, records, now=None) -> PopRotationFileWriteResult`
+
+- Принимает только валидированные safe records (list[dict])
+- Пишет только в разрешённые target: `sent`, `quarantine`, `dry_run`, `failed`
+- Atomic модель: `.tmp` → flush → fsync → `os.replace` → fsync dir
+- При любом сбое — tmp удаляется, функция не бросает исключений
+- Каждый record проверяется на forbidden keys/values (два уровня вложенности)
+- Файлы именуются: `rotation_<YYYYMMDDThhmmssZ>.jsonl`
+
+### Что НЕ делает
+
+- ❌ Не читает pending
+- ❌ Не меняет/не удаляет pending
+- ❌ Не делает HTTP/backend send
+- ❌ Не читает secret/config/token
+- ❌ Не читает media bytes
+- ❌ Не создаёт backend payload
+
+### PopRotationFileWriteResult
+
+Safe dataclass: status (written|skipped|error), target, records_written, line_size_bytes, reason. Никогда не содержит file paths, tmp paths, filenames, exception text, raw records, IDs, secrets.
+
+### Разрешённые target
+
+| Target | Назначение |
+|---|---|
+| `sent` | Подтверждённые backend события |
+| `quarantine` | Unsafe/schema/mismatch события |
+| `dry_run` | Draft/diagnostic события (не PoP) |
+| `failed` | Retry-exhausted события |
+
+**Actual rotation apply — отдельный шаг.** Этот модуль только пишет файлы, не оркестрирует rotation.
+
 ---
 
 ## PoP Backend Sender Design
