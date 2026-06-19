@@ -176,6 +176,8 @@ class RunCycleResult:
     auth_attempts: int = 0
     heartbeat_status: Optional[str] = None     # sent | error | skipped
     heartbeat_attempts: int = 0
+    final_heartbeat_status: Optional[str] = None  # sent | error | skipped
+    final_heartbeat_attempts: int = 0
     runtime_config_status: Optional[str] = None  # updated | not_modified | missing | invalid
     manifest_status: Optional[str] = None        # updated | not_modified | no_manifest | missing | invalid
     media_report_status: Optional[str] = None     # sent | error | skipped
@@ -253,6 +255,11 @@ class RunCycleResult:
             block["heartbeat_status"] = self.heartbeat_status
         if self.heartbeat_attempts > 0:
             block["heartbeat_attempts"] = self.heartbeat_attempts
+
+        if self.final_heartbeat_status:
+            block["final_heartbeat_status"] = self.final_heartbeat_status
+        if self.final_heartbeat_attempts > 0:
+            block["final_heartbeat_attempts"] = self.final_heartbeat_attempts
 
         if self.runtime_config_status:
             _check_forbidden(self.runtime_config_status, "runtime_config_status")
@@ -1029,6 +1036,45 @@ def run_once(
             message="Skipped — auth failed",
         ))
 
+    # ── Final heartbeat step (backend_enabled + auth ok) ─────────────
+    final_hb_result = None
+    if options.backend_enabled and auth_result.token_state is not None and auth_result.step.status == "ok":
+        # Build final status hint from all step results
+        _has_fatal = any(s.fatal and s.status == "error" for s in steps)
+        _has_warning = any(
+            s.status in ("warning", "error") for s in steps
+        )
+        _media_incomplete = (
+            media_sync_result is not None and not media_sync_result.cache_complete
+        )
+        if _has_fatal:
+            final_hb_hint = "error"
+        elif _has_warning or _media_incomplete:
+            final_hb_hint = "warning"
+        else:
+            final_hb_hint = "ok"
+
+        try:
+            final_hb_result = _send_hb(
+                root, auth_result.token_state,
+                cycle_status_hint=final_hb_hint,
+                now=now,
+            )
+            steps.append(final_hb_result.step)
+        except Exception as e:
+            steps.append(RunCycleStepResult(
+                name="heartbeat",
+                status="error",
+                fatal=False,
+                message=_redact_forbidden(f"Final heartbeat error: {e}"),
+            ))
+    elif options.backend_enabled and auth_result.step.status == "error":
+        steps.append(RunCycleStepResult(
+            name="heartbeat",
+            status="skipped",
+            message="Skipped — auth failed",
+        ))
+
     # ── Build result ───────────────────────────────────────────────
     # In backend mode: use media sync result instead of local readiness scan
     if options.backend_enabled and media_sync_result is not None:
@@ -1089,6 +1135,13 @@ def run_once(
         result.media_report_status = report_result.report_status
     elif options.backend_enabled and auth_result.step.status == "error":
         result.media_report_status = "skipped"
+
+    # ── Inject final heartbeat metadata into result ────────────────
+    if final_hb_result is not None:
+        result.final_heartbeat_status = final_hb_result.heartbeat_status
+        result.final_heartbeat_attempts = final_hb_result.attempts
+    elif options.backend_enabled and auth_result.step.status == "error":
+        result.final_heartbeat_status = "skipped"
 
     # ── Update agent_status ────────────────────────────────────────
     try:
