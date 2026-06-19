@@ -867,6 +867,34 @@ def run_once(
     auth_result = _auth_for_cycle(root, options, now=now)
     steps.append(auth_result.step)
 
+    # ── Runtime config sync (backend_enabled + auth ok) ────────────
+    from kso_sidecar_agent.run_cycle_runtime_config import (
+        sync_runtime_config_for_cycle as _sync_rc,
+    )
+
+    rc_result = None
+    # When backend enabled, replace local readiness runtime_config step with sync result
+    if options.backend_enabled:
+        steps = [s for s in steps if s.name != "runtime_config"]
+
+    if options.backend_enabled and auth_result.token_state is not None and auth_result.step.status == "ok":
+        try:
+            rc_result = _sync_rc(root, auth_result.token_state, now=now)
+            steps.append(rc_result.step)
+        except Exception as e:
+            steps.append(RunCycleStepResult(
+                name="runtime_config",
+                status="error",
+                fatal=False,
+                message=_redact_forbidden(f"Runtime config sync error: {e}"),
+            ))
+    elif options.backend_enabled and auth_result.step.status == "error":
+        steps.append(RunCycleStepResult(
+            name="runtime_config",
+            status="skipped",
+            message="Skipped — auth failed",
+        ))
+
     # ── Build result ───────────────────────────────────────────────
     # Pass media status from readiness to build_cycle_result
     try:
@@ -885,6 +913,10 @@ def run_once(
     elif auth_result.step.status == "error":
         result.last_auth_status = "error"
     result.auth_attempts = auth_result.attempts
+
+    # ── Inject runtime config metadata ─────────────────────────────
+    if rc_result is not None:
+        result.runtime_config_status = rc_result.config_status
 
     # ── Update agent_status ────────────────────────────────────────
     try:
