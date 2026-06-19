@@ -14,6 +14,7 @@ KSO Player — будущий UI-плеер для показа контента
 - `build_playlist(root)` — построение playlist из локального manifest + media cache
 - `format_playlist_summary(playlist)` — safe агрегированный вывод
 - `playlist-status` CLI — проверка готовности playlist (read-only)
+- `safety-check` CLI — проверка playlist + safety gate (read-only, state вручную)
 - `decide_playback_safety(snapshot, playlist)` — safety gate: разрешить/запретить playback
 - `format_safety_decision(decision)` — safe вывод решения
 
@@ -92,13 +93,71 @@ items_failed: 0
 | 1 | Playlist not_ready или error |
 | 2 | Invalid CLI args |
 
+## CLI: `safety-check`
+
+```bash
+cd apps/kso_player
+
+# Проверить: можно ли играть в idle?
+python3 -m kso_player.cli safety-check --root /tmp/kso-agent-root --state idle
+
+# Проверить с другими состояниями
+python3 -m kso_player.cli safety-check --root /tmp/kso-agent-root --state payment
+python3 -m kso_player.cli safety-check --root /tmp/kso-agent-root --state transaction
+
+# Help
+python3 -m kso_player.cli safety-check --help
+```
+
+**Важно:** команда принимает `--state` вручную и **не читает реальное состояние КСО**.
+Интеграция с реальным КСО будет отдельным шагом.
+
+### Пример вывода (idle + ready)
+
+```
+playlist_ready: true
+status: ready
+reason: ready
+items_total: 2
+items_ready: 2
+items_missing: 0
+items_failed: 0
+state: idle
+playback_allowed: true
+action: play
+reason: ready
+```
+
+### Пример вывода (payment + ready)
+
+```
+playlist_ready: true
+status: ready
+reason: ready
+items_total: 2
+items_ready: 2
+items_missing: 0
+items_failed: 0
+state: payment
+playback_allowed: false
+action: stop
+reason: payment_active
+```
+
+### Exit codes (safety-check)
+
+| Код | Значение |
+|---|---|
+| 0 | Playback allowed (idle + playlist ready) |
+| 1 | Playback blocked (любое не-idle состояние или playlist not ready) |
+| 2 | Invalid CLI args |
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay
 - ❌ Playback (воспроизведение)
 - ❌ Интеграция с реальным КСО (state reading)
 - ❌ PoP (proof-of-play)
-- ❌ CLI для safety decision (следующий шаг)
 - ❌ Backend / auth / secret / token
 - ❌ HTTP / сеть
 - ❌ Запись / удаление / перемещение файлов
@@ -131,4 +190,5 @@ tests/
   test_playlist.py
   test_cli.py
   test_safety.py
+  test_safety_cli.py
 ```
