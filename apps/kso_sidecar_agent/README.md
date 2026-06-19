@@ -105,6 +105,20 @@ python3 -m kso_sidecar_agent.cli pop-batch-preview --root /tmp/kso-agent-root --
 
 📝 **Mini-design создан:** `docs/pop_backend_payload_design.md`. Описан безопасный backend payload для `POST /device-gateway/pop/events/batch` на основе существующих таблиц `proof_of_play_events` + `proof_of_play_batches`. Payload формируется только из eligible completed событий. Backend payload builder + HTTP sender будут отдельными шагами. Draft/blocked/failed не являются PoP.
 
+## PoP Backend Payload Builder Core
+
+📦 **Реализован:** `pop_payload.py`. Собирает in-memory backend payload из eligible событий с manifest mapping.
+
+### `build_pop_backend_payload(root, max_events=100) -> PopPayloadBuildResult`
+
+- Читает `pop/pending/player_events.jsonl`
+- Классифицирует через pop_pickup
+- Только CLASS_ELIGIBLE → manifest mapping → PopPayloadEvent
+- PopPayloadEnvelope (batch_id + events) — внутренний, repr=False
+- PopPayloadBuildResult — только safe aggregates
+
+**Backend send / move / rotation будут отдельными шагами.** Payload body не логируется. manifest_item_id используется только внутри payload и не выводится в safe output.
+
 ---
 
 ---
