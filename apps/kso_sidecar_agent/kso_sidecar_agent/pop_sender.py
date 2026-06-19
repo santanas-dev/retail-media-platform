@@ -549,12 +549,16 @@ def classify_pop_send_response(
             return result
 
         if http_status == 409:
-            # Duplicate batch — backend already seen this batch_id
+            # Duplicate batch — backend already saw this batch_id,
+            # but without explicit processed/accepted confirmation from backend
+            # we must NOT assume the batch can be safely removed.
+            # pending_should_remain=True by default.
+            # Safe duplicate removal: only if a future backend response contract
+            # explicitly confirms acceptance with count fields.
             result.send_status = SEND_WARNING
             result.reason = REASON_DUPLICATE_BATCH
             result.retryable = False
-            result.pending_should_remain = False  # backend confirmed duplicate
-            result.duplicate_events = result.attempted_events
+            result.pending_should_remain = True
             return result
 
         if http_status == 422:

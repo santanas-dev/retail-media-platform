@@ -166,13 +166,15 @@ python3 -m kso_sidecar_agent.cli pop-payload-preview --root /tmp/kso-agent-root 
 | 401 | warning | unauthorized | **true** | true |
 | 403 | error | forbidden | false | true |
 | 404 | error | not_found | false | true |
-| 409 | warning | duplicate_batch | false | false |
+| 409 | warning | duplicate_batch | false | **true** |
 | 422 | error | validation_error | false | true |
 | 429 | warning | rate_limited | **true** | true |
 | 5xx | error | server_error | **true** | true |
 | network error | error | network_error | **true** | true |
 | timeout | error | timeout | **true** | true |
 | unknown | error | unknown_response | false | true |
+
+> **🛡 409 Hardening (26.24.1):** 409 Duplicate batch — `pending_should_remain=True` по умолчанию. Backend видел batch_id, но без явного accepted/processed подтверждения pending НЕ удалять. Duplicate-safe removal возможен только если будущий backend response contract явно это подтвердит.
 
 ### `PopSendResult`
 

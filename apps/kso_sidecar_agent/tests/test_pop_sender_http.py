@@ -227,7 +227,7 @@ class TestSend4xx(unittest.TestCase):
         result = send_pop_payload_batch(client, envelope)
         self.assertEqual(result.send_status, SEND_WARNING)
         self.assertEqual(result.reason, REASON_DUPLICATE_BATCH)
-        self.assertFalse(result.pending_should_remain)
+        self.assertTrue(result.pending_should_remain)  # default: not safe to remove
 
     def test_422_validation_error(self):
         client = FakeHttpClient(error=FakeHttpError(status_code=422, message="Unprocessable", retryable=False))

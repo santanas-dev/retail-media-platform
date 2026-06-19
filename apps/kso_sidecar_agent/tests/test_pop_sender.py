@@ -323,8 +323,7 @@ class Test4xx(unittest.TestCase):
         self.assertEqual(result.send_status, SEND_WARNING)
         self.assertEqual(result.reason, REASON_DUPLICATE_BATCH)
         self.assertFalse(result.retryable)
-        self.assertFalse(result.pending_should_remain)
-        self.assertEqual(result.duplicate_events, 3)
+        self.assertTrue(result.pending_should_remain)
 
     def test_422_validation_error(self):
         result = classify_pop_send_response(http_status=422, attempted_events=3)
@@ -534,9 +533,9 @@ class TestPendingShouldRemain(unittest.TestCase):
         result = classify_pop_send_response(http_status=401, attempted_events=3)
         self.assertTrue(result.pending_should_remain)
 
-    def test_409_duplicate_false(self):
+    def test_409_duplicate_true(self):
         result = classify_pop_send_response(http_status=409, attempted_events=3)
-        self.assertFalse(result.pending_should_remain)
+        self.assertTrue(result.pending_should_remain)
 
     def test_500_true(self):
         result = classify_pop_send_response(http_status=500, attempted_events=3)

@@ -234,7 +234,7 @@ Backend вернул **2xx** и response schema valid:
 | 403 Forbidden | НЕ retry. Abort immediately | ✅ untouched |
 | 400 Bad Request | НЕ retry. Payload/schema issue. Quarantine на rotation | ✅ untouched |
 | 422 Unprocessable | НЕ retry. Validation error. Quarantine на rotation | ✅ untouched |
-| 409 Conflict (duplicate batch) | Отдельная обработка. Проверить response. Если backend accepted duplicate → ok | ✅ untouched |
+| 409 Conflict (duplicate batch) | Warning. Backend видел batch_id, но без явного accepted/processed подтверждения pending НЕ удалять. Duplicate-safe removal — только если backend response contract явно подтвердит. | ✅ untouched |
 | 5xx (500/502/503/504) | Retry (до 3 попыток). Если исчерпаны → abort | ✅ untouched |
 | 429 Too Many Requests | Retry с увеличенной задержкой. Если исчерпаны → abort | ✅ untouched |
 | Unknown response | Abort. Не рисковать | ✅ untouched |
