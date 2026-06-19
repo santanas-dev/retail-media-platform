@@ -1030,6 +1030,39 @@ def cmd_pop_pickup_scan(args: argparse.Namespace) -> None:
     sys.exit(0 if result.status == SCAN_OK else 1)
 
 
+def cmd_pop_batch_preview(args: argparse.Namespace) -> None:
+    """Build in-memory batch of eligible PoP candidates — safe aggregates only.
+
+    Read-only: no backend send, no file move, no delete.
+    Only completed+idle+manifest_mapping+media_complete events are eligible.
+    """
+    from kso_sidecar_agent.pop_batch import build_pop_eligible_batch
+
+    max_events = args.max_events
+    if max_events is not None and max_events <= 0:
+        print("ERROR: --max-events must be > 0", file=sys.stderr)
+        sys.exit(2)
+
+    try:
+        result = build_pop_eligible_batch(args.root, max_events=max_events)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"batch_status:        {result.status}")
+    print(f"total_lines:         {result.total_lines}")
+    print(f"candidate_events:    {result.candidate_events}")
+    print(f"skipped_events:      {result.skipped_events}")
+    print(f"invalid_events:      {result.invalid_events}")
+    print(f"quarantine_events:   {result.quarantine_events}")
+    print(f"diagnostic_events:   {result.diagnostic_events}")
+    print(f"draft_events:        {result.draft_events}")
+    print(f"batch_limited:       {str(result.batch_limited).lower()}")
+    print(f"max_events:          {max_events}")
+
+    sys.exit(0 if result.status == "ok" else 1)
+
+
 def cmd_player_readiness(args: argparse.Namespace) -> None:
     """Show local content readiness snapshot for KSO Player. No backend, no secret."""
     from kso_sidecar_agent.player_readiness import build_player_readiness_snapshot
@@ -1257,6 +1290,15 @@ def main() -> None:
                            help="Scan pop/pending/player_events.jsonl — safe aggregated classification only (no backend send, no move)")
     p_pps.add_argument("--root", required=True, help="Root path")
     p_pps.set_defaults(func=cmd_pop_pickup_scan)
+
+    # ── PoP batch preview ───────────────────────────────────────────
+
+    p_pbp = sub.add_parser("pop-batch-preview",
+                           help="Build in-memory eligible batch — safe aggregates only (no backend send, no move)")
+    p_pbp.add_argument("--root", required=True, help="Root path")
+    p_pbp.add_argument("--max-events", type=int, default=100,
+                       help="Max events in batch (default: 100)")
+    p_pbp.set_defaults(func=cmd_pop_batch_preview)
 
     # ── Auth commands ──────────────────────────────────────────────
 
