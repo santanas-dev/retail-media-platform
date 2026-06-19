@@ -107,19 +107,33 @@ def _validate_safe_details(details: dict) -> dict:
 class RunCycleOptions:
     """Options for a single run cycle. No secrets, no backend calls."""
 
+    # Backend control
+    backend_enabled: bool = False
+    dev_secret_store: bool = False
+
+    # Retry
     retry_auth: bool = False
     retry_heartbeat: bool = False
+    auth_max_attempts: int = 3
+
+    # Step skips
     skip_runtime_config: bool = False
     skip_heartbeat: bool = False
     skip_manifest: bool = False
     skip_media: bool = False
     skip_report: bool = False
+
+    # Limits
     max_cycle_sec: int = 120
 
     def __post_init__(self) -> None:
         if not isinstance(self.max_cycle_sec, int) or self.max_cycle_sec < 1 or self.max_cycle_sec > 600:
             raise ValueError(
                 f"max_cycle_sec must be 1–600, got {self.max_cycle_sec!r}"
+            )
+        if not isinstance(self.auth_max_attempts, int) or self.auth_max_attempts < 1 or self.auth_max_attempts > 10:
+            raise ValueError(
+                f"auth_max_attempts must be 1–10, got {self.auth_max_attempts!r}"
             )
 
 
@@ -152,6 +166,8 @@ class RunCycleResult:
     finished_at: str = ""              # ISO8601
     duration_ms: float = 0.0
     steps: list[RunCycleStepResult] = field(default_factory=list)
+    last_auth_status: Optional[str] = None     # ok | error | skipped
+    auth_attempts: int = 0
     runtime_config_status: Optional[str] = None  # updated | not_modified | missing | invalid
     manifest_status: Optional[str] = None        # updated | not_modified | no_manifest | missing | invalid
     media_cache_complete: bool = False
@@ -216,6 +232,11 @@ class RunCycleResult:
             block["last_error_code"] = self.last_error_code
         else:
             block["last_error_code"] = None
+
+        if self.last_auth_status:
+            block["last_auth_status"] = self.last_auth_status
+        if self.auth_attempts > 0:
+            block["auth_attempts"] = self.auth_attempts
 
         if self.runtime_config_status:
             _check_forbidden(self.runtime_config_status, "runtime_config_status")
@@ -840,6 +861,12 @@ def run_once(
             message=_redact_forbidden(f"Local readiness check failed: {e}"),
         ))
 
+    # ── Auth step (only when backend_enabled) ──────────────────────
+    from kso_sidecar_agent.run_cycle_auth import authenticate_for_cycle as _auth_for_cycle
+
+    auth_result = _auth_for_cycle(root, options, now=now)
+    steps.append(auth_result.step)
+
     # ── Build result ───────────────────────────────────────────────
     # Pass media status from readiness to build_cycle_result
     try:
@@ -849,6 +876,15 @@ def run_once(
         media_status = None
 
     result = build_cycle_result(ctx, steps, now=now, media_status=media_status)
+
+    # ── Inject auth metadata into result ───────────────────────────
+    if auth_result.step.status == "ok":
+        result.last_auth_status = "ok"
+    elif auth_result.step.status == "skipped":
+        result.last_auth_status = "skipped"
+    elif auth_result.step.status == "error":
+        result.last_auth_status = "error"
+    result.auth_attempts = auth_result.attempts
 
     # ── Update agent_status ────────────────────────────────────────
     try:

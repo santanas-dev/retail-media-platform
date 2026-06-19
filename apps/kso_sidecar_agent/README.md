@@ -46,6 +46,7 @@ KSO Sidecar Agent — будущий production-агент, который бу�
 - ✅ Run cycle core skeleton (`run_cycle.py`): dataclasses + status classification + `_cycle` agent_status
 - ✅ Run cycle local readiness: проверка config/runtime_config/manifest/media_cache без backend
 - ✅ Run-once CLI (`run-once --local-only`): local readiness preflight, без backend/auth/secret
+- ✅ Run cycle auth step (`run_cycle_auth.py`): device auth с memory-only token, fake server в тестах
 - ❌ Run-once full backend cycle (пока только --local-only)
 - ❌ Run loop / scheduler
 - ❌ Media retry (retry для media download пока не подключён)
