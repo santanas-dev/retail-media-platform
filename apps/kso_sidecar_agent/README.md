@@ -101,6 +101,12 @@ python3 -m kso_sidecar_agent.cli pop-batch-preview --root /tmp/kso-agent-root --
 | 1 | Warning/error/invalid/quarantine |
 | 2 | Invalid CLI args (включая --max-events <= 0) |
 
+## PoP Backend Payload Design
+
+📝 **Mini-design создан:** `docs/pop_backend_payload_design.md`. Описан безопасный backend payload для `POST /device-gateway/pop/events/batch` на основе существующих таблиц `proof_of_play_events` + `proof_of_play_batches`. Payload формируется только из eligible completed событий. Backend payload builder + HTTP sender будут отдельными шагами. Draft/blocked/failed не являются PoP.
+
+---
+
 ---
 
 ## CLI: `pop-pickup-scan`
