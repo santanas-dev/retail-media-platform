@@ -1,9 +1,9 @@
-"""KSO Sidecar Run Cycle — Core Skeleton.
+"""KSO Sidecar Run Cycle — Core Skeleton with Local Readiness.
 
 Dataclasses and functions for the future unified run-cycle orchestrator.
 Skeleton only: no HTTP calls, no real clients called, no backend.
 Implements: options, step result, cycle result, status classification,
-and safe agent_status update with _cycle block.
+local readiness preflight, and safe agent_status update with _cycle block.
 
 Based on: docs/kso_sidecar_run_cycle_design.md
 """
@@ -152,6 +152,8 @@ class RunCycleResult:
     finished_at: str = ""              # ISO8601
     duration_ms: float = 0.0
     steps: list[RunCycleStepResult] = field(default_factory=list)
+    runtime_config_status: Optional[str] = None  # updated | not_modified | missing | invalid
+    manifest_status: Optional[str] = None        # updated | not_modified | no_manifest | missing | invalid
     media_cache_complete: bool = False
     media_items_total: int = 0
     media_items_cached: int = 0
@@ -167,6 +169,10 @@ class RunCycleResult:
             )
         if self.last_error_code:
             _check_forbidden(self.last_error_code, "last_error_code")
+        if self.runtime_config_status:
+            _check_forbidden(self.runtime_config_status, "runtime_config_status")
+        if self.manifest_status:
+            _check_forbidden(self.manifest_status, "manifest_status")
 
     def safe_summary(self) -> dict:
         """Return safe metadata only — no secrets, no paths, no full IDs."""
@@ -178,7 +184,7 @@ class RunCycleResult:
                 "fatal": s.fatal,
             })
 
-        return {
+        summary = {
             "status": self.status,
             "duration_ms": self.duration_ms,
             "steps": step_summaries,
@@ -188,6 +194,11 @@ class RunCycleResult:
             "media_items_failed": self.media_items_failed,
             "last_error_code": self.last_error_code,
         }
+        if self.runtime_config_status:
+            summary["runtime_config_status"] = self.runtime_config_status
+        if self.manifest_status:
+            summary["manifest_status"] = self.manifest_status
+        return summary
 
     def _cycle_block(self) -> dict:
         """Build the _cycle block for agent_status.json. Safe — no secrets."""
@@ -205,6 +216,14 @@ class RunCycleResult:
             block["last_error_code"] = self.last_error_code
         else:
             block["last_error_code"] = None
+
+        if self.runtime_config_status:
+            _check_forbidden(self.runtime_config_status, "runtime_config_status")
+            block["runtime_config_status"] = self.runtime_config_status
+
+        if self.manifest_status:
+            _check_forbidden(self.manifest_status, "manifest_status")
+            block["manifest_status"] = self.manifest_status
 
         # Security scan
         block_str = _json.dumps(block).lower()
@@ -314,6 +333,268 @@ def classify_cycle_status(
     return "ok"
 
 
+# ── Local Readiness ─────────────────────────────────────────────────
+
+def evaluate_local_readiness(root) -> dict:
+    """Check all local files without any backend calls, auth, or secret reading.
+
+    Checks:
+        - root exists / initialized
+        - config/agent_config.json present and valid
+        - config/runtime_config.json status
+        - manifest/current_manifest.json status
+        - media/current cache status
+
+    Args:
+        root: Agent root path (str or Path).
+
+    Returns:
+        Dict with keys: root_exists, config_present, config_valid,
+        config_error, runtime_config_present, runtime_config_valid,
+        runtime_config_error, manifest_present, manifest_valid,
+        manifest_error, manifest_items_count, media_status (dict or None),
+        media_cache_complete.
+
+    Never reads secret, never makes HTTP calls, never exposes paths/config.
+    """
+    from kso_sidecar_agent import local_config as _lc
+    from kso_sidecar_agent import runtime_config_store as _rcs
+    from kso_sidecar_agent import manifest_store as _ms
+    from kso_sidecar_agent import media_cache as _mc
+
+    root = Path(root)
+    result: dict[str, Any] = {
+        "root_exists": root.is_dir(),
+        "config_present": False,
+        "config_valid": False,
+        "config_error": None,
+        "runtime_config_present": False,
+        "runtime_config_valid": False,
+        "runtime_config_error": None,
+        "manifest_present": False,
+        "manifest_valid": False,
+        "manifest_error": None,
+        "manifest_items_count": 0,
+        "media_status": None,
+        "media_cache_complete": None,
+    }
+
+    if not result["root_exists"]:
+        return result
+
+    # ── Config ────────────────────────────────────────────────────
+    try:
+        cfg = _lc.config_status(root)
+        result["config_present"] = cfg["present"]
+        result["config_valid"] = cfg["ok"]
+        if not cfg["ok"] and cfg.get("error"):
+            result["config_error"] = _redact_forbidden(str(cfg["error"]))
+    except Exception as e:
+        result["config_error"] = _redact_forbidden(str(e))
+
+    # ── Runtime config ────────────────────────────────────────────
+    try:
+        rc = _rcs.runtime_config_status(root)
+        result["runtime_config_present"] = rc["present"]
+        result["runtime_config_valid"] = rc["ok"]
+        if not rc["ok"] and rc.get("error"):
+            result["runtime_config_error"] = _redact_forbidden(str(rc["error"]))
+    except Exception as e:
+        result["runtime_config_error"] = _redact_forbidden(str(e))
+
+    # ── Manifest ─────────────────────────────────────────────────
+    try:
+        ms = _ms.manifest_store_status(root)
+        result["manifest_present"] = ms["present"]
+        result["manifest_valid"] = ms["validation_status"] == "ok"
+        if not result["manifest_valid"] and ms.get("validation_status"):
+            result["manifest_error"] = ms["validation_status"]
+        if ms["present"] and ms["validation_status"] == "ok":
+            result["manifest_items_count"] = ms["items_count"]
+    except Exception as e:
+        result["manifest_error"] = _redact_forbidden(str(e))
+
+    # ── Media cache ──────────────────────────────────────────────
+    if result["manifest_present"] and result["manifest_valid"]:
+        try:
+            manifest = _ms.read_current_manifest(root)
+            items = manifest.get("items", [])
+            if items:
+                mc_status = _mc.media_cache_status(root, manifest_items=items)
+                result["media_status"] = mc_status
+                result["media_cache_complete"] = mc_status.get("cache_complete", False)
+        except Exception as e:
+            result["media_cache_complete"] = False
+            result["media_status"] = {
+                "error": _redact_forbidden(str(e)),
+                "cache_complete": False,
+                "items_total": 0,
+            }
+
+    return result
+
+
+def _build_local_readiness_steps(root) -> list[RunCycleStepResult]:
+    """Build step results for local readiness checks. No backend, no auth, no secret.
+
+    Returns list of RunCycleStepResult:
+        - local_config: ok/warning/error (fatal on missing/invalid config)
+        - runtime_config: ok/warning (non-fatal)
+        - manifest: ok/warning/error (fatal on invalid, non-fatal on missing)
+        - media_cache: ok/warning/error/skipped
+    """
+    steps: list[RunCycleStepResult] = []
+    readiness = evaluate_local_readiness(root)
+
+    # ── Step: local_config ────────────────────────────────────────
+    if not readiness["config_present"]:
+        steps.append(RunCycleStepResult(
+            name="local_config",
+            status="error",
+            fatal=True,
+            message="Config file missing — cannot determine backend URL",
+        ))
+    elif not readiness["config_valid"]:
+        steps.append(RunCycleStepResult(
+            name="local_config",
+            status="error",
+            fatal=True,
+            message=readiness.get("config_error", "Config invalid"),
+        ))
+    else:
+        steps.append(RunCycleStepResult(
+            name="local_config",
+            status="ok",
+            safe_details={"present": True, "valid": True},
+        ))
+
+    # ── Step: runtime_config ─────────────────────────────────────
+    if readiness["runtime_config_present"] and readiness["runtime_config_valid"]:
+        steps.append(RunCycleStepResult(
+            name="runtime_config",
+            status="ok",
+            safe_details={"present": True, "valid": True},
+        ))
+    elif not readiness["runtime_config_present"]:
+        steps.append(RunCycleStepResult(
+            name="runtime_config",
+            status="warning",
+            message="Runtime config missing — will be fetched from backend",
+            safe_details={"present": False, "valid": False},
+        ))
+    else:
+        steps.append(RunCycleStepResult(
+            name="runtime_config",
+            status="warning",
+            message=f"Runtime config invalid — {readiness.get('runtime_config_error', '')}",
+            safe_details={"present": True, "valid": False},
+        ))
+
+    # ── Step: manifest ───────────────────────────────────────────
+    if readiness["manifest_present"] and readiness["manifest_valid"]:
+        steps.append(RunCycleStepResult(
+            name="manifest",
+            status="ok",
+            safe_details={
+                "present": True,
+                "valid": True,
+                "items_total": readiness.get("manifest_items_count", 0),
+            },
+        ))
+    elif not readiness["manifest_present"]:
+        steps.append(RunCycleStepResult(
+            name="manifest",
+            status="warning",
+            message="Local manifest missing — will be fetched from backend",
+            safe_details={"present": False, "valid": False},
+        ))
+    else:
+        steps.append(RunCycleStepResult(
+            name="manifest",
+            status="error",
+            fatal=False,  # non-fatal: can be re-fetched from backend
+            message=f"Local manifest invalid — {readiness.get('manifest_error', '')}",
+            safe_details={"present": True, "valid": False},
+        ))
+
+    # ── Step: media_cache ─────────────────────────────────────────
+    if not readiness["manifest_valid"] or not readiness["manifest_present"]:
+        # Cannot check media cache without valid manifest
+        steps.append(RunCycleStepResult(
+            name="media_cache",
+            status="skipped",
+            message="Skipped — manifest missing or invalid",
+            safe_details={"reason": "no_valid_manifest"},
+        ))
+    else:
+        media_status = readiness.get("media_status") or {}
+        items_total = media_status.get("items_total", 0)
+        items_cached = media_status.get("items_cached", 0)
+        items_missing = media_status.get("items_missing", 0)
+        invalid_hash = media_status.get("items_invalid_hash", 0)
+        invalid_size = media_status.get("items_invalid_size", 0)
+        cache_complete = media_status.get("cache_complete", False)
+
+        if cache_complete:
+            steps.append(RunCycleStepResult(
+                name="media_cache",
+                status="ok",
+                safe_details={
+                    "items_total": items_total,
+                    "items_cached": items_cached,
+                    "cache_complete": True,
+                },
+            ))
+        elif invalid_hash > 0 or invalid_size > 0:
+            steps.append(RunCycleStepResult(
+                name="media_cache",
+                status="error",
+                fatal=False,  # non-fatal: can be re-downloaded
+                message=f"{invalid_hash + invalid_size} files corrupted — need re-download",
+                safe_details={
+                    "items_total": items_total,
+                    "items_cached": items_cached,
+                    "items_missing": items_missing,
+                    "invalid_hash": invalid_hash,
+                    "invalid_size": invalid_size,
+                    "cache_complete": False,
+                },
+            ))
+        elif items_total == 0:
+            steps.append(RunCycleStepResult(
+                name="media_cache",
+                status="ok",
+                message="Manifest has no items",
+                safe_details={"items_total": 0, "cache_complete": True},
+            ))
+        else:
+            steps.append(RunCycleStepResult(
+                name="media_cache",
+                status="warning",
+                message=f"{items_missing} files missing — will be downloaded",
+                safe_details={
+                    "items_total": items_total,
+                    "items_cached": items_cached,
+                    "items_missing": items_missing,
+                    "cache_complete": False,
+                },
+            ))
+
+    return steps
+
+
+def _is_local_ready(readiness: dict) -> bool:
+    """Check if the local state is sufficient for KSO to operate (degraded mode).
+
+    Local-ready means: valid config + valid manifest + complete media cache.
+    """
+    return (
+        readiness.get("config_valid", False) and
+        readiness.get("manifest_valid", False) and
+        readiness.get("media_cache_complete", False) is True
+    )
+
+
 def build_cycle_result(
     context: RunCycleContext,
     steps: list[RunCycleStepResult],
@@ -369,6 +650,25 @@ def build_cycle_result(
     # Classify
     status = classify_cycle_status(steps, media_cache_complete=media_cache_complete)
 
+    # Derive runtime_config_status and manifest_status from steps
+    runtime_config_status = None
+    manifest_status = None
+    for s in steps:
+        if s.name == "runtime_config":
+            if s.status == "ok":
+                runtime_config_status = "valid"
+            elif s.status == "warning":
+                runtime_config_status = "missing" if s.safe_details.get("present") is False else "invalid"
+            elif s.status == "error":
+                runtime_config_status = "invalid"
+        elif s.name == "manifest":
+            if s.status == "ok":
+                manifest_status = "valid"
+            elif s.status == "warning":
+                manifest_status = "missing" if s.safe_details.get("present") is False else "invalid"
+            elif s.status == "error":
+                manifest_status = "invalid"
+
     # Last error code
     last_error_code = None
     for s in reversed(steps):
@@ -383,6 +683,8 @@ def build_cycle_result(
         finished_at=finished_at,
         duration_ms=duration_ms,
         steps=list(steps),
+        runtime_config_status=runtime_config_status,
+        manifest_status=manifest_status,
         media_cache_complete=bool(media_cache_complete) if media_cache_complete is not None else False,
         media_items_total=media_items_total,
         media_items_cached=media_items_cached,
@@ -460,14 +762,16 @@ def run_once(
     options: Optional[RunCycleOptions] = None,
     now: Optional[float] = None,
 ) -> RunCycleResult:
-    """Execute one run cycle — SKELETON ONLY.
+    """Execute one run cycle — SKELETON with local readiness preflight.
 
     On this step:
-    - Preflight: validate root, ensure dirs exist
+    - Preflight: validate root + local readiness checks
+    - Checks config, runtime_config, manifest, media_cache on DISK
     - NO backend calls
     - NO auth
+    - NO secret reading
     - NO sync operations
-    - Returns safe RunCycleResult with preflight step only.
+    - Returns safe RunCycleResult with all local readiness steps.
 
     Args:
         root: Agent root path.
@@ -475,7 +779,7 @@ def run_once(
         now: Current timestamp.
 
     Returns:
-        RunCycleResult — always succeeds (skeleton).
+        RunCycleResult — reflects local readiness state.
     """
     if now is None:
         now = _time.time()
@@ -487,33 +791,64 @@ def run_once(
 
     steps: list[RunCycleStepResult] = []
 
-    # ── Preflight step ─────────────────────────────────────────────
-    try:
-        root_path = Path(str(root))
-        if not root_path.is_dir():
-            raise FileNotFoundError(f"Agent root does not exist: {root}")
-
-        # Check for status directory (minimal validation)
-        status_dir = root_path / "status"
-        if not status_dir.is_dir():
-            status_dir.mkdir(parents=True, exist_ok=True)
-
-        steps.append(RunCycleStepResult(
-            name="preflight",
-            status="ok",
-            message="Agent root exists and is writable",
-        ))
-    except Exception as e:
+    # ── Preflight: root exists ────────────────────────────────────
+    root_path = Path(str(root))
+    if not root_path.is_dir():
         steps.append(RunCycleStepResult(
             name="preflight",
             status="error",
             fatal=True,
-            retryable=False,
-            message=_redact_forbidden(str(e)),
+            message=f"Agent root does not exist: {root}",
+        ))
+        result = build_cycle_result(ctx, steps, now=now)
+        try:
+            update_cycle_status(root, result)
+        except (OSError, ValueError):
+            pass
+        return result
+
+    # Ensure status directory
+    status_dir = root_path / "status"
+    if not status_dir.is_dir():
+        try:
+            status_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            steps.append(RunCycleStepResult(
+                name="preflight",
+                status="error",
+                fatal=True,
+                message=_redact_forbidden(str(e)),
+            ))
+            result = build_cycle_result(ctx, steps, now=now)
+            return result
+
+    steps.append(RunCycleStepResult(
+        name="preflight",
+        status="ok",
+        message="Agent root exists and is writable",
+    ))
+
+    # ── Local readiness checks ────────────────────────────────────
+    try:
+        local_steps = _build_local_readiness_steps(root)
+        steps.extend(local_steps)
+    except Exception as e:
+        steps.append(RunCycleStepResult(
+            name="local_readiness",
+            status="error",
+            fatal=False,
+            message=_redact_forbidden(f"Local readiness check failed: {e}"),
         ))
 
     # ── Build result ───────────────────────────────────────────────
-    result = build_cycle_result(ctx, steps, now=now)
+    # Pass media status from readiness to build_cycle_result
+    try:
+        readiness = evaluate_local_readiness(root)
+        media_status = readiness.get("media_status")
+    except Exception:
+        media_status = None
+
+    result = build_cycle_result(ctx, steps, now=now, media_status=media_status)
 
     # ── Update agent_status ────────────────────────────────────────
     try:
