@@ -30,6 +30,7 @@ KSO Sidecar Agent — будущий production-агент, который бу�
 || `sync-media` | Sync media: auth→download→media/current |
 || `media-cache-status` | Показать локальный media cache |
 || `report-media-cache` | Send media cache report: auth→build payload→POST /media/cache/report |
+|| `run-once` | Run one cycle: local readiness preflight (--local-only required) |
 
 ## Что НЕ работает (будет отдельными шагами)
 
@@ -44,7 +45,8 @@ KSO Sidecar Agent — будущий production-агент, который бу�
 - ✅ Media cache report CLI (`report-media-cache`): auth→build payload→POST report
 - ✅ Run cycle core skeleton (`run_cycle.py`): dataclasses + status classification + `_cycle` agent_status
 - ✅ Run cycle local readiness: проверка config/runtime_config/manifest/media_cache без backend
-- ❌ Run-once CLI (пока skeleton — без backend calls)
+- ✅ Run-once CLI (`run-once --local-only`): local readiness preflight, без backend/auth/secret
+- ❌ Run-once full backend cycle (пока только --local-only)
 - ❌ Run loop / scheduler
 - ❌ Media retry (retry для media download пока не подключён)
 - ❌ PoP flush (`/pop/events/batch`)

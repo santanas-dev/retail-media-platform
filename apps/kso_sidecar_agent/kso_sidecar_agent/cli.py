@@ -16,6 +16,7 @@ Commands:
     manifest-status     Show local manifest health
     sync-manifest        Sync manifest: auth→fetch→save
     auth-check          Check device auth (safe summary only)
+    run-once            Run one cycle: local readiness preflight (--local-only)
 
 This is a SKELETON. No backend calls, no secrets, no media sync yet.
 """
@@ -26,7 +27,8 @@ from pathlib import Path
 
 from kso_sidecar_agent import (
     agent_status, device_auth_client, heartbeat_client, local_config,
-    local_file_store, manifest_store, media_cache, runtime_config_store, safe_logger, secret_store,
+    local_file_store, manifest_store, media_cache, run_cycle,
+    runtime_config_store, safe_logger, secret_store,
 )
 from kso_sidecar_agent.http_client import HttpClientConfig, HttpClientError, SafeHttpClient
 from kso_sidecar_agent.manifest_client import ManifestClient
@@ -901,6 +903,76 @@ def cmd_report_media_cache(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+# ── Run once command ─────────────────────────────────────────────────
+
+def cmd_run_once(args: argparse.Namespace) -> None:
+    """Execute one run cycle — LOCAL-ONLY mode.
+
+    Wraps run_cycle.run_once() for local readiness preflight.
+    No backend calls, no auth, no secret reading.
+    Backend run-cycle will be a separate future step.
+    """
+    # ── Gate: --local-only is required ────────────────────────────
+    if not args.local_only:
+        print(
+            "ERROR: run-once currently supports only --local-only mode",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # ── Build options ─────────────────────────────────────────────
+    try:
+        options = run_cycle.RunCycleOptions(
+            retry_auth=args.retry_auth,
+            retry_heartbeat=args.retry_heartbeat,
+            skip_runtime_config=args.skip_runtime_config,
+            skip_heartbeat=args.skip_heartbeat,
+            skip_manifest=args.skip_manifest,
+            skip_media=args.skip_media,
+            skip_report=args.skip_report,
+            max_cycle_sec=args.max_cycle_sec,
+        )
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # ── Run cycle ─────────────────────────────────────────────────
+    try:
+        result = run_cycle.run_once(args.root, options=options)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # ── Safe output ───────────────────────────────────────────────
+    summary = result.safe_summary()
+
+    print(f"run_cycle:           {result.status}")
+    print(f"mode:                local_only")
+
+    if result.runtime_config_status:
+        print(f"runtime_config_status: {result.runtime_config_status}")
+    if result.manifest_status:
+        print(f"manifest_status:     {result.manifest_status}")
+
+    # Media counts (only if media was checked)
+    if any(s.name == "media_cache" and s.status != "skipped" for s in result.steps):
+        print(f"media_cache_complete: {str(result.media_cache_complete).lower()}")
+        print(f"media_items_total:   {result.media_items_total}")
+        print(f"media_items_cached:  {result.media_items_cached}")
+        print(f"media_items_missing: {result.media_items_missing}")
+        print(f"media_items_failed:  {result.media_items_failed}")
+
+    if result.last_error_code:
+        print(f"last_error_code:     {result.last_error_code}")
+
+    # ── Exit code ─────────────────────────────────────────────────
+    if result.status == "error":
+        sys.exit(1)
+
+    # ok, warning, degraded → exit 0
+    sys.exit(0)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-agent",
@@ -1054,6 +1126,31 @@ def main() -> None:
     p_rmc.add_argument("--auth-max-attempts", type=int, default=3,
                        help="Max auth attempts (default: 3)")
     p_rmc.set_defaults(func=cmd_report_media_cache)
+
+    # ── Run once command ──────────────────────────────────────────
+
+    p_ro = sub.add_parser("run-once",
+                          help="Run one cycle: local readiness preflight (--local-only required)")
+    p_ro.add_argument("--root", required=True, help="Root path")
+    p_ro.add_argument("--local-only", action="store_true", default=False,
+                      help="Enable local-only mode (required — backend run-cycle not implemented)")
+    p_ro.add_argument("--retry-auth", action="store_true", default=False,
+                      help="Enable retry for auth step (future)")
+    p_ro.add_argument("--retry-heartbeat", action="store_true", default=False,
+                      help="Enable retry for heartbeat step (future)")
+    p_ro.add_argument("--skip-runtime-config", action="store_true", default=False,
+                      help="Skip runtime config step (future)")
+    p_ro.add_argument("--skip-heartbeat", action="store_true", default=False,
+                      help="Skip heartbeat step (future)")
+    p_ro.add_argument("--skip-manifest", action="store_true", default=False,
+                      help="Skip manifest step (future)")
+    p_ro.add_argument("--skip-media", action="store_true", default=False,
+                      help="Skip media step (future)")
+    p_ro.add_argument("--skip-report", action="store_true", default=False,
+                      help="Skip report step (future)")
+    p_ro.add_argument("--max-cycle-sec", type=int, default=120,
+                      help="Max cycle duration in seconds (default: 120)")
+    p_ro.set_defaults(func=cmd_run_once)
 
     # ── Auth commands ──────────────────────────────────────────────
 
