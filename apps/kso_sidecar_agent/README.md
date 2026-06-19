@@ -472,6 +472,30 @@ Safe aggregates + internal `_*` buckets (repr=False). Никогда не сод
 
 **Actual rotation apply — отдельный шаг.** Материализатор только готовит in-memory данные. Запись на диск делает atomic file writer, оркестрацию — rotation apply.
 
+## PoP Pending Rewrite Atomic Helper
+
+🧱 **Реализован:** `pop_pending_rewrite.py`. Атомарная перезапись `pop/pending/player_events.jsonl` с новым списком retained pending records.
+
+### `rewrite_pending_pop_events_atomic(root, records, lock_result) -> PopPendingRewriteResult`
+
+- **Требует lock** — caller должен уже держать `PopPendingLockResult` (acquired=True)
+- Helper не берёт и не освобождает lock сам
+- Atomic модель: `.tmp` → flush → fsync → `os.replace`
+- Пустой records допустим — создаёт пустой pending файл
+- Каждый record валидируется на forbidden keys/values
+
+### Что НЕ делает
+
+- ❌ Не берёт/не освобождает lock
+- ❌ Не читает существующий pending
+- ❌ Не создаёт sent/quarantine/dry_run/failed
+- ❌ Не делает HTTP/backend send
+- ❌ Не читает secret/config/token/media bytes
+
+### PopPendingRewriteResult
+
+Safe dataclass: status (written|skipped|error), records_written, line_size_bytes, reason. Никогда не содержит file paths, lock paths, записи, ID, secrets.
+
 ---
 
 ## PoP Backend Sender Design
