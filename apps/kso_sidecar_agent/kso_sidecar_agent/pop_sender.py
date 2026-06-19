@@ -1,11 +1,19 @@
-"""KSO Sidecar PoP Sender Response Classifier — safe backend response classification.
+"""KSO Sidecar PoP Sender — safe backend response classification + HTTP send.
 
-Pure logic: classifies a future backend response after PoP batch send.
-No HTTP, no backend send, no retry runner, no file move, no rotation.
+Pure logic + single-attempt HTTP core:
+  - classify_pop_send_response() → classifies a backend response
+  - send_pop_payload_batch() → sends payload via safe HTTP client (single attempt)
+  - format_pop_send_result() → safe aggregated output
+
+No retry runner, no auth refresh, no CLI, no run cycle, no file move/rotation.
 Only returns safe PopSendResult — never raw response, payload, IDs, or secrets.
 """
 
+import dataclasses as _dc
+import json as _json
+import time as _time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 # ══════════════════════════════════════════════════════════════════════
@@ -624,3 +632,153 @@ def format_pop_send_result(result: PopSendResult) -> str:
             )
 
     return output
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Endpoint
+# ══════════════════════════════════════════════════════════════════════
+
+# This path is covered by _ALLOWED_PREFIXES in http_client.py:
+#   "/api/device-gateway/pop/" → allows "/api/device-gateway/pop/events/batch"
+POP_BATCH_ENDPOINT = "/api/device-gateway/pop/events/batch"
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Payload serialization
+# ══════════════════════════════════════════════════════════════════════
+
+def _envelope_to_request_payload(envelope) -> dict:
+    """Convert PopPayloadEnvelope to a JSON-safe dict for POST body.
+
+    Uses dataclasses.asdict for safe nested conversion.
+    Never logs the result — the dict is only for HTTP body, not for output.
+    """
+    events = []
+    for evt in envelope.events:
+        event_dict = _dc.asdict(evt)
+        events.append(event_dict)
+
+    return {
+        "batch_id": envelope.batch_id,
+        "sent_at": envelope.sent_at,
+        "events": events,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════
+# HTTP Sender (single-attempt, no retry, no auth refresh)
+# ══════════════════════════════════════════════════════════════════════
+
+def send_pop_payload_batch(
+    http_client,
+    payload_envelope,
+    access_token: Optional[str] = None,
+    now: Optional[str] = None,
+) -> PopSendResult:
+    """Send an in-memory PopPayloadEnvelope to backend via safe HTTP client.
+
+    Single-attempt only — no retry loop, no auth refresh, no CLI.
+    Uses existing SafeHttpClient.post_json() with allowlisted path.
+
+    Pipeline:
+        1. Validate envelope (non-None, has events)
+        2. Build Authorization header if token provided
+        3. Build request payload from envelope
+        4. POST to POP_BATCH_ENDPOINT
+        5. Classify response via classify_pop_send_response()
+        6. Return safe PopSendResult
+
+    Args:
+        http_client: SafeHttpClient instance (or duck-typed equivalent).
+        payload_envelope: PopPayloadEnvelope from build_pop_backend_payload().
+        access_token: Optional JWT access token (in-memory only, never logged).
+        now: Optional ISO8601 timestamp override for sent_at.
+
+    Returns:
+        PopSendResult — always safe, never raises, never exposes secrets/IDs.
+
+    Never logs: token, Authorization header, payload body, batch_id,
+    device_event_id, manifest_item_id, campaign_id, endpoint URL.
+    """
+    # ── No payload → bail out without HTTP ────────────────────────
+    if payload_envelope is None:
+        return PopSendResult(
+            send_status=SEND_WARNING,
+            attempted_events=0,
+            reason=REASON_NO_PAYLOAD,
+            pending_should_remain=True,
+        )
+
+    events = getattr(payload_envelope, "events", None)
+    if not events:
+        return PopSendResult(
+            send_status=SEND_WARNING,
+            attempted_events=0,
+            reason=REASON_NO_PAYLOAD,
+            pending_should_remain=True,
+        )
+
+    attempted_events = len(events)
+
+    # ── Build headers ─────────────────────────────────────────────
+    headers = {}
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
+
+    # ── Build request payload ─────────────────────────────────────
+    try:
+        request_payload = _envelope_to_request_payload(payload_envelope)
+    except Exception:
+        return PopSendResult(
+            send_status=SEND_ERROR,
+            attempted_events=attempted_events,
+            reason=REASON_BAD_REQUEST,
+            retryable=False,
+            pending_should_remain=True,
+        )
+
+    # ── POST to backend ──────────────────────────────────────────
+    start = _time.monotonic()
+    try:
+        response = http_client.post_json(POP_BATCH_ENDPOINT, request_payload, headers)
+    except Exception as e:
+        elapsed_ms = (_time.monotonic() - start) * 1000
+
+        # Check for HttpClientError (has status_code, retryable attrs)
+        status_code = getattr(e, "status_code", 0)
+        retryable = getattr(e, "retryable", False)
+
+        if status_code > 0:
+            # HTTP-level error (4xx/5xx)
+            return classify_pop_send_response(
+                http_status=status_code,
+                response_json=None,
+                elapsed_ms=elapsed_ms,
+                attempted_events=attempted_events,
+            )
+
+        # Network / timeout / connection error (status_code == 0, retryable)
+        msg = str(e).lower() if hasattr(e, "__str__") else ""
+        if "timeout" in msg:
+            return classify_pop_send_response(
+                error_type="timeout",
+                elapsed_ms=elapsed_ms,
+                attempted_events=attempted_events,
+            )
+        return classify_pop_send_response(
+            error_type="network",
+            elapsed_ms=elapsed_ms,
+            attempted_events=attempted_events,
+        )
+
+    elapsed_ms = response.elapsed_ms
+
+    # ── Classify response ────────────────────────────────────────
+    result = classify_pop_send_response(
+        http_status=response.status_code,
+        response_json=response.json_body,
+        elapsed_ms=elapsed_ms,
+        attempted_events=attempted_events,
+    )
+
+    return result

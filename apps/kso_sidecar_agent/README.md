@@ -184,6 +184,33 @@ Safe dataclass: send_status, attempted/accepted/duplicate/rejected_events, http_
 
 **HTTP sender — отдельный шаг (26.24+).** Rotation/move — отдельный шаг (26.25+). Pending не трогать без confirmed backend success.
 
+## PoP Backend Sender HTTP Core
+
+📡 **Реализован:** `send_pop_payload_batch()` в `pop_sender.py`. Single-attempt HTTP core для отправки in-memory PoP payload в backend.
+
+### `send_pop_payload_batch(http_client, payload_envelope, access_token=None, now=None) -> PopSendResult`
+
+- Принимает существующий `SafeHttpClient`, `PopPayloadEnvelope`, и опциональный access token
+- Использует только allowlisted endpoint: `/api/device-gateway/pop/events/batch`
+- Single attempt — без retry loop, auth refresh, CLI, run cycle
+- Token только in-memory аргумент, не читается из файлов
+- При ошибке HTTP/сети → классифицирует через `classify_pop_send_response()`
+- При отсутствии payload → `REASON_NO_PAYLOAD`, HTTP не вызывается
+- Никогда не логирует: token, Authorization header, payload body, batch_id, manifest_item_id
+
+### Endpoint
+
+`/api/device-gateway/pop/events/batch` — покрыт префиксом `_ALLOWED_PREFIXES` в `http_client.py`.
+
+### Что НЕ делает (будет отдельными шагами)
+
+- ❌ CLI команда (26.25+)
+- ❌ Retry loop / auth refresh (26.26+)
+- ❌ Run cycle integration (26.27+)
+- ❌ File rotation / move (26.28+)
+- ❌ Чтение secret/config/token файлов
+- ❌ Real backend calls (только fake в тестах)
+
 ---
 
 ## PoP Backend Sender Design
