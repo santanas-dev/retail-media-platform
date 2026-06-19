@@ -796,13 +796,12 @@ def run_once(
     options: Optional[RunCycleOptions] = None,
     now: Optional[float] = None,
 ) -> RunCycleResult:
-    """Execute one run cycle — with local readiness, auth, runtime config, heartbeat, and manifest.
+    """Execute one run cycle — with local readiness, auth, runtime config, heartbeat, manifest, and media sync.
 
     On this step:
     - Preflight: validate root + local readiness checks
     - Checks config, runtime_config, manifest, media_cache on DISK
-    - Backend-enabled mode: auth → runtime config → heartbeat → manifest
-    - NO media sync
+    - Backend-enabled mode: auth → runtime config → heartbeat → manifest → media
     - NO media cache report
     - NO second/final heartbeat
     - Returns safe RunCycleResult.
@@ -971,13 +970,51 @@ def run_once(
             message="Skipped — auth failed",
         ))
 
+    # ── Media sync step (backend_enabled + auth ok + manifest valid) ──
+    # When backend enabled, replace local readiness media_cache step with sync result
+    if options.backend_enabled:
+        steps = [s for s in steps if s.name != "media_cache"]
+
+    from kso_sidecar_agent.run_cycle_media import (
+        sync_media_for_cycle as _sync_media,
+    )
+
+    media_sync_result = None
+    if options.backend_enabled and auth_result.token_state is not None and auth_result.step.status == "ok":
+        try:
+            media_sync_result = _sync_media(root, auth_result.token_state, now=now)
+            steps.append(media_sync_result.step)
+        except Exception as e:
+            steps.append(RunCycleStepResult(
+                name="media",
+                status="error",
+                fatal=False,
+                message=_redact_forbidden(f"Media sync error: {e}"),
+            ))
+    elif options.backend_enabled and auth_result.step.status == "error":
+        steps.append(RunCycleStepResult(
+            name="media",
+            status="skipped",
+            message="Skipped — auth failed",
+        ))
+
     # ── Build result ───────────────────────────────────────────────
-    # Pass media status from readiness to build_cycle_result
-    try:
-        readiness = evaluate_local_readiness(root)
-        media_status = readiness.get("media_status")
-    except Exception:
-        media_status = None
+    # In backend mode: use media sync result instead of local readiness scan
+    if options.backend_enabled and media_sync_result is not None:
+        media_status = {
+            "cache_complete": media_sync_result.cache_complete,
+            "items_total": media_sync_result.items_total,
+            "items_cached": media_sync_result.items_cached + media_sync_result.items_downloaded,
+            "items_missing": media_sync_result.items_missing,
+            "items_invalid_hash": 0,
+            "items_invalid_size": 0,
+        }
+    else:
+        try:
+            readiness = evaluate_local_readiness(root)
+            media_status = readiness.get("media_status")
+        except Exception:
+            media_status = None
 
     result = build_cycle_result(ctx, steps, now=now, media_status=media_status)
 
@@ -1007,6 +1044,14 @@ def run_once(
         result.media_items_total = manifest_result.items_count
     elif options.backend_enabled and auth_result.step.status == "error":
         result.manifest_status = "skipped"
+
+    # ── Inject media sync metadata into result ─────────────────────
+    if media_sync_result is not None:
+        result.media_cache_complete = media_sync_result.cache_complete
+        result.media_items_total = media_sync_result.items_total
+        result.media_items_cached = media_sync_result.items_cached + media_sync_result.items_downloaded
+        result.media_items_missing = media_sync_result.items_missing
+        result.media_items_failed = media_sync_result.items_failed
 
     # ── Update agent_status ────────────────────────────────────────
     try:

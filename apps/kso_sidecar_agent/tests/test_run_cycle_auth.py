@@ -117,6 +117,10 @@ class AuthHandler(BaseHTTPRequestHandler):
             }
             self.wfile.write(json.dumps(manifest_body).encode())
             return
+        if self.path.startswith("/api/device-gateway/media/"):
+            self.send_response(404)
+            self.end_headers()
+            return
         self.send_response(404)
         self.end_headers()
 

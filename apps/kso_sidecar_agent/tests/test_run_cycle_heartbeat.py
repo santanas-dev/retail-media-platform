@@ -114,6 +114,10 @@ class Hnd(BaseHTTPRequestHandler):
             }
             self.wfile.write(json.dumps(manifest).encode())
             return
+        if self.path.startswith("/api/device-gateway/media/"):
+            self.send_response(404)
+            self.end_headers()
+            return
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()

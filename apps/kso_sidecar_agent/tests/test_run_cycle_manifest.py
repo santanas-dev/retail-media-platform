@@ -450,6 +450,10 @@ class FullHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(_valid_manifest_body())
             return
+        if self.path.startswith("/api/device-gateway/media/"):
+            self.send_response(404)
+            self.end_headers()
+            return
         # Runtime config fallback
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
