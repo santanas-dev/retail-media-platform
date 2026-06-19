@@ -19,6 +19,7 @@ from typing import Any, Optional
 
 from kso_sidecar_agent.atomic_io import atomic_write_json
 from kso_sidecar_agent.paths import AGENT_STATUS_FILE
+from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager
 
 # ══════════════════════════════════════════════════════════════════════
 # Constants
@@ -115,6 +116,7 @@ class RunCycleOptions:
     retry_auth: bool = False
     retry_heartbeat: bool = False
     auth_max_attempts: int = 3
+    heartbeat_max_attempts: int = 3
 
     # Step skips
     skip_runtime_config: bool = False
@@ -134,6 +136,10 @@ class RunCycleOptions:
         if not isinstance(self.auth_max_attempts, int) or self.auth_max_attempts < 1 or self.auth_max_attempts > 10:
             raise ValueError(
                 f"auth_max_attempts must be 1–10, got {self.auth_max_attempts!r}"
+            )
+        if not isinstance(self.heartbeat_max_attempts, int) or self.heartbeat_max_attempts < 1 or self.heartbeat_max_attempts > 10:
+            raise ValueError(
+                f"heartbeat_max_attempts must be 1–10, got {self.heartbeat_max_attempts!r}"
             )
 
 
@@ -168,6 +174,8 @@ class RunCycleResult:
     steps: list[RunCycleStepResult] = field(default_factory=list)
     last_auth_status: Optional[str] = None     # ok | error | skipped
     auth_attempts: int = 0
+    heartbeat_status: Optional[str] = None     # sent | error | skipped
+    heartbeat_attempts: int = 0
     runtime_config_status: Optional[str] = None  # updated | not_modified | missing | invalid
     manifest_status: Optional[str] = None        # updated | not_modified | no_manifest | missing | invalid
     media_cache_complete: bool = False
@@ -237,6 +245,11 @@ class RunCycleResult:
             block["last_auth_status"] = self.last_auth_status
         if self.auth_attempts > 0:
             block["auth_attempts"] = self.auth_attempts
+
+        if self.heartbeat_status:
+            block["heartbeat_status"] = self.heartbeat_status
+        if self.heartbeat_attempts > 0:
+            block["heartbeat_attempts"] = self.heartbeat_attempts
 
         if self.runtime_config_status:
             _check_forbidden(self.runtime_config_status, "runtime_config_status")
@@ -895,6 +908,41 @@ def run_once(
             message="Skipped — auth failed",
         ))
 
+    # ── Heartbeat step (backend_enabled + auth ok) ──────────────────
+    from kso_sidecar_agent.run_cycle_heartbeat import (
+        send_heartbeat_for_cycle as _send_hb,
+        _build_heartbeat_status_hint as _hb_hint,
+    )
+
+    hb_result = None
+    if options.backend_enabled and auth_result.token_state is not None and auth_result.step.status == "ok":
+        hb_hint = _hb_hint(True, rc_result.config_status if rc_result else None)
+        hb_retry = None
+        if options.retry_heartbeat:
+            hb_policy = BackoffPolicy(max_attempts=options.heartbeat_max_attempts)
+            hb_retry = RetryBackoffManager(hb_policy)
+        try:
+            hb_result = _send_hb(
+                root, auth_result.token_state,
+                cycle_status_hint=hb_hint,
+                now=now,
+                retry_manager=hb_retry,
+            )
+            steps.append(hb_result.step)
+        except Exception as e:
+            steps.append(RunCycleStepResult(
+                name="heartbeat",
+                status="error",
+                fatal=False,
+                message=_redact_forbidden(f"Heartbeat error: {e}"),
+            ))
+    elif options.backend_enabled and auth_result.step.status == "error":
+        steps.append(RunCycleStepResult(
+            name="heartbeat",
+            status="skipped",
+            message="Skipped — auth failed",
+        ))
+
     # ── Build result ───────────────────────────────────────────────
     # Pass media status from readiness to build_cycle_result
     try:
@@ -917,6 +965,13 @@ def run_once(
     # ── Inject runtime config metadata ─────────────────────────────
     if rc_result is not None:
         result.runtime_config_status = rc_result.config_status
+
+    # ── Inject heartbeat metadata into result ──────────────────────
+    if hb_result is not None:
+        result.heartbeat_status = hb_result.heartbeat_status
+        result.heartbeat_attempts = hb_result.attempts
+    elif options.backend_enabled and auth_result.step.status == "error":
+        result.heartbeat_status = "skipped"
 
     # ── Update agent_status ────────────────────────────────────────
     try:

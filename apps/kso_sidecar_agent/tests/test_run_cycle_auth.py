@@ -403,7 +403,7 @@ class TestRunOnceWithAuth(unittest.TestCase):
                 self.assertEqual(auth_s.status, "ok")
                 self.assertEqual(result.last_auth_status, "ok")
                 self.assertGreater(result.auth_attempts, 0)
-                self.assertEqual(AuthHandler.calls, 1)
+                self.assertEqual(AuthHandler.calls, 2)  # auth + heartbeat
         finally:
             server.shutdown()
 
