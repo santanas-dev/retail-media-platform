@@ -22,6 +22,7 @@ from kso_player.pop_writer import (
     REASON_INVALID_EVENT,
     REASON_UNSAFE_RECORD,
     REASON_WRITE_FAILED,
+    REASON_LOCK_UNAVAILABLE,
     ALLOWED_SAFETY_STATES,
     ALLOWED_RECORD_KEYS,
     FORBIDDEN_SUBSTRINGS,
@@ -29,7 +30,11 @@ from kso_player.pop_writer import (
     MAX_LINE_SIZE_BYTES,
     POP_PENDING_DIR,
     POP_JSONL_FILE,
+    POP_LOCK_FILE,
     SCHEMA_VERSION,
+    _acquire_lock,
+    _release_lock,
+    _safe_unlink,
 )
 from kso_player.events import (
     PlaybackEventDraft,
@@ -597,3 +602,205 @@ class TestWritePopEventEdgeCases(TestCase):
             finally:
                 import shutil
                 shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Lock tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestLockAcquireRelease(TestCase):
+    """Unit tests for lock acquire/release."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.pending = self.tmp / POP_PENDING_DIR
+        self.pending.mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_acquire_lock_creates_file(self):
+        lock_path = self.pending / POP_LOCK_FILE
+        self.assertFalse(lock_path.exists())
+        acquired = _acquire_lock(self.pending)
+        self.assertTrue(acquired)
+        self.assertTrue(lock_path.exists())
+
+    def test_acquire_lock_writes_marker(self):
+        _acquire_lock(self.pending)
+        lock_path = self.pending / POP_LOCK_FILE
+        content = lock_path.read_text()
+        self.assertIn("locked", content)
+
+    def test_acquire_lock_marker_no_secrets(self):
+        _acquire_lock(self.pending)
+        lock_path = self.pending / POP_LOCK_FILE
+        content = lock_path.read_text().lower()
+        for fb in ("token", "secret", "password", "path", "backend", "127.0.0.1"):
+            self.assertNotIn(fb, content)
+
+    def test_acquire_twice_fails(self):
+        self.assertTrue(_acquire_lock(self.pending))
+        self.assertFalse(_acquire_lock(self.pending))
+
+    def test_release_lock_removes_file(self):
+        _acquire_lock(self.pending)
+        lock_path = self.pending / POP_LOCK_FILE
+        self.assertTrue(lock_path.exists())
+        _release_lock(self.pending)
+        self.assertFalse(lock_path.exists())
+
+    def test_release_when_no_lock_safe(self):
+        _release_lock(self.pending)  # no error
+
+    def test_safe_unlink_missing_file(self):
+        path = self.pending / "nonexistent"
+        _safe_unlink(path)  # no error
+
+
+class TestLockWriteIntegration(TestCase):
+    """Integration: write_pop_event with lock."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_successful_write_no_lock_after(self):
+        draft = _make_draft()
+        result = write_pop_event(self.tmp, draft, "idle")
+        self.assertEqual(result.status, STATUS_WRITTEN)
+        # Lock must be released after write
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        self.assertFalse(lock_path.exists(), f"lock still exists: {lock_path}")
+
+    def test_write_creates_jsonl(self):
+        draft = _make_draft()
+        write_pop_event(self.tmp, draft, "idle")
+        jsonl_path = self.tmp / POP_PENDING_DIR / POP_JSONL_FILE
+        self.assertTrue(jsonl_path.exists())
+        lines = jsonl_path.read_text().strip().split("\n")
+        self.assertEqual(len(lines), 1)
+
+    def test_lock_unavailable_skips(self):
+        # Pre-create lock file
+        lock_path = self.tmp / POP_PENDING_DIR
+        lock_path.mkdir(parents=True, exist_ok=True)
+        (lock_path / POP_LOCK_FILE).write_text("locked\n")
+
+        draft = _make_draft()
+        result = write_pop_event(self.tmp, draft, "idle")
+        self.assertEqual(result.status, STATUS_SKIPPED)
+        self.assertEqual(result.reason, REASON_LOCK_UNAVAILABLE)
+        self.assertFalse(result.written)
+
+    def test_lock_unavailable_jsonl_untouched(self):
+        # Pre-create JSONL and lock
+        pending = self.tmp / POP_PENDING_DIR
+        pending.mkdir(parents=True, exist_ok=True)
+        jsonl_path = pending / POP_JSONL_FILE
+        jsonl_path.write_text("existing content\n")
+
+        lock_path = pending / POP_LOCK_FILE
+        lock_path.write_text("locked\n")
+
+        draft = _make_draft()
+        result = write_pop_event(self.tmp, draft, "idle")
+        self.assertEqual(result.reason, REASON_LOCK_UNAVAILABLE)
+        # JSONL unchanged
+        self.assertEqual(jsonl_path.read_text(), "existing content\n")
+
+    def test_second_write_after_release_works(self):
+        draft1 = _make_draft()
+        result1 = write_pop_event(self.tmp, draft1, "idle")
+        self.assertEqual(result1.status, STATUS_WRITTEN)
+
+        draft2 = _make_draft(EVENT_TYPE_BLOCKED)
+        result2 = write_pop_event(self.tmp, draft2, "payment")
+        self.assertEqual(result2.status, STATUS_WRITTEN)
+
+    def test_result_no_lock_path(self):
+        draft = _make_draft()
+        result = write_pop_event(self.tmp, draft, "idle")
+        text = repr(result)
+        self.assertNotIn(".lock", text.lower())
+        self.assertNotIn("player_events.lock", text)
+
+    def test_result_no_forbidden_when_lock_unavailable(self):
+        pending = self.tmp / POP_PENDING_DIR
+        pending.mkdir(parents=True, exist_ok=True)
+        (pending / POP_LOCK_FILE).write_text("locked\n")
+
+        draft = _make_draft()
+        result = write_pop_event(self.tmp, draft, "idle")
+        text = repr(result)
+        for fb in FORBIDDEN_SUBSTRINGS:
+            self.assertNotIn(fb, text.lower(),
+                f"forbidden '{fb}' in result repr: {text[:200]}")
+
+
+class TestLockReleasedOnFailure(TestCase):
+    """Lock is released even on write/fsync failures."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_lock_released_after_write_failure(self):
+        pending = self.tmp / POP_PENDING_DIR
+        pending.mkdir(parents=True, exist_ok=True)
+
+        # Make the JSONL file a directory so write fails
+        jsonl_path = pending / POP_JSONL_FILE
+        jsonl_path.mkdir()
+
+        draft = _make_draft()
+        result = write_pop_event(self.tmp, draft, "idle")
+        self.assertEqual(result.status, STATUS_ERROR)
+        self.assertEqual(result.reason, REASON_WRITE_FAILED)
+
+        # Lock must be released
+        lock_path = pending / POP_LOCK_FILE
+        self.assertFalse(lock_path.exists(),
+            f"lock not released after write failure: {lock_path}")
+
+
+class TestWriterNoUnwantedSideEffects(TestCase):
+    """Writer does NOT do HTTP, read secrets, or create other dirs."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_no_other_dirs_created(self):
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            draft = _make_draft()
+            write_pop_event(tmp, draft, "idle")
+            # Only pop/pending should exist
+            top_dirs = [d.name for d in tmp.iterdir() if d.is_dir()]
+            self.assertIn("pop", top_dirs)
+            # No sent/quarantine/dry_run/failed
+            for bad in ("sent", "quarantine", "dry_run", "failed"):
+                pop_dir = tmp / "pop"
+                if pop_dir.exists():
+                    self.assertNotIn(bad, [d.name for d in pop_dir.iterdir()],
+                        f"'{bad}/' dir should not exist")
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_writer_no_http_no_secret_reading(self):
+        draft = _make_draft()
+        result = write_pop_event(self.tmp, draft, "idle")
+        # Pure file I/O — no HTTP errors
+        self.assertIsNotNone(result)

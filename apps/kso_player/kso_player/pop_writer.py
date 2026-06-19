@@ -31,7 +31,13 @@ from kso_player.events import (
 
 POP_PENDING_DIR = "pop/pending"
 POP_JSONL_FILE = "player_events.jsonl"
+POP_LOCK_FILE = "player_events.lock"
 SCHEMA_VERSION = 1
+
+# ── Lock marker ─────────────────────────────────────────────────────
+
+# Safe, minimal marker written into lock file. No secrets, paths, or IDs.
+LOCK_MARKER = "locked\n"
 
 # ── Write result status ────────────────────────────────────────────
 
@@ -45,6 +51,7 @@ REASON_WRITTEN = "written"
 REASON_INVALID_EVENT = "invalid_event"
 REASON_UNSAFE_RECORD = "unsafe_record"
 REASON_WRITE_FAILED = "write_failed"
+REASON_LOCK_UNAVAILABLE = "lock_unavailable"
 
 # ── Allowed safety states ──────────────────────────────────────────
 
@@ -273,6 +280,57 @@ def build_pop_jsonl_record(
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Lock helpers
+# ══════════════════════════════════════════════════════════════════════
+
+def _acquire_lock(pending_dir: Path) -> bool:
+    """Try to acquire an exclusive lock file for player_events.jsonl.
+
+    Cross-platform: uses os.open(..., O_CREAT | O_EXCL | O_WRONLY)
+    to atomically create the lock file. If it already exists, the lock
+    is held by another process and acquisition fails.
+
+    Writes a safe minimal marker (no secrets, no paths, no IDs).
+
+    Args:
+        pending_dir: The pop/pending/ directory path.
+
+    Returns:
+        True if lock was acquired, False otherwise.
+    """
+    lock_path = pending_dir / POP_LOCK_FILE
+    try:
+        fd = _os.open(str(lock_path), _os.O_CREAT | _os.O_EXCL | _os.O_WRONLY)
+    except (FileExistsError, OSError):
+        return False
+    try:
+        _os.write(fd, LOCK_MARKER.encode("utf-8"))
+    except OSError:
+        _os.close(fd)
+        _safe_unlink(lock_path)
+        return False
+    _os.close(fd)
+    return True
+
+
+def _release_lock(pending_dir: Path) -> None:
+    """Release the lock file, if present.
+
+    Never raises — fail-silent. Lock path never logged.
+    """
+    lock_path = pending_dir / POP_LOCK_FILE
+    _safe_unlink(lock_path)
+
+
+def _safe_unlink(path: Path) -> None:
+    """Try to remove a file; never raise."""
+    try:
+        _os.unlink(str(path))
+    except (FileNotFoundError, OSError):
+        pass
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Write function
 # ══════════════════════════════════════════════════════════════════════
 
@@ -365,17 +423,32 @@ def write_pop_event(
             event_status=record.get("event_status"),
         )
 
-    # ── Write ───────────────────────────────────────────────────
+    # ── Write (with lock) ────────────────────────────────────────
     try:
         pending_dir = root / POP_PENDING_DIR
         pending_dir.mkdir(parents=True, exist_ok=True)
 
-        filepath = pending_dir / POP_JSONL_FILE
+        # Try to acquire lock — non-blocking, skip if unavailable
+        if not _acquire_lock(pending_dir):
+            return PopWriteResult(
+                status=STATUS_SKIPPED,
+                written=False,
+                reason=REASON_LOCK_UNAVAILABLE,
+                event_type=record.get("event_type"),
+                event_status=record.get("event_status"),
+            )
 
-        with open(filepath, "a", encoding="utf-8") as fh:
-            fh.write(line)
-            fh.flush()
-            _os.fsync(fh.fileno())
+        # Lock acquired — write with flush+fsync
+        try:
+            filepath = pending_dir / POP_JSONL_FILE
+
+            with open(filepath, "a", encoding="utf-8") as fh:
+                fh.write(line)
+                fh.flush()
+                _os.fsync(fh.fileno())
+        finally:
+            # Always release lock — even if write/fsync fails
+            _release_lock(pending_dir)
 
     except Exception:
         return PopWriteResult(

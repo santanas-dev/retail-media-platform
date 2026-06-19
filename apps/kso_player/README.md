@@ -524,6 +524,16 @@ pop_write_reason: written
 
 Пишет `{root}/pop/pending/player_events.jsonl` (append-only, flush + fsync).
 
+### File Lock (🔒 26.28)
+
+`pop-write` использует lock-файл `pop/pending/player_events.lock` для защиты от конфликтов с будущей sidecar rotation:
+
+- Lock создаётся атомарно (`O_CREAT | O_EXCL`) перед записью
+- Lock удаляется после записи (даже при ошибке — `finally` блок)
+- Если lock уже занят → запись skipped, reason=`lock_unavailable`
+- Lock-файл содержит только безопасный marker (`"locked\n"`), без secrets/paths/IDs
+- Stale lock cleanup — будущий отдельный шаг
+
 ---
 
 ## Что НЕ работает (будет отдельными шагами)
