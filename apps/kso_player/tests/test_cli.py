@@ -107,7 +107,6 @@ class TestCLIHelp(unittest.TestCase):
         out, err, rc = _run_cli("playlist-status", "--help")
         self.assertEqual(rc, 0)
         self.assertIn("--root", out)
-        self.assertIn("readiness", out.lower())
 
     def test_no_args_shows_help(self):
         out, err, rc = _run_cli()

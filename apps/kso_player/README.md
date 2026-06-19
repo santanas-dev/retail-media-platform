@@ -294,6 +294,55 @@ session_reason: safety_blocked
 
 **Следующий шаг:** simulator CLI.
 
+## CLI: `simulate-step`
+
+```bash
+cd apps/kso_player
+
+# Симулировать один шаг playback
+python3 -m kso_player.cli simulate-step --root /tmp/kso-agent-root --state idle
+
+# Проверить с заблокированным состоянием
+python3 -m kso_player.cli simulate-step --root /tmp/kso-agent-root --state payment
+
+# Help
+python3 -m kso_player.cli simulate-step --help
+```
+
+**Важно:** это симуляция без реального playback. Media не проигрывается, sleep не делается, PoP не пишется.
+State передаётся вручную, реальное состояние КСО не читается.
+
+### Пример вывода (idle + ready)
+
+```
+playlist_ready: true
+playback_allowed: true
+simulation_status: would_play
+session_action: play
+session_reason: ready
+selected_order: 0
+selected_content_type: image/png
+selected_duration_ms: 5000
+```
+
+### Пример вывода (payment + ready)
+
+```
+playlist_ready: true
+playback_allowed: false
+simulation_status: blocked
+session_action: stop
+session_reason: safety_blocked
+```
+
+### Exit codes (simulate-step)
+
+| Код | Значение |
+|---|---|
+| 0 | simulation_status=would_play |
+| 1 | simulation_status=blocked/not_ready/error |
+| 2 | Invalid CLI args |
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay
@@ -336,3 +385,5 @@ tests/
   test_safety_cli.py
   test_session.py
   test_playback_dry_run_cli.py
+  test_simulate_step_cli.py
+  test_simulator.py
