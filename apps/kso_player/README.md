@@ -436,6 +436,12 @@ session_reason: safety_blocked
 | 1 | event_type=blocked/not_ready/error |
 | 2 | Invalid CLI args |
 
+## PoP Local Writer Design
+
+📝 **Mini-design создан:** `docs/pop_local_writer_design.md`. Описывает безопасную локальную запись PoP/events в `pop/pending/player_events.jsonl`. Writer пишет только локально, не отправляет в backend. Sidecar будет забирать события отдельным шагом. Реализация writer — отдельный шаг.
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay
