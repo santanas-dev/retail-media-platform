@@ -429,6 +429,49 @@ Safe dataclass: status (written|skipped|error), target, records_written, line_si
 
 **Actual rotation apply — отдельный шаг.** Этот модуль только пишет файлы, не оркестрирует rotation.
 
+## PoP Rotation Materializer Core
+
+🧩 **Реализован:** `pop_rotation_materializer.py`. In-memory bucket builder — читает pending под lock, классифицирует, готовит записи для sent/quarantine/dry_run/failed/retained_pending.
+
+### `materialize_pop_rotation_records(root, send_run_result=None, max_lines=10000) -> PopRotationMaterializeResult`
+
+- Берёт lock → читает JSONL → классифицирует (pop_pickup) → распределяет по in-memory buckets → отпускает lock
+- **Никогда не пишет, не перемещает, не удаляет файлы**
+- **Не вызывает `write_pop_rotation_records_atomic`**
+- Использует тот же lock: `pop/pending/player_events.lock`
+
+### Buckets
+
+| Статус события | Bucket | Тип записи |
+|---|---|---|
+| draft | `_dry_run_records` | sanitized `rotation_dry_run` |
+| blocked | `_dry_run_records` | sanitized `rotation_dry_run` |
+| failed | `_dry_run_records` | sanitized `rotation_dry_run` |
+| invalid JSON / forbidden | `_quarantine_records` | sanitized `rotation_quarantine` |
+| completed eligible + send ok | `_sent_records` | original safe event |
+| completed eligible + no send / pending_should_remain | `_retained_pending_records` | original safe event |
+
+### Sanitized записи
+
+Quarantine/dry_run/failed записи **никогда не содержат raw JSON**. Формат:
+```json
+{"schema_version": 1, "record_type": "rotation_quarantine", "reason": "invalid_json", "created_at": "ISO8601", "source": "player_events", "line_number": 3}
+```
+
+### PopRotationMaterializeResult
+
+Safe aggregates + internal `_*` buckets (repr=False). Никогда не содержит raw JSON, paths, IDs, secrets.
+
+### Что НЕ делает
+
+- ❌ Не вызывает atomic file writer
+- ❌ Не создаёт sent/quarantine/dry_run/failed
+- ❌ Не меняет/не удаляет pending
+- ❌ Не делает HTTP/backend send
+- ❌ Не читает secret/config/token/media bytes
+
+**Actual rotation apply — отдельный шаг.** Материализатор только готовит in-memory данные. Запись на диск делает atomic file writer, оркестрацию — rotation apply.
+
 ---
 
 ## PoP Backend Sender Design
