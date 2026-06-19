@@ -91,9 +91,51 @@ class AuthHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(_valid_auth_body())
 
+    def do_GET(self):
+        """Serve valid manifest for /manifest/current."""
+        if self.path == "/api/device-gateway/manifest/current":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            item_id = _valid_manifest_item_id()
+            manifest_body = {
+                "status": "served",
+                "manifest_version_id": _valid_manifest_version_id(),
+                "manifest_hash": _valid_manifest_hash(),
+                "published_at": "2026-06-19T10:00:00Z",
+                "manifest": {
+                    "items": [
+                        {
+                            "id": item_id,
+                            "sha256": _valid_manifest_item_sha256(),
+                            "media_path": f"media/{item_id}.png",
+                            "duration_ms": 5000,
+                            "order": 0,
+                        }
+                    ]
+                },
+            }
+            self.wfile.write(json.dumps(manifest_body).encode())
+            return
+        self.send_response(404)
+        self.end_headers()
+
 
 def _noop_sleep(sec):
     pass
+
+def _valid_manifest_version_id():
+    return "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+
+def _valid_manifest_hash():
+    return "c" * 64
+
+def _valid_manifest_item_id():
+    return "11111111-1111-1111-1111-111111111111"
+
+def _valid_manifest_item_sha256():
+    import hashlib
+    return hashlib.sha256(b"test content").hexdigest()
 
 
 # ══════════════════════════════════════════════════════════════════════

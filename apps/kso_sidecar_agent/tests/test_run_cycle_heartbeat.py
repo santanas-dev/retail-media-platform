@@ -94,6 +94,26 @@ class Hnd(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        if self.path == "/api/device-gateway/manifest/current":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            item_id = "11111111-1111-1111-1111-111111111111"
+            sha = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            manifest = {
+                "status": "served",
+                "manifest_version_id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+                "manifest_hash": "c" * 64,
+                "published_at": "2026-06-19T10:00:00Z",
+                "manifest": {
+                    "items": [
+                        {"id": item_id, "sha256": sha, "media_path": f"media/{item_id}.png",
+                         "duration_ms": 5000, "order": 0}
+                    ]
+                },
+            }
+            self.wfile.write(json.dumps(manifest).encode())
+            return
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()

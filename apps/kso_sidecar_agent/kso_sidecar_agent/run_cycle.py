@@ -1,9 +1,9 @@
 """KSO Sidecar Run Cycle — Core Skeleton with Local Readiness.
 
-Dataclasses and functions for the future unified run-cycle orchestrator.
-Skeleton only: no HTTP calls, no real clients called, no backend.
+Dataclasses and functions for the unified run-cycle orchestrator.
 Implements: options, step result, cycle result, status classification,
-local readiness preflight, and safe agent_status update with _cycle block.
+local readiness preflight, safe agent_status update with _cycle block,
+auth, runtime config sync, heartbeat, and manifest sync steps.
 
 Based on: docs/kso_sidecar_run_cycle_design.md
 """
@@ -796,16 +796,16 @@ def run_once(
     options: Optional[RunCycleOptions] = None,
     now: Optional[float] = None,
 ) -> RunCycleResult:
-    """Execute one run cycle — SKELETON with local readiness preflight.
+    """Execute one run cycle — with local readiness, auth, runtime config, heartbeat, and manifest.
 
     On this step:
     - Preflight: validate root + local readiness checks
     - Checks config, runtime_config, manifest, media_cache on DISK
-    - NO backend calls
-    - NO auth
-    - NO secret reading
-    - NO sync operations
-    - Returns safe RunCycleResult with all local readiness steps.
+    - Backend-enabled mode: auth → runtime config → heartbeat → manifest
+    - NO media sync
+    - NO media cache report
+    - NO second/final heartbeat
+    - Returns safe RunCycleResult.
 
     Args:
         root: Agent root path.
@@ -943,6 +943,34 @@ def run_once(
             message="Skipped — auth failed",
         ))
 
+    # ── Manifest step (backend_enabled + auth ok) ───────────────────
+    # When backend enabled, replace local readiness manifest step with sync result
+    if options.backend_enabled:
+        steps = [s for s in steps if s.name != "manifest"]
+
+    from kso_sidecar_agent.run_cycle_manifest import (
+        sync_manifest_for_cycle as _sync_manifest,
+    )
+
+    manifest_result = None
+    if options.backend_enabled and auth_result.token_state is not None and auth_result.step.status == "ok":
+        try:
+            manifest_result = _sync_manifest(root, auth_result.token_state, now=now)
+            steps.append(manifest_result.step)
+        except Exception as e:
+            steps.append(RunCycleStepResult(
+                name="manifest",
+                status="error",
+                fatal=False,
+                message=_redact_forbidden(f"Manifest sync error: {e}"),
+            ))
+    elif options.backend_enabled and auth_result.step.status == "error":
+        steps.append(RunCycleStepResult(
+            name="manifest",
+            status="skipped",
+            message="Skipped — auth failed",
+        ))
+
     # ── Build result ───────────────────────────────────────────────
     # Pass media status from readiness to build_cycle_result
     try:
@@ -972,6 +1000,13 @@ def run_once(
         result.heartbeat_attempts = hb_result.attempts
     elif options.backend_enabled and auth_result.step.status == "error":
         result.heartbeat_status = "skipped"
+
+    # ── Inject manifest metadata into result ───────────────────────
+    if manifest_result is not None:
+        result.manifest_status = manifest_result.manifest_status
+        result.media_items_total = manifest_result.items_count
+    elif options.backend_enabled and auth_result.step.status == "error":
+        result.manifest_status = "skipped"
 
     # ── Update agent_status ────────────────────────────────────────
     try:

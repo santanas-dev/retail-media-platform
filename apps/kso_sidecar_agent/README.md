@@ -49,6 +49,7 @@ KSO Sidecar Agent — будущий production-агент, который бу�
 - ✅ Run cycle auth step (`run_cycle_auth.py`): device auth с memory-only token, fake server в тестах
 - ✅ Run cycle runtime config step (`run_cycle_runtime_config.py`): sync runtime config в backend режиме
 - ✅ Run cycle heartbeat step (`run_cycle_heartbeat.py`): отправка heartbeat в backend режиме
+- ✅ Run cycle manifest step (`run_cycle_manifest.py`): получение и синхронизация manifest в backend режиме
 - ❌ Run-once full backend cycle (пока только --local-only)
 - ❌ Run loop / scheduler
 - ❌ Media retry (retry для media download пока не подключён)
