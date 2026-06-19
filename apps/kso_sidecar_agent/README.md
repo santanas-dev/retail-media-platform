@@ -318,6 +318,37 @@ Exponential backoff без jitter: 1→1000, 2→2000, 3→4000, capped.
 
 **Rotation пока не реализована. Destructive rotation запрещена без lock.**
 
+## PoP Local Rotation Plan Core
+
+🧭 **Реализован:** `pop_rotation_plan.py`. In-memory rotation plan — классифицирует pending события без записи на диск.
+
+### `build_pop_rotation_plan(root, send_run_result=None, max_lines=10000) -> PopRotationPlanResult`
+
+- Берёт lock → читает JSONL → классифицирует → строит план → отпускает lock
+- **Никогда не пишет, не перемещает, не удаляет файлы**
+- Использует тот же lock: `pop/pending/player_events.lock`
+
+### Планирование по результату отправки
+
+| send_run_result | sent_lines | reason |
+|---|---|---|
+| `None` | 0 | pending_should_remain |
+| `pending_should_remain=true` | 0 | pending_should_remain |
+| 409 duplicate | 0 | duplicate_pending_remains |
+| `run_status=ok, pending_should_remain=false` | eligible → sent | planned |
+
+### Классификация событий
+
+| Статус | План |
+|---|---|
+| draft | → dry_run |
+| blocked/failed | → dry_run |
+| invalid JSON/forbidden | → quarantine |
+| eligible (completed+idle+manifest+media) + send ok | → sent |
+| eligible + send not ok | → stays pending |
+
+**Destructive rotation пока не реализована.**
+
 ---
 
 ## PoP Backend Sender Design
