@@ -1063,6 +1063,32 @@ def cmd_pop_batch_preview(args: argparse.Namespace) -> None:
     sys.exit(0 if result.status == "ok" else 1)
 
 
+def cmd_pop_payload_preview(args: argparse.Namespace) -> None:
+    """Build in-memory backend payload — safe aggregates only.
+
+    Read-only: no backend send, no HTTP, no file move, no delete.
+    Payload body and IDs are never printed.
+    """
+    from kso_sidecar_agent.pop_payload import (
+        build_pop_backend_payload,
+        format_pop_payload_build_result,
+    )
+
+    max_events = args.max_events
+    if max_events is not None and max_events <= 0:
+        print("ERROR: --max-events must be > 0", file=sys.stderr)
+        sys.exit(2)
+
+    try:
+        result = build_pop_backend_payload(args.root, max_events=max_events)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(format_pop_payload_build_result(result))
+    sys.exit(0 if result.status == "ok" else 1)
+
+
 def cmd_player_readiness(args: argparse.Namespace) -> None:
     """Show local content readiness snapshot for KSO Player. No backend, no secret."""
     from kso_sidecar_agent.player_readiness import build_player_readiness_snapshot
@@ -1299,6 +1325,15 @@ def main() -> None:
     p_pbp.add_argument("--max-events", type=int, default=100,
                        help="Max events in batch (default: 100)")
     p_pbp.set_defaults(func=cmd_pop_batch_preview)
+
+    # ── PoP payload preview ─────────────────────────────────────────
+
+    p_ppp = sub.add_parser("pop-payload-preview",
+                           help="Build in-memory backend payload — safe aggregates only (no backend send, no HTTP)")
+    p_ppp.add_argument("--root", required=True, help="Root path")
+    p_ppp.add_argument("--max-events", type=int, default=100,
+                       help="Max events in payload (default: 100)")
+    p_ppp.set_defaults(func=cmd_pop_payload_preview)
 
     # ── Auth commands ──────────────────────────────────────────────
 

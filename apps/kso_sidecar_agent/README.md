@@ -119,6 +119,28 @@ python3 -m kso_sidecar_agent.cli pop-batch-preview --root /tmp/kso-agent-root --
 
 **Backend send / move / rotation будут отдельными шагами.** Payload body не логируется. manifest_item_id используется только внутри payload и не выводится в safe output.
 
+## CLI: `pop-payload-preview`
+
+```bash
+cd apps/kso_sidecar_agent
+
+# Построить in-memory backend payload — только агрегаты
+python3 -m kso_sidecar_agent.cli pop-payload-preview --root /tmp/kso-agent-root
+
+# С лимитом
+python3 -m kso_sidecar_agent.cli pop-payload-preview --root /tmp/kso-agent-root --max-events 50
+```
+
+**Важно:** только превью. НЕ отправляет backend, НЕ делает HTTP, payload body не печатается. Только completed eligible events могут попасть в payload. Draft/blocked/failed не являются PoP.
+
+### Exit codes
+
+| Код | Значение |
+|---|---|
+| 0 | Payload preview ok |
+| 1 | Warning/error/invalid/quarantine |
+| 2 | Invalid CLI args (включая --max-events <= 0) |
+
 ---
 
 ---
