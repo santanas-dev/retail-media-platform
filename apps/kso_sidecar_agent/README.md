@@ -141,6 +141,39 @@ python3 -m kso_sidecar_agent.cli pop-payload-preview --root /tmp/kso-agent-root 
 | 1 | Warning/error/invalid/quarantine |
 | 2 | Invalid CLI args (включая --max-events <= 0) |
 
+## CLI: `pop-rotation-plan`
+
+```bash
+cd apps/kso_sidecar_agent
+
+# Построить in-memory rotation plan — только безопасные агрегаты
+python3 -m kso_sidecar_agent.cli pop-rotation-plan --root /tmp/kso-agent-root
+
+# С лимитом
+python3 -m kso_sidecar_agent.cli pop-rotation-plan --root /tmp/kso-agent-root --max-lines 500
+```
+
+**Важно:** только preview. НЕ перемещает файлы, НЕ удаляет pending, НЕ создаёт sent/quarantine/dry_run/failed, НЕ делает backend send. Lock используется тот же: `pop/pending/player_events.lock`.
+
+**Без backend confirmation `sent_lines` всегда 0.** Даже если в pending есть completed eligible события, без подтверждённого успеха отправки они остаются в pending.
+
+Destructive rotation будет отдельным шагом.
+
+### Аргументы
+
+| Аргумент | Обязательный | По умолчанию | Описание |
+|---|---|---|---|
+| `--root` | ✅ | — | Root path |
+| `--max-lines` | ❌ | 10000 | Max lines to read (> 0) |
+
+### Exit codes
+
+| Код | Значение |
+|---|---|
+| 0 | Plan ok |
+| 1 | Warning/error/invalid/quarantine/lock_unavailable/plan_limited |
+| 2 | Invalid CLI args (--root missing, --max-lines <= 0) |
+
 ## PoP Sender Response Classifier Core
 
 🧠 **Реализован:** `pop_sender.py`. Безопасная классификация будущего ответа backend после отправки PoP batch.
@@ -348,6 +381,16 @@ Exponential backoff без jitter: 1→1000, 2→2000, 3→4000, capped.
 | eligible + send not ok | → stays pending |
 
 **Destructive rotation пока не реализована.**
+
+### CLI: `pop-rotation-plan`
+
+```bash
+cd apps/kso_sidecar_agent
+python3 -m kso_sidecar_agent.cli pop-rotation-plan --root /tmp/kso-agent-root
+python3 -m kso_sidecar_agent.cli pop-rotation-plan --root /tmp/kso-agent-root --max-lines 500
+```
+
+Подробнее см. секцию **CLI: `pop-rotation-plan`**.
 
 ---
 

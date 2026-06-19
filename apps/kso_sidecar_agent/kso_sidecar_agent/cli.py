@@ -36,6 +36,11 @@ from kso_sidecar_agent.media_cache_report_client import (
     MediaCacheReportClient, build_media_cache_report_payload,
 )
 from kso_sidecar_agent.media_client import MediaClient
+from kso_sidecar_agent.pop_rotation_plan import (
+    build_pop_rotation_plan,
+    format_pop_rotation_plan_result,
+    PLAN_OK,
+)
 from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager
 from kso_sidecar_agent.runtime_config_client import RuntimeConfigClient
 
@@ -1089,6 +1094,29 @@ def cmd_pop_payload_preview(args: argparse.Namespace) -> None:
     sys.exit(0 if result.status == "ok" else 1)
 
 
+def cmd_pop_rotation_plan(args: argparse.Namespace) -> None:
+    """Build in-memory rotation plan — safe aggregates only.
+
+    Read-only: no backend send, no file move, no delete, no sent/quarantine/dry_run/failed creation.
+    Without backend confirmation sent_lines is always 0.
+
+    Uses lock: pop/pending/player_events.lock (same as player writer).
+    """
+    max_lines = args.max_lines
+    if max_lines is not None and max_lines <= 0:
+        print("ERROR: --max-lines must be > 0", file=sys.stderr)
+        sys.exit(2)
+
+    try:
+        result = build_pop_rotation_plan(args.root, send_run_result=None,
+                                         max_lines=max_lines or 10000)
+        print(format_pop_rotation_plan_result(result))
+        sys.exit(0 if result.rotation_status == PLAN_OK else 1)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def cmd_player_readiness(args: argparse.Namespace) -> None:
     """Show local content readiness snapshot for KSO Player. No backend, no secret."""
     from kso_sidecar_agent.player_readiness import build_player_readiness_snapshot
@@ -1334,6 +1362,15 @@ def main() -> None:
     p_ppp.add_argument("--max-events", type=int, default=100,
                        help="Max events in payload (default: 100)")
     p_ppp.set_defaults(func=cmd_pop_payload_preview)
+
+    # ── PoP rotation plan preview ────────────────────────────────────
+
+    p_prp = sub.add_parser("pop-rotation-plan",
+                           help="Build in-memory rotation plan — safe aggregates only (no backend send, no move, no delete)")
+    p_prp.add_argument("--root", required=True, help="Root path")
+    p_prp.add_argument("--max-lines", type=int, default=10000,
+                       help="Max lines to read (default: 10000, must be > 0)")
+    p_prp.set_defaults(func=cmd_pop_rotation_plan)
 
     # ── Auth commands ──────────────────────────────────────────────
 
