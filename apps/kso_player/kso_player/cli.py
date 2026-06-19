@@ -24,6 +24,7 @@ from kso_player.safety import (
 )
 from kso_player.session import select_next_item
 from kso_player.simulator import simulate_playback_step, SIM_STATUS_WOULD_PLAY
+from kso_player.events import build_playback_event_draft, EVENT_TYPE_WOULD_PLAY
 
 
 def cmd_playlist_status(args: argparse.Namespace) -> None:
@@ -99,6 +100,34 @@ def cmd_simulate_step(args: argparse.Namespace) -> None:
     sys.exit(0 if sim_result.simulated_status == SIM_STATUS_WOULD_PLAY else 1)
 
 
+def cmd_event_dry_run(args: argparse.Namespace) -> None:
+    """Build in-memory event draft. No PoP, no JSONL, no backend, no media played."""
+    root = Path(args.root)
+    state = args.state.strip().lower()
+    playlist = build_playlist(root)
+    snapshot = PlaybackSafetySnapshot(state=state)
+    safety_decision = decide_playback_safety(snapshot, playlist)
+    sim_result = simulate_playback_step(playlist, safety_decision, session_state=None)
+    event = build_playback_event_draft(sim_result, safety_decision)
+
+    print(f"playlist_ready: {str(playlist.ready).lower()}")
+    print(f"playback_allowed: {str(safety_decision.allowed).lower()}")
+    print(f"simulation_status: {sim_result.simulated_status}")
+    print(f"event_type: {event.event_type}")
+    print(f"event_status: {event.event_status}")
+    print(f"session_action: {event.session_action}")
+    print(f"session_reason: {event.session_reason}")
+
+    if event.selected_order is not None:
+        print(f"selected_order: {event.selected_order}")
+    if event.selected_content_type is not None:
+        print(f"selected_content_type: {event.selected_content_type}")
+    if event.selected_duration_ms is not None:
+        print(f"selected_duration_ms: {event.selected_duration_ms}")
+
+    sys.exit(0 if event.event_type == EVENT_TYPE_WOULD_PLAY else 1)
+
+
 def _validate_state(value: str) -> str:
     normalized = value.strip().lower()
     if normalized not in ALLOWED_STATES:
@@ -146,6 +175,11 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="Simulate one playback step (no media played, no sleep)")
     _add_state_arg(ss)
     ss.set_defaults(func=cmd_simulate_step)
+
+    edr = sub.add_parser("event-dry-run",
+                         help="Build in-memory event draft (no PoP, no JSONL, no backend)")
+    _add_state_arg(edr)
+    edr.set_defaults(func=cmd_event_dry_run)
 
     return parser
 

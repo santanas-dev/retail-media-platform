@@ -386,6 +386,56 @@ customer/payment/card/receipt details.
 
 **Следующий шаг:** CLI event-dry-run или PoP draft writer design.
 
+## CLI: `event-dry-run`
+
+```bash
+cd apps/kso_player
+
+# Построить in-memory event draft
+python3 -m kso_player.cli event-dry-run --root /tmp/kso-agent-root --state idle
+
+# Help
+python3 -m kso_player.cli event-dry-run --help
+```
+
+**Важно:** это только in-memory draft. НЕ пишет PoP, НЕ пишет JSONL, НЕ отправляет в backend.
+State передаётся вручную, реальное состояние КСО не читается.
+
+### Пример вывода (idle + ready)
+
+```
+playlist_ready: true
+playback_allowed: true
+simulation_status: would_play
+event_type: would_play
+event_status: draft
+session_action: play
+session_reason: ready
+selected_order: 0
+selected_content_type: image/png
+selected_duration_ms: 5000
+```
+
+### Пример вывода (payment + ready)
+
+```
+playlist_ready: true
+playback_allowed: false
+simulation_status: blocked
+event_type: blocked
+event_status: draft
+session_action: stop
+session_reason: safety_blocked
+```
+
+### Exit codes (event-dry-run)
+
+| Код | Значение |
+|---|---|
+| 0 | event_type=would_play |
+| 1 | event_type=blocked/not_ready/error |
+| 2 | Invalid CLI args |
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay
