@@ -998,6 +998,35 @@ def cmd_run_once(args: argparse.Namespace) -> None:
     sys.exit(0)
 
 
+# ── Player readiness command ──────────────────────────────────────────
+
+def cmd_player_readiness(args: argparse.Namespace) -> None:
+    """Show local content readiness snapshot for KSO Player. No backend, no secret."""
+    from kso_sidecar_agent.player_readiness import build_player_readiness_snapshot
+
+    try:
+        snap = build_player_readiness_snapshot(args.root)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"player_ready:           {str(snap.ready).lower()}")
+    print(f"can_play_local_content: {str(snap.can_play_local_content).lower()}")
+    print(f"reason:                 {snap.reason}")
+    print(f"manifest_status:        {snap.manifest_status or 'unknown'}")
+    print(f"media_cache_complete:   {str(snap.media_cache_complete).lower()}")
+    print(f"media_items_total:      {snap.media_items_total}")
+    print(f"media_items_cached:     {snap.media_items_cached}")
+    print(f"media_items_missing:    {snap.media_items_missing}")
+    print(f"media_items_failed:     {snap.media_items_failed}")
+    if snap.last_cycle_status:
+        print(f"last_cycle_status:      {snap.last_cycle_status}")
+    if snap.offline_ready is not None:
+        print(f"offline_ready:          {str(snap.offline_ready).lower()}")
+
+    sys.exit(0 if snap.ready else 1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-agent",
@@ -1184,6 +1213,13 @@ def main() -> None:
     p_ro.add_argument("--max-cycle-sec", type=int, default=120,
                       help="Max cycle duration in seconds (default: 120)")
     p_ro.set_defaults(func=cmd_run_once)
+
+    # ── Player readiness ──────────────────────────────────────────
+
+    p_pr = sub.add_parser("player-readiness",
+                          help="Check local content readiness for KSO Player (no backend, no secret)")
+    p_pr.add_argument("--root", required=True, help="Root path")
+    p_pr.set_defaults(func=cmd_player_readiness)
 
     # ── Auth commands ──────────────────────────────────────────────
 
