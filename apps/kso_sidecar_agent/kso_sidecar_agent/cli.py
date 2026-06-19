@@ -906,25 +906,33 @@ def cmd_report_media_cache(args: argparse.Namespace) -> None:
 # ── Run once command ─────────────────────────────────────────────────
 
 def cmd_run_once(args: argparse.Namespace) -> None:
-    """Execute one run cycle — LOCAL-ONLY mode.
+    """Execute one run cycle — local-only or backend mode.
 
-    Wraps run_cycle.run_once() for local readiness preflight.
-    No backend calls, no auth, no secret reading.
-    Backend run-cycle will be a separate future step.
+    --local-only: local readiness preflight only, no backend, no secret.
+    --backend --dev-secret-store: full cycle auth→rc→hb→manifest→media→report→final hb.
     """
-    # ── Gate: --local-only is required ────────────────────────────
-    if not args.local_only:
-        print(
-            "ERROR: run-once currently supports only --local-only mode",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    # ── Gate: mode selection ──────────────────────────────────────
+    if args.local_only and args.backend:
+        print("ERROR: --local-only and --backend cannot be used together.", file=sys.stderr)
+        sys.exit(2)
 
-    # ── Build options ─────────────────────────────────────────────
+    if not args.local_only and not args.backend:
+        print("ERROR: Must specify --local-only or --backend.", file=sys.stderr)
+        sys.exit(2)
+
+    if args.backend and not args.dev_secret_store:
+        print("ERROR: --backend requires --dev-secret-store (production secret storage not yet implemented).", file=sys.stderr)
+        sys.exit(2)
+
+    # ── Build RunCycleOptions ─────────────────────────────────────
     try:
         options = run_cycle.RunCycleOptions(
+            backend_enabled=args.backend,
+            dev_secret_store=args.dev_secret_store,
             retry_auth=args.retry_auth,
             retry_heartbeat=args.retry_heartbeat,
+            auth_max_attempts=args.auth_max_attempts,
+            heartbeat_max_attempts=args.heartbeat_max_attempts,
             skip_runtime_config=args.skip_runtime_config,
             skip_heartbeat=args.skip_heartbeat,
             skip_manifest=args.skip_manifest,
@@ -934,7 +942,7 @@ def cmd_run_once(args: argparse.Namespace) -> None:
         )
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(2)
 
     # ── Run cycle ─────────────────────────────────────────────────
     try:
@@ -944,26 +952,37 @@ def cmd_run_once(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # ── Safe output ───────────────────────────────────────────────
-    summary = result.safe_summary()
+    print(f"run_cycle:              {result.status}")
+    print(f"mode:                   {'backend' if args.backend else 'local_only'}")
 
-    print(f"run_cycle:           {result.status}")
-    print(f"mode:                local_only")
+    if result.last_auth_status and result.last_auth_status != "skipped":
+        print(f"auth_status:            {result.last_auth_status}")
 
     if result.runtime_config_status:
-        print(f"runtime_config_status: {result.runtime_config_status}")
-    if result.manifest_status:
-        print(f"manifest_status:     {result.manifest_status}")
+        print(f"runtime_config_status:  {result.runtime_config_status}")
 
-    # Media counts (only if media was checked)
-    if any(s.name == "media_cache" and s.status != "skipped" for s in result.steps):
-        print(f"media_cache_complete: {str(result.media_cache_complete).lower()}")
-        print(f"media_items_total:   {result.media_items_total}")
-        print(f"media_items_cached:  {result.media_items_cached}")
-        print(f"media_items_missing: {result.media_items_missing}")
-        print(f"media_items_failed:  {result.media_items_failed}")
+    if result.heartbeat_status:
+        print(f"heartbeat_status:       {result.heartbeat_status}")
+
+    if result.manifest_status:
+        print(f"manifest_status:        {result.manifest_status}")
+
+    # Media stats (always show in backend mode, or if checked in local-only)
+    if args.backend or any(s.name == "media_cache" and s.status != "skipped" for s in result.steps):
+        print(f"media_cache_complete:   {str(result.media_cache_complete).lower()}")
+        print(f"media_items_total:      {result.media_items_total}")
+        print(f"media_items_cached:     {result.media_items_cached}")
+        print(f"media_items_missing:    {result.media_items_missing}")
+        print(f"media_items_failed:     {result.media_items_failed}")
+
+    if result.media_report_status:
+        print(f"media_report_status:    {result.media_report_status}")
+
+    if result.final_heartbeat_status:
+        print(f"final_heartbeat_status: {result.final_heartbeat_status}")
 
     if result.last_error_code:
-        print(f"last_error_code:     {result.last_error_code}")
+        print(f"last_error_code:        {result.last_error_code}")
 
     # ── Exit code ─────────────────────────────────────────────────
     if result.status == "error":
@@ -976,7 +995,7 @@ def cmd_run_once(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-agent",
-        description="KSO Sidecar Agent — skeleton. No backend calls yet.",
+        description="KSO Sidecar Agent.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -1130,24 +1149,32 @@ def main() -> None:
     # ── Run once command ──────────────────────────────────────────
 
     p_ro = sub.add_parser("run-once",
-                          help="Run one cycle: local readiness preflight (--local-only required)")
+                          help="Run one cycle: --local-only (offline) or --backend --dev-secret-store (full cycle)")
     p_ro.add_argument("--root", required=True, help="Root path")
     p_ro.add_argument("--local-only", action="store_true", default=False,
-                      help="Enable local-only mode (required — backend run-cycle not implemented)")
+                      help="Local readiness preflight only (no backend)")
+    p_ro.add_argument("--backend", action="store_true", default=False,
+                      help="Run full backend cycle: auth→rc→hb→manifest→media→report→final hb")
+    p_ro.add_argument("--dev-secret-store", action="store_true", default=False,
+                      help="Read secret from dev secret store (required with --backend)")
     p_ro.add_argument("--retry-auth", action="store_true", default=False,
-                      help="Enable retry for auth step (future)")
+                      help="Enable retry for auth step")
+    p_ro.add_argument("--auth-max-attempts", type=int, default=3,
+                      help="Max auth attempts (default: 3)")
     p_ro.add_argument("--retry-heartbeat", action="store_true", default=False,
-                      help="Enable retry for heartbeat step (future)")
+                      help="Enable retry for heartbeat step")
+    p_ro.add_argument("--heartbeat-max-attempts", type=int, default=3,
+                      help="Max heartbeat attempts (default: 3)")
     p_ro.add_argument("--skip-runtime-config", action="store_true", default=False,
-                      help="Skip runtime config step (future)")
+                      help="Skip runtime config step")
     p_ro.add_argument("--skip-heartbeat", action="store_true", default=False,
-                      help="Skip heartbeat step (future)")
+                      help="Skip heartbeat step")
     p_ro.add_argument("--skip-manifest", action="store_true", default=False,
-                      help="Skip manifest step (future)")
+                      help="Skip manifest step")
     p_ro.add_argument("--skip-media", action="store_true", default=False,
-                      help="Skip media step (future)")
+                      help="Skip media step")
     p_ro.add_argument("--skip-report", action="store_true", default=False,
-                      help="Skip report step (future)")
+                      help="Skip report step")
     p_ro.add_argument("--max-cycle-sec", type=int, default=120,
                       help="Max cycle duration in seconds (default: 120)")
     p_ro.set_defaults(func=cmd_run_once)

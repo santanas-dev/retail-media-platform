@@ -114,7 +114,7 @@ class TestRunOnceCLI(unittest.TestCase):
             _setup_config_only(root)
             rc, out, err = _run("run-once", "--root", root)
             self.assertNotEqual(rc, 0)
-            self.assertIn("only --local-only", err)
+            self.assertIn("Must specify --local-only or --backend", err)
 
     # ── Success: full ready root ───────────────────────────────────
 
@@ -125,7 +125,7 @@ class TestRunOnceCLI(unittest.TestCase):
             rc, out, err = _run("run-once", "--root", root, "--local-only")
             self.assertEqual(rc, 0)
             self.assertIn("run_cycle:", out)
-            self.assertIn("mode:                local_only", out)
+            self.assertIn("mode:                   local_only", out)
             self.assertIn("runtime_config_status:", out)
             self.assertIn("manifest_status:", out)
 
@@ -147,7 +147,7 @@ class TestRunOnceCLI(unittest.TestCase):
 
             rc, out, err = _run("run-once", "--root", root, "--local-only")
             self.assertEqual(rc, 0)
-            self.assertIn("run_cycle:           warning", out)
+            self.assertIn("run_cycle:              warning", out)
 
     # ── Error: no config ───────────────────────────────────────────
 
@@ -157,7 +157,7 @@ class TestRunOnceCLI(unittest.TestCase):
 
             rc, out, err = _run("run-once", "--root", root, "--local-only")
             self.assertEqual(rc, 1)
-            self.assertIn("run_cycle:           error", out)
+            self.assertIn("run_cycle:              error", out)
             self.assertIn("last_error_code:", out)
 
     # ── Agent status update ────────────────────────────────────────
@@ -264,7 +264,7 @@ class TestRunOnceCLI(unittest.TestCase):
         rc, out, err = _run("run-once", "--root", "/tmp/nonexistent-root-kso-12345",
                             "--local-only")
         self.assertEqual(rc, 1)
-        self.assertIn("run_cycle:           error", out)
+        self.assertIn("run_cycle:              error", out)
 
     # ── help output shows future flags ─────────────────────────────
 

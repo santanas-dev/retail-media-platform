@@ -54,7 +54,7 @@ KSO Sidecar Agent — будущий production-агент, который бу�
 - ✅ Run cycle media report step (`run_cycle_media_report.py`): отправка media cache report в backend режиме
 - ✅ Run cycle final heartbeat: initial + final heartbeat в backend режиме
 - ✅ Full run-cycle E2E smoke test на fake backend
-- ❌ Run-once full backend cycle (пока только --local-only)
+- ✅ Run-once CLI backend mode: `run-once --backend --dev-secret-store`
 - ❌ Run loop / scheduler
 - ❌ Media retry (retry для media download пока не подключён)
 - ❌ PoP flush (`/pop/events/batch`)
