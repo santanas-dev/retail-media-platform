@@ -3,7 +3,7 @@
 Dataclasses and functions for the unified run-cycle orchestrator.
 Implements: options, step result, cycle result, status classification,
 local readiness preflight, safe agent_status update with _cycle block,
-auth, runtime config sync, heartbeat, and manifest sync steps.
+auth, runtime config sync, heartbeat, manifest sync, media sync, and report steps.
 
 Based on: docs/kso_sidecar_run_cycle_design.md
 """
@@ -178,6 +178,7 @@ class RunCycleResult:
     heartbeat_attempts: int = 0
     runtime_config_status: Optional[str] = None  # updated | not_modified | missing | invalid
     manifest_status: Optional[str] = None        # updated | not_modified | no_manifest | missing | invalid
+    media_report_status: Optional[str] = None     # sent | error | skipped
     media_cache_complete: bool = False
     media_items_total: int = 0
     media_items_cached: int = 0
@@ -197,6 +198,8 @@ class RunCycleResult:
             _check_forbidden(self.runtime_config_status, "runtime_config_status")
         if self.manifest_status:
             _check_forbidden(self.manifest_status, "manifest_status")
+        if self.media_report_status:
+            _check_forbidden(self.media_report_status, "media_report_status")
 
     def safe_summary(self) -> dict:
         """Return safe metadata only — no secrets, no paths, no full IDs."""
@@ -258,6 +261,10 @@ class RunCycleResult:
         if self.manifest_status:
             _check_forbidden(self.manifest_status, "manifest_status")
             block["manifest_status"] = self.manifest_status
+
+        if self.media_report_status:
+            _check_forbidden(self.media_report_status, "media_report_status")
+            block["media_report_status"] = self.media_report_status
 
         # Security scan
         block_str = _json.dumps(block).lower()
@@ -998,6 +1005,30 @@ def run_once(
             message="Skipped — auth failed",
         ))
 
+    # ── Media report step (backend_enabled + auth ok) ────────────────
+    from kso_sidecar_agent.run_cycle_media_report import (
+        send_media_cache_report_for_cycle as _send_report,
+    )
+
+    report_result = None
+    if options.backend_enabled and auth_result.token_state is not None and auth_result.step.status == "ok":
+        try:
+            report_result = _send_report(root, auth_result.token_state, now=now)
+            steps.append(report_result.step)
+        except Exception as e:
+            steps.append(RunCycleStepResult(
+                name="report",
+                status="error",
+                fatal=False,
+                message=_redact_forbidden(f"Media report error: {e}"),
+            ))
+    elif options.backend_enabled and auth_result.step.status == "error":
+        steps.append(RunCycleStepResult(
+            name="report",
+            status="skipped",
+            message="Skipped — auth failed",
+        ))
+
     # ── Build result ───────────────────────────────────────────────
     # In backend mode: use media sync result instead of local readiness scan
     if options.backend_enabled and media_sync_result is not None:
@@ -1052,6 +1083,12 @@ def run_once(
         result.media_items_cached = media_sync_result.items_cached + media_sync_result.items_downloaded
         result.media_items_missing = media_sync_result.items_missing
         result.media_items_failed = media_sync_result.items_failed
+
+    # ── Inject media report metadata into result ───────────────────
+    if report_result is not None:
+        result.media_report_status = report_result.report_status
+    elif options.backend_enabled and auth_result.step.status == "error":
+        result.media_report_status = "skipped"
 
     # ── Update agent_status ────────────────────────────────────────
     try:

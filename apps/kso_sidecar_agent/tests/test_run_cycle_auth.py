@@ -71,25 +71,50 @@ class AuthHandler(BaseHTTPRequestHandler):
         pass
 
     def do_POST(self):
-        AuthHandler.calls += 1
+        if self.path == "/api/device-gateway/auth/token":
+            AuthHandler.calls += 1
 
-        if self.FAIL_CODE:
-            self.send_response(self.FAIL_CODE)
-            self.end_headers()
-            self.wfile.write(b'{"error":"fail"}')
-            return
+            if self.FAIL_CODE:
+                self.send_response(self.FAIL_CODE)
+                self.end_headers()
+                self.wfile.write(b'{"error":"fail"}')
+                return
 
-        if self.INVALID_JSON:
+            if self.INVALID_JSON:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(b"<html>not json</html>")
+                return
+
             self.send_response(200)
-            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(b"<html>not json</html>")
+            self.wfile.write(_valid_auth_body())
             return
 
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
+        if self.path == "/api/device-gateway/heartbeat":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"id": "hb" + "1" * 32, "gateway_device_id": TEST_DEVICE_ID, "status": "ok"}).encode())
+            return
+
+        if self.path == "/api/device-gateway/media/cache/report":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok",
+                "manifest_version_id": _valid_manifest_version_id(),
+                "gateway_device_id": TEST_DEVICE_ID,
+                "total_items": 1, "cached_count": 0, "missing_count": 1,
+                "failed_count": 0, "invalid_hash_count": 0,
+            }).encode())
+            return
+
+        self.send_response(404)
         self.end_headers()
-        self.wfile.write(_valid_auth_body())
 
     def do_GET(self):
         """Serve valid manifest for /manifest/current."""
@@ -449,7 +474,7 @@ class TestRunOnceWithAuth(unittest.TestCase):
                 self.assertEqual(auth_s.status, "ok")
                 self.assertEqual(result.last_auth_status, "ok")
                 self.assertGreater(result.auth_attempts, 0)
-                self.assertEqual(AuthHandler.calls, 2)  # auth + heartbeat
+                self.assertEqual(AuthHandler.calls, 1)  # auth only (heartbeat/report separate)
         finally:
             server.shutdown()
 

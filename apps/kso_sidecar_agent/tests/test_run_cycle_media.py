@@ -395,12 +395,13 @@ class TestSyncMediaForCycle(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class FullMediaHandler(BaseHTTPRequestHandler):
-    """Fake server: auth + heartbeat + manifest + media."""
+    """Fake server: auth + heartbeat + manifest + media + report."""
     AF: int | None = None
     HF: int | None = None
     MF: int | None = None
     MEDIA_404: bool = False
     MEDIA_500: bool = False
+    RF: int | None = None
 
     @classmethod
     def r(cls):
@@ -409,6 +410,7 @@ class FullMediaHandler(BaseHTTPRequestHandler):
         cls.MF = None
         cls.MEDIA_404 = False
         cls.MEDIA_500 = False
+        cls.RF = None
 
     def lm(self, *a):
         pass
@@ -435,6 +437,22 @@ class FullMediaHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"id": "hb" + "1" * 32, "gateway_device_id": TDEV, "status": "ok"}).encode())
+            return
+        if self.path == "/api/device-gateway/media/cache/report":
+            if FullMediaHandler.RF:
+                self.send_response(FullMediaHandler.RF)
+                self.end_headers()
+                self.wfile.write(b'{"error":"report fail"}')
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok", "manifest_version_id": MVID,
+                "gateway_device_id": TDEV,
+                "total_items": 1, "cached_count": 1, "missing_count": 0,
+                "failed_count": 0, "invalid_hash_count": 0,
+            }).encode())
             return
         self.send_response(404)
         self.end_headers()

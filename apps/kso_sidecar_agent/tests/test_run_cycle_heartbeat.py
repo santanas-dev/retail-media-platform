@@ -90,6 +90,17 @@ class Hnd(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({"id": "hb" + "1" * 32, "gateway_device_id": TDEV, "status": "ok"}).encode())
             return
+        if self.path == "/api/device-gateway/media/cache/report":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok", "manifest_version_id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+                "gateway_device_id": TDEV,
+                "total_items": 1, "cached_count": 0, "missing_count": 1,
+                "failed_count": 0, "invalid_hash_count": 0,
+            }).encode())
+            return
         self.send_response(404)
         self.end_headers()
 

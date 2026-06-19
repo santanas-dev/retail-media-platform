@@ -398,16 +398,18 @@ class TestSyncManifestForCycle(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class FullHandler(BaseHTTPRequestHandler):
-    """Fake server: auth + heartbeat + manifest."""
+    """Fake server: auth + heartbeat + manifest + report."""
     AF: int | None = None
     HF: int | None = None
     MF: int | None = None
+    RF: int | None = None
 
     @classmethod
     def r(cls):
         cls.AF = None
         cls.HF = None
         cls.MF = None
+        cls.RF = None
 
     def lm(self, *a):
         pass
@@ -434,6 +436,22 @@ class FullHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"id": "hb" + "1" * 32, "gateway_device_id": TDEV, "status": "ok"}).encode())
+            return
+        if self.path == "/api/device-gateway/media/cache/report":
+            if FullHandler.RF:
+                self.send_response(FullHandler.RF)
+                self.end_headers()
+                self.wfile.write(b'{"error":"report fail"}')
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "ok", "manifest_version_id": MVERS,
+                "gateway_device_id": TDEV,
+                "total_items": 1, "cached_count": 0, "missing_count": 1,
+                "failed_count": 0, "invalid_hash_count": 0,
+            }).encode())
             return
         self.send_response(404)
         self.end_headers()
