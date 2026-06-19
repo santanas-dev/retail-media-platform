@@ -8,6 +8,7 @@ from kso_player.playlist import PlayerPlaylist
 from kso_player.safety import PlaybackSafetyDecision
 from kso_player.session import PlaybackSessionDecision
 from kso_player.simulator import PlaybackSimulationResult
+from kso_player.events import PlaybackEventDraft
 
 
 def format_playlist_summary(playlist: PlayerPlaylist) -> str:
@@ -79,5 +80,30 @@ def format_simulation_result(result: PlaybackSimulationResult) -> str:
         lines.append(f"selected_content_type: {result.selected_content_type}")
     if result.selected_duration_ms is not None:
         lines.append(f"selected_duration_ms: {result.selected_duration_ms}")
+
+    return "\n".join(lines)
+
+
+def format_playback_event_draft(event: PlaybackEventDraft) -> str:
+    """Return a safe aggregated summary of a playback event draft.
+
+    Never prints: filename, manifest_item_id, sha256, absolute paths,
+    media bytes, full manifest, secrets, tokens, backend URLs,
+    customer/payment/card/receipt details.
+    """
+    lines = [
+        f"event_type: {event.event_type}",
+        f"event_status: {event.event_status}",
+        f"playback_allowed: {str(event.playback_allowed).lower()}",
+        f"session_action: {event.session_action}",
+        f"session_reason: {event.session_reason}",
+    ]
+
+    if event.selected_order is not None:
+        lines.append(f"selected_order: {event.selected_order}")
+    if event.selected_content_type is not None:
+        lines.append(f"selected_content_type: {event.selected_content_type}")
+    if event.selected_duration_ms is not None:
+        lines.append(f"selected_duration_ms: {event.selected_duration_ms}")
 
     return "\n".join(lines)

@@ -343,6 +343,49 @@ session_reason: safety_blocked
 | 1 | simulation_status=blocked/not_ready/error |
 | 2 | Invalid CLI args |
 
+## Playback Event Model
+
+**In-memory only** — draft-модель события playback.
+Это НЕ PoP, ничего не пишется на диск, ничего не отправляется в backend.
+
+### `build_playback_event_draft(simulation_result, safety_decision=None, now=None)`
+
+Создаёт `PlaybackEventDraft` из результата симуляции. Всегда `event_status: draft`.
+
+**Event types:**
+- `would_play` — simulation_status=would_play
+- `blocked` — simulation_status=blocked
+- `not_ready` — simulation_status=not_ready
+- `error` — неожиданный/невалидный результат
+
+### Пример вывода (would_play)
+
+```
+event_type: would_play
+event_status: draft
+playback_allowed: true
+session_action: play
+session_reason: ready
+selected_order: 0
+selected_content_type: image/png
+selected_duration_ms: 5000
+```
+
+### Пример вывода (blocked)
+
+```
+event_type: blocked
+event_status: draft
+playback_allowed: false
+session_action: stop
+session_reason: safety_blocked
+```
+
+**Не выводится:** filename, manifest_item_id, sha256, absolute paths, media bytes,
+customer/payment/card/receipt details.
+
+**Следующий шаг:** CLI event-dry-run или PoP draft writer design.
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay

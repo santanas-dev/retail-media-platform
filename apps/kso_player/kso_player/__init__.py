@@ -22,6 +22,15 @@ from kso_player.safe_output import (
     format_session_decision,
     format_simulation_result,
 )
+from kso_player.events import (
+    PlaybackEventDraft,
+    build_playback_event_draft,
+    EVENT_TYPE_WOULD_PLAY,
+    EVENT_TYPE_BLOCKED,
+    EVENT_TYPE_NOT_READY,
+    EVENT_TYPE_ERROR,
+    EVENT_STATUS_DRAFT,
+)
 from kso_player.safety import (
     PlaybackSafetyDecision,
     PlaybackSafetySnapshot,
@@ -109,9 +118,18 @@ __all__ = [
     "SIM_STATUS_BLOCKED",
     "SIM_STATUS_NOT_READY",
     "SIM_STATUS_ERROR",
+    # Events
+    "PlaybackEventDraft",
+    "build_playback_event_draft",
+    "EVENT_TYPE_WOULD_PLAY",
+    "EVENT_TYPE_BLOCKED",
+    "EVENT_TYPE_NOT_READY",
+    "EVENT_TYPE_ERROR",
+    "EVENT_STATUS_DRAFT",
     # Output
     "format_playlist_summary",
     "format_safety_decision",
     "format_session_decision",
     "format_simulation_result",
+    "format_playback_event_draft",
 ]
