@@ -30,6 +30,9 @@ from kso_sidecar_agent import (
 )
 from kso_sidecar_agent.http_client import HttpClientConfig, HttpClientError, SafeHttpClient
 from kso_sidecar_agent.manifest_client import ManifestClient
+from kso_sidecar_agent.media_cache_report_client import (
+    MediaCacheReportClient, build_media_cache_report_payload,
+)
 from kso_sidecar_agent.media_client import MediaClient
 from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager
 from kso_sidecar_agent.runtime_config_client import RuntimeConfigClient
@@ -817,6 +820,87 @@ def cmd_sync_media(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+# ── Media cache report command ─────────────────────────────────────────
+
+def cmd_report_media_cache(args: argparse.Namespace) -> None:
+    """Send media cache report: config→secret→auth→build payload→POST /media/cache/report.
+
+    Never prints token/secret/Authorization/request body/response body/full manifest.
+    Report retry not connected yet — only auth retry via --retry-auth.
+    """
+    # ── 1. Read config ─────────────────────────────────────────────
+    try:
+        cfg = local_config.read_config(args.root)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"ERROR: Config — {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        # ── 2. Secret reader ──────────────────────────────────────
+        dev_flag = args.dev_secret_store
+        def _read_secret() -> str:
+            return secret_store.read_secret(args.root, dev_secret_store=dev_flag)
+
+        secret = _read_secret()
+        if not secret:
+            print("ERROR: Device secret is empty.", file=sys.stderr)
+            sys.exit(1)
+
+        # ── 3. HTTP client ─────────────────────────────────────────
+        http_config = HttpClientConfig(
+            base_url=cfg["backend_base_url"],
+            timeout_sec=cfg.get("request_timeout_sec", 10),
+            tls_verify=cfg.get("tls_verify", True),
+        )
+        http_client = SafeHttpClient(http_config)
+
+        # ── 4. Auth ────────────────────────────────────────────────
+        retry_manager = None
+        if args.retry_auth:
+            policy = BackoffPolicy(max_attempts=args.auth_max_attempts)
+            retry_manager = RetryBackoffManager(policy)
+
+        auth = device_auth_client.DeviceAuthClient(
+            http_client=http_client,
+            config=cfg,
+            secret_reader=_read_secret,
+        )
+        token_state = auth.authenticate(retry_manager=retry_manager)
+
+        # ── 5. Build payload from local manifest + media cache ─────
+        root_path = Path(args.root)
+        payload = build_media_cache_report_payload(root_path)
+
+        # ── 6. Send report ─────────────────────────────────────────
+        report_client = MediaCacheReportClient(http_client=http_client)
+        result = report_client.send_report(token_state, payload)
+
+        # ── 7. Safe output ─────────────────────────────────────────
+        summary = result.safe_summary()
+        print(f"media_cache_report:  sent")
+        print(f"backend_status:      {result.backend_status}")
+        print(f"items_total:         {summary['total_items']}")
+        print(f"cached_count:        {summary['cached_count']}")
+        print(f"missing_count:       {summary['missing_count']}")
+        print(f"failed_count:        {summary['failed_count']}")
+        print(f"invalid_hash_count:  {summary['invalid_hash_count']}")
+
+    except RuntimeError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+    except HttpClientError as e:
+        retryable = getattr(e, "retryable", False)
+        print(f"ERROR: Media cache report failed — {e}", file=sys.stderr)
+        print(f"retryable:          {str(retryable).lower()}", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"ERROR: Media cache report — {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: Unexpected — {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-agent",
@@ -957,6 +1041,19 @@ def main() -> None:
     p_smd.add_argument("--auth-max-attempts", type=int, default=3,
                        help="Max auth attempts (default: 3)")
     p_smd.set_defaults(func=cmd_sync_media)
+
+    # ── Media cache report command ──────────────────────────────────
+
+    p_rmc = sub.add_parser("report-media-cache",
+                           help="Send media cache report: auth→build payload→POST /media/cache/report")
+    p_rmc.add_argument("--root", required=True, help="Root path")
+    p_rmc.add_argument("--dev-secret-store", action="store_true", default=False,
+                       help="Read secret from dev secret store")
+    p_rmc.add_argument("--retry-auth", action="store_true", default=False,
+                       help="Enable retry for auth step")
+    p_rmc.add_argument("--auth-max-attempts", type=int, default=3,
+                       help="Max auth attempts (default: 3)")
+    p_rmc.set_defaults(func=cmd_report_media_cache)
 
     # ── Auth commands ──────────────────────────────────────────────
 
