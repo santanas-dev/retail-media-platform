@@ -277,6 +277,24 @@ Exponential backoff без jitter: 1→1000, 2→2000, 3→4000, capped.
 
 **CLI / run cycle / rotation — отдельные шаги.** Pending не трогать без confirmed backend success.
 
+## PoP Local Rotation Design
+
+📝 **Mini-design создан:** `docs/pop_local_rotation_design.md`. Спроектирована безопасная локальная rotation/move политика для PoP events после будущей отправки в backend.
+
+### Ключевые правила
+
+- Rotation выполняется **только после backend confirmation** (`run_status=ok`, `pending_should_remain=false`)
+- **`pending_should_remain=true` → pending нельзя удалять, перезаписывать, обрезать или перемещать**
+- **409 duplicate batch НЕ разрешает удалять pending**
+- **Partial success без event-level mapping → pending untouched**
+- Atomic rotation: ошибка на любом шаге → pending нетронут
+- Lock contract (player ↔ sidecar) предотвращает гонки
+- Draft/blocked/failed → `dry_run/`, не `sent/`
+- Unsafe/сомнительные → `quarantine/`, не `sent/`
+- Retry-exhausted → `failed/` для audit trail
+
+**Реализация rotation — отдельный шаг (26.28+).**
+
 ---
 
 ## PoP Backend Sender Design
