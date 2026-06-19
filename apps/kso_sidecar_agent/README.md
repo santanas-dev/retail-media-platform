@@ -213,6 +213,39 @@ Safe dataclass: send_status, attempted/accepted/duplicate/rejected_events, http_
 - ❌ Чтение secret/config/token файлов
 - ❌ Real backend calls (только fake в тестах)
 
+## PoP Sender Retry Decision Core
+
+🧭 **Реализован:** `pop_sender_retry.py`. Безопасное ядро принятия решения по retry после PopSendResult.
+
+### `decide_pop_send_retry(result, attempt_number, max_attempts, auth_refresh_attempted) -> PopSendRetryDecision`
+
+- Pure logic — без HTTP, sleep, auth refresh, file I/O
+- Принимает `PopSendResult` и параметры попытки → возвращает `PopSendRetryDecision`
+- Действия: `stop`, `retry`, `refresh_auth_then_retry`
+
+### Правила (в порядке приоритета)
+
+| Условие | action | reason | pending_remain |
+|---|---|---|---|
+| success (ok, !pending_remain) | stop | success | **false** |
+| no_payload | stop | no_payload | true |
+| 401 + не было refresh + попытки есть | refresh_auth_then_retry | auth_refresh_required | true |
+| 401 + refresh был | stop | auth_refresh_failed | true |
+| 409 duplicate_batch | stop | duplicate_batch_pending_remains | true |
+| retryable + попытки есть | retry | retryable_error | true |
+| retryable + попытки кончились | stop | retry_exhausted | true |
+| не-retryable + pending | stop | non_retryable_pending_remains | true |
+
+### `calculate_pop_retry_delay_ms(attempt_number, base_delay_ms=1000, max_delay_ms=30000) -> int`
+
+Exponential backoff без jitter: 1→1000, 2→2000, 3→4000, capped.
+
+### `format_pop_send_retry_decision(decision) -> str`
+
+Только safe aggregates. Без payload/IDs/token/backend URL.
+
+**Retry runner / auth refresh / run cycle — отдельные шаги.** Sleep не выполняется. Pending не трогать без confirmed backend success.
+
 ---
 
 ## PoP Backend Sender Design
