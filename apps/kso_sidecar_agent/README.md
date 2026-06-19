@@ -246,6 +246,37 @@ Exponential backoff без jitter: 1→1000, 2→2000, 3→4000, capped.
 
 **Retry runner / auth refresh / run cycle — отдельные шаги.** Sleep не выполняется. Pending не трогать без confirmed backend success.
 
+## PoP Sender Retry Runner Core
+
+🔁 **Реализован:** `pop_sender_runner.py`. Orchestration core для отправки PoP payload с retry decisions.
+
+### `run_pop_send_with_retry(http_client, payload_envelope, access_token, refresh_auth_callback, max_attempts) -> PopSendRunResult`
+
+- Принимает готовый envelope, не строит payload самостоятельно
+- Цикл: send → classify → retry decision → retry / refresh_auth / stop
+- `refresh_auth_callback` — опциональный callable → новый token in-memory (без реального auth client)
+- Без sleep/wait, без чтения файлов, без file rotation
+- Fake HTTP в тестах, real backend не вызывается
+
+### Сценарии
+
+| Сценарий | attempts_made | run_status | pending_remain |
+|---|---|---|---|
+| 200 с первой попытки | 1 | ok | false |
+| 500 → 200 | 2 | ok | false |
+| 429 / network / timeout → 200 | 2 | ok | false |
+| 500 все попытки | 3 | error | true |
+| 401 → refresh → 200 | 2 | ok | false |
+| 401 без callback | 1 | warning | true |
+| 400/403/404/422 | 1 | warning | true |
+| 409 | 1 | warning | true |
+
+### `format_pop_send_run_result(result) -> str`
+
+Только safe aggregates. Без payload/IDs/token/backend URL.
+
+**CLI / run cycle / rotation — отдельные шаги.** Pending не трогать без confirmed backend success.
+
 ---
 
 ## PoP Backend Sender Design
