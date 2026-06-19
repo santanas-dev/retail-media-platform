@@ -465,6 +465,65 @@ session_reason: safety_blocked
 
 **Это ещё НЕ sidecar pickup и НЕ backend send.** Sidecar будет забирать события отдельным шагом run-cycle. CLI появится отдельным шагом.
 
+## CLI: `pop-write`
+
+```bash
+cd apps/kso_player
+
+# Построить event draft + записать в локальный JSONL
+python3 -m kso_player.cli pop-write --root /tmp/kso-agent-root --state idle
+
+# Help
+python3 -m kso_player.cli pop-write --help
+```
+
+**Важно:** это локальная запись JSONL. НЕ отправляет в backend, НЕ делает sidecar pickup, НЕ ротирует sent/quarantine.
+State передаётся вручную, реальное состояние КСО не читается.
+
+### Pipeline
+
+```
+build_playlist → decide_playback_safety → simulate_playback_step
+  → build_playback_event_draft → write_pop_event → safe output
+```
+
+### Пример вывода (idle + ready)
+
+```
+playlist_ready: true
+playback_allowed: true
+simulation_status: would_play
+event_type: would_play
+event_status: draft
+pop_write_status: written
+pop_write_reason: written
+line_size_bytes: 312
+```
+
+### Пример вывода (payment + ready)
+
+```
+playlist_ready: true
+playback_allowed: false
+simulation_status: blocked
+event_type: blocked
+event_status: draft
+pop_write_status: written
+pop_write_reason: written
+```
+
+### Exit codes (pop-write)
+
+| Код | Значение |
+|---|---|
+| 0 | JSONL event written (включая blocked/not_ready) |
+| 1 | write skipped/error |
+| 2 | Invalid CLI args |
+
+### Файл
+
+Пишет `{root}/pop/pending/player_events.jsonl` (append-only, flush + fsync).
+
 ---
 
 ## Что НЕ работает (будет отдельными шагами)
