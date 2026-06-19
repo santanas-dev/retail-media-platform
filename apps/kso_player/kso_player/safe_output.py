@@ -6,6 +6,7 @@ absolute paths, secrets, tokens, or backend URLs.
 
 from kso_player.playlist import PlayerPlaylist
 from kso_player.safety import PlaybackSafetyDecision
+from kso_player.session import PlaybackSessionDecision
 
 
 def format_playlist_summary(playlist: PlayerPlaylist) -> str:
@@ -36,4 +37,24 @@ def format_safety_decision(decision: PlaybackSafetyDecision) -> str:
         f"action: {decision.action}",
         f"reason: {decision.reason}",
     ]
+    return "\n".join(lines)
+
+
+def format_session_decision(decision: PlaybackSessionDecision) -> str:
+    """Return a safe aggregated summary of a session decision.
+
+    Never prints: filename, manifest_item_id, sha256, absolute paths,
+    media bytes, secrets, tokens.
+    """
+    lines = [
+        f"session_action: {decision.action}",
+        f"session_reason: {decision.reason}",
+    ]
+
+    if decision.selected_item is not None:
+        item = decision.selected_item
+        lines.append(f"selected_order: {item.order}")
+        lines.append(f"selected_content_type: {item.content_type}")
+        lines.append(f"selected_duration_ms: {item.duration_ms}")
+
     return "\n".join(lines)

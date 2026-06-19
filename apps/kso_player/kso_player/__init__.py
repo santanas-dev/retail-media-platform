@@ -16,7 +16,11 @@ from kso_player.playlist import (
     REASON_MEDIA_CORRUPTED,
     REASON_NO_MEDIA_ITEMS,
 )
-from kso_player.safe_output import format_playlist_summary, format_safety_decision
+from kso_player.safe_output import (
+    format_playlist_summary,
+    format_safety_decision,
+    format_session_decision,
+)
 from kso_player.safety import (
     PlaybackSafetyDecision,
     PlaybackSafetySnapshot,
@@ -37,6 +41,16 @@ from kso_player.safety import (
     REASON_OFFLINE,
     REASON_INVALID_STATE,
     REASON_MISSING_SNAPSHOT,
+)
+from kso_player.session import (
+    PlaybackSessionDecision,
+    PlaybackSessionState,
+    select_next_item,
+    REASON_SESSION_READY,
+    REASON_SESSION_SAFETY_BLOCKED,
+    REASON_SESSION_PLAYLIST_NOT_READY,
+    REASON_SESSION_NO_ITEMS,
+    REASON_SESSION_INVALID_STATE,
 )
 
 __all__ = [
@@ -70,7 +84,17 @@ __all__ = [
     "REASON_OFFLINE",
     "REASON_INVALID_STATE",
     "REASON_MISSING_SNAPSHOT",
+    # Session
+    "PlaybackSessionState",
+    "PlaybackSessionDecision",
+    "select_next_item",
+    "REASON_SESSION_READY",
+    "REASON_SESSION_SAFETY_BLOCKED",
+    "REASON_SESSION_PLAYLIST_NOT_READY",
+    "REASON_SESSION_NO_ITEMS",
+    "REASON_SESSION_INVALID_STATE",
     # Output
     "format_playlist_summary",
     "format_safety_decision",
+    "format_session_decision",
 ]

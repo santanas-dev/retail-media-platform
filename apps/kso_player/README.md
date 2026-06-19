@@ -17,6 +17,8 @@ KSO Player — будущий UI-плеер для показа контента
 - `safety-check` CLI — проверка playlist + safety gate (read-only, state вручную)
 - `decide_playback_safety(snapshot, playlist)` — safety gate: разрешить/запретить playback
 - `format_safety_decision(decision)` — safe вывод решения
+- `select_next_item(playlist, safety_decision, state=None)` — выбор следующего media item
+- `format_session_decision(decision)` — safe вывод session decision
 
 ## Safety Gate
 
@@ -152,6 +154,50 @@ reason: payment_active
 | 1 | Playback blocked (любое не-idle состояние или playlist not ready) |
 | 2 | Invalid CLI args |
 
+## Playback Session Core
+
+**In-memory only** — выбор следующего media item для показа.
+Не проигрывает media, не использует UI/overlay, не интегрирован с КСО.
+
+### `select_next_item(playlist, safety_decision, state=None)`
+
+Fail-closed логика выбора следующего item:
+
+1. Safety gate не разрешил → блокировка
+2. Playlist not ready → блокировка
+3. Нет items → блокировка
+4. Иначе → выбор по order:
+   - Без state: первый item (order=0)
+   - С state: item после `current_index`, с зацикливанием
+
+### Session state (`PlaybackSessionState`)
+
+В памяти, не пишется на диск:
+- `current_index` — какой item был последним
+- `cycle_count` — сколько полных циклов пройдено
+- Без путей, без secret/token, без customer/payment данных
+
+### Пример вывода (allowed)
+
+```
+session_action: play
+session_reason: ready
+selected_order: 0
+selected_content_type: image/png
+selected_duration_ms: 10000
+```
+
+### Пример вывода (blocked)
+
+```
+session_action: stop
+session_reason: safety_blocked
+```
+
+**Не выводится:** filename, manifest_item_id, sha256, absolute paths, media bytes.
+
+**Следующий шаг:** CLI `playback-dry-run`.
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay
@@ -185,7 +231,8 @@ kso_player/
   cli.py           # CLI: playlist-status
   playlist.py      # PlayerPlaylistItem, PlayerPlaylist, build_playlist()
   safety.py        # PlaybackSafetySnapshot, PlaybackSafetyDecision, decide_playback_safety()
-  safe_output.py   # format_playlist_summary(), format_safety_decision()
+  session.py       # PlaybackSessionState, PlaybackSessionDecision, select_next_item()
+  safe_output.py   # format_playlist_summary(), format_safety_decision(), format_session_decision()
 tests/
   test_playlist.py
   test_cli.py
