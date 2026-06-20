@@ -161,6 +161,16 @@ class TestCSS(TestCase):
             self.assertNotIn(fb, lower,
                 f"forbidden '{fb}' found in styles.css")
 
+    def test_media_slot_img_video_styles_exist(self):
+        self.assertIn(".kso-media-slot img", self.css)
+        self.assertIn(".kso-media-slot video", self.css)
+
+    def test_object_fit_contain(self):
+        self.assertIn("object-fit: contain", self.css)
+
+    def test_media_slot_background_black(self):
+        self.assertIn("background:#000", self.css.replace(" ", ""))
+
 
 # ══════════════════════════════════════════════════════════════════════
 # Tests: JS
@@ -275,6 +285,70 @@ class TestJS(TestCase):
                     "token", "backend", "secret"):
             self.assertNotIn(fb, lower,
                 f"forbidden '{fb}' found near applySnapshot")
+
+    # ── Safe media renderer ───────────────────────────────────────
+
+    def test_document_create_element_used(self):
+        """Shell creates elements via document.createElement, not innerHTML."""
+        self.assertIn("document.createElement", self.js)
+
+    def test_replace_children_used(self):
+        """replaceChildren() used for clearing — NOT innerHTML."""
+        self.assertIn("replaceChildren", self.js)
+
+    def test_no_outer_html(self):
+        self.assertNotIn("outerHTML", self.js)
+
+    def test_no_insert_adjacent_html(self):
+        self.assertNotIn("insertAdjacentHTML", self.js)
+
+    def test_set_attribute_used(self):
+        """Attributes set via setAttribute(), not direct assignment."""
+        self.assertIn("setAttribute", self.js)
+
+    def test_img_created_for_image(self):
+        """image mediaType → document.createElement('img')."""
+        self.assertIn('createElement("img")', self.js)
+
+    def test_video_created_for_video(self):
+        """video mediaType → document.createElement('video')."""
+        self.assertIn('createElement("video")', self.js)
+
+    def test_video_has_muted_autoplay_loop_playsinline(self):
+        """video gets muted, autoplay, loop, playsinline attributes."""
+        self.assertIn('"muted"', self.js)
+        self.assertIn('"autoplay"', self.js)
+        self.assertIn('"loop"', self.js)
+        self.assertIn('"playsinline"', self.js)
+
+    def test_src_set_from_media_ref_only(self):
+        """src is only set from already-validated mediaRef."""
+        self.assertIn('"src"', self.js)
+
+    def test_media_ref_revalidated_in_set_render_plan(self):
+        """setRenderPlan re-validates mediaRef before creating element."""
+        # _isMediaRefSafe must be called in setRenderPlan
+        self.assertIn("_isMediaRefSafe", self.js)
+
+    def test_clear_media_slot_in_clear(self):
+        """clear() must call _clearMediaSlot."""
+        idx = self.js.index("function clear()")
+        window = self.js[idx:idx + 300]
+        self.assertIn("_clearMediaSlot", window)
+
+    def test_no_forbidden_near_render(self):
+        """No forbidden substrings near setRenderPlan."""
+        idx = self.js.index("function setRenderPlan")
+        window = self.js[idx:idx + 2000]
+        lower = window.lower()
+        for fb in ("innerhtml", "outerhtml", "insertadjacenthtml",
+                    "fetch", "xmlhttprequest", "websocket",
+                    "eval(", "new function",
+                    "http://", "https://", "file://",
+                    "backend", "token", "secret",
+                    "campaign_id", "creative_id", "sha256"):
+            self.assertNotIn(fb, lower,
+                f"forbidden '{fb}' found near setRenderPlan")
 
 
 if __name__ == "__main__":

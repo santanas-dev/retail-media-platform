@@ -819,9 +819,41 @@ render_plan._selected_item → media_reference → mediaRef в shell_snapshot
 
 ### Что НЕ реализовано
 
-- ❌ Real media rendering / src injection (отдельный шаг)
 - ❌ Chromium kiosk launch
-- ❌ Media bytes read
+- ❌ PoP write из snapshot
+
+---
+
+## KSO Player Shell Safe Media Renderer
+
+🖥️ **Реализован:** безопасный DOM-рендеринг в `player.js`. Shell отображает `<img>` / `<video>` из safe mediaRef.
+
+### Как работает
+
+`setRenderPlan(plan)` с валидным mediaRef:
+
+| mediaType | Создаёт | Атрибуты |
+|---|---|---|
+| `image` | `<img>` (document.createElement) | `src`, `alt` |
+| `video` | `<video>` (document.createElement) | `src`, `muted`, `autoplay`, `loop`, `playsinline` |
+
+### Безопасность DOM
+
+- Только `document.createElement()` + `setAttribute()` + `appendChild()`
+- Очистка media slot через `replaceChildren()` (без innerHTML)
+- **НЕ использует:** `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `eval`, `new Function`, `fetch`, `XMLHttpRequest`, `WebSocket`
+- `src` — только из уже провалидированного whitelist mediaRef
+
+### CSS
+
+- `img`/`video`: `max-width: 100%`, `max-height: 100%`, `object-fit: contain`
+- `background: #000` на media slot
+- Никаких внешних ресурсов, `@import`, remote fonts
+
+### Что НЕ реализовано
+
+- ❌ Проверка существования файла (не открываем, не читаем)
+- ❌ Chromium kiosk launch
 - ❌ Backend / HTTP / PoP write
 
 ---

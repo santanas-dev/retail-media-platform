@@ -8,10 +8,14 @@
  *   window.KsoPlayerShell.setHold(reason)
  *   window.KsoPlayerShell.setRenderPlan(plan)
  *   window.KsoPlayerShell.clear()
+ *   window.KsoPlayerShell.applySnapshot(snapshot)
  *
  * Plan accepts only safe fields:
- *   { mediaType: "image"|"video", durationBucket: "short"|"medium"|"long"|"unknown" }
+ *   { mediaType: "image"|"video", durationBucket: "...",
+ *     mediaRef: "media/current/slot-000" }
  *
+ * Media is rendered via safe DOM API only (document.createElement).
+ * NEVER: unsafe HTML injection, dynamic code execution, network requests.
  * NEVER accepts: absolute paths, names, IDs, hash data, auth data.
  */
 (function () {
@@ -23,6 +27,7 @@
   var holdText = document.getElementById("kso-hold-text");
   var renderScreen = document.getElementById("kso-render");
   var renderText = document.getElementById("kso-render-text");
+  var mediaSlot = document.getElementById("kso-media-slot");
 
   /* ── Active screen tracking ──────────────────────────────────────── */
 
@@ -45,6 +50,44 @@
       return trimmed;
     }
     return "hold";
+  }
+
+  /* ── Media slot helpers ────────────────────────────────────────── */
+
+  /**
+   * Clear the media slot — remove all child elements safely.
+   * Uses replaceChildren() for safe DOM manipulation.
+   */
+  function _clearMediaSlot() {
+    if (mediaSlot) {
+      mediaSlot.replaceChildren();
+    }
+  }
+
+  /**
+   * Validate that a mediaRef is safe for use as src.
+   * Whitelist: only a-z, 0-9, /, _, -
+   * No: .., ~, \\, ://, file:, http:, https:, %2e, %2f
+   */
+  var _MEDIA_REF_RE = /^[a-z0-9\/_-]+$/;
+  var _UNSAFE_IN_REF = ["..", "~", "\\", "://", "file:", "http:", "https:",
+                         "%2e", "%2f", "%2E", "%2F"];
+
+  function _isMediaRefSafe(ref) {
+    if (typeof ref !== "string" || !ref.trim()) {
+      return false;
+    }
+    var mref = ref.trim();
+    if (!_MEDIA_REF_RE.test(mref)) {
+      return false;
+    }
+    var lower = mref.toLowerCase();
+    for (var i = 0; i < _UNSAFE_IN_REF.length; i++) {
+      if (lower.indexOf(_UNSAFE_IN_REF[i]) !== -1) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /* ── Screen switching ────────────────────────────────────────────── */
@@ -78,6 +121,7 @@
 
   /**
    * Set render mode — ad is ready to display.
+   * Creates <img> or <video> via safe DOM API (document.createElement).
    * @param {object} plan — safe plan with mediaType, durationBucket, and
    *   optionally mediaRef (safe local alias only, no paths).
    */
@@ -100,19 +144,48 @@
       return;
     }
 
+    // Validate mediaRef safety before using as src
+    var mediaRef = (typeof plan.mediaRef === "string" && plan.mediaRef.trim())
+      ? plan.mediaRef.trim()
+      : "";
+    if (mediaRef && !_isMediaRefSafe(mediaRef)) {
+      setHold();
+      return;
+    }
+
     currentPlan = {
       mediaType: mediaType,
       durationBucket: durationBucket,
     };
+    if (mediaRef) {
+      currentPlan.mediaRef = mediaRef;
+    }
 
-    // Store mediaRef if provided (safe local alias only)
-    if (typeof plan.mediaRef === "string" && plan.mediaRef.trim()) {
-      currentPlan.mediaRef = plan.mediaRef.trim();
+    // Clear existing media and create new element via safe DOM API
+    _clearMediaSlot();
+
+    if (mediaRef) {
+      var el;
+      if (mediaType === "image") {
+        el = document.createElement("img");
+        el.setAttribute("src", mediaRef);
+        el.setAttribute("alt", "");
+      } else {
+        el = document.createElement("video");
+        el.setAttribute("src", mediaRef);
+        el.setAttribute("muted", "");
+        el.setAttribute("autoplay", "");
+        el.setAttribute("loop", "");
+        el.setAttribute("playsinline", "");
+      }
+      if (mediaSlot && el) {
+        mediaSlot.appendChild(el);
+      }
     }
 
     if (renderText) {
       var label = mediaType.charAt(0).toUpperCase() + mediaType.slice(1);
-      renderText.textContent = label + " — " + durationBucket;
+      renderText.textContent = label + " \u2014 " + durationBucket;
     }
 
     showScreen(renderScreen);
@@ -123,6 +196,7 @@
    */
   function clear() {
     currentPlan = null;
+    _clearMediaSlot();
     if (holdText) {
       holdText.textContent = SAFE_REASONS.hold;
     }
