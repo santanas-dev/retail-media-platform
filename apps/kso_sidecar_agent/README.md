@@ -357,6 +357,50 @@ Exponential backoff без jitter: 1→1000, 2→2000, 3→4000, capped.
 
 **Rotation пока не реализована. Destructive rotation запрещена без lock.**
 
+## Stale Lock Detect-Only Core
+
+🔎 **Реализован:** `pop_stale_lock_detector.py`. Безопасный read-only детектор stale lock.
+
+### `detect_pop_pending_lock_staleness(root, stale_seconds=600, critical_seconds=1800)`
+
+- Только читает lock-файл (`stat` + `read_text`) — НЕ удаляет, НЕ переименовывает
+- Возвращает safe aggregate `PopStaleLockDetectionResult`
+
+### Логика
+
+| Lock | Marker | Age < stale | stale ≤ age < critical | age ≥ critical |
+|---|---|---|---|---|
+| Нет | — | ok / no_lock | — | — |
+| Есть | v2 JSON | ok / fresh_lock | warning / stale_detected | warning / critical |
+| Есть | v1 `"locked\n"` | warning / v1_detect_only | warning / v1_detect_only | warning / v1_detect_only |
+| Есть | invalid/corrupt | warning / invalid_marker_detect_only | warning / invalid_marker_detect_only | warning / invalid_marker_detect_only |
+
+### Ключевые правила
+
+- `cleanup_allowed` **всегда false** на этом шаге
+- v1 lock → detect-only, **никогда не удаляется**
+- Invalid marker → detect-only, **никогда не удаляется**
+- `pid` / `boot_id_hash` — internal only, **никогда не выводятся**
+- Результат: только safe aggregates (status, lock_present, marker_version, age_bucket, process_status, reason)
+- Auto-delete / quarantine rename — будущий шаг (27.3.3)
+
+### Safe поля результата
+
+```
+status: ok|warning|error
+lock_present: bool
+marker_version: 0|1|2
+stale_detected: bool
+critical: bool
+cleanup_allowed: bool        # always false
+age_bucket: fresh|stale|critical|unknown
+process_status: alive|not_alive|unknown|not_checked
+reason: no_lock|fresh_lock|stale_detected|...
+stale_seconds: int
+critical_seconds: int
+age_seconds: int
+```
+
 ## PoP Local Rotation Plan Core
 
 🧭 **Реализован:** `pop_rotation_plan.py`. In-memory rotation plan — классифицирует pending события без записи на диск.
