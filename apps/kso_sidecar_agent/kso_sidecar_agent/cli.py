@@ -41,6 +41,10 @@ from kso_sidecar_agent.pop_rotation_plan import (
     format_pop_rotation_plan_result,
     PLAN_OK,
 )
+from kso_sidecar_agent.pop_rotation_apply import (
+    apply_pop_rotation_local,
+    format_pop_rotation_apply_result,
+)
 from kso_sidecar_agent.retry_backoff import BackoffPolicy, RetryBackoffManager
 from kso_sidecar_agent.runtime_config_client import RuntimeConfigClient
 
@@ -1117,6 +1121,41 @@ def cmd_pop_rotation_plan(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_pop_rotation_apply(args: argparse.Namespace) -> None:
+    """Run local rotation apply — guarded destructive operation.
+
+    REQUIRES --confirm-local-rotation. Only applies local classification
+    (draft→dry_run, invalid→quarantine). WITHOUT backend confirmation
+    sent_records is always 0 — completed eligible events stay in pending.
+
+    Uses lock: pop/pending/player_events.lock (same as player writer).
+    **This command modifies local PoP files.** Never does backend send.
+    """
+    if not args.confirm_local_rotation:
+        print("ERROR: --confirm-local-rotation is required for destructive rotation apply.",
+              file=sys.stderr)
+        print("pop-rotation-apply modifies local PoP files: sent/quarantine/dry_run/failed are created, "
+              "pending is rewritten. Backend confirmation is NOT done — sent_records will always be 0. "
+              "Run without --confirm-local-rotation for safe read-only mode.",
+              file=sys.stderr)
+        sys.exit(2)
+
+    max_lines = args.max_lines
+    if max_lines is not None and max_lines <= 0:
+        print("ERROR: --max-lines must be > 0", file=sys.stderr)
+        sys.exit(2)
+
+    try:
+        # send_run_result=None → sent_records always 0
+        result = apply_pop_rotation_local(
+            args.root, send_run_result=None, max_lines=max_lines or 10000)
+        print(format_pop_rotation_apply_result(result))
+        sys.exit(0 if result.status == "ok" else 1)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def cmd_player_readiness(args: argparse.Namespace) -> None:
     """Show local content readiness snapshot for KSO Player. No backend, no secret."""
     from kso_sidecar_agent.player_readiness import build_player_readiness_snapshot
@@ -1371,6 +1410,17 @@ def main() -> None:
     p_prp.add_argument("--max-lines", type=int, default=10000,
                        help="Max lines to read (default: 10000, must be > 0)")
     p_prp.set_defaults(func=cmd_pop_rotation_plan)
+
+    # ── PoP rotation apply (guarded) ───────────────────────────────────
+
+    p_pra = sub.add_parser("pop-rotation-apply",
+                           help="Run local rotation apply — guarded destructive operation (requires --confirm-local-rotation)")
+    p_pra.add_argument("--root", required=True, help="Root path")
+    p_pra.add_argument("--max-lines", type=int, default=10000,
+                       help="Max lines to read (default: 10000, must be > 0)")
+    p_pra.add_argument("--confirm-local-rotation", action="store_true", default=False,
+                       help="REQUIRED: confirm destructive local rotation — modifies PoP files on disk")
+    p_pra.set_defaults(func=cmd_pop_rotation_apply)
 
     # ── Auth commands ──────────────────────────────────────────────
 

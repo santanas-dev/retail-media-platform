@@ -545,6 +545,27 @@ Safe aggregate: status, applied, lock_acquired, pending_untouched, target_files_
 
 **CLI / run_cycle integration — отдельные шаги.**
 
+### CLI: `pop-rotation-apply`
+
+```bash
+cd apps/kso_sidecar_agent
+
+# Guarded destructive operation — requires confirmation
+python3 -m kso_sidecar_agent.cli pop-rotation-apply --root /tmp/kso-agent-root --confirm-local-rotation
+```
+
+**Guarded:** без `--confirm-local-rotation` → exit 2, ничего не меняет.
+**Без backend confirmation:** `send_run_result=None` → `sent_records=0`, completed eligible остаются в pending.
+**Локальные категории всё равно применяются:** draft/blocked/failed → dry_run, invalid/forbidden → quarantine.
+
+### Exit codes
+
+| Код | Условие |
+|---|---|
+| 0 | Apply ok / no-op |
+| 1 | Warning/error: lock unavailable, write/rewrite failed, invalid/limited |
+| 2 | `--confirm-local-rotation` missing, `--root` missing, `--max-lines` <= 0 |
+
 ---
 
 ## PoP Backend Sender Design
