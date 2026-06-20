@@ -507,6 +507,151 @@ class TestSerializedSizeBucket(TestCase):
         self.assertEqual(result.serialized_size_bucket, SIZE_BUCKET_SMALL)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Tests: render snapshot with mediaRef
+# ══════════════════════════════════════════════════════════════════════
+
+class TestRenderSnapshotWithMediaRef(TestCase):
+    """Render snapshot now includes safe mediaRef in payload."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_render_snapshot_has_media_ref_present(self):
+        _full_fixture(self.tmp)
+        result = build_kso_shell_snapshot(self.tmp)
+        self.assertEqual(result.snapshot_mode, SNAPSHOT_MODE_RENDER)
+        self.assertTrue(result.media_ref_present)
+        self.assertEqual(result.media_ref_kind, "local_alias")
+
+    def test_render_snapshot_serialized_includes_media_ref(self):
+        _full_fixture(self.tmp)
+        result = build_kso_shell_snapshot(self.tmp)
+        s = serialize_kso_shell_snapshot(result)
+        obj = json.loads(s)
+        self.assertIn("mediaRef", obj["payload"])
+        self.assertTrue(obj["payload"]["mediaRef"].startswith("media/current/slot-"))
+
+    def test_render_snapshot_media_ref_is_safe_format(self):
+        _full_fixture(self.tmp)
+        result = build_kso_shell_snapshot(self.tmp)
+        s = serialize_kso_shell_snapshot(result)
+        obj = json.loads(s)
+        mref = obj["payload"]["mediaRef"]
+        # Must match safe pattern
+        self.assertRegex(mref, r"^media/current/slot-\d+$")
+        self.assertNotIn("..", mref)
+        self.assertNotIn("//", mref)
+        self.assertNotIn("http", mref)
+
+    def test_render_snapshot_media_ref_no_ids(self):
+        _full_fixture(self.tmp)
+        result = build_kso_shell_snapshot(self.tmp)
+        s = serialize_kso_shell_snapshot(result)
+        for fb in ("manifest_item_id", "campaign_id", "creative_id",
+                    "schedule_item_id"):
+            self.assertNotIn(fb, s)
+
+    def test_render_snapshot_media_ref_no_hash(self):
+        _full_fixture(self.tmp)
+        result = build_kso_shell_snapshot(self.tmp)
+        s = serialize_kso_shell_snapshot(result)
+        self.assertNotIn("sha256", s)
+
+    def test_render_snapshot_media_ref_no_real_filename(self):
+        _full_fixture(self.tmp)
+        result = build_kso_shell_snapshot(self.tmp)
+        s = serialize_kso_shell_snapshot(result)
+        self.assertNotIn("ad_001", s)
+        self.assertNotIn(".png", s)
+
+    def test_render_snapshot_media_ref_no_absolute_path(self):
+        _full_fixture(self.tmp)
+        result = build_kso_shell_snapshot(self.tmp)
+        s = serialize_kso_shell_snapshot(result)
+        self.assertNotIn(str(self.tmp), s)
+        self.assertNotIn("/home", s)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Tests: hold snapshot — no mediaRef
+# ══════════════════════════════════════════════════════════════════════
+
+class TestHoldSnapshotNoMediaRef(TestCase):
+    """Hold snapshots never include mediaRef."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_hold_snapshot_no_media_ref(self):
+        _full_fixture(self.tmp, state="transaction")
+        result = build_kso_shell_snapshot(self.tmp)
+        self.assertEqual(result.snapshot_mode, SNAPSHOT_MODE_HOLD)
+        self.assertFalse(result.media_ref_present)
+
+    def test_hold_serialized_no_media_ref(self):
+        _full_fixture(self.tmp, state="payment")
+        result = build_kso_shell_snapshot(self.tmp)
+        s = serialize_kso_shell_snapshot(result)
+        obj = json.loads(s)
+        self.assertNotIn("mediaRef", obj["payload"])
+
+    def test_hold_serialized_only_reason(self):
+        _full_fixture(self.tmp, state="service")
+        result = build_kso_shell_snapshot(self.tmp)
+        s = serialize_kso_shell_snapshot(result)
+        obj = json.loads(s)
+        self.assertEqual(obj["payload"], {"reason": "hold"})
+
+    def test_unsupported_media_type_hold_no_media_ref(self):
+        _full_fixture(self.tmp, content_type="audio/mpeg")
+        result = build_kso_shell_snapshot(self.tmp)
+        self.assertEqual(result.snapshot_mode, SNAPSHOT_MODE_HOLD)
+
+    def test_missing_manifest_hold_no_media_ref(self):
+        _write_state(self.tmp)
+        result = build_kso_shell_snapshot(self.tmp)
+        self.assertEqual(result.snapshot_mode, SNAPSHOT_MODE_HOLD)
+        self.assertFalse(result.media_ref_present)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Tests: safety — no side effects (extended)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestMediaRefNoSideEffects(TestCase):
+    """Media ref doesn't cause PoP writes, state mods, or backend calls."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_no_pop_event_written_with_media_ref(self):
+        _full_fixture(self.tmp)
+        result = build_kso_shell_snapshot(self.tmp)
+        self.assertTrue(result.media_ref_present)
+        pop_pending = self.tmp / "pop" / "pending"
+        self.assertFalse(pop_pending.exists())
+
+    def test_no_state_modified_with_media_ref(self):
+        _full_fixture(self.tmp)
+        state_path = self.tmp / "state" / "kso_state.json"
+        before = state_path.read_text()
+        build_kso_shell_snapshot(self.tmp)
+        self.assertEqual(before, state_path.read_text())
+
+
 if __name__ == "__main__":
     import unittest
     unittest.main()

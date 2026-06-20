@@ -3,9 +3,11 @@
 Converts a shell_command into a safe serializable snapshot for the future
 Chromium kiosk HTML shell (window.KsoPlayerShell.applySnapshot).
 
-Pipeline: runtime_gate → runtime_decision → render_plan → shell_command → shell_snapshot
+Pipeline: runtime_gate → runtime_decision → render_plan → shell_command
+           → shell_snapshot (with media_reference for render path).
 
 The snapshot carries ONLY safe fields: schemaVersion, mode, method, payload.
+For render: payload includes mediaType, durationBucket, mediaRef (safe alias).
 NO media src, NO paths, NO filenames, NO manifest IDs, NO hashes, NO timestamps.
 
 NO Chromium, NO HTTP, NO PoP write, NO backend.
@@ -33,8 +35,18 @@ from kso_player.shell_command import (
     FORBIDDEN_SUBSTRINGS,
 )
 from kso_player.render_plan import (
+    build_kso_render_plan,
     MEDIA_IMAGE, MEDIA_VIDEO, MEDIA_UNKNOWN,
     DURATION_SHORT, DURATION_MEDIUM, DURATION_LONG, DURATION_UNKNOWN,
+    RENDER_ACTION_RENDER,
+)
+from kso_player.media_reference import (
+    build_kso_safe_media_reference_from_render_plan,
+    KsoSafeMediaReferenceResult,
+    MEDIA_REF_KIND_LOCAL_ALIAS,
+    MEDIA_REF_KIND_NONE,
+    REASON_UNSAFE_ALIAS as MEDIA_REF_UNSAFE,
+    REASON_VALID_REFERENCE,
 )
 
 # ══════════════════════════════════════════════════════════════════════
@@ -54,9 +66,12 @@ SIZE_BUCKET_MEDIUM = "medium"  # 256–1024 bytes
 SIZE_BUCKET_LARGE = "large"    # > 1024 bytes
 SIZE_BUCKET_UNKNOWN = "unknown"
 
+REASON_UNSAFE_MEDIA_REFERENCE = "unsafe_media_reference"
+
 # ── Safe payload keys ────────────────────────────────────────────────
 
-SAFE_PAYLOAD_KEYS = frozenset({"mediaType", "durationBucket", "reason"})
+SAFE_PAYLOAD_KEYS_RENDER = frozenset({"mediaType", "durationBucket", "mediaRef"})
+SAFE_PAYLOAD_KEYS_HOLD = frozenset({"reason"})
 SAFE_TOP_KEYS = frozenset({"schemaVersion", "mode", "method", "payload"})
 
 
@@ -69,8 +84,8 @@ class KsoShellSnapshotResult:
     """Safe shell snapshot for the HTML shell (window.KsoPlayerShell API).
 
     Carry only safe fields: snapshot_mode, shell_method, media_type,
-    duration_bucket. The serialized JSON contains only schemaVersion,
-    mode, method, payload.
+    duration_bucket, media_ref_present, media_ref_kind.
+    The serialized JSON contains only schemaVersion, mode, method, payload.
 
     NEVER: paths, filenames, media src, manifest IDs, hashes, timestamps.
     """
@@ -81,11 +96,14 @@ class KsoShellSnapshotResult:
     reason: str = REASON_INVALID_ARGS
     media_type: str = MEDIA_UNKNOWN
     duration_bucket: str = DURATION_UNKNOWN
+    media_ref_present: bool = False
+    media_ref_kind: str = MEDIA_REF_KIND_NONE
     pop_event_should_be_written: bool = False
     serialized_size_bucket: str = SIZE_BUCKET_UNKNOWN
 
     # Internal fields — NEVER exposed in safe output
     _serialized: str = ""
+    _media_ref: str = ""
 
     def __repr__(self) -> str:
         return (
@@ -96,6 +114,8 @@ class KsoShellSnapshotResult:
             f"reason={self.reason!r}, "
             f"media_type={self.media_type!r}, "
             f"duration_bucket={self.duration_bucket!r}, "
+            f"media_ref_present={self.media_ref_present}, "
+            f"media_ref_kind={self.media_ref_kind!r}, "
             f"pop_event_should_be_written={self.pop_event_should_be_written}, "
             f"serialized_size_bucket={self.serialized_size_bucket!r})"
         )
@@ -135,18 +155,18 @@ def build_kso_shell_snapshot(
 ) -> KsoShellSnapshotResult:
     """Build a safe shell snapshot from shell command.
 
-    Pipeline: shell_command → shell_snapshot.
+    Pipeline: shell_command → shell_snapshot (with media_reference).
 
     If command == "hold":
         snapshot_mode=hold, shell_method=setHold,
         payload={"reason":"hold"}
 
     If command == "setRenderPlan":
+        Builds media_reference from render plan.
         snapshot_mode=render, shell_method=setRenderPlan,
-        payload={"mediaType":"image|video","durationBucket":"short|medium|long|unknown"}
+        payload={"mediaType":"...", "durationBucket":"...", "mediaRef":"..."}
 
-    IMPORTANT: Snapshot has NO media src. Real media source will be
-    a separate step after a separate security design.
+    If media reference is unsafe → hold (unsafe_media_reference).
 
     Args:
         root: Agent root path (str or Path).
@@ -176,6 +196,29 @@ def build_kso_shell_snapshot(
         )
     # ── Render path ──────────────────────────────────────────────────
     elif cmd.command == COMMAND_SET_RENDER_PLAN:
+        # Build media reference from render plan
+        try:
+            render_plan = build_kso_render_plan(root, stale_seconds, now)
+            media_ref_result = build_kso_safe_media_reference_from_render_plan(
+                render_plan)
+        except Exception:
+            return KsoShellSnapshotResult(
+                status=STATUS_ERROR,
+                snapshot_mode=SNAPSHOT_MODE_HOLD,
+                shell_method=SNAPSHOT_METHOD_SET_HOLD,
+                reason=REASON_UNSAFE_MEDIA_REFERENCE,
+                pop_event_should_be_written=cmd.pop_event_should_be_written,
+            )
+
+        if not media_ref_result.media_ref_present:
+            return KsoShellSnapshotResult(
+                status=STATUS_WARNING,
+                snapshot_mode=SNAPSHOT_MODE_HOLD,
+                shell_method=SNAPSHOT_METHOD_SET_HOLD,
+                reason=REASON_UNSAFE_MEDIA_REFERENCE,
+                pop_event_should_be_written=cmd.pop_event_should_be_written,
+            )
+
         snapshot = KsoShellSnapshotResult(
             status=cmd.status,
             snapshot_mode=SNAPSHOT_MODE_RENDER,
@@ -183,7 +226,10 @@ def build_kso_shell_snapshot(
             reason=cmd.reason,
             media_type=cmd.media_type,
             duration_bucket=cmd.duration_bucket,
+            media_ref_present=True,
+            media_ref_kind=MEDIA_REF_KIND_LOCAL_ALIAS,
             pop_event_should_be_written=cmd.pop_event_should_be_written,
+            _media_ref=media_ref_result._media_ref,
         )
     else:
         # Unexpected command — hold
@@ -208,7 +254,8 @@ def serialize_kso_shell_snapshot(result: KsoShellSnapshotResult) -> str:
     """Serialize a KsoShellSnapshotResult to a safe JSON string.
 
     Contains ONLY: schemaVersion, mode, method, payload.
-    payload keys only: mediaType, durationBucket (render) or reason (hold).
+    For render: payload = {mediaType, durationBucket, mediaRef}
+    For hold: payload = {reason: "hold"}
 
     NEVER: paths, filenames, IDs, hashes, timestamps, secrets.
 
@@ -220,6 +267,9 @@ def serialize_kso_shell_snapshot(result: KsoShellSnapshotResult) -> str:
             "mediaType": result.media_type,
             "durationBucket": result.duration_bucket,
         }
+        # Include mediaRef if present
+        if result.media_ref_present and result._media_ref:
+            payload["mediaRef"] = result._media_ref
     else:
         payload = {"reason": "hold"}
 
@@ -261,6 +311,8 @@ def format_kso_shell_snapshot_result(result: KsoShellSnapshotResult) -> str:
         f"reason: {result.reason}",
         f"media_type: {result.media_type}",
         f"duration_bucket: {result.duration_bucket}",
+        f"media_ref_present: {str(result.media_ref_present).lower()}",
+        f"media_ref_kind: {result.media_ref_kind}",
         f"pop_event_should_be_written: "
         f"{str(result.pop_event_should_be_written).lower()}",
         f"serialized_size_bucket: {result.serialized_size_bucket}",

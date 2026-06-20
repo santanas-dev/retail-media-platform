@@ -78,7 +78,8 @@
 
   /**
    * Set render mode — ad is ready to display.
-   * @param {object} plan — safe plan with mediaType and durationBucket.
+   * @param {object} plan — safe plan with mediaType, durationBucket, and
+   *   optionally mediaRef (safe local alias only, no paths).
    */
   function setRenderPlan(plan) {
     if (!plan || typeof plan !== "object") {
@@ -103,6 +104,11 @@
       mediaType: mediaType,
       durationBucket: durationBucket,
     };
+
+    // Store mediaRef if provided (safe local alias only)
+    if (typeof plan.mediaRef === "string" && plan.mediaRef.trim()) {
+      currentPlan.mediaRef = plan.mediaRef.trim();
+    }
 
     if (renderText) {
       var label = mediaType.charAt(0).toUpperCase() + mediaType.slice(1);
@@ -179,8 +185,8 @@
       ? payload.durationBucket.trim().toLowerCase()
       : "unknown";
 
-    // Reject unsafe payload extensions (more keys than expected)
-    var allowedKeys = {mediaType: true, durationBucket: true};
+    // Only accept safe payload keys (mediaRef optional for render)
+    var allowedKeys = {mediaType: true, durationBucket: true, mediaRef: true};
     var hasExtraKeys = false;
     for (var k in payload) {
       if (payload.hasOwnProperty(k) && !allowedKeys[k]) {
@@ -193,9 +199,32 @@
       return;
     }
 
+    // Validate mediaRef if present (safe local alias only)
+    if (typeof payload.mediaRef === "string" && payload.mediaRef.trim()) {
+      var mref = payload.mediaRef.trim();
+      // Whitelist: only a-z, 0-9, /, _, -
+      if (!/^[a-z0-9\/_-]+$/.test(mref)) {
+        setHold("hold");
+        return;
+      }
+      // Reject unsafe substrings
+      var unsafeInRef = ["..", "~", "\\\\", "://", "file:", "http:", "https:",
+                         "%2e", "%2f", "%2E", "%2F"];
+      var mrefLower = mref.toLowerCase();
+      for (var ui = 0; ui < unsafeInRef.length; ui++) {
+        if (mrefLower.indexOf(unsafeInRef[ui]) !== -1) {
+          setHold("hold");
+          return;
+        }
+      }
+    }
+
     setRenderPlan({
       mediaType: mediaType,
       durationBucket: durationBucket,
+      mediaRef: (typeof payload.mediaRef === "string" && payload.mediaRef.trim())
+        ? payload.mediaRef.trim()
+        : undefined,
     });
   }
 

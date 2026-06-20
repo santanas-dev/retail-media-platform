@@ -759,10 +759,70 @@ runtime_gate → runtime_decision → render_plan → shell_command → shell_sn
 
 ### Что НЕ реализовано
 
-- ❌ Media source в snapshot (отдельный шаг после security-дизайна)
+- ❌ Real media rendering (mediaRef — alias only, no src injection yet)
 - ❌ Chromium kiosk launch
 - ❌ Real media rendering
 - ❌ PoP write из snapshot
+
+---
+
+## KSO Player Safe Local Media Reference
+
+🔗 **Реализован:** `media_reference.py`. Безопасный локальный media alias для shell.
+
+### Pipeline
+
+```
+render_plan._selected_item → media_reference → mediaRef в shell_snapshot
+```
+
+### `build_kso_safe_media_reference(selected_item) → KsoSafeMediaReferenceResult`
+
+Строит безопасный локальный alias из `PlayerPlaylistItem`:
+
+- **Формат:** `media/current/slot-{order:03d}` (например `media/current/slot-000`)
+- **НЕ раскрывает:** реальный filename, manifest_item_id, campaign_id, creative_id, sha256
+- **НЕ является:** абсолютным путём, backend URL, ID, хешем
+
+### Whitelist validation
+
+| Правило | Допустимо | Запрещено |
+|---|---|---|
+| Символы | `a-z`, `0-9`, `/`, `_`, `-` | Всё остальное |
+| Unsafe substrings | — | `..`, `~`, `\`, `://`, `file:`, `http:`, `https:`, `%2e`, `%2f` |
+
+### Обновлённый shell snapshot (render)
+
+```json
+{"schemaVersion":1,"mode":"render","method":"setRenderPlan","payload":{"mediaType":"image","durationBucket":"short","mediaRef":"media/current/slot-000"}}
+```
+
+### Hold snapshot (без изменений)
+
+```json
+{"schemaVersion":1,"mode":"hold","method":"setHold","payload":{"reason":"hold"}}
+```
+
+### Если media reference unsafe → hold
+
+- Неподдерживаемый media type → `unsafe_media_reference`
+- Нет selected item → `unsafe_media_reference`
+- Whitelist validation fail → `unsafe_media_reference`
+
+### JS API: mediaRef в applySnapshot
+
+- `payload.mediaRef` — разрешён для render, опционален
+- Whitelist: `^[a-z0-9/_-]+$`
+- Отклоняет unsafe substrings → `setHold`
+- **НЕ вставляет** `<img src>` / `<video src>` — только alias в `currentPlan.mediaRef`
+- **НЕ использует:** `innerHTML`, `eval`, `fetch`, `XMLHttpRequest`, `WebSocket`
+
+### Что НЕ реализовано
+
+- ❌ Real media rendering / src injection (отдельный шаг)
+- ❌ Chromium kiosk launch
+- ❌ Media bytes read
+- ❌ Backend / HTTP / PoP write
 
 ---
 

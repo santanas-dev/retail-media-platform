@@ -250,10 +250,19 @@ class TestJS(TestCase):
         # hasExtraKeys check must exist
         self.assertIn("hasExtraKeys", self.js)
 
-    def test_apply_snapshot_only_mediatype_durationbucket(self):
-        # allowedKeys must contain only mediaType and durationBucket
+    def test_apply_snapshot_allowed_keys_include_media_ref(self):
+        # allowedKeys now includes mediaRef
         self.assertIn("mediaType: true", self.js)
         self.assertIn("durationBucket: true", self.js)
+        self.assertIn("mediaRef: true", self.js)
+
+    def test_apply_snapshot_media_ref_whitelist_pattern(self):
+        # applySnapshot must have regex whitelist for mediaRef
+        self.assertIn("/^[a-z0-9", self.js)
+
+    def test_apply_snapshot_media_ref_unsafe_rejected(self):
+        # unsafeInRef array must exist in applySnapshot
+        self.assertIn("unsafeInRef", self.js)
 
     def test_apply_snapshot_no_paths_near_apply(self):
         # No paths/filenames/IDs in applySnapshot code
