@@ -15,6 +15,7 @@ SHELL_DIR = Path(__file__).resolve().parent.parent / "player_shell"
 INDEX_HTML = SHELL_DIR / "index.html"
 STYLES_CSS = SHELL_DIR / "styles.css"
 PLAYER_JS = SHELL_DIR / "player.js"
+BOOTSTRAP_JS = SHELL_DIR / "bootstrap.js"
 
 # ── Forbidden substrings ────────────────────────────────────────────
 
@@ -55,9 +56,13 @@ class TestFileExistence(TestCase):
         self.assertTrue(PLAYER_JS.exists(), f"{PLAYER_JS} missing")
         self.assertGreater(PLAYER_JS.stat().st_size, 100)
 
+    def test_bootstrap_js_exists(self):
+        self.assertTrue(BOOTSTRAP_JS.exists(), f"{BOOTSTRAP_JS} missing")
+        self.assertGreater(BOOTSTRAP_JS.stat().st_size, 50)
+
     def test_only_expected_files(self):
         files = sorted(f.name for f in SHELL_DIR.iterdir() if f.is_file())
-        self.assertEqual(files, ["index.html", "player.js", "styles.css"])
+        self.assertEqual(files, ["bootstrap.js", "index.html", "player.js", "styles.css"])
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -91,9 +96,16 @@ class TestHTML(TestCase):
             '<link rel="stylesheet" href="styles.css">', ""))
 
     def test_only_local_scripts_referenced(self):
-        # Only player.js is loaded
+        # player.js and bootstrap.js are loaded locally
         self.assertIn('src="player.js"', self.html)
+        self.assertIn('src="bootstrap.js"', self.html)
         self.assertNotIn('src="http', self.html)
+
+    def test_bootstrap_after_player(self):
+        # bootstrap.js must be loaded AFTER player.js
+        pidx = self.html.index('src="player.js"')
+        bidx = self.html.index('src="bootstrap.js"')
+        self.assertGreater(bidx, pidx, "bootstrap.js must be after player.js")
 
     def test_no_iframe(self):
         self.assertNotIn("<iframe", self.html)
@@ -349,6 +361,63 @@ class TestJS(TestCase):
                     "campaign_id", "creative_id", "sha256"):
             self.assertNotIn(fb, lower,
                 f"forbidden '{fb}' found near setRenderPlan")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Tests: bootstrap.js
+# ══════════════════════════════════════════════════════════════════════
+
+class TestBootstrapJS(TestCase):
+    """bootstrap.js content and safety."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.js = BOOTSTRAP_JS.read_text()
+
+    def test_uses_ksoplayershell(self):
+        self.assertIn("KsoPlayerShell", self.js)
+
+    def test_uses_apply_snapshot(self):
+        self.assertIn("applySnapshot", self.js)
+
+    def test_uses_set_hold(self):
+        self.assertIn("setHold", self.js)
+
+    def test_checks_bootstrap_snapshot(self):
+        self.assertIn("KSO_PLAYER_BOOTSTRAP_SNAPSHOT", self.js)
+
+    def test_no_fetch(self):
+        self.assertNotIn("fetch(", self.js)
+
+    def test_no_xml_http_request(self):
+        self.assertNotIn("XMLHttpRequest", self.js)
+
+    def test_no_web_socket(self):
+        self.assertNotIn("WebSocket", self.js)
+        self.assertNotIn("ws://", self.js)
+        self.assertNotIn("wss://", self.js)
+
+    def test_no_eval(self):
+        self.assertNotIn("eval(", self.js)
+
+    def test_no_new_function(self):
+        self.assertNotIn("new Function", self.js)
+
+    def test_no_inner_html(self):
+        self.assertNotIn("innerHTML", self.js)
+        self.assertNotIn("outerHTML", self.js)
+        self.assertNotIn("insertAdjacentHTML", self.js)
+
+    def test_no_external_urls(self):
+        self.assertNotIn("http://", self.js)
+        self.assertNotIn("https://", self.js)
+        self.assertNotIn("file://", self.js)
+
+    def test_no_forbidden_substrings(self):
+        lower = self.js.lower()
+        for fb in FORBIDDEN:
+            self.assertNotIn(fb, lower,
+                f"forbidden '{fb}' found in bootstrap.js")
 
 
 if __name__ == "__main__":

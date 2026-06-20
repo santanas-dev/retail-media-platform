@@ -858,6 +858,51 @@ render_plan._selected_item → media_reference → mediaRef в shell_snapshot
 
 ---
 
+## KSO Player Shell Bootstrap
+
+🚀 **Реализован:** `bootstrap.js`. Автостарт shell при загрузке страницы.
+
+### Как работает
+
+1. `index.html` загружает `player.js` → `bootstrap.js`
+2. `bootstrap.js` проверяет `window.KsoPlayerShell` (должен быть загружен)
+3. Проверяет `window.KSO_PLAYER_BOOTSTRAP_SNAPSHOT`
+4. Если snapshot есть → `shell.applySnapshot(snapshot)` (вся валидация внутри)
+5. Если snapshot отсутствует → `shell.setHold("hold")` (безопасный fallback)
+6. Никаких ошибок наружу, никаких stacktrace
+
+### Snapshot contract (future)
+
+```js
+// Hold
+window.KSO_PLAYER_BOOTSTRAP_SNAPSHOT = {
+  schemaVersion: 1, mode: "hold", method: "setHold",
+  payload: { reason: "hold" }
+};
+
+// Render
+window.KSO_PLAYER_BOOTSTRAP_SNAPSHOT = {
+  schemaVersion: 1, mode: "render", method: "setRenderPlan",
+  payload: { mediaType: "image", durationBucket: "short",
+             mediaRef: "media/current/slot-000" }
+};
+```
+
+### Безопасность
+
+- **НЕ содержит:** `fetch`, `XMLHttpRequest`, `WebSocket`, `eval`, `new Function`, `innerHTML`
+- **НЕ содержит:** external URLs, backend, token, secret, password
+- **НЕ пишет** файлы, НЕ читает media bytes, НЕ делает HTTP
+- CSP: `connect-src 'none'`
+
+### Что НЕ реализовано
+
+- ❌ Dynamic snapshot writer (файл snapshot не создаётся на этом шаге)
+- ❌ Fetch JSON / external script
+- ❌ Chromium kiosk launch
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay
