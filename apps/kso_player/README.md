@@ -909,6 +909,48 @@ window.KSO_PLAYER_BOOTSTRAP_SNAPSHOT = {
 
 ---
 
+## KSO Player Runtime Shell Workspace
+
+📂 **Реализован:** `runtime_shell_workspace.py`. Подготовка runtime-копии HTML shell.
+
+### `prepare_kso_runtime_shell_workspace(source_shell_dir, runtime_shell_dir)`
+
+Копирует whitelist shell-файлы из immutable source в mutable runtime директорию.
+
+### Copy whitelist (5 файлов)
+
+| Файл | Назначение |
+|---|---|
+| `index.html` | HTML shell |
+| `styles.css` | Стили |
+| `player.js` | `window.KsoPlayerShell` API |
+| `bootstrap_snapshot.js` | Default hold snapshot |
+| `bootstrap.js` | Автостарт |
+
+### Игнорируются
+
+- Extra files (README.txt, .env, .hidden и т.д.)
+- Subdirectories
+- Unknown files
+- .token, .secret, .key, .pem, .log
+- manifest, media, pop, state files
+
+### Atomic copy
+
+Каждый файл копируется атомарно: `.tmp → flush/fsync → rename → fsync dir`
+
+### Source shell НЕ модифицируется
+
+Source shell остаётся неизменяемым — все операции на runtime copy.
+
+### Что НЕ реализовано
+
+- ❌ Chromium kiosk launch
+- ❌ Dynamic snapshot writer
+- ❌ Systemd / service
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay
