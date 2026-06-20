@@ -951,6 +951,68 @@ Source shell остаётся неизменяемым — все операци
 
 ---
 
+## KSO Player Runtime Snapshot Writer
+
+📝 **Реализован:** `runtime_snapshot_writer.py` + CLI `shell-snapshot-write`.
+
+### Pipeline
+
+```
+state/kso_state.json → runtime_gate → runtime_decision →
+  render_plan → shell_command → shell_snapshot → bootstrap_snapshot.js
+```
+
+### `write_kso_runtime_bootstrap_snapshot(root, runtime_shell_dir, stale_seconds=30)`
+
+Строит текущий shell snapshot и атомарно пишет `bootstrap_snapshot.js`
+в runtime shell directory.
+
+**Куда пишет:** `{runtime_shell_dir}/bootstrap_snapshot.js`
+**Куда НЕ пишет:** `/opt`, state, manifest, media, pop
+
+### Когда hold
+
+| Триггер | |
+|---|---|
+| Non-idle state | hold |
+| Missing state | hold |
+| Stale state | hold |
+| Missing manifest | hold |
+| Unsupported media type | hold |
+
+### Когда render
+
+| Условие | |
+|---|---|
+| idle + image + manifest ready | render (`setRenderPlan` + mediaRef) |
+| idle + video + manifest ready | render (`setRenderPlan` + mediaRef) |
+
+### Atomic write
+
+```
+bootstrap_snapshot.js.tmp → flush/fsync → rename → fsync directory
+```
+
+### CLI
+
+```bash
+python3 -m kso_player.cli shell-snapshot-write \
+  --root /tmp/kso-root \
+  --runtime-shell-dir /tmp/kso-runtime/player_shell
+```
+
+| Exit code | |
+|---|---|
+| 0 | Snapshot записан |
+| 1 | Warning / error |
+| 2 | Invalid args |
+
+### Что НЕ реализовано
+
+- ❌ Chromium kiosk launch
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay

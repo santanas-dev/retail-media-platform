@@ -28,6 +28,12 @@ from kso_player.session import select_next_item
 from kso_player.simulator import simulate_playback_step, SIM_STATUS_WOULD_PLAY
 from kso_player.events import build_playback_event_draft, EVENT_TYPE_WOULD_PLAY
 from kso_player.pop_writer import write_pop_event, STATUS_WRITTEN
+from kso_player.runtime_snapshot_writer import (
+    write_kso_runtime_bootstrap_snapshot,
+    format_kso_runtime_snapshot_write_result,
+    REASON_WRITTEN as REASON_SNAPSHOT_WRITTEN,
+    STATUS_ERROR as SNAPSHOT_STATUS_ERROR,
+)
 
 
 def cmd_playlist_status(args: argparse.Namespace) -> None:
@@ -161,6 +167,24 @@ def cmd_pop_write(args: argparse.Namespace) -> None:
     sys.exit(0 if write_result.status == STATUS_WRITTEN else 1)
 
 
+def cmd_shell_snapshot_write(args: argparse.Namespace) -> None:
+    """Write bootstrap_snapshot.js to the runtime shell directory.
+
+    Pipeline: state → runtime_gate → shell_snapshot → atomic JS write.
+    Targets ONLY the runtime shell copy, NEVER the /opt source.
+    No backend, no Chromium, no PoP.
+    """
+    result = write_kso_runtime_bootstrap_snapshot(
+        root=args.root,
+        runtime_shell_dir=args.runtime_shell_dir,
+        stale_seconds=args.stale_seconds,
+    )
+    print(format_kso_runtime_snapshot_write_result(result))
+    if result.status == SNAPSHOT_STATUS_ERROR:
+        sys.exit(1)
+    sys.exit(0)
+
+
 def _validate_state(value: str) -> str:
     normalized = value.strip().lower()
     if normalized not in ALLOWED_STATES:
@@ -218,6 +242,15 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="Build event draft + write to local pop/pending/player_events.jsonl")
     _add_state_arg(pw)
     pw.set_defaults(func=cmd_pop_write)
+
+    ssw = sub.add_parser("shell-snapshot-write",
+                         help="Write bootstrap_snapshot.js to runtime shell directory")
+    ssw.add_argument("--root", required=True, help="Agent root path")
+    ssw.add_argument("--runtime-shell-dir", required=True,
+                     help="Runtime shell directory path")
+    ssw.add_argument("--stale-seconds", type=int, default=30,
+                     help="Max state age before stale (default: 30)")
+    ssw.set_defaults(func=cmd_shell_snapshot_write)
 
     return parser
 
