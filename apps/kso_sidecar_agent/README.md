@@ -586,6 +586,59 @@ python3 -m kso_sidecar_agent.cli pop-rotation-apply --root /tmp/kso-agent-root -
 
 ---
 
+## PoP Send Package Scope Core
+
+📦 **Реализован:** `pop_send_package.py`. In-memory сборка пакета отправки из ОДНОГО snapshot pending под lock.
+
+### `build_pop_send_package(root, max_lines=10000) -> PopSendPackageResult`
+
+- Берёт lock → читает pending snapshot → классифицирует eligible completed → строит payload (**PopPayloadEnvelope**) + sent scope (**PopRotationSentScope**) → отпускает lock
+- **Один snapshot гарантирует:** payload и sent_scope используют одни и те же pending line numbers — нет гонки между build и rotation
+- **Не отправляет backend, не делает HTTP, не пишет/удаляет файлы, не вызывает rotation apply**
+- Draft/blocked/failed/invalid → не попадают в payload и не попадают в sent scope
+
+### PopSendPackageResult
+
+Safe aggregates: `status`, `package_built`, `lock_acquired`, `pending_lines_read`, `eligible_events`, `payload_events`, `scope_lines`, `reason`.
+Внутренние поля (`_payload`, `_sent_scope`) — `repr=False`, никогда не раскрываются.
+
+### PopRotationSentScope
+
+Строится из тех же pending line numbers, что и payload. `frozenset` line numbers — только internal.
+`repr`: `PopRotationSentScope(size=N)` — без списка номеров строк.
+
+### Защита от race condition
+
+```
+build_pop_send_package (один проход под lock):
+  1. snapshot pending
+  2. для каждого eligible: build payload event + track line_number
+  3. build PopRotationSentScope из tracked line_numbers
+  → payload и scope синхронизированы
+
+Будущий sender:
+  send(payload) → send_run_result
+
+Будущий rotation apply:
+  apply(root, send_run_result, sent_scope=package._sent_scope)
+  → sent только для строк, бывших в payload
+```
+
+### Безопасность
+
+- ❌ Не делает HTTP/backend send
+- ❌ Не пишет/удаляет pending
+- ❌ Не создаёт sent/quarantine/dry_run/failed
+- ❌ Не вызывает rotation apply
+- ❌ Не читает secret/config/token/media bytes
+- ❌ Не выводит: raw JSON, payload body, line numbers list, IDs, paths, sha256
+
+### CLI
+
+CLI не добавляется на этом шаге. Модуль вызывается только из будущего sender/run_cycle.
+
+---
+
 ## PoP Backend Sender Design
 
 📝 **Mini-design создан:** `docs/pop_backend_sender_design.md`. Спроектирована безопасная отправка eligible PoP payload в backend через `POST /device-gateway/pop/events/batch`.
