@@ -39,6 +39,7 @@ from kso_sidecar_agent.pop_payload import (
 )
 from kso_sidecar_agent.pop_rotation_materializer import (
     PopRotationSentScope,
+    build_pending_line_fingerprint,
 )
 
 # ══════════════════════════════════════════════════════════════════════
@@ -280,6 +281,7 @@ def _build_under_lock(
     )
 
     scope_line_numbers: list[int] = []
+    scope_line_fingerprints: dict = {}
     pending_lines_read = 0
     eligible_events = 0
     limited = False
@@ -347,6 +349,8 @@ def _build_under_lock(
 
         # ── Track line number for sent scope ─────────────────
         scope_line_numbers.append(pending_lines_read)
+        # Also compute fingerprint of the exact line used in payload
+        scope_line_fingerprints[pending_lines_read] = build_pending_line_fingerprint(stripped)
 
     # ── Populate result ──────────────────────────────────────────
     result.pending_lines_read = pending_lines_read
@@ -361,7 +365,10 @@ def _build_under_lock(
 
     if envelope.events:
         # Build sent scope from the same snapshot line numbers
-        sent_scope = PopRotationSentScope(_line_numbers=frozenset(scope_line_numbers))
+        sent_scope = PopRotationSentScope(
+            _line_numbers=frozenset(scope_line_numbers),
+            _line_fingerprints=scope_line_fingerprints,
+        )
         result._sent_scope = sent_scope
         result._payload = envelope
         result.scope_lines = sent_scope.size

@@ -561,7 +561,29 @@ Safe aggregate: status, applied, lock_acquired, pending_untouched, target_files_
 | pending_should_remain / 409 | 0 |
 | run_status != ok | 0 |
 
-**Агрегаты в result (без line numbers):** `sent_scope_required`, `sent_scope_lines`, `sent_scope_matched`.
+**Агрегаты в result (без line numbers):** `sent_scope_required`, `sent_scope_lines`, `sent_scope_matched`, `sent_scope_fingerprinted`, `sent_scope_mismatched`.
+
+### Sent Scope Fingerprint Guard
+
+🔐 **Реализован:** двухуровневая защита — `line_number` + `fingerprint` в `PopRotationSentScope`. Между `build_pop_send_package` и будущим `rotation apply` pending может измениться — fingerprinted scope ловит in-place изменения.
+
+**Проблема:** номер строки сам по себе недостаточен. Если между send и rotation строка была перезаписана другим контентом, её нельзя переносить в sent.
+
+**Решение:** при построении send package вычисляется `SHA-256(line)` для каждой eligible строки. При materialization проверяется `line_number ∈ scope AND fingerprint == stored`.
+
+| Условие | sent_records |
+|---|---|
+| line in scope + fingerprint match | → sent |
+| line in scope + fingerprint mismatch | 0 (sent_scope_mismatch) |
+| line in scope + legacy scope (no fingerprints) | → sent (backward compat) |
+| line not in scope | 0 (retained) |
+
+**Fingerprint:** SHA-256 stripped JSONL line. Internal-only — НЕ печатается, НЕ логируется, НЕ отправляется в backend, НЕ включается в payload.
+
+**`PopRotationSentScope` repr:** `PopRotationSentScope(size=N, fingerprinted)` / `PopRotationSentScope(size=N, line-only)`.
+
+**`build_pop_send_package()` всегда создаёт fingerprinted scope.**
+**`run_pop_scoped_send()` сохраняет fingerprinted scope в `_sent_scope`.**
 
 ### CLI: `pop-rotation-apply`
 

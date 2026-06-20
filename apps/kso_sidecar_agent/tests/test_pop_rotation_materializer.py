@@ -70,6 +70,84 @@ def _write_jsonl(tmp, lines):
     path.write_text(text)
 
 
+def _make_record(event_status="draft", event_type="would_play",
+                 safety_state="idle", selected_order=0):
+    return {
+        "schema_version": 1,
+        "event_type": event_type,
+        "event_status": event_status,
+        "created_at": "2026-06-19T00:00:00+00:00",
+        "started_at": "2026-06-19T00:00:00+00:00",
+        "ended_at": "2026-06-19T00:00:05+00:00",
+        "duration_ms": 5000 if event_type == "would_play" else 0,
+        "playback_allowed": True if event_type == "would_play" else False,
+        "session_action": "play" if event_type == "would_play" else "stop",
+        "session_reason": "ready" if event_type == "would_play" else "safety_blocked",
+        "selected_order": selected_order,
+        "selected_content_type": "image/png",
+        "safety_state": safety_state,
+        "result": event_type,
+    }
+
+
+def _make_manifest_items(count=3):
+    import uuid
+    items = []
+    for i in range(count):
+        items.append({
+            "manifest_item_id": str(uuid.uuid4()),
+            "filename": f"file_{i}.png",
+            "content_type": "image/png",
+            "sha256": "a" * 64,
+            "duration_ms": 5000,
+            "order": i,
+            "size_bytes": 100,
+            "campaign_id": str(uuid.uuid4()),
+            "schedule_item_id": str(uuid.uuid4()),
+        })
+    return items
+
+
+def _make_manifest_data(items=None, mvid=None):
+    import uuid
+    if mvid is None:
+        mvid = str(uuid.uuid4())
+    return {
+        "manifest_version_id": mvid,
+        "manifest_hash": "a" * 64,
+        "source": "current",
+        "generated_at": "2026-06-19T00:00:00Z",
+        "publication_target_id": str(uuid.uuid4()),
+        "items": items or _make_manifest_items(3),
+    }
+
+
+def _write_manifest(root, manifest_data):
+    mdir = root / "manifest"
+    mdir.mkdir(parents=True, exist_ok=True)
+    (mdir / "current_manifest.json").write_text(json.dumps(manifest_data))
+
+
+def _clear_media_cache(root):
+    mdir = root / "manifest"
+    mc_dir = root / "media" / "current"
+    mc_dir.mkdir(parents=True, exist_ok=True)
+    if (mdir / "current_manifest.json").exists():
+        try:
+            import hashlib
+            manifest = json.loads((mdir / "current_manifest.json").read_text())
+            for item in manifest.get("items", []):
+                fname = item.get("filename", "")
+                if fname:
+                    data = b"\x00" * item.get("size_bytes", 100)
+                    sha = hashlib.sha256(data).hexdigest()
+                    item["sha256"] = sha
+                    (mc_dir / fname).write_bytes(data)
+            (mdir / "current_manifest.json").write_text(json.dumps(manifest))
+        except Exception:
+            pass
+
+
 def _draft_line():
     return json.dumps({
         "schema_version": 1,
@@ -876,6 +954,231 @@ class TestMaterializerSentScope(TestCase):
         text = repr(scope)
         self.assertIn("size=3", text)
         self.assertNotIn("line_numbers", text.lower())
+
+    def test_scope_repr_no_fingerprint_values(self):
+        from kso_sidecar_agent.pop_rotation_materializer import (
+            PopRotationSentScope,
+            build_pending_line_fingerprint,
+        )
+        fp = build_pending_line_fingerprint("test")
+        scope = PopRotationSentScope(
+            _line_numbers=frozenset({1}),
+            _line_fingerprints={1: fp},
+        )
+        text = repr(scope)
+        self.assertIn("fingerprinted", text)
+        self.assertNotIn(fp, text)
+
+
+class TestMaterializerSentScopeFingerprint(TestCase):
+    """Fingerprint-specific tests — line + fingerprint match required."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _setup_manifest(self):
+        _write_manifest(self.root, _make_manifest_data())
+        _clear_media_cache(self.root)
+
+    def _completed_line(self, order=0):
+        """Return a completed eligible record line and its stripped content."""
+        rec = _make_record(event_status="completed", selected_order=order)
+        stripped = json.dumps(rec, sort_keys=True)
+        return stripped
+
+    def _make_fingerprinted_scope(self, *line_fingerprint_pairs):
+        """Build a fingerprinted scope from (line_num, stripped_json_line) pairs."""
+        from kso_sidecar_agent.pop_rotation_materializer import (
+            PopRotationSentScope,
+            build_pending_line_fingerprint,
+        )
+        ln_set = set()
+        fp_dict = {}
+        for ln, line_str in line_fingerprint_pairs:
+            ln_set.add(ln)
+            fp_dict[ln] = build_pending_line_fingerprint(line_str)
+        return PopRotationSentScope(
+            _line_numbers=frozenset(ln_set),
+            _line_fingerprints=fp_dict,
+        )
+
+    def test_fingerprint_match_sent(self):
+        """line_number match + fingerprint match → sent."""
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.root)
+        line_str = self._completed_line(order=0)
+        _write_jsonl(self.root, [line_str])
+        sr = _make_send_result(run_status="ok", pending_should_remain=False)
+        scope = self._make_fingerprinted_scope((1, line_str))
+        result = materialize_pop_rotation_records_locked(
+            self.root, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 1)
+        self.assertEqual(result.sent_scope_matched, 1)
+        self.assertEqual(result.sent_scope_mismatched, 0)
+
+    def test_fingerprint_mismatch_retained(self):
+        """line_number match + fingerprint mismatch → sent=0, retained."""
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.root)
+        line_str_original = self._completed_line(order=0)
+        # Write a DIFFERENT completed line (different order)
+        line_str_changed = self._completed_line(order=1)
+        _write_jsonl(self.root, [line_str_changed])
+        sr = _make_send_result(run_status="ok", pending_should_remain=False)
+        # Scope was built from original line, but pending has changed line
+        scope = self._make_fingerprinted_scope((1, line_str_original))
+        result = materialize_pop_rotation_records_locked(
+            self.root, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 0)
+        self.assertEqual(result.sent_scope_matched, 0)
+        self.assertEqual(result.sent_scope_mismatched, 1)
+
+    def test_line_not_in_scope_fingerprinted(self):
+        """line_number not in scope → retained (fingerprinted scope)."""
+        from kso_sidecar_agent.pop_rotation_materializer import (
+            PopRotationSentScope,
+            build_pending_line_fingerprint,
+        )
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.root)
+        line_str = self._completed_line(order=0)
+        _write_jsonl(self.root, [line_str])
+        sr = _make_send_result(run_status="ok", pending_should_remain=False)
+        scope = PopRotationSentScope(
+            _line_numbers=frozenset({99}),
+            _line_fingerprints={99: build_pending_line_fingerprint(line_str)},
+        )
+        result = materialize_pop_rotation_records_locked(
+            self.root, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 0)
+
+    def test_mixed_match_and_mismatch(self):
+        """Line 1 match, line 2 mismatch → only line 1 sent."""
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.root)
+        line_1 = self._completed_line(order=0)
+        line_2_changed = self._completed_line(order=1)
+        _write_jsonl(self.root, [line_1, line_2_changed])
+        sr = _make_send_result(run_status="ok", pending_should_remain=False)
+        # Scope built from line_1 and a different line_2
+        scope = self._make_fingerprinted_scope(
+            (1, line_1),
+            (2, self._completed_line(order=2)),  # different fingerprint for line 2
+        )
+        result = materialize_pop_rotation_records_locked(
+            self.root, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 1)
+        self.assertEqual(result.sent_scope_matched, 1)
+        self.assertEqual(result.sent_scope_mismatched, 1)
+
+    def test_pending_should_remain_overrides_fingerprint(self):
+        """pending_should_remain=true → sent=0 even with fingerprint match."""
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.root)
+        line_str = self._completed_line(order=0)
+        _write_jsonl(self.root, [line_str])
+        sr = _make_send_result(run_status="ok", pending_should_remain=True)
+        scope = self._make_fingerprinted_scope((1, line_str))
+        result = materialize_pop_rotation_records_locked(
+            self.root, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 0)
+
+    def test_409_overrides_fingerprint(self):
+        """409 duplicate → sent=0 even with fingerprint match."""
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.root)
+        line_str = self._completed_line(order=0)
+        _write_jsonl(self.root, [line_str])
+        sr = _make_send_result(
+            run_status="warning", pending_should_remain=True,
+            reason="duplicate_batch_pending_remains")
+        scope = self._make_fingerprinted_scope((1, line_str))
+        result = materialize_pop_rotation_records_locked(
+            self.root, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 0)
+
+    def test_run_not_ok_overrides_fingerprint(self):
+        """run_status != ok → sent=0 even with fingerprint match."""
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.root)
+        line_str = self._completed_line(order=0)
+        _write_jsonl(self.root, [line_str])
+        sr = _make_send_result(run_status="warning", pending_should_remain=False)
+        scope = self._make_fingerprinted_scope((1, line_str))
+        result = materialize_pop_rotation_records_locked(
+            self.root, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 0)
+
+    def test_result_repr_no_fingerprint_values(self):
+        """Result repr does not contain fingerprint hex values."""
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.root)
+        line_str = self._completed_line(order=0)
+        _write_jsonl(self.root, [line_str])
+        from kso_sidecar_agent.pop_rotation_materializer import build_pending_line_fingerprint
+        fp = build_pending_line_fingerprint(line_str)
+        sr = _make_send_result(run_status="ok", pending_should_remain=False)
+        scope = self._make_fingerprinted_scope((1, line_str))
+        result = materialize_pop_rotation_records_locked(
+            self.root, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        repr_str = repr(result)
+        # Aggregates should be present
+        self.assertIn("sent_scope_fingerprinted=True", repr_str)
+        self.assertIn("sent_scope_matched=1", repr_str)
+        # But hex fingerprint values should NOT appear
+        self.assertNotIn(fp, repr_str)
+
+    def test_safe_output_no_fingerprint_values(self):
+        """Safe format output does not contain fingerprint hex values."""
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.root)
+        line_str = self._completed_line(order=0)
+        _write_jsonl(self.root, [line_str])
+        from kso_sidecar_agent.pop_rotation_materializer import build_pending_line_fingerprint
+        fp = build_pending_line_fingerprint(line_str)
+        sr = _make_send_result(run_status="ok", pending_should_remain=False)
+        scope = self._make_fingerprinted_scope((1, line_str))
+        result = materialize_pop_rotation_records_locked(
+            self.root, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        output = format_pop_rotation_materialize_result(result)
+        self.assertNotIn(fp, output)
+        self.assertIn("sent_scope_fingerprinted:", output)
+        self.assertIn("sent_scope_mismatched:", output)
+
+    def test_fingerprinted_scope_field(self):
+        """PopRotationSentScope.fingerprinted reflects fingerprint presence."""
+        from kso_sidecar_agent.pop_rotation_materializer import (
+            PopRotationSentScope,
+        )
+        scope_no_fp = PopRotationSentScope(_line_numbers=frozenset({1}))
+        self.assertFalse(scope_no_fp.fingerprinted)
+
+        scope_with_fp = PopRotationSentScope(
+            _line_numbers=frozenset({1}),
+            _line_fingerprints={1: "aaaa" * 16},
+        )
+        self.assertTrue(scope_with_fp.fingerprinted)
+
+    def test_fingerprint_matches_legacy_scope(self):
+        """Legacy scope (no fingerprints): fingerprint_matches → True for any line in scope."""
+        from kso_sidecar_agent.pop_rotation_materializer import PopRotationSentScope
+        scope = PopRotationSentScope(_line_numbers=frozenset({1, 5}))
+        self.assertTrue(scope.fingerprint_matches(1, "any-fingerprint"))
+        self.assertTrue(scope.fingerprint_matches(5, ""))
+        self.assertFalse(scope.fingerprint_matches(99, "any"))
 
 
 # ══════════════════════════════════════════════════════════════════════

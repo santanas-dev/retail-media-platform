@@ -156,6 +156,22 @@ def _sanitized_rotation_record(
 # Sent Scope Guard
 # ══════════════════════════════════════════════════════════════════════
 
+def build_pending_line_fingerprint(line: str) -> str:
+    """Build a stable internal fingerprint for a pending JSONL line.
+
+    Uses SHA-256 of the stripped line content. Fingerprint is internal-only:
+    NEVER exposed in repr, output, logs, payload, or backend.
+
+    Args:
+        line: Raw JSONL line (stripped whitespace).
+
+    Returns:
+        64-char hex fingerprint string.
+    """
+    import hashlib as _hashlib
+    return _hashlib.sha256(line.encode("utf-8")).hexdigest()
+
+
 @dataclass(frozen=True)
 class PopRotationSentScope:
     """Internal sent scope — restricts which line numbers are eligible for sent/.
@@ -163,14 +179,46 @@ class PopRotationSentScope:
     Prevents new completed events (appended after send) from being
     accidentally rotated to sent/ when only a previous batch was confirmed.
 
-    Aggregates only — line numbers are NEVER exposed in repr, output, or logs.
+    Two-level guard:
+      1. line_number ∈ scope (existing)
+      2. fingerprint match for that line (NEW — catches in-place changes)
+
+    If fingerprints are present, BOTH line_number AND fingerprint must match.
+    Aggregates only — line numbers and fingerprints are NEVER exposed.
+
+    Backward compatible: scope without fingerprints acts as line-number-only
+    (legacy/test mode). build_pop_send_package always creates fingerprint-enabled scope.
     """
 
     _line_numbers: frozenset = field(default_factory=frozenset, repr=False)
+    _line_fingerprints: dict = field(default_factory=dict, repr=False)
 
     def has_line(self, line_number: int) -> bool:
         """Check if a given pending line number is in scope."""
         return line_number in self._line_numbers
+
+    def fingerprint_matches(self, line_number: int, fingerprint: str) -> bool:
+        """Check if the fingerprint for line_number matches.
+
+        If scope has no fingerprints (legacy), returns True only if the
+        line_number is in scope (line-number-only check).
+        If scope has fingerprints but none for this line, returns False.
+        If scope has fingerprint for this line, checks exact match.
+        """
+        if not self._line_fingerprints:
+            # Legacy — no fingerprints, line-number-only: must be in scope
+            return line_number in self._line_numbers
+        stored = self._line_fingerprints.get(line_number)
+        if stored is None:
+            return False
+        if not isinstance(fingerprint, str) or not fingerprint:
+            return False
+        return stored == fingerprint
+
+    @property
+    def fingerprinted(self) -> bool:
+        """Whether this scope has fingerprint data."""
+        return bool(self._line_fingerprints)
 
     @property
     def size(self) -> int:
@@ -178,7 +226,8 @@ class PopRotationSentScope:
         return len(self._line_numbers)
 
     def __repr__(self) -> str:
-        return f"PopRotationSentScope(size={self.size})"
+        fp = "fingerprinted" if self._line_fingerprints else "line-only"
+        return f"PopRotationSentScope(size={self.size}, {fp})"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -216,6 +265,8 @@ class PopRotationMaterializeResult:
     sent_scope_required: bool = False
     sent_scope_lines: int = 0
     sent_scope_matched: int = 0
+    sent_scope_fingerprinted: bool = False
+    sent_scope_mismatched: int = 0
 
     # ── Internal buckets (repr=False — never exposed) ─────────────────
 
@@ -252,6 +303,8 @@ class PopRotationMaterializeResult:
             f"sent_scope_required={self.sent_scope_required}, "
             f"sent_scope_lines={self.sent_scope_lines}, "
             f"sent_scope_matched={self.sent_scope_matched}, "
+            f"sent_scope_fingerprinted={self.sent_scope_fingerprinted}, "
+            f"sent_scope_mismatched={self.sent_scope_mismatched}, "
             f"reason={self.reason!r})"
         )
 
@@ -460,6 +513,7 @@ def _materialize_under_lock(
     # ── Track sent scope ─────────────────────────────────────────
     has_scope = sent_scope is not None and isinstance(sent_scope, PopRotationSentScope)
     result.sent_scope_lines = sent_scope.size if has_scope else 0
+    result.sent_scope_fingerprinted = bool(has_scope and getattr(sent_scope, "fingerprinted", False))
 
     if send_ok and not has_scope and not send_pr and not is_dup:
         result.sent_scope_required = True
@@ -570,15 +624,27 @@ def _materialize_under_lock(
         elif cls == CLASS_ELIGIBLE:
             if can_sent:
                 # Scope gate: only sent if line_number in sent scope
-                if not has_scope:
+                _scope = sent_scope  # type-narrowing for pyright
+                if not has_scope or _scope is None:
                     # send ok but no scope → stays pending
                     result._retained_pending_records.append(dict(record))
-                elif sent_scope.has_line(line_number):
+                elif not _scope.has_line(line_number):
+                    # line not in scope → stays pending
+                    result._retained_pending_records.append(dict(record))
+                elif not _scope.fingerprinted:
+                    # Legacy: line-number-only scope → sent
                     result._sent_records.append(dict(record))
                     result.sent_scope_matched += 1
                 else:
-                    # line not in scope → stays pending
-                    result._retained_pending_records.append(dict(record))
+                    # Fingerprint-enabled: must match
+                    line_fp = build_pending_line_fingerprint(stripped)
+                    if _scope.fingerprint_matches(line_number, line_fp):
+                        result._sent_records.append(dict(record))
+                        result.sent_scope_matched += 1
+                    else:
+                        # Fingerprint mismatch → stays pending
+                        result._retained_pending_records.append(dict(record))
+                        result.sent_scope_mismatched += 1
             else:
                 result._retained_pending_records.append(dict(record))
 
@@ -659,6 +725,8 @@ def format_pop_rotation_materialize_result(result: PopRotationMaterializeResult)
         f"sent_scope_required:         {str(result.sent_scope_required).lower()}",
         f"sent_scope_lines:            {result.sent_scope_lines}",
         f"sent_scope_matched:          {result.sent_scope_matched}",
+        f"sent_scope_fingerprinted:    {str(result.sent_scope_fingerprinted).lower()}",
+        f"sent_scope_mismatched:       {result.sent_scope_mismatched}",
         f"reason:                      {result.reason}",
     ]
 

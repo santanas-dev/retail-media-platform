@@ -582,5 +582,73 @@ class TestBuildSendPackageFormat(unittest.TestCase):
         self.assertNotIn("traceback", output.lower())
 
 
+class TestSendPackageFingerprint(unittest.TestCase):
+    """Fingerprint-specific tests — send package builds fingerprint-enabled scope."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        _write_manifest(self.root, _make_manifest_data())
+        _clear_media_cache(self.root)
+        _write_jsonl(self.root, [_make_record(event_status="completed")])
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_send_package_creates_fingerprinted_scope(self):
+        """build_pop_send_package creates fingerprinted scope."""
+        result = build_pop_send_package(self.root)
+        self.assertTrue(result.package_built)
+        self.assertIsNotNone(result._sent_scope)
+        self.assertTrue(result._sent_scope.fingerprinted)
+        self.assertEqual(result._sent_scope.size, 1)
+
+    def test_send_package_scope_repr_no_fingerprint_values(self):
+        """Scope repr shows 'fingerprinted' but not hex values."""
+        from kso_sidecar_agent.pop_rotation_materializer import build_pending_line_fingerprint
+        result = build_pop_send_package(self.root)
+        # Extract one fingerprint to verify it's NOT in repr
+        line_str = json.dumps(_make_record(event_status="completed"), sort_keys=True)
+        fp = build_pending_line_fingerprint(line_str)
+        repr_str = repr(result._sent_scope)
+        self.assertIn("fingerprinted", repr_str)
+        self.assertNotIn(fp, repr_str)
+
+    def test_send_package_result_repr_no_fingerprint_values(self):
+        """PopSendPackageResult repr does not contain fingerprint hex values."""
+        from kso_sidecar_agent.pop_rotation_materializer import build_pending_line_fingerprint
+        result = build_pop_send_package(self.root)
+        line_str = json.dumps(_make_record(event_status="completed"), sort_keys=True)
+        fp = build_pending_line_fingerprint(line_str)
+        repr_str = repr(result)
+        self.assertNotIn(fp, repr_str)
+        self.assertNotIn("_line_fingerprints", repr_str)
+
+    def test_scoped_send_preserves_fingerprinted_scope(self):
+        """Scoped send preserves the fingerprinted scope from send package."""
+        # We can't easily test pop_scoped_send here (needs http_client),
+        # but we verify the package itself has fingerprinted scope
+        result = build_pop_send_package(self.root)
+        self.assertIsNotNone(result._sent_scope)
+        self.assertTrue(result._sent_scope.fingerprinted)
+
+    def test_two_eligible_fingerprinted_scope_matches(self):
+        """Two eligible → scope has correct internal fingerprints."""
+        _write_jsonl(self.root, [
+            _make_record(event_status="completed", selected_order=0),
+            _make_record(event_status="completed", selected_order=1),
+        ])
+        from kso_sidecar_agent.pop_rotation_materializer import build_pending_line_fingerprint
+        result = build_pop_send_package(self.root)
+        scope = result._sent_scope
+        self.assertEqual(scope.size, 2)
+        # Each line should have matching fingerprint
+        line_1 = json.dumps(_make_record(event_status="completed", selected_order=0), sort_keys=True)
+        line_2 = json.dumps(_make_record(event_status="completed", selected_order=1), sort_keys=True)
+        self.assertTrue(scope.fingerprint_matches(1, build_pending_line_fingerprint(line_1)))
+        self.assertTrue(scope.fingerprint_matches(2, build_pending_line_fingerprint(line_2)))
+        self.assertFalse(scope.fingerprint_matches(1, build_pending_line_fingerprint(line_2)))
+
+
 if __name__ == "__main__":
     unittest.main()
