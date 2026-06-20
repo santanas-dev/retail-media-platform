@@ -597,6 +597,47 @@ pop_write_reason: written
 
 ---
 
+## KSO Player Local Render Plan
+
+🖼 **Реализован:** `render_plan.py`. План отображения для будущего Chromium-рендерера.
+
+### `build_kso_render_plan(root, stale_seconds=30) -> KsoRenderPlanResult`
+
+Строится поверх runtime decision:
+1. Runtime decision → play_allowed?
+2. Если да → selected item → media_type (image/video/unknown) + duration_bucket
+3. `render_action=render` или `hold`
+
+### Render
+
+| Условие | render_action | media_type |
+|---|---|---|
+| idle + image/png | render | image |
+| idle + image/jpeg | render | image |
+| idle + video/mp4 | render | video |
+
+### Hold
+
+| Причина | reason |
+|---|---|
+| Non-idle / stale state | `decision_hold` |
+| Missing manifest | `decision_hold` |
+| audio/text/application | `unsupported_media_type` |
+| No selected item | `no_selected_item` |
+
+### Duration buckets
+
+- `short` — < 10s
+- `medium` — 10–60s
+- `long` — > 60s
+
+### Внутренние поля (repr=False, не выводятся)
+
+- `_selected_item` — PlayerPlaylistItem
+- `_duration_seconds` — float
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay
