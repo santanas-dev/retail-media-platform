@@ -785,6 +785,66 @@ CLI не добавляется на этом шаге.
 
 ---
 
+## PoP Scoped Send Rotation Orchestrator Core
+
+🔁 **Реализован:** `pop_send_rotation_orchestrator.py`. Полный безопасный локальный цикл: build package → send → decision → rotation.
+
+### `run_pop_scoped_send_then_rotate(root, http_client, auth_provider, max_lines)`
+
+```
+1. run_pop_scoped_send(root, http_client, auth_provider, max_lines)
+   → build_pop_send_package (payload + fingerprinted sent_scope)
+   → run_pop_send_with_retry (fake in tests)
+
+2. decide_pop_rotation_after_scoped_send(scoped_result)
+   → 8-gate check: status, send_attempted, send_success, send_result,
+     sent_scope, scope_size, pending_untouched, rotation_applied
+
+3. IF rotation_allowed:
+     apply_pop_rotation_local(
+         root,
+         send_run_result=scoped._send_run_result,
+         sent_scope=scoped._sent_scope,
+     )
+   → materialize + fingerprint check + atomic write + pending rewrite
+
+4. Return safe PopSendRotationOrchestratorResult
+```
+
+### Когда rotation вызывается
+
+| Условие | rotation_applied |
+|---|---|
+| send ok + scope match + fingerprint match | **true**, sent_records > 0 |
+| send ok + scope match + fingerprint mismatch | true, sent_records = 0 (mismatched line retained) |
+| 409 duplicate | false |
+| pending_should_remain | false |
+| send failed / retry exhausted | false |
+| no eligible / lock_unavailable / limited | false |
+
+### Race / fingerprint mismatch
+
+Защита на уровне materializer: если pending изменился после построения send package, fingerprint текущей строки не совпадёт с сохранённым в scope → `sent_records=0` для changed line, строка остаётся в pending.
+
+### PopSendRotationOrchestratorResult
+
+Safe aggregates + internal: `_scoped_send_result`, `_decision`, `_apply_result` (repr=False).
+
+### Безопасность
+
+- ❌ Не делает real backend call (только FakeHttpClient)
+- ❌ Не читает secret/config/token из файлов
+- ❌ Не читает media bytes
+- ❌ Не делает CLI/run_cycle
+- ✅ Rotation только после decision gate
+- ✅ Fingerprint guard защищает от race
+
+### CLI
+
+CLI не добавляется на этом шаге. Run cycle integration — отдельный шаг.
+
+---
+
 ## PoP Backend Sender Design
 
 📝 **Mini-design создан:** `docs/pop_backend_sender_design.md`. Спроектирована безопасная отправка eligible PoP payload в backend через `POST /device-gateway/pop/events/batch`.
