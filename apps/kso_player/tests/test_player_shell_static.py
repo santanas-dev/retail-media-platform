@@ -230,6 +230,43 @@ class TestJS(TestCase):
         # Should use textContent, not innerHTML
         self.assertNotIn("innerHTML", self.js)
 
+    def test_no_new_function(self):
+        self.assertNotIn("new Function", self.js)
+        self.assertNotIn("new Function(", self.js.replace(" ", ""))
+
+    # ── applySnapshot ─────────────────────────────────────────────
+
+    def test_apply_snapshot_exists(self):
+        self.assertIn("applySnapshot", self.js)
+        self.assertIn("function applySnapshot", self.js)
+
+    def test_apply_snapshot_exported(self):
+        self.assertIn("applySnapshot: applySnapshot", self.js)
+
+    def test_apply_snapshot_validates_schema_version(self):
+        self.assertIn("schemaVersion", self.js)
+
+    def test_apply_snapshot_rejects_extra_keys(self):
+        # hasExtraKeys check must exist
+        self.assertIn("hasExtraKeys", self.js)
+
+    def test_apply_snapshot_only_mediatype_durationbucket(self):
+        # allowedKeys must contain only mediaType and durationBucket
+        self.assertIn("mediaType: true", self.js)
+        self.assertIn("durationBucket: true", self.js)
+
+    def test_apply_snapshot_no_paths_near_apply(self):
+        # No paths/filenames/IDs in applySnapshot code
+        # Search a window around applySnapshot for forbidden items
+        idx = self.js.index("applySnapshot")
+        window = self.js[idx:idx + 2000]
+        lower = window.lower()
+        for fb in ("filename", "manifest_item_id", "campaign_id",
+                    "creative_id", "schedule_item_id", "sha256",
+                    "token", "backend", "secret"):
+            self.assertNotIn(fb, lower,
+                f"forbidden '{fb}' found near applySnapshot")
+
 
 if __name__ == "__main__":
     import unittest

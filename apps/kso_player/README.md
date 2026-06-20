@@ -699,6 +699,73 @@ runtime_gate → runtime_decision → render_plan → shell_command
 
 ---
 
+## KSO Player Local Shell Snapshot
+
+📦 **Реализован:** `shell_snapshot.py`. Безопасный JSON snapshot поверх shell command.
+
+### Pipeline
+
+```
+runtime_gate → runtime_decision → render_plan → shell_command → shell_snapshot
+```
+
+### `build_kso_shell_snapshot(root, stale_seconds=30) → KsoShellSnapshotResult`
+
+Строит безопасный JSON snapshot для передачи в `window.KsoPlayerShell.applySnapshot()`.
+
+| Shell command | snapshot_mode | shell_method | payload |
+|---|---|---|---|
+| `setRenderPlan` | `render` | `setRenderPlan` | `{mediaType, durationBucket}` |
+| `hold` | `hold` | `setHold` | `{reason: "hold"}` |
+
+### Serialized JSON (render)
+
+```json
+{"schemaVersion":1,"mode":"render","method":"setRenderPlan","payload":{"mediaType":"image","durationBucket":"short"}}
+```
+
+### Serialized JSON (hold)
+
+```json
+{"schemaVersion":1,"mode":"hold","method":"setHold","payload":{"reason":"hold"}}
+```
+
+### Safe fields только
+
+- `schemaVersion`: 1
+- `mode`: `hold` | `render`
+- `method`: `setHold` | `setRenderPlan`
+- `payload`: `{mediaType, durationBucket}` или `{reason: "hold"}`
+
+**НЕ передаются:** media src, paths, filenames, manifest IDs, campaign IDs, creative IDs, schedule item IDs, hashes, timestamps, raw JSON.
+
+### `serialize_kso_shell_snapshot(result) → str`
+
+Безопасная JSON-сериализация. Fallback: если в результате детектируется forbidden substring — возвращает minimal safe hold snapshot.
+
+### `format_kso_shell_snapshot_result(result) → str`
+
+Безопасный human-readable вывод. Никогда не содержит путей, имён файлов, ID, хешей.
+
+### JS API: `window.KsoPlayerShell.applySnapshot(snapshot)`
+
+Добавлена в `player.js`. Принимает safe JSON snapshot:
+
+- Валидирует `schemaVersion`, `mode`, `method`, `payload`
+- `mode=hold` / `method=setHold` → `setHold("hold")`
+- `mode=render` / `method=setRenderPlan` → `setRenderPlan(payload)`
+- Invalid / extra keys / unknown → `setHold` (fail-closed)
+- **НЕ использует:** `eval`, `new Function`, `innerHTML`, `fetch`, `XMLHttpRequest`, `WebSocket`, external URLs
+
+### Что НЕ реализовано
+
+- ❌ Media source в snapshot (отдельный шаг после security-дизайна)
+- ❌ Chromium kiosk launch
+- ❌ Real media rendering
+- ❌ PoP write из snapshot
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay

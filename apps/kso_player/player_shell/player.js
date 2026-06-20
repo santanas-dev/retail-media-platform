@@ -128,10 +128,84 @@
 
   /* ── Export ──────────────────────────────────────────────────────── */
 
+  function applySnapshot(snapshot) {
+    // Validate schema structure
+    if (!snapshot || typeof snapshot !== "object") {
+      setHold("hold");
+      return;
+    }
+    if (typeof snapshot.schemaVersion !== "number" || snapshot.schemaVersion < 1) {
+      setHold("hold");
+      return;
+    }
+
+    var mode = snapshot.mode;
+    var method = snapshot.method;
+    var payload = snapshot.payload;
+
+    // Mode must be "hold" or "render"
+    if (mode !== "hold" && mode !== "render") {
+      setHold("hold");
+      return;
+    }
+
+    // Method must match mode
+    if (mode === "hold" && method !== "setHold") {
+      setHold("hold");
+      return;
+    }
+    if (mode === "render" && method !== "setRenderPlan") {
+      setHold("hold");
+      return;
+    }
+
+    // Hold path
+    if (mode === "hold") {
+      setHold("hold");
+      return;
+    }
+
+    // Render path — validate payload
+    if (!payload || typeof payload !== "object") {
+      setHold("hold");
+      return;
+    }
+
+    // Only accept safe payload keys
+    var mediaType = (typeof payload.mediaType === "string")
+      ? payload.mediaType.trim().toLowerCase()
+      : "unknown";
+    var durationBucket = (typeof payload.durationBucket === "string")
+      ? payload.durationBucket.trim().toLowerCase()
+      : "unknown";
+
+    // Reject unsafe payload extensions (more keys than expected)
+    var allowedKeys = {mediaType: true, durationBucket: true};
+    var hasExtraKeys = false;
+    for (var k in payload) {
+      if (payload.hasOwnProperty(k) && !allowedKeys[k]) {
+        hasExtraKeys = true;
+        break;
+      }
+    }
+    if (hasExtraKeys) {
+      setHold("hold");
+      return;
+    }
+
+    setRenderPlan({
+      mediaType: mediaType,
+      durationBucket: durationBucket,
+    });
+  }
+
+  /* ── Export ──────────────────────────────────────────────────────── */
+
   window.KsoPlayerShell = {
     setHold: setHold,
     setRenderPlan: setRenderPlan,
     clear: clear,
+    applySnapshot: applySnapshot,
   };
 
   /* ── Initial state ───────────────────────────────────────────────── */
