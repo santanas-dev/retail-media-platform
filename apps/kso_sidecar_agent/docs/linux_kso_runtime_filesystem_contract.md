@@ -112,7 +112,7 @@ Group: verny-kso
 | `/var/lib/verny/kso/media` | verny-kso | verny-kso | 0750 | |
 | `/var/lib/verny/kso/pop` | verny-kso | verny-kso | 0750 | |
 | `/var/lib/verny/kso/pop/pending` | verny-kso | verny-kso | 0750 | **Shared** player↔sidecar |
-| `/var/lib/verny/kso/state` | verny-kso | verny-kso | 0750 | Player writes, sidecar reads |
+| `/var/lib/verny/kso/state` | verny-kso | verny-kso | 0750 | State adapter writes; player and sidecar read |
 | `/var/lib/verny/kso/tmp` | verny-kso | verny-kso | 0750 | Cleanup-tolerant |
 | `/var/log/verny/kso` | verny-kso | verny-kso | 0750 | |
 | `/run/verny/kso` | verny-kso | verny-kso | 0750 | tmpfs |
@@ -122,11 +122,12 @@ Group: verny-kso
 ### 5.1 Player (Chromium kiosk)
 
 | Responsibility | Restriction |
-|---|---|
+|---|---|---|
 | Reads: `manifest/`, `media/`, `state/` | No network access to backend |
 | Writes: `pop/pending/player_events.jsonl` | Append-only, with lock |
 | Displays ads via Chromium kiosk | 1440×1080 left zone |
-| Reads KSO screen state from UKM 4 (via state adapter) | UKM 4 integration is future work |
+| Reads KSO screen state from `state/kso_state.json` | State file written by external UKM 4 state adapter |
+| Does NOT write to state | Player is a read-only consumer of state |
 | Shows ads ONLY when state = `idle` | Fail-closed: any other state → hold/stop |
 | Does NOT store: token, secret, backend URL, customer data | Read-only player |
 | Does NOT read: `sent/`, `quarantine/`, `dry_run/`, `failed/` | Sidecar-managed dirs |
@@ -142,7 +143,7 @@ Group: verny-kso
 | Writes: `pop/sent/`, `pop/quarantine/`, `pop/dry_run/`, `pop/failed/` | Atomic writes |
 | Stores runtime token **only in memory** | Never on disk |
 | Does NOT read: customer payment/receipt/card/fiscal data | |
-| Does NOT access UKM 4 directly | Reads state from `state/kso_state.json` (written by player) |
+| Does NOT access UKM 4 directly | Reads state from `state/kso_state.json` (written by UKM 4 state adapter) |
 
 ## 6. State Contract
 
@@ -152,9 +153,39 @@ Group: verny-kso
 /var/lib/verny/kso/state/kso_state.json
 ```
 
-Written by player's KSO state adapter (future). Read by sidecar's player readiness check.
+**Writer:** Future UKM 4 state adapter / state publisher (external process)
+**Readers:** KSO Player (primary), KSO Sidecar Agent (diagnostics/heartbeat)
 
-### 6.2 Allowed States
+### 6.2 State Ownership Rules
+
+| Component | Write | Read | Note |
+|---|---|---|---|
+| UKM 4 State Adapter | ✅ **Writer** | — | Source of truth — polls UKM 4 or receives events |
+| KSO Player | ❌ Never | ✅ Reader | Consumes state to decide play/hold |
+| KSO Sidecar Agent | ❌ Never (unless future diagnostics) | ✅ Optional reader | May include state in heartbeat |
+
+> **Critical rule:** Player MUST NOT write its own state. If the player writes state,
+> it could falsely report `idle` to itself and play ads during a transaction.
+> State must come from an external source of truth (the UKM 4 state adapter).
+
+### 6.3 Player Behavior by State
+
+| Condition | Player behavior |
+|---|---|
+| `state == idle` | **Play ads** (Chromium kiosk active) |
+| `state != idle` (any other valid state) | Hold/stop |
+| `kso_state.json` missing | Hold (state = unknown) |
+| `kso_state.json` invalid JSON | Hold (state = unknown) |
+| `kso_state.json` schema mismatch | Hold (state = unknown) |
+| `updated_at` > 30s ago (stale) | Hold (state = unknown) |
+| State = `unknown` | Hold (fail-closed) |
+
+### 6.4 Staleness Detection (proposal)
+
+Player should check `updated_at` field. If `now - updated_at > 30 seconds`,
+treat state as **stale** → hold. This catches state adapter crashes.
+
+### 6.5 Allowed States
 
 | State | Meaning | Play Ads? | Player behavior |
 |---|---|---|---|
@@ -168,7 +199,7 @@ Written by player's KSO state adapter (future). Read by sidecar's player readine
 | `offline` | Network disconnected | No | Hold/stop |
 | `unknown` | State cannot be determined | No | Hold/stop (fail-safe) |
 
-### 6.3 State JSON Format (proposal)
+### 6.6 State JSON Format (proposal)
 
 ```json
 {
@@ -179,7 +210,7 @@ Written by player's KSO state adapter (future). Read by sidecar's player readine
 }
 ```
 
-### 6.4 Safety Rule
+### 6.7 Safety Rule
 
 > **Ads play ONLY at `idle`. All other states → hold/stop.**
 >
@@ -252,6 +283,19 @@ RestartSec=5s
 ```
 
 If Chromium crashes → systemd restarts player. UKM 4 is unaffected (separate process, separate screen zone).
+
+### 8.5 Note on Multi-User Proposal (future)
+
+For simplicity in Block 27, all components run under `verny-kso`. In a future security hardening phase, users could be split:
+
+```
+verny-kso-player   — player only (no write to state, no network)
+verny-kso-sidecar  — sidecar only (outbound network, no UKM 4 access)
+verny-kso-state    — state adapter only (writes kso_state.json)
+```
+
+This is NOT implemented now. Risk: if player can write to `state/`, it could falsify state.
+Mitigation: logical contract enforcement (player MUST NOT write state); future user separation.
 
 ## 9. Security Requirements
 
