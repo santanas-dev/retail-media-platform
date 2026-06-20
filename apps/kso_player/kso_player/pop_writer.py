@@ -10,6 +10,7 @@ Fail silent: invalid records are skipped, write errors return error status.
 """
 
 import json as _json
+import hashlib as _hashlib
 import os as _os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -34,10 +35,11 @@ POP_JSONL_FILE = "player_events.jsonl"
 POP_LOCK_FILE = "player_events.lock"
 SCHEMA_VERSION = 1
 
-# ── Lock marker ─────────────────────────────────────────────────────
+# ── Lock marker v2 ──────────────────────────────────────────────────
 
-# Safe, minimal marker written into lock file. No secrets, paths, or IDs.
-LOCK_MARKER = "locked\n"
+LOCK_MARKER_SCHEMA = 2
+LOCK_COMPONENT = "player"
+LOCK_OPERATION = "pop_write"
 
 # ── Write result status ────────────────────────────────────────────
 
@@ -283,6 +285,42 @@ def build_pop_jsonl_record(
 # Lock helpers
 # ══════════════════════════════════════════════════════════════════════
 
+def _get_boot_id_hash() -> str:
+    """Read /proc/sys/kernel/random/boot_id, return SHA-256 hex digest.
+
+    Returns empty string if /proc is not available or unreadable.
+    Never raises — fail-silent.
+    """
+    try:
+        with open("/proc/sys/kernel/random/boot_id", "r") as fh:
+            boot_id = fh.read().strip()
+            return _hashlib.sha256(boot_id.encode("utf-8")).hexdigest()
+    except (OSError, PermissionError):
+        return ""
+
+
+def _build_lock_marker() -> str:
+    """Build a safe v2 JSON lock marker.
+
+    Fields: schema_version, component, operation, created_at_utc, pid, boot_id_hash.
+
+    No secrets, no paths, no backend URLs, no IDs, no forbidden substrings.
+    boot_id_hash is optional — empty string if /proc unavailable.
+
+    Returns:
+        JSON string (one line) suitable for writing into lock file.
+    """
+    marker = {
+        "schema_version": LOCK_MARKER_SCHEMA,
+        "component": LOCK_COMPONENT,
+        "operation": LOCK_OPERATION,
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "pid": _os.getpid(),
+        "boot_id_hash": _get_boot_id_hash(),
+    }
+    return _json.dumps(marker, ensure_ascii=False, sort_keys=True) + "\n"
+
+
 def _acquire_lock(pending_dir: Path) -> bool:
     """Try to acquire an exclusive lock file for player_events.jsonl.
 
@@ -290,7 +328,8 @@ def _acquire_lock(pending_dir: Path) -> bool:
     to atomically create the lock file. If it already exists, the lock
     is held by another process and acquisition fails.
 
-    Writes a safe minimal marker (no secrets, no paths, no IDs).
+    Writes a safe v2 JSON marker (schema_version=2, component, operation, pid,
+    boot_id_hash). No secrets, no paths, no backend URLs.
 
     Args:
         pending_dir: The pop/pending/ directory path.
@@ -304,7 +343,7 @@ def _acquire_lock(pending_dir: Path) -> bool:
     except (FileExistsError, OSError):
         return False
     try:
-        _os.write(fd, LOCK_MARKER.encode("utf-8"))
+        _os.write(fd, _build_lock_marker().encode("utf-8"))
     except OSError:
         _os.close(fd)
         _safe_unlink(lock_path)

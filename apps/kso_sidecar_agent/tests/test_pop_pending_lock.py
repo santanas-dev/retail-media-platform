@@ -5,6 +5,7 @@ and pop_pending_lock context manager.
 Pure file I/O — no HTTP, no backend, no secret reading.
 """
 
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -25,10 +26,13 @@ from kso_sidecar_agent.pop_pending_lock import (
     REASON_LOCK_FAILED,
     REASON_RELEASE_FAILED,
     REASON_INVALID_ROOT,
+    LOCK_MARKER_SCHEMA,
+    LOCK_COMPONENT,
+    DEFAULT_LOCK_OPERATION,
+    ALLOWED_LOCK_OPERATIONS,
     FORBIDDEN_SUBSTRINGS,
     POP_PENDING_DIR,
     POP_LOCK_FILE,
-    LOCK_MARKER,
 )
 
 
@@ -78,8 +82,18 @@ class TestAcquireLock(TestCase):
         try_acquire_pop_pending_lock(self.tmp)
         lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
         content = lock_path.read_text()
-        self.assertIn("locked", content)
-        self.assertTrue(_no_forbidden(content), f"marker has forbidden: {content!r}")
+        marker = json.loads(content.strip())
+        self.assertEqual(marker["schema_version"], 2)
+        self.assertEqual(marker["component"], "sidecar")
+        self.assertIn("operation", marker)
+        self.assertIn("created_at_utc", marker)
+        self.assertIn("pid", marker)
+        self.assertIn("boot_id_hash", marker)
+        lower = content.lower()
+        for fb in ("token", "secret", "password", "path", "backend",
+                    "manifest_item_id", "batch_id", "sha256",
+                    "media_bytes", "fingerprint", "stacktrace"):
+            self.assertNotIn(fb, lower, f"forbidden '{fb}' in marker")
 
     def test_acquire_marker_no_paths(self):
         try_acquire_pop_pending_lock(self.tmp)
@@ -357,23 +371,101 @@ class TestNoSideEffects(TestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class TestLockMarkerSafety(TestCase):
-    """LOCK_MARKER and POP_LOCK_FILE constants are safe."""
+    """V2 lock marker and POP_LOCK_FILE constants are safe."""
 
-    def test_marker_no_forbidden(self):
-        self.assertTrue(_no_forbidden(LOCK_MARKER),
-            f"LOCK_MARKER contains forbidden: {LOCK_MARKER!r}")
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
 
-    def test_marker_no_path(self):
-        lower = LOCK_MARKER.lower()
-        self.assertNotIn(".lock", lower)
-        self.assertNotIn("/", lower)
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_marker_schema_version_is_two(self):
+        self.assertEqual(LOCK_MARKER_SCHEMA, 2)
+
+    def test_marker_component_is_sidecar(self):
+        self.assertEqual(LOCK_COMPONENT, "sidecar")
+
+    def test_allowed_operations_known(self):
+        for op in ("rotation_plan", "rotation_apply", "send_package", "pop_write", "unknown"):
+            self.assertIn(op, ALLOWED_LOCK_OPERATIONS)
+
+    def test_default_operation_is_unknown(self):
+        self.assertEqual(DEFAULT_LOCK_OPERATION, "unknown")
 
     def test_lock_file_matches_player(self):
-        # Must be the same lock file as player writer uses
         self.assertEqual(POP_LOCK_FILE, "player_events.lock")
 
     def test_pending_dir_matches_player(self):
         self.assertEqual(POP_PENDING_DIR, "pop/pending")
+
+    def test_acquire_writes_v2_marker(self):
+        try_acquire_pop_pending_lock(self.tmp)
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        marker = json.loads(lock_path.read_text().strip())
+        self.assertEqual(marker["schema_version"], 2)
+        self.assertEqual(marker["component"], "sidecar")
+        self.assertIn(marker["operation"], ALLOWED_LOCK_OPERATIONS)
+
+    def test_acquire_default_operation(self):
+        try_acquire_pop_pending_lock(self.tmp)
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        marker = json.loads(lock_path.read_text().strip())
+        self.assertEqual(marker["operation"], DEFAULT_LOCK_OPERATION)
+
+    def test_acquire_custom_operation_rotation_apply(self):
+        try_acquire_pop_pending_lock(self.tmp, operation="rotation_apply")
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        marker = json.loads(lock_path.read_text().strip())
+        self.assertEqual(marker["operation"], "rotation_apply")
+
+    def test_acquire_custom_operation_send_package(self):
+        try_acquire_pop_pending_lock(self.tmp, operation="send_package")
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        marker = json.loads(lock_path.read_text().strip())
+        self.assertEqual(marker["operation"], "send_package")
+
+    def test_acquire_unknown_operation_normalised(self):
+        try_acquire_pop_pending_lock(self.tmp, operation="bogus_operation_xyz")
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        marker = json.loads(lock_path.read_text().strip())
+        self.assertEqual(marker["operation"], DEFAULT_LOCK_OPERATION)
+
+    def test_acquire_empty_operation_normalised(self):
+        try_acquire_pop_pending_lock(self.tmp, operation="")
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        marker = json.loads(lock_path.read_text().strip())
+        self.assertEqual(marker["operation"], DEFAULT_LOCK_OPERATION)
+
+    def test_marker_has_pid(self):
+        try_acquire_pop_pending_lock(self.tmp)
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        marker = json.loads(lock_path.read_text().strip())
+        self.assertIsInstance(marker["pid"], int)
+        self.assertGreater(marker["pid"], 0)
+
+    def test_marker_has_boot_id_hash(self):
+        try_acquire_pop_pending_lock(self.tmp)
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        marker = json.loads(lock_path.read_text().strip())
+        self.assertIn("boot_id_hash", marker)
+        self.assertIsInstance(marker["boot_id_hash"], str)
+
+    def test_marker_has_created_at_utc(self):
+        try_acquire_pop_pending_lock(self.tmp)
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        marker = json.loads(lock_path.read_text().strip())
+        self.assertIn("created_at_utc", marker)
+        # Should be an ISO8601-like timestamp (contains T and +/- or Z)
+        self.assertIn("T", marker["created_at_utc"])
+
+    def test_release_after_acquire_with_operation(self):
+        result = try_acquire_pop_pending_lock(self.tmp, operation="rotation_apply")
+        self.assertTrue(result.acquired)
+        released = release_pop_pending_lock(result)
+        self.assertEqual(released.status, STATUS_RELEASED)
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        self.assertFalse(lock_path.exists())
 
 
 # ══════════════════════════════════════════════════════════════════════

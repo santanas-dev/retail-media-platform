@@ -531,8 +531,10 @@ pop_write_reason: written
 - Lock создаётся атомарно (`O_CREAT | O_EXCL`) перед записью
 - Lock удаляется после записи (даже при ошибке — `finally` блок)
 - Если lock уже занят → запись skipped, reason=`lock_unavailable`
-- Lock-файл содержит только безопасный marker (`"locked\n"`), без secrets/paths/IDs
-- Stale lock cleanup — будущий отдельный шаг
+- Lock marker v2 JSON: `{"schema_version":2, "component":"player", "operation":"pop_write", "created_at_utc":"ISO8601", "pid":NNN, "boot_id_hash":"sha256_hex"}`
+- `pid` и `boot_id_hash` — internal only, never logged
+- v1 lock (`"locked\n"`) → detect-only / lock_unavailable, never deleted
+- Stale lock cleanup — будущий отдельный шаг (27.3 design)
 
 ---
 

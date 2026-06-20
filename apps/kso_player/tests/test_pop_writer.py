@@ -32,6 +32,9 @@ from kso_player.pop_writer import (
     POP_JSONL_FILE,
     POP_LOCK_FILE,
     SCHEMA_VERSION,
+    LOCK_MARKER_SCHEMA,
+    LOCK_COMPONENT,
+    LOCK_OPERATION,
     _acquire_lock,
     _release_lock,
     _safe_unlink,
@@ -627,18 +630,47 @@ class TestLockAcquireRelease(TestCase):
         self.assertTrue(acquired)
         self.assertTrue(lock_path.exists())
 
-    def test_acquire_lock_writes_marker(self):
+    def test_acquire_lock_writes_v2_marker(self):
         _acquire_lock(self.pending)
         lock_path = self.pending / POP_LOCK_FILE
-        content = lock_path.read_text()
-        self.assertIn("locked", content)
+        content = lock_path.read_text().strip()
+        marker = json.loads(content)
+        self.assertIsInstance(marker, dict)
+        self.assertEqual(marker["schema_version"], 2)
+        self.assertEqual(marker["component"], "player")
+        self.assertEqual(marker["operation"], "pop_write")
+        self.assertIn("created_at_utc", marker)
+        self.assertIn("pid", marker)
+        self.assertIn("boot_id_hash", marker)
 
     def test_acquire_lock_marker_no_secrets(self):
         _acquire_lock(self.pending)
         lock_path = self.pending / POP_LOCK_FILE
         content = lock_path.read_text().lower()
-        for fb in ("token", "secret", "password", "path", "backend", "127.0.0.1"):
+        for fb in ("token", "secret", "password", "path", "backend", "127.0.0.1",
+                    "manifest_item_id", "batch_id", "device_event_id", "sha256",
+                    "media_bytes", "fingerprint", "stacktrace"):
             self.assertNotIn(fb, content)
+
+    def test_acquire_lock_marker_no_forbidden_in_keys(self):
+        _acquire_lock(self.pending)
+        lock_path = self.pending / POP_LOCK_FILE
+        marker = json.loads(lock_path.read_text().strip())
+        for key in marker:
+            self.assertNotIn(key.lower(), FORBIDDEN_SUBSTRINGS,
+                f"marker key '{key}' is forbidden")
+
+    def test_acquire_lock_marker_component_is_player(self):
+        _acquire_lock(self.pending)
+        lock_path = self.pending / POP_LOCK_FILE
+        marker = json.loads(lock_path.read_text().strip())
+        self.assertEqual(marker["component"], LOCK_COMPONENT)
+
+    def test_acquire_lock_marker_operation_is_pop_write(self):
+        _acquire_lock(self.pending)
+        lock_path = self.pending / POP_LOCK_FILE
+        marker = json.loads(lock_path.read_text().strip())
+        self.assertEqual(marker["operation"], LOCK_OPERATION)
 
     def test_acquire_twice_fails(self):
         self.assertTrue(_acquire_lock(self.pending))
@@ -686,7 +718,7 @@ class TestLockWriteIntegration(TestCase):
         self.assertEqual(len(lines), 1)
 
     def test_lock_unavailable_skips(self):
-        # Pre-create lock file
+        # Pre-create lock file with v1 marker (existing lock from old version)
         lock_path = self.tmp / POP_PENDING_DIR
         lock_path.mkdir(parents=True, exist_ok=True)
         (lock_path / POP_LOCK_FILE).write_text("locked\n")
@@ -698,7 +730,7 @@ class TestLockWriteIntegration(TestCase):
         self.assertFalse(result.written)
 
     def test_lock_unavailable_jsonl_untouched(self):
-        # Pre-create JSONL and lock
+        # Pre-create JSONL and lock with v1 marker
         pending = self.tmp / POP_PENDING_DIR
         pending.mkdir(parents=True, exist_ok=True)
         jsonl_path = pending / POP_JSONL_FILE
@@ -732,7 +764,7 @@ class TestLockWriteIntegration(TestCase):
     def test_result_no_forbidden_when_lock_unavailable(self):
         pending = self.tmp / POP_PENDING_DIR
         pending.mkdir(parents=True, exist_ok=True)
-        (pending / POP_LOCK_FILE).write_text("locked\n")
+        (pending / POP_LOCK_FILE).write_text("locked\n")  # pre-existing v1 lock
 
         draft = _make_draft()
         result = write_pop_event(self.tmp, draft, "idle")

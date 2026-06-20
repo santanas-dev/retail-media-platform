@@ -344,7 +344,13 @@ Exponential backoff без jitter: 1→1000, 2→2000, 3→4000, capped.
 
 ### Правила
 
-- Lock маркер: `"locked\n"` (без secrets/paths/IDs)
+- Lock маркер v2 JSON: `{"schema_version":2, "component":"sidecar", "operation":"...", "created_at_utc":"ISO8601", "pid":NNN, "boot_id_hash":"sha256_hex"}`
+- `boot_id_hash` — SHA-256 хеш `/proc/sys/kernel/random/boot_id` (optional, internal)
+- `pid` и `boot_id_hash` — internal only, never logged
+- Operation parameter: `try_acquire_pop_pending_lock(root, operation="rotation_apply")`
+- Default operation: `unknown`. Invalid → normalised to `unknown`
+- v1 lock (`"locked\n"`) → detect-only / lock_unavailable, never deleted
+- Stale cleanup ещё не реализован (27.3 — design)
 - Если lock занят → `status=skipped, reason=lock_unavailable`
 - `release` не бросает исключений
 - `PopPendingLockResult` не содержит absolute paths, lock path, token, IDs

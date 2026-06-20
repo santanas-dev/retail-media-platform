@@ -8,8 +8,11 @@ Cross-platform atomic lock via os.open(O_CREAT | O_EXCL | O_WRONLY).
 No rotation, no move, no delete, no HTTP, no backend.
 """
 
+import json as _json
+import hashlib as _hashlib
 import os as _os
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -19,7 +22,20 @@ from typing import Optional
 
 POP_PENDING_DIR = "pop/pending"
 POP_LOCK_FILE = "player_events.lock"
-LOCK_MARKER = "locked\n"
+
+# ── Lock marker v2 ──────────────────────────────────────────────────
+
+LOCK_MARKER_SCHEMA = 2
+LOCK_COMPONENT = "sidecar"
+DEFAULT_LOCK_OPERATION = "unknown"
+
+ALLOWED_LOCK_OPERATIONS = frozenset({
+    "rotation_plan",
+    "rotation_apply",
+    "send_package",
+    "pop_write",
+    "unknown",
+})
 
 # ── Lock status ──────────────────────────────────────────────────────
 
@@ -86,6 +102,41 @@ class PopPendingLockResult:
 # Internal helpers
 # ══════════════════════════════════════════════════════════════════════
 
+def _get_boot_id_hash() -> str:
+    """Read /proc/sys/kernel/random/boot_id, return SHA-256 hex digest.
+
+    Returns empty string if /proc is not available or unreadable.
+    Never raises — fail-silent.
+    """
+    try:
+        with open("/proc/sys/kernel/random/boot_id", "r") as fh:
+            boot_id = fh.read().strip()
+            return _hashlib.sha256(boot_id.encode("utf-8")).hexdigest()
+    except (OSError, PermissionError):
+        return ""
+
+
+def _build_lock_marker(operation: str) -> str:
+    """Build a safe v2 JSON lock marker for sidecar.
+
+    Args:
+        operation: Lock operation name (from ALLOWED_LOCK_OPERATIONS).
+
+    Returns:
+        JSON string (one line) suitable for writing into lock file.
+    """
+    op = operation if operation in ALLOWED_LOCK_OPERATIONS else DEFAULT_LOCK_OPERATION
+    marker = {
+        "schema_version": LOCK_MARKER_SCHEMA,
+        "component": LOCK_COMPONENT,
+        "operation": op,
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "pid": _os.getpid(),
+        "boot_id_hash": _get_boot_id_hash(),
+    }
+    return _json.dumps(marker, ensure_ascii=False, sort_keys=True) + "\n"
+
+
 def _safe_unlink(path: Path) -> None:
     """Try to remove a file; never raise."""
     try:
@@ -105,25 +156,30 @@ def _check_forbidden(value: str) -> bool:
     return False
 
 
-def _validate_lock_marker() -> bool:
-    """Ensure the lock marker is safe — no forbidden substrings."""
-    return not _check_forbidden(LOCK_MARKER)
+def _validate_lock_marker(marker_json: str) -> bool:
+    """Ensure the lock marker JSON is safe — no forbidden substrings."""
+    return not _check_forbidden(marker_json)
 
 
 # ══════════════════════════════════════════════════════════════════════
 # Public API
 # ══════════════════════════════════════════════════════════════════════
 
-def try_acquire_pop_pending_lock(root) -> PopPendingLockResult:
+def try_acquire_pop_pending_lock(root, operation: str = DEFAULT_LOCK_OPERATION) -> PopPendingLockResult:
     """Try to acquire an exclusive lock on pop/pending/player_events.jsonl.
 
     Uses os.open(..., O_CREAT | O_EXCL | O_WRONLY) for atomic lock creation.
     Same lock file as player writer: {root}/pop/pending/player_events.lock.
+    Writes a safe v2 JSON marker (schema_version=2, component=sidecar, operation,
+    pid, boot_id_hash).
 
     Non-blocking: returns immediately if lock is held by another process.
 
     Args:
         root: Agent root path (str or Path).
+        operation: Lock operation name. Must be one of ALLOWED_LOCK_OPERATIONS
+                   (rotation_plan, rotation_apply, send_package, pop_write, unknown).
+                   Defaults to "unknown". Invalid values are normalised to "unknown".
 
     Returns:
         PopPendingLockResult — acquired=True if lock obtained, False otherwise.
@@ -167,9 +223,10 @@ def try_acquire_pop_pending_lock(root) -> PopPendingLockResult:
             reason=REASON_LOCK_UNAVAILABLE,
         )
 
-    # Write safe marker
+    # Write safe v2 marker
     try:
-        _os.write(fd, LOCK_MARKER.encode("utf-8"))
+        marker_json = _build_lock_marker(operation)
+        _os.write(fd, marker_json.encode("utf-8"))
     except OSError:
         _os.close(fd)
         _safe_unlink(lock_path)
