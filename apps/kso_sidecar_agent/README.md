@@ -727,6 +727,64 @@ CLI не добавляется на этом шаге.
 
 ---
 
+## PoP Scoped Send Rotation Decision Core
+
+🚦 **Реализован:** `pop_send_rotation_decision.py`. Pure-logic gate — решает, можно ли запускать `apply_pop_rotation_local()` после `run_pop_scoped_send()`.
+
+### `decide_pop_rotation_after_scoped_send(scoped_send_result) -> PopSendRotationDecision`
+
+Pure logic — без file I/O, без HTTP, без rotation apply, без модификации pending.
+
+### Когда rotation разрешается
+
+**Все 8 условий должны быть true:**
+
+| # | Условие | Если нет |
+|---|---|---|
+| 1 | `status == ok` | → mapped reason |
+| 2 | `send_attempted == True` | → no_eligible_events |
+| 3 | `send_success == True` | → send_failed / duplicate / pending_should_remain |
+| 4 | `_send_run_result` exists | → missing_send_result |
+| 5 | `_sent_scope` exists | → missing_sent_scope |
+| 6 | `_sent_scope.size > 0` | → empty_sent_scope |
+| 7 | `pending_untouched == True` | → pending_not_untouched |
+| 8 | `rotation_applied == False` | → already_rotated |
+
+### 409 / pending_should_remain
+
+Определяются из внутреннего `_send_run_result.reason` даже при `status=warning`. Решение: `rotation_allowed=false`, `reason=duplicate_pending_remains` или `pending_should_remain`.
+
+### PopSendRotationDecision
+
+Safe агрегаты: `status`, `rotation_allowed`, `send_attempted`, `send_success`, `scope_lines`, `pending_untouched`, `reason`. Без внутренних полей.
+
+### Будущее использование
+
+```python
+result = run_pop_scoped_send(root, http_client)
+decision = decide_pop_rotation_after_scoped_send(result)
+if decision.rotation_allowed:
+    apply_pop_rotation_local(
+        root,
+        send_run_result=result._send_run_result,
+        sent_scope=result._sent_scope,
+    )
+```
+
+### Безопасность
+
+- ❌ Не вызывает rotation apply
+- ❌ Не делает HTTP
+- ❌ Не читает/пишет файлы
+- ❌ Не читает secret/config/token/media bytes
+- ✅ Pure logic — только чтение аргумента
+
+### CLI
+
+CLI не добавляется на этом шаге.
+
+---
+
 ## PoP Backend Sender Design
 
 📝 **Mini-design создан:** `docs/pop_backend_sender_design.md`. Спроектирована безопасная отправка eligible PoP payload в backend через `POST /device-gateway/pop/events/batch`.
