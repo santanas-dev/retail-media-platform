@@ -513,6 +513,38 @@ release lock
 
 Safe dataclass: status (written|skipped|error), records_written, line_size_bytes, reason. Никогда не содержит file paths, lock paths, записи, ID, secrets.
 
+## PoP Local Rotation Apply Core
+
+🔁 **Реализован:** `pop_rotation_apply.py`. Полный цикл rotation под одним lock.
+
+### `apply_pop_rotation_local(root, send_run_result=None, max_lines=10000) -> PopRotationApplyResult`
+
+```
+acquire lock
+  → materialize_pop_rotation_records_locked()  ← читает + классифицирует
+  → write_pop_rotation_records_atomic()         ← sent/quarantine/dry_run/failed
+  → rewrite_pending_pop_events_atomic()         ← retained pending
+release lock (finally)
+```
+
+**Sent bucket только при backend confirmation:** `run_status=ok`, `pending_should_remain=false`.
+**409 / pending_should_remain — sent не создаётся, pending нетронут.**
+
+### Правила
+
+| Условие | Поведение |
+|---|---|
+| Target write failure | Pending untouched, error |
+| Pending rewrite failure | Target files могли создаться, pending untouched, error |
+| Empty bucket | Пропускается, директория не создаётся |
+| Все события ушли из pending | Создаётся пустой `player_events.jsonl` |
+
+### PopRotationApplyResult
+
+Safe aggregate: status, applied, lock_acquired, pending_untouched, target_files_written, pending_rewritten, counts. Без paths/IDs/raw JSON/secrets.
+
+**CLI / run_cycle integration — отдельные шаги.**
+
 ---
 
 ## PoP Backend Sender Design
