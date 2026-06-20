@@ -472,6 +472,23 @@ Safe aggregates + internal `_*` buckets (repr=False). Никогда не сод
 
 **Actual rotation apply — отдельный шаг.** Материализатор только готовит in-memory данные. Запись на диск делает atomic file writer, оркестрацию — rotation apply.
 
+### Locked Materializer
+
+🔒 **Добавлен:** `materialize_pop_rotation_records_locked(root, lock_result, ...)` — вариант для будущего rotation apply, где lock держится на весь цикл.
+
+- **Не берёт и не освобождает lock** — caller сам управляет lock
+- Если `lock_result` отсутствует или `acquired=False` → `warning / lock_required`
+- Обычный `materialize_pop_rotation_records()` остаётся удобной обёрткой (acquire → locked → release)
+
+Будущий rotation apply cycle:
+```
+acquire lock
+  → materialize locked (читает, классифицирует)
+  → write sent/quarantine/dry_run/failed (atomic writer)
+  → rewrite pending (atomic rewrite helper)
+release lock
+```
+
 ## PoP Pending Rewrite Atomic Helper
 
 🧱 **Реализован:** `pop_pending_rewrite.py`. Атомарная перезапись `pop/pending/player_events.jsonl` с новым списком retained pending records.

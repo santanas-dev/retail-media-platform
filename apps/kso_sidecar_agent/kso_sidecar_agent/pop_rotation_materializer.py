@@ -22,6 +22,7 @@ from typing import Any, List, Optional, Tuple
 from kso_sidecar_agent.pop_pending_lock import (
     try_acquire_pop_pending_lock,
     release_pop_pending_lock,
+    PopPendingLockResult,
     FORBIDDEN_SUBSTRINGS,
 )
 from kso_sidecar_agent.pop_pickup import (
@@ -55,6 +56,7 @@ DEFAULT_MAX_LINES = 10000
 REASON_MATERIALIZED = "materialized"
 REASON_NO_PENDING_FILE = "no_pending_file"
 REASON_LOCK_UNAVAILABLE = "lock_unavailable"
+REASON_LOCK_REQUIRED = "lock_required"
 REASON_PENDING_SHOULD_REMAIN = "pending_should_remain"
 REASON_DUPLICATE_PENDING_REMAINS = "duplicate_pending_remains"
 REASON_SEND_NOT_SUCCESSFUL = "send_not_successful"
@@ -67,6 +69,7 @@ ALLOWED_REASONS = frozenset({
     REASON_MATERIALIZED,
     REASON_NO_PENDING_FILE,
     REASON_LOCK_UNAVAILABLE,
+    REASON_LOCK_REQUIRED,
     REASON_PENDING_SHOULD_REMAIN,
     REASON_DUPLICATE_PENDING_REMAINS,
     REASON_SEND_NOT_SUCCESSFUL,
@@ -246,26 +249,18 @@ def materialize_pop_rotation_records(
 ) -> PopRotationMaterializeResult:
     """Build in-memory materialization buckets from pending player events.
 
+    Convenience wrapper that acquires lock, materializes, and releases lock.
+
     Pipeline:
         1. Validate max_lines
         2. Try to acquire lock via try_acquire_pop_pending_lock()
         3. If lock unavailable → warning, lock_unavailable
-        4. Read pop/pending/player_events.jsonl line by line
-        5. Validate and classify each line via pop_pickup
-        6. Build in-memory buckets: retained_pending, sent, quarantine, dry_run, failed
-        7. Release lock
-        8. Return safe PopRotationMaterializeResult
+        4. Call materialize_pop_rotation_records_locked()
+        5. Release lock in finally
+        6. Return safe PopRotationMaterializeResult
 
     NEVER writes, moves, or deletes files. NEVER calls atomic writer.
     NEVER does HTTP. NEVER reads secrets.
-
-    Args:
-        root: Agent root path (str or Path).
-        send_run_result: Optional PopSendRunResult from a prior backend send.
-        max_lines: Max lines to read (default 10000). <= 0 → error.
-
-    Returns:
-        PopRotationMaterializeResult — always safe, never raises.
     """
     # ── Validate max_lines ───────────────────────────────────────
     if not isinstance(max_lines, int) or max_lines <= 0:
@@ -278,9 +273,8 @@ def materialize_pop_rotation_records(
 
     # ── Try lock ─────────────────────────────────────────────────
     lock_result = try_acquire_pop_pending_lock(root)
-    lock_acquired = lock_result.acquired
 
-    if not lock_acquired:
+    if not lock_result.acquired:
         return PopRotationMaterializeResult(
             status=STATUS_WARNING,
             pending_untouched=True,
@@ -289,11 +283,73 @@ def materialize_pop_rotation_records(
         )
 
     try:
-        result = _materialize_under_lock(root, send_run_result, max_lines)
-        result.lock_acquired = True
-        return result
+        return materialize_pop_rotation_records_locked(
+            root, lock_result, send_run_result, max_lines)
     finally:
         release_pop_pending_lock(lock_result)
+
+
+def materialize_pop_rotation_records_locked(
+    root,
+    lock_result: PopPendingLockResult,
+    send_run_result: Optional[Any] = None,
+    max_lines: int = DEFAULT_MAX_LINES,
+) -> PopRotationMaterializeResult:
+    """Build in-memory materialization buckets under an already-held lock.
+
+    REQUIRES caller to already hold the pop/pending lock.
+    This function does NOT acquire or release the lock.
+
+    Pipeline:
+        1. Validate lock_result (acquired=True required)
+        2. Validate max_lines
+        3. Read pop/pending/player_events.jsonl
+        4. Validate and classify each line
+        5. Build in-memory buckets: retained_pending, sent, quarantine, dry_run, failed
+        6. Return safe PopRotationMaterializeResult
+
+    NEVER writes, moves, or deletes files. NEVER calls atomic writer.
+    NEVER calls pending rewrite. NEVER acquires/releases lock.
+    NEVER does HTTP. NEVER reads secrets.
+    """
+    # ── Validate lock ────────────────────────────────────────────
+    if lock_result is None:
+        return PopRotationMaterializeResult(
+            status=STATUS_WARNING,
+            pending_untouched=True,
+            max_lines=max_lines,
+            reason=REASON_LOCK_REQUIRED,
+        )
+
+    if not isinstance(lock_result, PopPendingLockResult):
+        return PopRotationMaterializeResult(
+            status=STATUS_WARNING,
+            pending_untouched=True,
+            max_lines=max_lines,
+            reason=REASON_LOCK_REQUIRED,
+        )
+
+    if not lock_result.acquired:
+        return PopRotationMaterializeResult(
+            status=STATUS_WARNING,
+            pending_untouched=True,
+            max_lines=max_lines,
+            reason=REASON_LOCK_REQUIRED,
+        )
+
+    # ── Validate max_lines ───────────────────────────────────────
+    if not isinstance(max_lines, int) or max_lines <= 0:
+        return PopRotationMaterializeResult(
+            status=STATUS_ERROR,
+            reason=REASON_INVALID_RESULT,
+            pending_untouched=True,
+        )
+
+    root = Path(root)
+
+    result = _materialize_under_lock(root, send_run_result, max_lines)
+    result.lock_acquired = True  # Lock was already held by caller
+    return result
 
 
 def _materialize_under_lock(

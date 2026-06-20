@@ -8,6 +8,7 @@ from unittest import TestCase
 from kso_sidecar_agent.pop_rotation_materializer import (
     PopRotationMaterializeResult,
     materialize_pop_rotation_records,
+    materialize_pop_rotation_records_locked,
     format_pop_rotation_materialize_result,
     _sanitized_rotation_record,
     STATUS_OK,
@@ -16,6 +17,7 @@ from kso_sidecar_agent.pop_rotation_materializer import (
     REASON_MATERIALIZED,
     REASON_NO_PENDING_FILE,
     REASON_LOCK_UNAVAILABLE,
+    REASON_LOCK_REQUIRED,
     REASON_PENDING_SHOULD_REMAIN,
     REASON_DUPLICATE_PENDING_REMAINS,
     REASON_SEND_NOT_SUCCESSFUL,
@@ -586,6 +588,139 @@ class TestMaterializerNoSideEffects(TestCase):
         _write_jsonl(self.tmp, [_draft_line()])
         result = materialize_pop_rotation_records(self.tmp)
         self.assertIn(result.status, (STATUS_OK, STATUS_WARNING))
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Tests: locked materializer
+# ══════════════════════════════════════════════════════════════════════
+
+class TestMaterializerLocked(TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_no_lock_result_lock_required(self):
+        _write_jsonl(self.tmp, [_draft_line()])
+        result = materialize_pop_rotation_records_locked(self.tmp, None)
+        self.assertEqual(result.status, STATUS_WARNING)
+        self.assertEqual(result.reason, REASON_LOCK_REQUIRED)
+        self.assertFalse(result.materialized)
+
+    def test_not_acquired_lock_required(self):
+        from kso_sidecar_agent.pop_pending_lock import PopPendingLockResult
+        fake = PopPendingLockResult(acquired=False, reason="whatever")
+        _write_jsonl(self.tmp, [_draft_line()])
+        result = materialize_pop_rotation_records_locked(self.tmp, fake)
+        self.assertEqual(result.reason, REASON_LOCK_REQUIRED)
+
+    def test_acquired_lock_reads_pending(self):
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [_draft_line()])
+        result = materialize_pop_rotation_records_locked(
+            self.tmp, lock)
+        self.assertTrue(result.materialized)
+        self.assertEqual(result.dry_run_records, 1)
+        release_pop_pending_lock(lock)
+
+    def test_locked_does_not_delete_lock(self):
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [_draft_line()])
+        materialize_pop_rotation_records_locked(self.tmp, lock)
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        self.assertTrue(lock_path.exists(),
+                        "Locked materializer must NOT delete lock file")
+        release_pop_pending_lock(lock)
+
+    def test_caller_can_release_after_locked(self):
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [_draft_line()])
+        materialize_pop_rotation_records_locked(self.tmp, lock)
+        release = release_pop_pending_lock(lock)
+        self.assertTrue(release.released)
+
+    def test_wrapper_still_works(self):
+        """Existing wrapper acquires/releases lock itself."""
+        _write_jsonl(self.tmp, [_draft_line()])
+        result = materialize_pop_rotation_records(self.tmp)
+        self.assertTrue(result.lock_acquired)
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        self.assertFalse(lock_path.exists(),
+                         "Wrapper must release lock")
+
+    def test_wrapper_foreign_lock(self):
+        _write_jsonl(self.tmp, [_draft_line()])
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        result = materialize_pop_rotation_records(self.tmp)
+        self.assertFalse(result.lock_acquired)
+        self.assertEqual(result.reason, REASON_LOCK_UNAVAILABLE)
+        # Foreign lock not removed
+        lock_path = self.tmp / POP_PENDING_DIR / POP_LOCK_FILE
+        self.assertTrue(lock_path.exists())
+        release_pop_pending_lock(lock)
+
+    def test_locked_no_sent_quarantine_dirs(self):
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [_draft_line()])
+        materialize_pop_rotation_records_locked(self.tmp, lock)
+        release_pop_pending_lock(lock)
+        for bad in ("sent", "quarantine", "dry_run", "failed"):
+            self.assertFalse((self.tmp / "pop" / bad).exists())
+
+    def test_locked_no_pending_modify(self):
+        lines = [_draft_line(), _blocked_line()]
+        _write_jsonl(self.tmp, lines)
+        jsonl_path = self.tmp / POP_PENDING_DIR / POP_JSONL_FILE
+        original = jsonl_path.read_text()
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        materialize_pop_rotation_records_locked(self.tmp, lock)
+        release_pop_pending_lock(lock)
+        self.assertEqual(jsonl_path.read_text(), original)
+
+    def test_locked_does_not_call_atomic_writer(self):
+        """Verify locked variant doesn't import or call pop_rotation_files."""
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [_draft_line()])
+        result = materialize_pop_rotation_records_locked(self.tmp, lock)
+        release_pop_pending_lock(lock)
+        self.assertIn(result.status, (STATUS_OK, STATUS_WARNING))
+
+    def test_locked_does_not_call_pending_rewrite(self):
+        """Verify locked variant doesn't import or call pop_pending_rewrite."""
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [_draft_line()])
+        result = materialize_pop_rotation_records_locked(self.tmp, lock)
+        release_pop_pending_lock(lock)
+        self.assertIn(result.status, (STATUS_OK, STATUS_WARNING))
+
+    def test_locked_classification_works(self):
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [
+            _draft_line(),
+            _blocked_line(),
+            "invalid json{",
+        ])
+        result = materialize_pop_rotation_records_locked(self.tmp, lock)
+        release_pop_pending_lock(lock)
+        self.assertGreater(result.dry_run_records, 0)
+        self.assertGreater(result.quarantine_records, 0)
+
+    def test_locked_repr_no_lock_path(self):
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [_draft_line()])
+        result = materialize_pop_rotation_records_locked(self.tmp, lock)
+        release_pop_pending_lock(lock)
+        text = repr(result)
+        self.assertNotIn("player_events.lock", text)
+
+    def test_locked_no_stacktrace(self):
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [_draft_line()])
+        result = materialize_pop_rotation_records_locked(self.tmp, lock)
+        release_pop_pending_lock(lock)
+        self.assertNotIn("Traceback", repr(result))
 
 
 # ══════════════════════════════════════════════════════════════════════
