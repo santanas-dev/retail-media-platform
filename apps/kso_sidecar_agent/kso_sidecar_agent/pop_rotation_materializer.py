@@ -60,6 +60,8 @@ REASON_LOCK_REQUIRED = "lock_required"
 REASON_PENDING_SHOULD_REMAIN = "pending_should_remain"
 REASON_DUPLICATE_PENDING_REMAINS = "duplicate_pending_remains"
 REASON_SEND_NOT_SUCCESSFUL = "send_not_successful"
+REASON_SENT_SCOPE_REQUIRED = "sent_scope_required"
+REASON_SENT_SCOPE_MISMATCH = "sent_scope_mismatch"
 REASON_INVALID_LINES_PRESENT = "invalid_lines_present"
 REASON_LIMITED = "limited"
 REASON_READ_FAILED = "read_failed"
@@ -73,6 +75,8 @@ ALLOWED_REASONS = frozenset({
     REASON_PENDING_SHOULD_REMAIN,
     REASON_DUPLICATE_PENDING_REMAINS,
     REASON_SEND_NOT_SUCCESSFUL,
+    REASON_SENT_SCOPE_REQUIRED,
+    REASON_SENT_SCOPE_MISMATCH,
     REASON_INVALID_LINES_PRESENT,
     REASON_LIMITED,
     REASON_READ_FAILED,
@@ -149,6 +153,35 @@ def _sanitized_rotation_record(
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Sent Scope Guard
+# ══════════════════════════════════════════════════════════════════════
+
+@dataclass(frozen=True)
+class PopRotationSentScope:
+    """Internal sent scope — restricts which line numbers are eligible for sent/.
+
+    Prevents new completed events (appended after send) from being
+    accidentally rotated to sent/ when only a previous batch was confirmed.
+
+    Aggregates only — line numbers are NEVER exposed in repr, output, or logs.
+    """
+
+    _line_numbers: frozenset = field(default_factory=frozenset, repr=False)
+
+    def has_line(self, line_number: int) -> bool:
+        """Check if a given pending line number is in scope."""
+        return line_number in self._line_numbers
+
+    @property
+    def size(self) -> int:
+        """Number of line numbers in scope — safe aggregate."""
+        return len(self._line_numbers)
+
+    def __repr__(self) -> str:
+        return f"PopRotationSentScope(size={self.size})"
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Dataclass
 # ══════════════════════════════════════════════════════════════════════
 
@@ -178,6 +211,11 @@ class PopRotationMaterializeResult:
     max_lines: int = DEFAULT_MAX_LINES
     limited: bool = False
     reason: str = REASON_NO_PENDING_FILE
+
+    # ── Sent scope tracking (aggregates only) ────────────────────────
+    sent_scope_required: bool = False
+    sent_scope_lines: int = 0
+    sent_scope_matched: int = 0
 
     # ── Internal buckets (repr=False — never exposed) ─────────────────
 
@@ -211,6 +249,9 @@ class PopRotationMaterializeResult:
             f"materialized={self.materialized}, "
             f"max_lines={self.max_lines}, "
             f"limited={self.limited}, "
+            f"sent_scope_required={self.sent_scope_required}, "
+            f"sent_scope_lines={self.sent_scope_lines}, "
+            f"sent_scope_matched={self.sent_scope_matched}, "
             f"reason={self.reason!r})"
         )
 
@@ -245,6 +286,7 @@ def _is_duplicate_batch(send_run_result) -> bool:
 def materialize_pop_rotation_records(
     root,
     send_run_result: Optional[Any] = None,
+    sent_scope: Optional[PopRotationSentScope] = None,
     max_lines: int = DEFAULT_MAX_LINES,
 ) -> PopRotationMaterializeResult:
     """Build in-memory materialization buckets from pending player events.
@@ -284,7 +326,7 @@ def materialize_pop_rotation_records(
 
     try:
         return materialize_pop_rotation_records_locked(
-            root, lock_result, send_run_result, max_lines)
+            root, lock_result, send_run_result, sent_scope, max_lines)
     finally:
         release_pop_pending_lock(lock_result)
 
@@ -293,6 +335,7 @@ def materialize_pop_rotation_records_locked(
     root,
     lock_result: PopPendingLockResult,
     send_run_result: Optional[Any] = None,
+    sent_scope: Optional[PopRotationSentScope] = None,
     max_lines: int = DEFAULT_MAX_LINES,
 ) -> PopRotationMaterializeResult:
     """Build in-memory materialization buckets under an already-held lock.
@@ -347,7 +390,7 @@ def materialize_pop_rotation_records_locked(
 
     root = Path(root)
 
-    result = _materialize_under_lock(root, send_run_result, max_lines)
+    result = _materialize_under_lock(root, send_run_result, sent_scope, max_lines)
     result.lock_acquired = True  # Lock was already held by caller
     return result
 
@@ -355,6 +398,7 @@ def materialize_pop_rotation_records_locked(
 def _materialize_under_lock(
     root: Path,
     send_run_result,
+    sent_scope,
     max_lines: int,
 ) -> PopRotationMaterializeResult:
     """Core materialization logic — called with lock held."""
@@ -412,6 +456,13 @@ def _materialize_under_lock(
         reason=REASON_MATERIALIZED,
         materialized=True,
     )
+
+    # ── Track sent scope ─────────────────────────────────────────
+    has_scope = sent_scope is not None and isinstance(sent_scope, PopRotationSentScope)
+    result.sent_scope_lines = sent_scope.size if has_scope else 0
+
+    if send_ok and not has_scope and not send_pr and not is_dup:
+        result.sent_scope_required = True
 
     line_number = 0
     for line_content in lines:
@@ -518,8 +569,16 @@ def _materialize_under_lock(
 
         elif cls == CLASS_ELIGIBLE:
             if can_sent:
-                # Keep the original safe record (already validated)
-                result._sent_records.append(dict(record))
+                # Scope gate: only sent if line_number in sent scope
+                if not has_scope:
+                    # send ok but no scope → stays pending
+                    result._retained_pending_records.append(dict(record))
+                elif sent_scope.has_line(line_number):
+                    result._sent_records.append(dict(record))
+                    result.sent_scope_matched += 1
+                else:
+                    # line not in scope → stays pending
+                    result._retained_pending_records.append(dict(record))
             else:
                 result._retained_pending_records.append(dict(record))
 
@@ -597,6 +656,9 @@ def format_pop_rotation_materialize_result(result: PopRotationMaterializeResult)
         f"materialized:                {str(result.materialized).lower()}",
         f"max_lines:                   {result.max_lines}",
         f"limited:                     {str(result.limited).lower()}",
+        f"sent_scope_required:         {str(result.sent_scope_required).lower()}",
+        f"sent_scope_lines:            {result.sent_scope_lines}",
+        f"sent_scope_matched:          {result.sent_scope_matched}",
         f"reason:                      {result.reason}",
     ]
 

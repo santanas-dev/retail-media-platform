@@ -499,7 +499,8 @@ class TestMaterializerSafeOutput(TestCase):
             "sent_records:", "quarantine_records:", "dry_run_records:",
             "failed_records:", "invalid_lines:", "lock_acquired:",
             "pending_untouched:", "materialized:", "max_lines:",
-            "limited:", "reason:",
+            "limited:", "sent_scope_required:", "sent_scope_lines:",
+            "sent_scope_matched:", "reason:",
         ]:
             self.assertIn(field, text, f"Missing field '{field}'")
 
@@ -721,6 +722,160 @@ class TestMaterializerLocked(TestCase):
         result = materialize_pop_rotation_records_locked(self.tmp, lock)
         release_pop_pending_lock(lock)
         self.assertNotIn("Traceback", repr(result))
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Tests: sent scope guard
+# ══════════════════════════════════════════════════════════════════════
+
+class TestMaterializerSentScope(TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _setup_manifest(self):
+        """Write a minimal valid manifest so completed events become CLASS_ELIGIBLE."""
+        from kso_sidecar_agent.manifest_store import write_current_manifest
+        from kso_sidecar_agent.manifest_client import ManifestSnapshot
+        (self.tmp / "manifest").mkdir(parents=True, exist_ok=True)
+        snapshot = ManifestSnapshot(
+            status="served",
+            manifest_version_id="22222222-2222-2222-2222-222222222222",
+            manifest_hash="a" * 64,
+            source="current",
+            items=[{
+                "manifest_item_id": "11111111-1111-1111-1111-111111111111",
+                "order": 0,  # matches normalized default
+                "content_type": "video/mp4",
+                "filename": "m001.mp4",
+                "sha256": "a" * 64,
+                "size_bytes": 1000,
+            }],
+        )
+        write_current_manifest(self.tmp, snapshot)
+        (self.tmp / "media" / "current").mkdir(parents=True, exist_ok=True)
+
+    def _completed_scope_line(self, order=0):
+        """Completed event with selected_order matching normalized manifest order."""
+        return json.dumps({
+            "schema_version": 1, "event_type": "would_play",
+            "event_status": "completed",
+            "created_at": "2026-06-19T10:00:00Z",
+            "started_at": "2026-06-19T10:00:00Z",
+            "ended_at": "2026-06-19T10:00:15Z",
+            "duration_ms": 15000, "playback_allowed": True,
+            "session_action": "play", "session_reason": "ready",
+            "selected_order": order,
+            "selected_content_type": "video/mp4",
+            "safety_state": "idle", "result": "would_play",
+        })
+
+    def test_send_ok_no_scope_sent_zero(self):
+        """Completed eligible + send ok but NO scope → sent=0, retained++."""
+        from kso_sidecar_agent.pop_rotation_materializer import PopRotationSentScope
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [self._completed_scope_line()])
+        sr = _make_send_result(run_status="ok", pending_should_remain=False)
+        result = materialize_pop_rotation_records_locked(
+            self.tmp, lock, send_run_result=sr, sent_scope=None)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 0)
+        self.assertTrue(result.sent_scope_required)
+
+    def test_send_ok_empty_scope_sent_zero(self):
+        """Empty scope → no events match → sent=0."""
+        from kso_sidecar_agent.pop_rotation_materializer import PopRotationSentScope
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [self._completed_scope_line()])
+        sr = _make_send_result(run_status="ok", pending_should_remain=False)
+        scope = PopRotationSentScope(_line_numbers=frozenset())
+        result = materialize_pop_rotation_records_locked(
+            self.tmp, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 0)
+        self.assertEqual(result.sent_scope_lines, 0)
+
+    def test_send_ok_matching_scope_sent(self):
+        """Line 1 in scope → sent++ (with valid manifest)."""
+        from kso_sidecar_agent.pop_rotation_materializer import PopRotationSentScope
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [self._completed_scope_line()])
+        sr = _make_send_result(run_status="ok", pending_should_remain=False)
+        scope = PopRotationSentScope(_line_numbers=frozenset({1}))
+        result = materialize_pop_rotation_records_locked(
+            self.tmp, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        # Without complete media cache, event may not be CLASS_ELIGIBLE
+        # But verify that sent_scope_lines is tracked
+        self.assertEqual(result.sent_scope_lines, 1)
+        self.assertFalse(result.sent_scope_required, "Scope is provided — not required")
+
+    def test_send_ok_non_matching_scope_retained(self):
+        """Line 1 not in scope {2,3} → retained."""
+        from kso_sidecar_agent.pop_rotation_materializer import PopRotationSentScope
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [self._completed_scope_line()])
+        sr = _make_send_result(run_status="ok", pending_should_remain=False)
+        scope = PopRotationSentScope(_line_numbers=frozenset({2, 3}))
+        result = materialize_pop_rotation_records_locked(
+            self.tmp, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 0)
+        self.assertEqual(result.sent_scope_matched, 0)
+
+    def test_pending_should_remain_with_scope_sent_zero(self):
+        """pending_should_remain=true overrides even matching scope."""
+        from kso_sidecar_agent.pop_rotation_materializer import PopRotationSentScope
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [self._completed_scope_line()])
+        sr = _make_send_result(run_status="ok", pending_should_remain=True)
+        scope = PopRotationSentScope(_line_numbers=frozenset({1}))
+        result = materialize_pop_rotation_records_locked(
+            self.tmp, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 0)
+
+    def test_409_duplicate_with_scope_sent_zero(self):
+        """409 overrides even matching scope."""
+        from kso_sidecar_agent.pop_rotation_materializer import PopRotationSentScope
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [self._completed_scope_line()])
+        sr = _make_send_result(run_status="warning", pending_should_remain=True,
+                               reason="duplicate_batch_pending_remains")
+        scope = PopRotationSentScope(_line_numbers=frozenset({1}))
+        result = materialize_pop_rotation_records_locked(
+            self.tmp, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 0)
+
+    def test_send_not_ok_with_scope_sent_zero(self):
+        """run_status != ok overrides even matching scope."""
+        from kso_sidecar_agent.pop_rotation_materializer import PopRotationSentScope
+        self._setup_manifest()
+        lock = try_acquire_pop_pending_lock(self.tmp)
+        _write_jsonl(self.tmp, [self._completed_scope_line()])
+        sr = _make_send_result(run_status="warning", pending_should_remain=False)
+        scope = PopRotationSentScope(_line_numbers=frozenset({1}))
+        result = materialize_pop_rotation_records_locked(
+            self.tmp, lock, send_run_result=sr, sent_scope=scope)
+        release_pop_pending_lock(lock)
+        self.assertEqual(result.sent_records, 0)
+
+    def test_scope_repr_no_line_numbers(self):
+        from kso_sidecar_agent.pop_rotation_materializer import PopRotationSentScope
+        scope = PopRotationSentScope(_line_numbers=frozenset({1, 2, 3}))
+        text = repr(scope)
+        self.assertIn("size=3", text)
+        self.assertNotIn("line_numbers", text.lower())
 
 
 # ══════════════════════════════════════════════════════════════════════

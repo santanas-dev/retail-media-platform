@@ -155,6 +155,7 @@ class PopRotationApplyResult:
 def apply_pop_rotation_local(
     root,
     send_run_result: Optional[Any] = None,
+    sent_scope = None,
     max_lines: int = DEFAULT_MAX_LINES,
 ) -> PopRotationApplyResult:
     """Execute a full local rotation cycle under one lock.
@@ -203,7 +204,7 @@ def apply_pop_rotation_local(
     try:
         # ── 1. Materialize ───────────────────────────────────────
         mat_result = materialize_pop_rotation_records_locked(
-            root, lock_result, send_run_result, max_lines)
+            root, lock_result, send_run_result, sent_scope, max_lines)
 
         result.pending_lines_before = mat_result.pending_lines_before
         result.invalid_lines = mat_result.invalid_lines

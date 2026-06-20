@@ -545,6 +545,24 @@ Safe aggregate: status, applied, lock_acquired, pending_untouched, target_files_
 
 **CLI / run_cycle integration — отдельные шаги.**
 
+### Sent Scope Guard
+
+🛡️ **Реализован:** `PopRotationSentScope` в `pop_rotation_materializer.py`. Ограничивает перенос completed событий в `sent/` только теми, что были в отправленном payload.
+
+**Проблема:** агрегатный `send_run_result.run_status=ok` не гарантирует, что все pending completed события были в отправленном batch. Между send и rotation player мог добавить новые completed.
+
+**Решение:** `PopRotationSentScope` хранит internal `frozenset` line numbers отправленных событий. Completed eligible → sent только если `line_number ∈ sent_scope`.
+
+| Условие | sent_records |
+|---|---|
+| send ok + scope match | → sent |
+| send ok + scope None | 0 (sent_scope_required) |
+| send ok + line not in scope | 0 (retained) |
+| pending_should_remain / 409 | 0 |
+| run_status != ok | 0 |
+
+**Агрегаты в result (без line numbers):** `sent_scope_required`, `sent_scope_lines`, `sent_scope_matched`.
+
 ### CLI: `pop-rotation-apply`
 
 ```bash
