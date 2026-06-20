@@ -673,6 +673,32 @@ window.KsoPlayerShell.clear()                    // сброс
 
 ---
 
+## KSO Player Shell Command
+
+🎮 **Реализован:** `shell_command.py`. Мост между render plan и HTML shell.
+
+### Pipeline
+
+```
+runtime_gate → runtime_decision → render_plan → shell_command
+```
+
+### `build_kso_shell_command(root, stale_seconds=30)`
+
+| Render plan | shell_mode | command | поля |
+|---|---|---|---|
+| render | render | `setRenderPlan` | mediaType, durationBucket |
+| hold (любая причина) | hold | `hold` | — |
+
+### Safe fields только
+
+- `mediaType`: `image` | `video` | `unknown`
+- `durationBucket`: `short` | `medium` | `long` | `unknown`
+
+**НЕ передаются:** paths, filenames, media src, manifest IDs, campaign IDs, hashes.
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay
