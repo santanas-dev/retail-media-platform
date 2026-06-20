@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KSO Player</title>
+<meta name="viewport" content="width=1440">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Root container — 1440×1080 left advertising zone -->
+<div id="kso-root">
+
+  <!-- HOLD screen: shown when ads are blocked -->
+  <div id="kso-hold" class="kso-screen kso-active">
+    <div class="kso-status-overlay">
+      <div class="kso-status-text" id="kso-hold-text">
+        Advertising temporarily unavailable
+      </div>
+    </div>
+  </div>
+
+  <!-- RENDER screen: shown when ad is ready to display -->
+  <div id="kso-render" class="kso-screen">
+    <div id="kso-media-slot" class="kso-media-slot">
+      <!-- Media placeholder — real src injected by runtime bridge later -->
+      <div id="kso-render-placeholder" class="kso-placeholder">
+        <div class="kso-placeholder-icon"></div>
+        <div class="kso-placeholder-text">Ad content area</div>
+      </div>
+    </div>
+    <div class="kso-status-overlay kso-status-bottom" id="kso-render-status">
+      <div class="kso-status-text" id="kso-render-text"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="player.js"></script>
+</body>
+</html>

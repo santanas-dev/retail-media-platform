@@ -638,6 +638,41 @@ pop_write_reason: written
 
 ---
 
+## KSO Player Local HTML Shell
+
+🧱 **Реализован:** `player_shell/` — статический HTML/CSS/JS для будущего Chromium kiosk.
+
+### Состав
+
+| Файл | Назначение |
+|---|---|
+| `index.html` | HTML shell с CSP `connect-src 'none'` |
+| `styles.css` | Стили для зоны 1440×1080 |
+| `player.js` | `window.KsoPlayerShell` API |
+
+### Режимы
+
+- **Hold** — нейтральный экран «Advertising temporarily unavailable»
+- **Render** — рекламная зона с placeholder
+
+### JS API
+
+```js
+window.KsoPlayerShell.setHold("hold")           // блокировка
+window.KsoPlayerShell.setRenderPlan(plan)        // render = {mediaType, durationBucket}
+window.KsoPlayerShell.clear()                    // сброс
+```
+
+### Безопасность
+
+- Полностью локальный — нет внешних URL, CDN, analytics
+- CSP: `default-src 'self'`, `connect-src 'none'`, `form-action 'none'`
+- Нет fetch/XHR/WebSocket/iframe/form
+- Никогда не принимает: paths, filenames, IDs, хеши, auth data
+- Shell не знает backend/token/secret
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay
