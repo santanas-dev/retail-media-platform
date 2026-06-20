@@ -860,33 +860,39 @@ render_plan._selected_item → media_reference → mediaRef в shell_snapshot
 
 ## KSO Player Shell Bootstrap
 
-🚀 **Реализован:** `bootstrap.js`. Автостарт shell при загрузке страницы.
+🚀 **Реализован:** `bootstrap.js` + `bootstrap_snapshot.js`. Автостарт shell при загрузке страницы.
+
+### Script include order
+
+```html
+<script src="player.js"></script>              <!-- 1. API -->
+<script src="bootstrap_snapshot.js"></script>   <!-- 2. Default snapshot -->
+<script src="bootstrap.js"></script>            <!-- 3. Apply snapshot -->
+```
 
 ### Как работает
 
-1. `index.html` загружает `player.js` → `bootstrap.js`
-2. `bootstrap.js` проверяет `window.KsoPlayerShell` (должен быть загружен)
-3. Проверяет `window.KSO_PLAYER_BOOTSTRAP_SNAPSHOT`
-4. Если snapshot есть → `shell.applySnapshot(snapshot)` (вся валидация внутри)
-5. Если snapshot отсутствует → `shell.setHold("hold")` (безопасный fallback)
-6. Никаких ошибок наружу, никаких stacktrace
+1. `player.js` создаёт `window.KsoPlayerShell`
+2. `bootstrap_snapshot.js` устанавливает `window.KSO_PLAYER_BOOTSTRAP_SNAPSHOT` (default: hold)
+3. `bootstrap.js` проверяет snapshot → `applySnapshot()` или `setHold("hold")`
+4. Default snapshot — safe hold (без mediaRef, без render)
 
-### Snapshot contract (future)
+### Production model
+
+- В `/opt` лежит **default hold snapshot** (`bootstrap_snapshot.js` — безопасный, без mediaRef)
+- В `/var/lib/verny/kso/runtime/player_shell/` future writer будет атомарно заменять этот файл
+- Если writer ещё не запущен — shell остаётся в hold
+- Writer никогда не пишет в `/opt` — только в runtime copy
+
+### Default snapshot
 
 ```js
-// Hold
 window.KSO_PLAYER_BOOTSTRAP_SNAPSHOT = {
   schemaVersion: 1, mode: "hold", method: "setHold",
   payload: { reason: "hold" }
 };
-
-// Render
-window.KSO_PLAYER_BOOTSTRAP_SNAPSHOT = {
-  schemaVersion: 1, mode: "render", method: "setRenderPlan",
-  payload: { mediaType: "image", durationBucket: "short",
-             mediaRef: "media/current/slot-000" }
-};
 ```
+
 
 ### Безопасность
 

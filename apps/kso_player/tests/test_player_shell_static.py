@@ -16,6 +16,7 @@ INDEX_HTML = SHELL_DIR / "index.html"
 STYLES_CSS = SHELL_DIR / "styles.css"
 PLAYER_JS = SHELL_DIR / "player.js"
 BOOTSTRAP_JS = SHELL_DIR / "bootstrap.js"
+BOOTSTRAP_SNAPSHOT_JS = SHELL_DIR / "bootstrap_snapshot.js"
 
 # ── Forbidden substrings ────────────────────────────────────────────
 
@@ -60,9 +61,15 @@ class TestFileExistence(TestCase):
         self.assertTrue(BOOTSTRAP_JS.exists(), f"{BOOTSTRAP_JS} missing")
         self.assertGreater(BOOTSTRAP_JS.stat().st_size, 50)
 
+    def test_bootstrap_snapshot_js_exists(self):
+        self.assertTrue(BOOTSTRAP_SNAPSHOT_JS.exists(),
+            f"{BOOTSTRAP_SNAPSHOT_JS} missing")
+        self.assertGreater(BOOTSTRAP_SNAPSHOT_JS.stat().st_size, 50)
+
     def test_only_expected_files(self):
         files = sorted(f.name for f in SHELL_DIR.iterdir() if f.is_file())
-        self.assertEqual(files, ["bootstrap.js", "index.html", "player.js", "styles.css"])
+        self.assertEqual(files, ["bootstrap.js", "bootstrap_snapshot.js",
+            "index.html", "player.js", "styles.css"])
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -96,10 +103,19 @@ class TestHTML(TestCase):
             '<link rel="stylesheet" href="styles.css">', ""))
 
     def test_only_local_scripts_referenced(self):
-        # player.js and bootstrap.js are loaded locally
+        # player.js, bootstrap_snapshot.js, bootstrap.js loaded locally
         self.assertIn('src="player.js"', self.html)
+        self.assertIn('src="bootstrap_snapshot.js"', self.html)
         self.assertIn('src="bootstrap.js"', self.html)
         self.assertNotIn('src="http', self.html)
+
+    def test_script_order(self):
+        # Order: player.js → bootstrap_snapshot.js → bootstrap.js
+        pidx = self.html.index('src="player.js"')
+        sidx = self.html.index('src="bootstrap_snapshot.js"')
+        bidx = self.html.index('src="bootstrap.js"')
+        self.assertLess(pidx, sidx, "player.js must be before bootstrap_snapshot.js")
+        self.assertLess(sidx, bidx, "bootstrap_snapshot.js must be before bootstrap.js")
 
     def test_bootstrap_after_player(self):
         # bootstrap.js must be loaded AFTER player.js
@@ -418,6 +434,80 @@ class TestBootstrapJS(TestCase):
         for fb in FORBIDDEN:
             self.assertNotIn(fb, lower,
                 f"forbidden '{fb}' found in bootstrap.js")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Tests: bootstrap_snapshot.js
+# ══════════════════════════════════════════════════════════════════════
+
+class TestBootstrapSnapshotJS(TestCase):
+    """bootstrap_snapshot.js content and safety."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.js = BOOTSTRAP_SNAPSHOT_JS.read_text()
+
+    def test_sets_bootstrap_snapshot(self):
+        self.assertIn("KSO_PLAYER_BOOTSTRAP_SNAPSHOT", self.js)
+
+    def test_default_snapshot_is_hold(self):
+        self.assertIn('"hold"', self.js)
+        self.assertIn('"setHold"', self.js)
+
+    def test_default_snapshot_no_media_ref(self):
+        self.assertNotIn("mediaRef", self.js)
+        self.assertNotIn("media/current/slot-", self.js)
+
+    def test_schema_version_is_1(self):
+        self.assertIn("schemaVersion", self.js)
+
+    def test_strict_mode(self):
+        self.assertIn('"use strict"', self.js)
+
+    def test_no_fetch(self):
+        self.assertNotIn("fetch(", self.js)
+
+    def test_no_xml_http_request(self):
+        self.assertNotIn("XMLHttpRequest", self.js)
+
+    def test_no_web_socket(self):
+        self.assertNotIn("WebSocket", self.js)
+        self.assertNotIn("ws://", self.js)
+        self.assertNotIn("wss://", self.js)
+
+    def test_no_eval(self):
+        self.assertNotIn("eval(", self.js)
+
+    def test_no_new_function(self):
+        self.assertNotIn("new Function", self.js)
+
+    def test_no_inner_html(self):
+        self.assertNotIn("innerHTML", self.js)
+        self.assertNotIn("outerHTML", self.js)
+        self.assertNotIn("insertAdjacentHTML", self.js)
+
+    def test_no_external_urls(self):
+        self.assertNotIn("http://", self.js)
+        self.assertNotIn("https://", self.js)
+        self.assertNotIn("file://", self.js)
+
+    def test_no_paths(self):
+        self.assertNotIn("/opt", self.js)
+        self.assertNotIn("/var", self.js)
+
+    def test_no_ids(self):
+        for fb in ("manifest_item_id", "campaign_id", "creative_id",
+                    "schedule_item_id"):
+            self.assertNotIn(fb, self.js)
+
+    def test_no_hash(self):
+        self.assertNotIn("sha256", self.js)
+
+    def test_no_forbidden_substrings(self):
+        lower = self.js.lower()
+        for fb in FORBIDDEN:
+            self.assertNotIn(fb, lower,
+                f"forbidden '{fb}' found in bootstrap_snapshot.js")
 
 
 if __name__ == "__main__":
