@@ -538,6 +538,38 @@ pop_write_reason: written
 
 ---
 
+## KSO Player Runtime Gate
+
+🚦 **Реализован:** `runtime_gate.py`. Безопасное read-only ядро принятия решения play/hold.
+
+### `evaluate_kso_runtime_gate(root, stale_seconds=30) -> KsoRuntimeGateResult`
+
+- Читает `state/kso_state.json` (НЕ пишет)
+- Writer: **будущий UKM 4 State Adapter**
+- Player — read-only consumer
+
+### Правила
+
+| Условие | play_allowed | action |
+|---|---|---|
+| state=`idle` + JSON valid + timestamp fresh | **true** | play |
+| Любое не-idle состояние | false | hold |
+| Missing state file | false | hold |
+| Invalid JSON / schema mismatch | false | hold |
+| Invalid/missing timestamp | false | hold |
+| Stale timestamp (>30s) | false | hold |
+| Future timestamp | false | hold |
+| Read failure | false | hold |
+
+### Что НЕ реализовано
+
+- ❌ Chromium kiosk launch
+- ❌ UI / window
+- ❌ systemd unit
+- ❌ State adapter (writer)
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay
