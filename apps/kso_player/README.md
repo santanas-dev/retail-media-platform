@@ -570,6 +570,33 @@ pop_write_reason: written
 
 ---
 
+## KSO Player Local Playback Decision
+
+🎛 **Реализован:** `runtime_decision.py`. Полный пайплайн принятия решения play/hold.
+
+### `evaluate_kso_playback_runtime_decision(root, stale_seconds=30)`
+
+Трёхшаговая цепочка:
+1. **Runtime gate** — читает `state/kso_state.json` → idle + fresh?
+2. **Local content** — `build_playlist()` → manifest + media готовы?
+3. **Session/safety** — `decide_playback_safety()` + `select_next_item()` → есть playable item?
+
+### Результат
+
+| Условие | play_allowed | reason |
+|---|---|---|
+| idle + контент готов + item выбран | **true** | `ready_to_play` |
+| Не-idle / stale / invalid state | false | `state_gate_hold` |
+| Manifest/media отсутствует | false | `local_content_not_ready` |
+| Safety/session не разрешает | false | `session_or_safety_hold` |
+
+### pop_event_should_be_written
+
+- `true` — только когда `play_allowed=true`
+- Флаг решения — **сам PoP event пока не пишется** (следующий шаг интеграции)
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay
