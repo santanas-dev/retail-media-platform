@@ -26,9 +26,14 @@
 ## Что должно быть готово до начала
 
 - [ ] Тестовый Linux КСО с установленным Chromium, Python 3.11+
+- [ ] **Утверждённый release package** `kso-runtime-<version>.tar.gz` из внутреннего хранилища
+- [ ] Проверен `VERSION` (должен совпадать с ожидаемой версией)
+- [ ] Проверен `CHECKSUMS.sha256` (`sha256sum -c CHECKSUMS.sha256`)
+- [ ] **Пакет получен из внутреннего хранилища** (НЕ GitHub/CDN/внешний URL)
 - [ ] Код KSO скопирован на КСО (player, sidecar, state adapter, player_shell)
 - [ ] Выполнен `bootstrap --dry-run` (план без изменений)
 - [ ] Прочитан `infra/kso-linux/README.md`
+- [ ] Прочитан `docs/kso/kso-runtime-release-package-contract.md`
 - [ ] Прочитан `docs/kso/ukm4-state-source-discovery.md`
 - [ ] Доступен `sudo` для команд `systemctl`
 - [ ] Открыт терминал с правами на чтение `/run/verny/kso/` и `/var/lib/verny/kso/`

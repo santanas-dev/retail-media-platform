@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "package_name": "kso-runtime",
+  "version": "CHANGE_ME_VERSION",
+  "components": [
+    "kso_player",
+    "kso_sidecar_agent",
+    "kso_state_adapter",
+    "kso_linux_deployment"
+  ],
+  "created_at_utc": "CHANGE_ME_BUILD_TIME",
+  "checksums_file": "CHECKSUMS.sha256"
+}
