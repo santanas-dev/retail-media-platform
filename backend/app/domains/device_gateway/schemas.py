@@ -230,9 +230,13 @@ class DeviceMediaNotModifiedResponse(BaseModel):
 
 
 class PoPEventRequest(BaseModel):
-    """Payload from a device with a proof-of-play event."""
+    """Payload from a device with a proof-of-play event.
+
+    manifest_item_id is optional for KSO channel events where server-side
+    correlation is performed via manifest projection rather than direct ID.
+    """
     device_event_id: UUID
-    manifest_item_id: UUID
+    manifest_item_id: Optional[UUID] = None
     played_at: Optional[datetime] = None
     duration_ms: Optional[int] = None
     play_status: Optional[str] = None
@@ -286,9 +290,12 @@ class PoPEventRead(BaseModel):
 
 
 class PoPEventBatchItem(BaseModel):
-    """Single event inside a batch — same shape as PoPEventRequest."""
+    """Single event inside a batch — same shape as PoPEventRequest.
+
+    manifest_item_id is optional for KSO channel events.
+    """
     device_event_id: UUID
-    manifest_item_id: UUID
+    manifest_item_id: Optional[UUID] = None
     played_at: Optional[datetime] = None
     duration_ms: Optional[int] = None
     play_status: Optional[str] = None

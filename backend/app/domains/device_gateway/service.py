@@ -2067,12 +2067,65 @@ async def _validate_pop_event(
 
     Returns (rejection_reason, manifest_item, manifest_version, publication_target).
     If rejection_reason is None, the event is valid and the other three are filled.
+    For KSO channel events without manifest_item_id, returns (None, None, None, None).
     """
     settings = get_settings()
 
     # 0. Check device status
     if device.status not in ("active", "pending", "lost"):
         return "device_disabled", None, None, None
+
+    # ── KSO channel: manifest_item_id is optional ──────────────────
+    if data.manifest_item_id is None:
+        # Query device channel to verify it's KSO
+        from app.domains.channels.models import Channel
+        ch_result = await db.execute(
+            select(Channel.code).where(Channel.id == device.channel_id)
+        )
+        ch_code = ch_result.scalar_one_or_none()
+        if ch_code != KSO_CHANNEL_CODE:
+            return "manifest_item_id_required", None, None, None
+
+        # KSO path: no server-side correlation available.
+        # Validate basic event fields only.
+        # 6. played_at
+        if not data.played_at:
+            return "played_at_missing", None, None, None
+        if data.played_at > now + timedelta(seconds=settings.POP_MAX_CLOCK_SKEW_SECONDS):
+            return "played_at_too_future", None, None, None
+        age_limit = now - timedelta(days=settings.POP_MAX_EVENT_AGE_DAYS)
+        if data.played_at < age_limit:
+            return "played_at_too_old", None, None, None
+
+        # 7. duration_ms
+        if data.duration_ms is None:
+            return "duration_ms_missing", None, None, None
+        if data.duration_ms < 0:
+            return "duration_ms_negative", None, None, None
+        if data.duration_ms > settings.POP_MAX_DURATION_MS:
+            return "duration_ms_too_large", None, None, None
+
+        # 8. play_status
+        if not data.play_status:
+            return "play_status_missing", None, None, None
+        if data.play_status not in POP_VALID_PLAY_STATUSES:
+            return "invalid_play_status", None, None, None
+
+        # 9. details_json
+        details = data.details_json or {}
+        forbidden_hits = _validate_no_forbidden_keys(details)
+        if forbidden_hits:
+            return "forbidden_keys_in_details", None, None, None
+        details_str = json.dumps(details, default=str)
+        if len(details_str) > settings.POP_DETAILS_MAX_BYTES:
+            return "details_too_large", None, None, None
+
+        # 10. player_version
+        if data.player_version and len(data.player_version) > 64:
+            return "player_version_too_long", None, None, None
+
+        # Valid KSO event — no server-side correlation IDs available
+        return None, None, None, None
 
     # 1. Find manifest_item
     mi = await db.get(ManifestItem, data.manifest_item_id)
@@ -2261,20 +2314,20 @@ async def _ingest_single_event(
     pop_entry = models.ProofOfPlayEvent(
         gateway_device_id=device.id,
         device_event_id=data.device_event_id,
-        manifest_item_id=mi.id,
-        manifest_version_id=mv.id,
-        publication_target_id=pt.id,
-        schedule_item_id=mi.schedule_item_id or data.schedule_item_id,
-        campaign_id=mi.campaign_id,
-        campaign_rendition_id=mi.campaign_rendition_id,
-        rendition_id=mi.rendition_id,
-        creative_version_id=mi.creative_version_id,
+        manifest_item_id=mi.id if mi else None,
+        manifest_version_id=mv.id if mv else None,
+        publication_target_id=pt.id if pt else None,
+        schedule_item_id=mi.schedule_item_id if mi and mi.schedule_item_id else data.schedule_item_id,
+        campaign_id=mi.campaign_id if mi else None,
+        campaign_rendition_id=mi.campaign_rendition_id if mi else None,
+        rendition_id=mi.rendition_id if mi else None,
+        creative_version_id=mi.creative_version_id if mi else None,
         played_at=data.played_at,
         duration_ms=data.duration_ms,
         play_status=data.play_status,
         validation_status="accepted",
         media_sha256=data.media_sha256,
-        expected_sha256=mi.sha256,
+        expected_sha256=mi.sha256 if mi else None,
         player_version=(data.player_version[:64] if data.player_version else None),
         ip_address=client_ip[:45] if client_ip else None,
         user_agent=user_agent[:500] if user_agent else None,
