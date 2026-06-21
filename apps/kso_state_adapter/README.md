@@ -73,3 +73,11 @@ python3 -m kso_state_adapter.cli daemon --root /var/lib/verny/kso \
 
 Happy path: state adapter (idle) → sidecar (sync) → player (2 цикла) → sidecar (send)
 Negative: unknown/error state → hold, state change, sync failure, reject, network error, no resend.
+
+## UKM 4 State Source Discovery
+
+Перед реальной интеграцией с УКМ 4 нужно безопасно выяснить источник состояния.
+Discovery-пакет: `docs/kso/ukm4-state-source-discovery.md` + скрипт `infra/kso-linux/discovery/ukm4_state_discovery.py`.
+
+Скрипт **не читает** чеки, товары, карты, покупателей, fiscal data.
+Только readonly-проверки: процесс, сервис, статусный файл (по allowlist).

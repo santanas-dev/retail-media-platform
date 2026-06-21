@@ -309,3 +309,12 @@ python3 infra/kso-linux/preflight/kso_linux_preflight.py \
 - `Makefile` / `ansible` — автоматизация
 - Интеграционные тесты на реальном КСО
 - Тонкая настройка Chromium kiosk-флагов
+
+## UKM 4 State Source Discovery
+
+Discovery-скрипт: `infra/kso-linux/discovery/ukm4_state_discovery.py`
+Документация: `docs/kso/ukm4-state-source-discovery.md`
+
+Безопасный readonly инструмент для определения источника состояния УКМ 4.
+**Не читает** чеки, товары, карты, покупателей, fiscal data.
+См. `--help` и `--dry-run`.
