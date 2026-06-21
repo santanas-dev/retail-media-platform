@@ -1,9 +1,172 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Расписание</h1>
-<p class="page-description">Управление расписанием показов — dayparts, ротации, приоритеты слотов.</p>
-<div class="empty-state">
-  <div class="empty-state-title">Расписание появится здесь</div>
-  <div class="empty-state-text">Функционал планирования расписания будет добавлен в следующих шагах.</div>
+<p class="page-description">Планирование эфирного времени КСО — периоды, слоты, проверка конфликтов и подготовка публикации manifest.</p>
+
+<!-- Summary Cards -->
+<div class="cards">
+  <div class="card">
+    <div class="card-title">Запланировано кампаний</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Активных периодов</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Занято эфирного времени</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Свободно эфирного времени</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Конфликты расписания</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Готово к публикации</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+</div>
+
+<!-- Planning / Capacity Block -->
+<div class="requirements-box">
+  <div class="requirements-title">Планирование эфирного времени</div>
+  <div class="requirements-grid">
+    <div class="requirements-item">
+      <span class="requirements-label">Период кампании</span>
+      <span class="requirements-value">Дата начала — дата окончания</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Слот показа</span>
+      <span class="requirements-value">Временной интервал в рамках периода</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Длительность креатива</span>
+      <span class="requirements-value">Секунды / циклы показа</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Магазины / КСО</span>
+      <span class="requirements-value">Список целевых точек размещения</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Проверка конфликтов</span>
+      <span class="requirements-value">Пересечение слотов и занятость</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Публикация</span>
+      <span class="requirements-value">Подготовка и отправка manifest</span>
+    </div>
+  </div>
+</div>
+
+<!-- Filters Toolbar -->
+<div class="filter-toolbar">
+  <div class="filter-group">
+    <label class="filter-label">Период</label>
+    <select class="filter-select" disabled>
+      <option>Все периоды</option>
+      <option>Текущие</option>
+      <option>Будущие</option>
+      <option>Прошедшие</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Кампания</label>
+    <select class="filter-select" disabled>
+      <option>Все кампании</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Филиал / магазин</label>
+    <select class="filter-select" disabled>
+      <option>Все магазины</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">КСО</label>
+    <select class="filter-select" disabled>
+      <option>Все КСО</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Статус публикации</label>
+    <select class="filter-select" disabled>
+      <option>Все статусы</option>
+      <option>Запланировано</option>
+      <option>Готово</option>
+      <option>Опубликовано</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Занятость эфирного времени</label>
+    <select class="filter-select" disabled>
+      <option>Все</option>
+      <option>Свободно</option>
+      <option>Частично занято</option>
+      <option>Полностью занято</option>
+      <option>Конфликт</option>
+    </select>
+  </div>
+</div>
+
+<!-- Schedule Table -->
+<div class="table-container">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Период</th>
+      <th>Кампания</th>
+      <th>Креативы</th>
+      <th>Магазины / КСО</th>
+      <th>Слот</th>
+      <th>Длительность</th>
+      <th>Занятость</th>
+      <th>Публикация</th>
+      <th>Конфликты</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="empty-row">
+      <td colspan="10">
+        <div class="table-empty-state">
+          <div class="table-empty-icon">🗓</div>
+          <div class="table-empty-title">Пока нет расписания</div>
+          <div class="table-empty-text">После создания кампаний здесь появятся периоды размещения, слоты и готовность публикации на КСО.</div>
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- Status Legend -->
+<div class="legend">
+  <span class="legend-title">Статус:</span>
+  <span class="legend-item"><span class="badge badge-scheduled"></span> Запланировано</span>
+  <span class="legend-item"><span class="badge badge-ready"></span> Готово</span>
+  <span class="legend-item"><span class="badge badge-published"></span> Опубликовано</span>
+  <span class="legend-item"><span class="badge badge-conflict"></span> Конфликт</span>
+  <span class="legend-item"><span class="badge badge-error"></span> Ошибка</span>
+  <span class="legend-item"><span class="badge badge-unknown"></span> Нет данных</span>
+</div>
+
+<!-- Notes -->
+<div class="note-box">
+  <span class="note-icon">ℹ️</span>
+  <span class="note-text">Расписание связывает <strong>кампанию</strong>, <strong>креативы</strong>, <strong>магазины/КСО</strong> и будущую публикацию <strong>manifest</strong>.</span>
+</div>
+<div class="note-box">
+  <span class="note-icon">📊</span>
+  <span class="note-text">Расчёт занятости эфирного времени и проверка конфликтов будет выполняться backend-логикой в следующих шагах. План/факт и детализация — в BI-отчётах с выгрузкой в Excel.</span>
 </div>
 {% endblock %}

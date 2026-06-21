@@ -8,7 +8,7 @@
 
 **Приложение:** `apps/portal-web/` — FastAPI + Jinja2 серверный портал.
 **Стек:** FastAPI 0.133 + Jinja2 3.1 + Starlette TestClient.
-**Тестов:** 93 (routes, navigation, devices, stores, creatives, campaigns, content, security).
+**Тестов:** 108 (routes, navigation, devices, stores, creatives, campaigns, schedule, content, security).
 
 ## Страницы (12 routes v1)
 
@@ -17,7 +17,7 @@
 | `/` `/dashboard` | Dashboard — обзорные карточки | ✅ заглушка |
 | `/campaigns` | Кампании | ✅ UI foundation (cards + lifecycle + filters + table) |
 | `/creatives` | Креативы | ✅ UI foundation (cards + requirements + filters + table) |
-| `/schedule` | Расписание | ✅ заглушка |
+| `/schedule` | Расписание | ✅ UI foundation (cards + planning + filters + table) |
 | `/publications` | Публикации манифестов | ✅ заглушка |
 | `/stores` | Магазины и КСО-инвентаризация | ✅ UI foundation (cards + filters + table) |
 | `/devices` | КСО Устройства | ✅ UI foundation (cards + filters + table) |
@@ -195,9 +195,41 @@
 - ❌ Нет Android TV, LED-шелф, ESL, Mobile App
 - ✅ Все значения статичные (—)
 
+## KSO Schedule page
+
+**Структура:**
+- **6 summary cards:** Запланировано кампаний, Активных периодов, Занято эфирного времени, Свободно эфирного времени, Конфликты расписания, Готово к публикации
+- **Planning block:** Период кампании, Слот показа, Длительность креатива, Магазины/КСО, Проверка конфликтов, Публикация manifest
+- **6 фильтров:** Период, Кампания, Филиал/магазин, КСО, Статус публикации, Занятость эфирного времени (все disabled)
+- **Таблица (10 колонок):** Период, Кампания, Креативы, Магазины/КСО, Слот, Длительность, Занятость, Публикация, Конфликты, Действия
+- **Empty state:** «Пока нет расписания»
+- **Легенда статусов:** Запланировано, Готово, Опубликовано, Конфликт, Ошибка, Нет данных
+- **Связи:** инфо-блоки — расписание связывает кампанию, креативы, магазины/КСО и публикацию manifest; занятость эфирного времени и BI/Excel в следующих шагах
+
+**Status badges:** `.badge-scheduled` (blue), `.badge-ready` (green), `.badge-published` (indigo), `.badge-conflict` (red), `.badge-error` (red), `.badge-unknown` (light gray)
+
+**Planned future API fields (не отображаются пока):**
+- period_start/end, campaign_name, creative_count, store_count
+- slot_interval, duration_seconds, occupancy_pct, publication_status, conflict_count
+- Без campaign_id, creative_id, store_id, device_id, schedule_item_id, booking_id, manifest_item_id
+
+**Future workflow (не на этом шаге):**
+- Реальное бронирование слотов и проверка конфликтов
+- Расчёт занятости эфирного времени
+- Публикация manifest
+- Excel export и BI dashboards
+
+**Security:**
+- ❌ Нет schedule_item_id, booking_id, manifest_item_id
+- ❌ Нет campaign_id, creative_id, rendition_id, store_id, device_id
+- ❌ Нет manifest_hash, storage_key, minio, sha256, file_path, filename
+- ❌ Нет device_secret, access_token, backend_url
+- ❌ Нет Android TV, LED-шелф, ESL, Mobile App
+- ✅ Все значения статичные (—)
+
 ## Styling
 
-- Минимальный CSS (307 строк) — без внешних CDN
+- Минимальный CSS (311 строк) — без внешних CDN
 - Светлая тема, corporate layout
 - Fixed sidebar (240px), fixed header (56px)
 - Адаптивная сетка карточек (`auto-fill, minmax(240px, 1fr)`)
@@ -225,7 +257,7 @@ python3 main.py  # или uvicorn main:app --port 8422
 ```bash
 cd apps/portal-web
 python3 -m unittest discover -s tests -v
-# 93 tests: routes, navigation, content, security
+# 108 tests: routes, navigation, content, security
 ```
 
 ## Следующие UI шаги

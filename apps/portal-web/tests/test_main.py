@@ -523,6 +523,104 @@ class TestCampaignsPage(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Schedule page tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestSchedulePage(unittest.TestCase):
+    """KSO Schedule page — cards, planning, filters, table, legend, notes."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+        resp = self.client.get("/schedule")
+        self.html = resp.text
+
+    def test_renders_summary_cards(self):
+        for card in ("Запланировано кампаний", "Активных периодов",
+                      "Занято эфирного времени", "Свободно эфирного времени",
+                      "Конфликты расписания", "Готово к публикации"):
+            self.assertIn(card, self.html,
+                          f"Schedule page must render summary card '{card}'")
+
+    def test_has_planning_block(self):
+        for item in ("Период кампании", "Слот показа", "Длительность креатива",
+                      "Магазины / КСО", "Проверка конфликтов", "Публикация"):
+            self.assertIn(item, self.html,
+                          f"Planning block must contain '{item}'")
+
+    def test_has_filters_block(self):
+        for flt in ("Период", "Кампания", "Филиал", "КСО",
+                     "Статус публикации", "Занятость эфирного времени"):
+            self.assertIn(flt, self.html,
+                          f"Schedule page must have filter '{flt}'")
+
+    def test_filters_disabled(self):
+        self.assertIn("disabled", self.html)
+
+    def test_has_table_structure(self):
+        for col in ("Период", "Кампания", "Креативы", "Магазины",
+                     "Слот", "Длительность", "Занятость",
+                     "Публикация", "Конфликты", "Действия"):
+            self.assertIn(col, self.html,
+                          f"Schedule table must have column '{col}'")
+
+    def test_table_shows_empty_state(self):
+        self.assertIn("Пока нет расписания", self.html)
+        self.assertIn("готовность публикации на КСО", self.html)
+
+    def test_has_status_legend(self):
+        for badge in ("Запланировано", "Готово", "Опубликовано",
+                       "Конфликт", "Ошибка", "Нет данных"):
+            self.assertIn(badge, self.html,
+                          f"Legend must contain status '{badge}'")
+
+    def test_mentions_airtime_and_conflicts(self):
+        self.assertIn("эфирного времени", self.html)
+        self.assertIn("конфликтов", self.html.lower())
+
+    def test_mentions_bi_reporting_excel(self):
+        self.assertIn("BI-отчётах", self.html)
+        self.assertIn("Excel", self.html)
+
+    def test_mentions_related_pages(self):
+        for term in ("кампанию", "креативы", "магазины", "manifest"):
+            self.assertIn(term, self.html.lower(),
+                          f"Schedule page must mention '{term}'")
+
+    def test_no_forbidden_content(self):
+        _assert_safe(self, self.html)
+
+    def test_no_out_of_scope_channels(self):
+        for banned in ("Android TV", "LED", "ESL", "Mobile App",
+                        "Ценники", "Price Checker"):
+            self.assertNotIn(banned, self.html,
+                             f"Schedule page must NOT contain '{banned}'")
+
+    def test_no_raw_ids_secrets_hashes(self):
+        lower = self.html.lower()
+        for forbidden in ("device_secret", "access_token", "manifest_hash",
+                           "campaign_id", "creative_id", "backend_url",
+                           "rendition_id", "store_id", "device_id",
+                           "schedule_item_id", "booking_id",
+                           "manifest_item_id", "storage_key", "minio",
+                           "sha256", "file_path", "filename",
+                           "http://", "https://backend"):
+            self.assertNotIn(forbidden, lower,
+                             f"Schedule page must NOT contain '{forbidden}'")
+
+    def test_status_badge_classes_in_css(self):
+        css = (_PORTAL_DIR / "static" / "styles.css").read_text()
+        for cls_name in (".badge-scheduled", ".badge-published",
+                          ".badge-conflict", ".badge-ready",
+                          ".badge-error", ".badge-unknown"):
+            self.assertIn(cls_name, css,
+                          f"CSS must define '{cls_name}'")
+
+    def test_schedule_route_returns_200(self):
+        resp = self.client.get("/schedule")
+        self.assertEqual(resp.status_code, 200)
+
+
 class TestPageStubsRender(unittest.TestCase):
     """All page stubs render with title and safe empty state."""
 
