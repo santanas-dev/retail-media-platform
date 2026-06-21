@@ -1090,6 +1090,81 @@ bootstrap_snapshot.js.tmp → flush/fsync → rename → fsync directory
 
 ---
 
+## KSO Player Guarded Local Chromium Demo Runner
+
+🚀 **Реализован:** `local_chromium_demo_runner.py` + CLI `local-chromium-demo`.
+
+Guarded demo runner: готовит runtime shell + snapshot + media alias → при явном `--confirm-launch` запускает Chromium.
+
+### Pipeline
+
+```
+prepare demo → build Chromium command (internal)
+  ├── confirm_launch=false → launch_ready=true, launched=false
+  └── confirm_launch=true  → subprocess.Popen(command), launched=true
+```
+
+### `prepare_and_maybe_launch_kso_local_chromium_demo(...)`
+
+| Параметр | |
+|---|---|
+| `root` | Agent root path |
+| `source_shell_dir` | Immutable shell source (e.g. `/opt`) |
+| `runtime_shell_dir` | Mutable runtime shell |
+| `chromium_bin` | Chromium binary (default: `chromium`) |
+| `confirm_launch` | Запускать Chromium? (по умолчанию `false`) |
+| `process_launcher` | Injectable callable (для тестов) |
+
+### Guard
+
+По умолчанию `confirm_launch=false` — Chromium **НЕ** запускается.
+Только prepare + `launch_ready=true`, `launched=false`.
+Запуск — исключительно при явном `--confirm-launch`.
+
+### Chromium command
+
+- **Linux only**, список аргументов (не shell string)
+- `--app=file://` с локальным index.html
+- `--window-size=1440,1080 --window-position=0,0`
+- `--no-first-run --disable-background-networking --disable-sync --disable-translate --disable-default-apps`
+- `--user-data-dir` в runtime shell / chromium-profile
+- **Запрещены:** `--disable-web-security`, `--allow-file-access-from-files`, `shell=True`
+
+### CLI
+
+```bash
+# Только prepare (без запуска)
+python3 -m kso_player.cli local-chromium-demo \
+  --root /tmp/kso-root \
+  --source-shell-dir /opt/verny/kso/player_shell \
+  --runtime-shell-dir /var/lib/verny/kso/runtime/player_shell \
+  --chromium-bin chromium
+
+# С запуском Chromium
+python3 -m kso_player.cli local-chromium-demo \
+  ... \
+  --confirm-launch
+```
+
+| Exit code | |
+|---|---|
+| 0 | Demo prepared (или launched) |
+| 1 | Error |
+| 2 | Invalid args |
+
+### Безопасность вывода
+
+CLI и result НЕ содержат: пути, file URL, полную команду, mediaRef, IDs, raw JSON, stacktrace.
+
+### Что НЕ реализовано
+
+- ❌ Systemd / production service
+- ❌ State adapter
+- ❌ PoP write
+- ❌ Backend / auth / secret / media bytes
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay

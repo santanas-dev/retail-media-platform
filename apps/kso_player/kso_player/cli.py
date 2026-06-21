@@ -9,6 +9,7 @@ Commands:
     pop-write          Build event draft + write to local JSONL (no backend, no sidecar)
     shell-snapshot-write  Write bootstrap_snapshot.js to runtime shell directory
     local-demo-prepare    Full vertical demo: workspace + media alias + snapshot
+    local-chromium-demo   Guarded local Chromium demo: prepare + optionally launch
     --help             Show help
 
 Only reads manifest/current_manifest.json and media/current/.
@@ -41,6 +42,12 @@ from kso_player.local_visual_demo_prepare import (
     format_kso_local_visual_demo_prepare_result,
     STATUS_OK as DEMO_STATUS_OK,
     STATUS_ERROR as DEMO_STATUS_ERROR,
+)
+from kso_player.local_chromium_demo_runner import (
+    prepare_and_maybe_launch_kso_local_chromium_demo,
+    format_kso_local_chromium_demo_runner_result,
+    STATUS_OK as CHROMIUM_STATUS_OK,
+    STATUS_ERROR as CHROMIUM_STATUS_ERROR,
 )
 
 
@@ -212,6 +219,27 @@ def cmd_local_demo_prepare(args: argparse.Namespace) -> None:
     sys.exit(0)
 
 
+def cmd_local_chromium_demo(args: argparse.Namespace) -> None:
+    """Guarded local Chromium demo: prepare demo + optionally launch Chromium.
+
+    By default (no --confirm-launch): prepares demo, does NOT launch Chromium.
+    With --confirm-launch: prepares demo AND launches Chromium.
+    NO systemd, NO backend, NO PoP, NO state write.
+    """
+    result = prepare_and_maybe_launch_kso_local_chromium_demo(
+        root=args.root,
+        source_shell_dir=args.source_shell_dir,
+        runtime_shell_dir=args.runtime_shell_dir,
+        chromium_bin=args.chromium_bin,
+        confirm_launch=args.confirm_launch,
+        stale_seconds=args.stale_seconds,
+    )
+    print(format_kso_local_chromium_demo_runner_result(result))
+    if result.status == CHROMIUM_STATUS_ERROR:
+        sys.exit(1)
+    sys.exit(0)
+
+
 def _validate_state(value: str) -> str:
     normalized = value.strip().lower()
     if normalized not in ALLOWED_STATES:
@@ -289,6 +317,21 @@ def _build_parser() -> argparse.ArgumentParser:
     ldp.add_argument("--stale-seconds", type=int, default=30,
                      help="Max state age before stale (default: 30)")
     ldp.set_defaults(func=cmd_local_demo_prepare)
+
+    lcd = sub.add_parser("local-chromium-demo",
+                         help="Guarded local Chromium demo: prepare + optionally launch")
+    lcd.add_argument("--root", required=True, help="Agent root path")
+    lcd.add_argument("--source-shell-dir", required=True,
+                     help="Immutable source shell directory")
+    lcd.add_argument("--runtime-shell-dir", required=True,
+                     help="Runtime shell directory path")
+    lcd.add_argument("--chromium-bin", type=str, default="chromium",
+                     help="Chromium binary path (default: chromium)")
+    lcd.add_argument("--stale-seconds", type=int, default=30,
+                     help="Max state age before stale (default: 30)")
+    lcd.add_argument("--confirm-launch", action="store_true", default=False,
+                     help="Actually launch Chromium (default: prepare only)")
+    lcd.set_defaults(func=cmd_local_chromium_demo)
 
     return parser
 
