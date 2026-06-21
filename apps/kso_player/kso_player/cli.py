@@ -14,6 +14,7 @@ Commands:
     display-cycle-once    Run one display cycle: render decision + optional draft PoP
     display-complete-once Run completed display cycle: optional completed PoP write
     visible-runtime-once Prepare and optionally launch a visible KSO ad in Chromium
+    runtime-cycle-once   Run one timed cycle: prepare → launch → wait → re-check → PoP
     --help             Show help
 
 Only reads manifest/current_manifest.json and media/current/.
@@ -41,6 +42,12 @@ from kso_player.visible_runtime import (
     format_kso_visible_runtime_result,
     STATUS_OK as VR_STATUS_OK,
     STATUS_ERROR as VR_STATUS_ERROR,
+)
+from kso_player.runtime_cycle import (
+    run_kso_runtime_cycle_once,
+    format_kso_runtime_cycle_result,
+    STATUS_OK as RC_STATUS_OK,
+    STATUS_ERROR as RC_STATUS_ERROR,
 )
 from kso_player.session import select_next_item
 from kso_player.simulator import simulate_playback_step, SIM_STATUS_WOULD_PLAY
@@ -363,6 +370,38 @@ def cmd_visible_runtime_once(args: argparse.Namespace) -> None:
     sys.exit(0)
 
 
+def cmd_runtime_cycle_once(args: argparse.Namespace) -> None:
+    """Run one timed KSO runtime cycle: prepare → launch → wait → re-check → PoP.
+
+    Full pipeline:
+      1. (optional) --prepare-demo-fixture → idle state + manifest + media
+      2. Prepare runtime shell workspace + snapshot
+      3. (if --confirm-launch) launch Chromium
+      4. (if --confirm-display-completed) wait duration → re-check state → write PoP
+
+    By default (no confirm flags): prepare only, no launch, no PoP.
+    With --confirm-launch: launches Chromium.
+    With --confirm-display-completed: waits + re-checks idle state + writes completed PoP.
+
+    Completed PoP is NEVER written without explicit --confirm-display-completed.
+    If state changes from idle during display → PoP is NOT written.
+    """
+    result = run_kso_runtime_cycle_once(
+        root=args.root,
+        source_shell_dir=args.source_shell_dir,
+        runtime_shell_dir=args.runtime_shell_dir,
+        chromium_bin=args.chromium_bin,
+        confirm_launch=args.confirm_launch,
+        confirm_display_completed=args.confirm_display_completed,
+        prepare_demo_fixture=args.prepare_demo_fixture,
+        stale_seconds=args.stale_seconds,
+    )
+    print(format_kso_runtime_cycle_result(result))
+    if result.status == RC_STATUS_ERROR:
+        sys.exit(1)
+    sys.exit(0)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kso-player",
@@ -477,6 +516,25 @@ def _build_parser() -> argparse.ArgumentParser:
     vr.add_argument("--prepare-demo-fixture", action="store_true", default=False,
                     help="Auto-create demo root: idle state + manifest + media")
     vr.set_defaults(func=cmd_visible_runtime_once)
+
+    rc = sub.add_parser("runtime-cycle-once",
+                        help="Run one timed KSO runtime cycle: prepare → launch → wait → re-check → PoP")
+    rc.add_argument("--root", required=True, help="Agent root path")
+    rc.add_argument("--source-shell-dir", required=True,
+                    help="Immutable source shell directory")
+    rc.add_argument("--runtime-shell-dir", required=True,
+                    help="Mutable runtime shell directory")
+    rc.add_argument("--chromium-bin", type=str, default="chromium",
+                    help="Chromium binary path (default: chromium)")
+    rc.add_argument("--stale-seconds", type=int, default=30,
+                    help="Max state age before stale (default: 30)")
+    rc.add_argument("--confirm-launch", action="store_true", default=False,
+                    help="Actually launch Chromium (default: prepare only)")
+    rc.add_argument("--confirm-display-completed", action="store_true", default=False,
+                    help="Wait display duration + re-check state + write completed PoP")
+    rc.add_argument("--prepare-demo-fixture", action="store_true", default=False,
+                    help="Auto-create demo root: idle state + manifest + media")
+    rc.set_defaults(func=cmd_runtime_cycle_once)
 
     return parser
 

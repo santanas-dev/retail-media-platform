@@ -1484,6 +1484,72 @@ reason: ready
 - Production KSO будет использовать Linux + Chromium kiosk + systemd в будущем шаге
 - Chromium открывает **только локальный runtime shell** — без внешних URL, без сети
 
+## Timed runtime cycle
+
+⏱ **Реализован:** `runtime-cycle-once` CLI — управляемый цикл работы плеера.
+
+### Что делает
+
+```
+prepare/render → optionally launch Chromium → wait display duration
+→ re-check KSO state still idle → write completed PoP (only if confirmed)
+```
+
+### Без confirm-флагов
+
+```bash
+python3 -m kso_player.cli runtime-cycle-once \
+  --root /tmp/kso-demo-root \
+  --source-shell-dir ./player_shell \
+  --runtime-shell-dir /tmp/kso-demo-runtime/player_shell \
+  --chromium-bin chromium
+```
+
+Готовит shell/snapshot, НЕ запускает Chromium, НЕ пишет PoP.
+
+### С Chromium запуском
+
+```bash
+python3 -m kso_player.cli runtime-cycle-once \
+  --root /tmp/kso-demo-root \
+  --source-shell-dir ./player_shell \
+  --runtime-shell-dir /tmp/kso-demo-runtime/player_shell \
+  --chromium-bin chromium \
+  --prepare-demo-fixture \
+  --confirm-launch
+```
+
+### С completed PoP (полный цикл)
+
+```bash
+python3 -m kso_player.cli runtime-cycle-once \
+  --root /tmp/kso-demo-root \
+  --source-shell-dir ./player_shell \
+  --runtime-shell-dir /tmp/kso-demo-runtime/player_shell \
+  --chromium-bin chromium \
+  --prepare-demo-fixture \
+  --confirm-launch \
+  --confirm-display-completed
+```
+
+Ждёт `durationMs` (clamped 1-60s), повторно проверяет idle state, пишет completed PoP.
+
+### Как работает ожидание и re-check
+
+1. `--confirm-display-completed` → читает `duration_ms` из render plan
+2. Ждёт через `time.sleep(duration_ms / 1000)` (в тестах — injectable)
+3. Повторно вызывает `evaluate_kso_runtime_gate()`
+4. Если state **изменился** (idle → transaction/payment/…) → PoP **НЕ пишется**
+5. Если state **stale** → PoP **НЕ пишется**
+6. Если state **всё ещё idle + fresh** → completed PoP в `pop/pending/player_events.jsonl`
+
+### Важные замечания
+
+- `visible-runtime-once` — показывает рекламу, НЕ пишет completed PoP
+- `display-complete-once` — вручную подтверждает completed PoP
+- `runtime-cycle-once` — готовит показ, ждёт durationMs, перепроверяет idle, пишет PoP только по confirm
+- Future systemd service будет вызывать этот цикл непрерывно
+
 ## Структура
 
 ```
