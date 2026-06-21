@@ -303,6 +303,38 @@ python3 infra/kso-linux/preflight/kso_linux_preflight.py \
 
 **Порядок:** bootstrap готовит структуру → preflight проверяет → ручной запуск сервисов.
 
+## Staging deployment scenario
+
+Полный сценарий безопасного staging-развёртывания (без systemd, без Chromium, без реального УКМ 4):
+
+```bash
+# 1. Bootstrap в staging target-root
+python3 infra/kso-linux/install/kso_linux_bootstrap.py --apply \
+    --target-root /tmp/kso-install-root
+
+# 2. Создать реальные env файлы в /tmp/kso-install-root/etc/verny/kso/
+#    state-adapter.env:
+#      VERNY_KSO_STATE_SOURCE=static
+#      VERNY_KSO_STATIC_STATE=unknown
+#      VERNY_KSO_SOURCE_FILE=/run/verny/kso/ukm4-safe-state.json
+#    sidecar.env и player.env заполнить реальными значениями
+
+# 3. Подготовить player_shell (5 файлов)
+
+# 4. Запустить preflight с fake command runner
+python3 -m pytest infra/kso-linux/tests/test_staging_deployment_scenario.py -v
+```
+
+**Что проверяет staging scenario:**
+- Bootstrap apply создаёт каталоги, копирует units и env examples
+- Preflight принимает `static unknown` (безопасный default)
+- Preflight принимает `source=file` с путём в `/run/verny/kso/`
+- Preflight флагует путь вне allowed roots
+- Preflight не падает при отсутствии реальных env файлов
+- Никаких systemctl start/enable/restart
+- Никакого запуска Chromium
+- Никакой реальной интеграции с УКМ 4
+
 ## Что будет позже
 
 - `install.sh` — установочный скрипт
