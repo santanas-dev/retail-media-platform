@@ -161,6 +161,41 @@ auth token, mediaRef, raw JSON, stacktrace.
 
 🧪 **Реализован:** `tests/test_kso_e2e_local_delivery_smoke.py` (12 тестов).
 
+## KSO Player PoP to Sidecar Pickup Smoke
+
+🧾 **Реализован:** `tests/test_kso_player_pop_pickup_smoke.py` (19 тестов).
+
+Проверяет связку player → sidecar для Proof of Play:
+
+```
+player display-cycle-once --confirm-pop-write
+→ pop/pending/player_events.jsonl (draft)
+→ sidecar scan_pending_pop_events() → draft classification
+→ sidecar build_pop_eligible_batch() → empty batch (draft not eligible)
+```
+
+### Сценарии
+
+**Player → PoP file:**
+- `confirm_pop_write=True` → 1 PoP строка в `player_events.jsonl`
+- Без confirm → файл не создаётся → sidecar scan = 0
+- Non-idle / missing manifest → PoP не пишется
+
+**Sidecar pickup — draft events:**
+- Player пишет draft → sidecar классифицирует как `CLASS_DRAFT`
+- Draft-only pending → batch пуст (0 candidates)
+- Draft-only pending → payload пуст (0 payload_events)
+
+**Sidecar classification — completed events:**
+- `classify_pop_event(completed, manifest_items=[...], media_cache_complete=True)` → `CLASS_ELIGIBLE`
+- Без manifest_items → `CLASS_QUARANTINE` (`manifest_unavailable`)
+
+**Known limitation:** sidecar `read_current_manifest` ожидает legacy формат манифеста (`manifest_version_id`, `manifest_hash`, `source`). KSO safe manifest body этих полей не содержит → сканер fallback'ает к `manifest_items=None` → completed события идут в quarantine. Будет исправлено при поддержке KSO safe формата в manifest reading.
+
+**Pending preservation:** scan, batch build, payload build — **не удаляют и не модифицируют pending**.
+
+**Output safety:** все repr/format проверены — без forbidden substrings.
+
 Полный локальный путь доставки без реального backend, Chromium, systemd и PoP:
 
 ```
