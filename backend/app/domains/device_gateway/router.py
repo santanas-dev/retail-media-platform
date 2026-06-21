@@ -193,6 +193,33 @@ async def media_download(
     )
 
 
+@device_router.get(
+    "/media/kso/{media_ref:path}",
+    responses={
+        200: {"description": "KSO media file stream by safe mediaRef"},
+        404: {"description": "Media not found"},
+        403: {"description": "Device not authorized for KSO"},
+    },
+)
+async def media_download_kso(
+    media_ref: str,
+    request: Request,
+    db=Depends(get_db),
+):
+    """Stream a media file for a KSO device using safe mediaRef.
+
+    Accepts only: media/current/slot-000 through slot-999.
+    Device must be KSO-channel.
+    Never exposes internal IDs, paths, or storage keys.
+    """
+    device, _session = await authenticate_device(request, db)
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    return await service.get_kso_media_download(
+        device, media_ref, client_ip, user_agent, request, db,
+    )
+
+
 # ── Admin: media requests ───────────────────────────────────────────
 
 @admin_router.get(

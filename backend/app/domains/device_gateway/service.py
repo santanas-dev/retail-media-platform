@@ -1710,6 +1710,253 @@ async def get_media_download(
     )
 
 
+async def get_kso_media_download(
+    device: models.GatewayDevice,
+    media_ref: str,
+    client_ip: str | None,
+    user_agent: str | None,
+    request: Request,
+    db: AsyncSession,
+) -> StreamingResponse:
+    """Stream a KSO media file by safe mediaRef.
+
+    Only for KSO-channel devices. Accepts only: media/current/slot-NNN.
+    Resolves mediaRef → rendition_id → MinIO stream internally.
+    NEVER exposes internal IDs, paths, or storage keys in response.
+    """
+    from app.domains.publications.kso_media_ref_resolver import (
+        KsoMediaRefSourceItem,
+        resolve_kso_media_ref_source,
+        _validate_media_ref_slot,
+    )
+
+    # ── Validate device is KSO ────────────────────────────────────
+    channel_code = ""
+    if device.channel_id:
+        from app.domains.channels.models import Channel
+        ch_result = await db.execute(
+            select(Channel.code).where(Channel.id == device.channel_id)
+        )
+        ch_code = ch_result.scalar_one_or_none()
+        if ch_code:
+            channel_code = ch_code
+
+    if channel_code != KSO_CHANNEL_CODE:
+        raise HTTPException(
+            status_code=403,
+            detail="This endpoint is only for KSO-channel devices",
+        )
+
+    # ── Validate mediaRef ──────────────────────────────────────────
+    slot_index = _validate_media_ref_slot(media_ref)
+    if slot_index is None:
+        raise HTTPException(status_code=404, detail="Invalid media reference")
+
+    # ── Find published manifest for device ─────────────────────────
+    target_ids = await _match_publication_targets(device, db)
+    if not target_ids:
+        raise HTTPException(status_code=404, detail="No active publications for device")
+
+    # Find the most recent published manifest
+    mv_result = await db.execute(
+        select(ManifestVersion)
+        .join(PublicationTarget)
+        .join(PublicationBatch)
+        .where(
+            ManifestVersion.publication_target_id.in_(target_ids),
+            ManifestVersion.status == "published",
+            PublicationTarget.status == "published",
+            PublicationBatch.status == "published",
+        )
+        .order_by(ManifestVersion.published_at.desc())
+        .limit(1)
+    )
+    manifest = mv_result.scalar_one_or_none()
+    if not manifest:
+        raise HTTPException(status_code=404, detail="No published manifest for device")
+
+    # ── Collect source items (same as manifest endpoint) ───────────
+    source_items = await _collect_kso_source_items(manifest, db)
+
+    # Build resolver items from ManifestItems directly for deterministic mapping
+    si_from_db = await db.execute(
+        select(ManifestItem).where(
+            ManifestItem.manifest_version_id == manifest.id,
+        )
+    )
+    manifest_items_list = si_from_db.scalars().all()
+
+    # Load related data (same as _collect_kso_source_items)
+    from app.domains.campaigns.models import Campaign
+    from app.domains.media.models import Creative, CreativeVersion, Rendition
+    from app.domains.organization.models import Store
+    from app.domains.scheduling.models import ScheduleItem
+
+    si_ids = [mi.schedule_item_id for mi in manifest_items_list]
+    rendition_ids_list = [mi.rendition_id for mi in manifest_items_list]
+    cv_ids = [mi.creative_version_id for mi in manifest_items_list]
+    campaign_ids = list({mi.campaign_id for mi in manifest_items_list})
+
+    si_map: dict = {}
+    if si_ids:
+        si_res = await db.execute(select(ScheduleItem).where(ScheduleItem.id.in_(si_ids)))
+        for si in si_res.scalars():
+            si_map[si.id] = si
+
+    rendition_map: dict = {}
+    if rendition_ids_list:
+        rend_res = await db.execute(select(Rendition).where(Rendition.id.in_(rendition_ids_list)))
+        for r in rend_res.scalars():
+            rendition_map[r.id] = r
+
+    cv_map: dict = {}
+    if cv_ids:
+        cv_res = await db.execute(select(CreativeVersion).where(CreativeVersion.id.in_(cv_ids)))
+        for cv in cv_res.scalars():
+            cv_map[cv.id] = cv
+
+    creative_ids = list({cv_val.creative_id for cv_val in cv_map.values()})
+    creative_map: dict = {}
+    if creative_ids:
+        cr_res = await db.execute(select(Creative).where(Creative.id.in_(creative_ids)))
+        for cr in cr_res.scalars():
+            creative_map[cr.id] = cr
+
+    campaign_map: dict = {}
+    if campaign_ids:
+        camp_res = await db.execute(select(Campaign).where(Campaign.id.in_(campaign_ids)))
+        for c in camp_res.scalars():
+            campaign_map[c.id] = c
+
+    # Get store
+    target_res = await db.execute(
+        select(PublicationTarget).where(PublicationTarget.id == manifest.publication_target_id))
+    pub_target = target_res.scalar_one_or_none()
+    store_code = ""
+    store_is_active = False
+    if pub_target:
+        store_res = await db.execute(select(Store).where(Store.id == pub_target.store_id))
+        store = store_res.scalar_one_or_none()
+        if store:
+            store_code = store.code or ""
+            store_is_active = store.is_active if hasattr(store, "is_active") else True
+
+    now_dt = _now()
+
+    resolver_items: list = []
+    for mi in manifest_items_list:
+        si = si_map.get(mi.schedule_item_id)
+        campaign = campaign_map.get(mi.campaign_id)
+        rendition = rendition_map.get(mi.rendition_id)
+        cv = cv_map.get(mi.creative_version_id)
+        creative = creative_map.get(cv.creative_id) if cv else None
+
+        valid_from = None
+        valid_to = None
+        if si:
+            from datetime import datetime as dt, time as t
+            if si.date and si.time_from:
+                valid_from = dt.combine(si.date, si.time_from, timezone.utc)
+            if si.date and si.time_to:
+                valid_to = dt.combine(si.date, si.time_to, timezone.utc)
+
+        resolver_items.append(KsoMediaRefSourceItem(
+            channel_code=KSO_CHANNEL_CODE,
+            campaign_status=campaign.status if campaign else "",
+            creative_status=creative.status if creative else "",
+            rendition_status=rendition.status if rendition else "",
+            publication_status="published",
+            device_status="active",
+            store_is_active=store_is_active,
+            store_code=store_code,
+            device_code=device.device_code or "",
+            content_type=rendition.mime_type if rendition else "",
+            duration_ms=(si.spot_duration_seconds * 1000) if si else 0,
+            slot_order=si.spot_position if si else 0,
+            valid_from=valid_from,
+            valid_to=valid_to,
+            now=now_dt,
+            internal_source_rendition_id=str(mi.rendition_id) if mi.rendition_id else "",
+        ))
+
+    # ── Resolve mediaRef → rendition_id ────────────────────────────
+    resolution = resolve_kso_media_ref_source(resolver_items, media_ref, now_dt)
+
+    if not resolution.resolved:
+        raise HTTPException(status_code=404, detail="Media not found for this reference")
+
+    rendition_id = resolution._internal_source_rendition_id
+    if not rendition_id:
+        raise HTTPException(status_code=404, detail="Media not available")
+
+    # ── Find the ManifestItem by rendition_id for streaming ─────────
+    mi_result = await db.execute(
+        select(ManifestItem).where(
+            ManifestItem.manifest_version_id == manifest.id,
+            ManifestItem.rendition_id == UUID(rendition_id),
+        )
+    )
+    mi = mi_result.scalar_one_or_none()
+    if not mi:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    # Validate media_path
+    key_error = _validate_object_key(mi.media_path)
+    if key_error:
+        raise HTTPException(status_code=403, detail="Media path invalid")
+
+    # ── MIME type from resolution ──────────────────────────────────
+    mime_type = resolution.content_type
+    if not mime_type or mime_type not in ("image/png", "image/jpeg", "video/mp4"):
+        raise HTTPException(status_code=500, detail="Media type not supported")
+
+    # ── Stream from MinIO ──────────────────────────────────────────
+    try:
+        minio_client = _get_minio_client()
+        settings = get_settings()
+        obj_info = minio_client.stat_object(settings.MINIO_BUCKET, mi.media_path)
+        content_length = obj_info.size
+    except S3Error:
+        raise HTTPException(status_code=404, detail="Media not available")
+
+    try:
+        response_obj = minio_client.get_object(settings.MINIO_BUCKET, mi.media_path)
+    except S3Error:
+        raise HTTPException(status_code=404, detail="Media not available")
+
+    # Record media request — safe, no internal IDs in message
+    await _record_media_request(
+        db, device, mi.id, manifest.id, manifest.publication_target_id,
+        "served",
+        ip_address=client_ip, user_agent=user_agent,
+    )
+    await _log_event(
+        db, "media_served",
+        "KSO media served via mediaRef", device.id,
+    )
+    await db.commit()
+
+    def _close_response():
+        try:
+            response_obj.close()
+            response_obj.release_conn()
+        except Exception:
+            pass
+
+    # Safe headers — NO internal IDs, NO paths, NO storage keys
+    return StreamingResponse(
+        response_obj.stream(amt=64 * 1024),
+        status_code=200,
+        media_type=mime_type,
+        headers={
+            "Content-Length": str(content_length),
+            "Content-Type": mime_type,
+            "Cache-Control": "private, max-age=86400",
+        },
+        background=BackgroundTask(_close_response),
+    )
+
+
 async def get_media_requests(
     db: AsyncSession,
     device_id: UUID,
