@@ -65,3 +65,11 @@ python3 -m kso_state_adapter.cli daemon --root /var/lib/verny/kso \
 - Реальная интеграция с УКМ 4 через API/COM-порт
 - Systemd unit template
 - Мониторинг source health
+
+## Three-Daemon E2E Smoke
+
+Локальный тест совместной работы трёх daemon core:
+`tests/test_kso_three_daemon_e2e_smoke.py` (8 тестов)
+
+Happy path: state adapter (idle) → sidecar (sync) → player (2 цикла) → sidecar (send)
+Negative: unknown/error state → hold, state change, sync failure, reject, network error, no resend.
