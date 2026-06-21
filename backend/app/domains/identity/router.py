@@ -139,3 +139,107 @@ async def list_permissions(
     """List all permissions."""
     perms = await service.list_permissions(db)
     return perms
+
+
+# ── User Detail ──────────────────────────────────────────────────────────
+
+@router.get("/users/{username}", response_model=schemas.UserMeResponse)
+async def get_user(
+    username: str,
+    db: AsyncSession = Depends(get_db),
+    _: models.User = Depends(require_permission("users.read")),
+):
+    """Get a single user by username."""
+    user = await service.get_user_by_username(db, username)
+    rls = await service.get_user_rls_scopes(db, user.id)
+    return schemas.UserMeResponse(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        display_name=user.display_name,
+        is_active=user.is_active,
+        is_locked=user.is_locked,
+        auth_provider=user.auth_provider,
+        roles=service.get_user_roles(user),
+        permissions=service.get_user_permissions(user),
+    )
+
+
+# ── User Status ──────────────────────────────────────────────────────────
+
+@router.patch("/users/{username}/status", response_model=schemas.UserMeResponse)
+async def update_user_status(
+    username: str,
+    body: schemas.UserStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Block, activate, or archive a user. Requires users.manage."""
+    service.require_permission(current_user, "users.manage")
+    user = await service.update_user_status(
+        db, username, body, current_user.id
+    )
+    rls = await service.get_user_rls_scopes(db, user.id)
+    return schemas.UserMeResponse(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        display_name=user.display_name,
+        is_active=user.is_active,
+        is_locked=user.is_locked,
+        auth_provider=user.auth_provider,
+        roles=service.get_user_roles(user),
+        permissions=service.get_user_permissions(user),
+    )
+
+
+# ── User RLS Scopes ──────────────────────────────────────────────────────
+
+@router.patch("/users/{username}/rls-scopes", response_model=schemas.UserMeResponse)
+async def update_user_rls_scopes(
+    username: str,
+    body: schemas.UserRlsScopeUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Replace all RLS scopes for a user. Requires roles.manage."""
+    service.require_permission(current_user, "roles.manage")
+    user = await service.update_user_rls_scopes(
+        db, username, body, current_user.id
+    )
+    rls = await service.get_user_rls_scopes(db, user.id)
+    return schemas.UserMeResponse(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        display_name=user.display_name,
+        is_active=user.is_active,
+        is_locked=user.is_locked,
+        auth_provider=user.auth_provider,
+        roles=service.get_user_roles(user),
+        permissions=service.get_user_permissions(user),
+    )
+
+
+# ── Admin Audit ──────────────────────────────────────────────────────────
+
+@router.get("/admin/audit", response_model=list[schemas.AdminAuditResponse])
+async def list_admin_audit(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    _: models.User = Depends(require_permission("audit.read")),
+):
+    """List admin audit events. Requires audit.read."""
+    events = await service.list_admin_audit(db, skip=skip, limit=limit)
+    return [
+        schemas.AdminAuditResponse(
+            id=e.id,
+            action=e.action,
+            target_type=e.target_type,
+            target_ref=e.target_ref,
+            occurred_at=e.occurred_at,
+            details_summary=e.details_json,
+        )
+        for e in events
+    ]

@@ -109,3 +109,56 @@ class PermissionResponse(BaseModel):
 class UserRoleUpdate(BaseModel):
     """PUT /api/users/{user_id}/roles"""
     role_codes: list[str] = Field(min_length=1)
+
+
+# ── User Status ──────────────────────────────────────────────────────────
+
+class UserStatusUpdate(BaseModel):
+    """PATCH /api/users/{username}/status"""
+    status: str = Field(..., pattern="^(active|blocked|archived)$")
+    reason: str | None = Field(None, max_length=512)
+
+
+# ── User RLS Scopes ──────────────────────────────────────────────────────
+
+class RlsScopeItem(BaseModel):
+    """Single RLS scope assignment."""
+    scope_type: str = Field(
+        ...,
+        pattern="^(advertiser_scope|branch_scope|store_scope|"
+                "campaign_scope|device_scope|approval_scope|report_scope)$",
+    )
+    scope_value: str = Field(..., min_length=1, max_length=255)
+    is_active: bool = True
+    reason: str | None = Field(None, max_length=512)
+
+
+class UserRlsScopeUpdate(BaseModel):
+    """PATCH /api/users/{username}/rls-scopes"""
+    scopes: list[RlsScopeItem] = Field(min_length=0, max_length=100)
+
+
+# ── RLS Scope Response ───────────────────────────────────────────────────
+
+class RlsScopeResponse(BaseModel):
+    """Single RLS scope in response."""
+    scope_type: str
+    scope_value: str
+    is_active: bool
+    created_at: datetime | None = None
+    expires_at: datetime | None = None
+    reason: str | None = None
+
+
+# ── Admin Audit ──────────────────────────────────────────────────────────
+
+class AdminAuditResponse(BaseModel):
+    """GET /api/admin/audit — single audit event."""
+    id: UUID
+    action: str
+    target_type: str | None = None
+    target_ref: str | None = None
+    occurred_at: datetime
+    details_summary: dict | None = None
+
+    model_config = {"from_attributes": True}

@@ -7,9 +7,11 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from jose import JWTError
-from sqlalchemy import select
+from sqlalchemy import select, delete as sa_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
+import sqlalchemy as sa
 
 from app.core.config import Settings
 from app.core.security import (
@@ -384,7 +386,20 @@ async def create_user(
         )
         .where(models.User.id == user.id)
     )
-    return result.scalar_one()
+    new_user = result.scalar_one()
+
+    # Audit
+    from app.domains.identity.audit import record_admin_action
+    await record_admin_action(
+        db=db,
+        actor_user_id="system",  # TODO: pass actor from request context
+        action="create_user",
+        target_type="user",
+        target_ref=data.username,
+        details={"roles": data.role_codes} if data.role_codes else None,
+    )
+
+    return new_user
 
 
 async def list_users(
@@ -508,6 +523,17 @@ async def update_user_roles(
 
     await db.commit()
 
+    # Audit
+    from app.domains.identity.audit import record_admin_action
+    await record_admin_action(
+        db=db,
+        actor_user_id="system",  # TODO: pass actor from request context
+        action="assign_role",
+        target_type="user",
+        target_ref=user.username,
+        details={"roles": codes},
+    )
+
     # Reload user with new roles — expire to bypass identity map cache
     db.expire_all()
     result = await db.execute(
@@ -538,3 +564,223 @@ async def require_user_permission(
     )
     fresh_user = result.scalar_one()
     require_permission(fresh_user, permission)
+
+
+# ── User detail ──────────────────────────────────────────────────────────
+
+async def get_user_by_username(db: AsyncSession, username: str) -> models.User:
+    """Get a single user by username with roles eager-loaded.
+
+    Raises 404 if not found.
+    """
+    result = await db.execute(
+        select(models.User)
+        .options(
+            selectinload(models.User.user_roles).selectinload(
+                models.UserRole.role
+            )
+        )
+        .where(models.User.username == username)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{username}' not found",
+        )
+    return user
+
+
+# ── User status management ───────────────────────────────────────────────
+
+async def update_user_status(
+    db: AsyncSession,
+    username: str,
+    data: schemas.UserStatusUpdate,
+    actor_user_id: UUID,
+) -> models.User:
+    """Block, activate, or archive a user.
+
+    Safety rules:
+    - Cannot (un)archive yourself
+    - Cannot block yourself
+    - Archiving is logical (is_archived = true)
+    - Blocking sets is_locked = true
+    - All changes are audited via admin_audit_events
+    """
+    user = await get_user_by_username(db, username)
+
+    # Safety: cannot modify yourself
+    if str(user.id) == str(actor_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot change your own status",
+        )
+
+    # Protect last active system_admin
+    if data.status in ("blocked", "archived"):
+        if "system_admin" in user.roles:
+            # Check if there's another active system_admin
+            result = await db.execute(
+                select(models.UserRole)
+                .join(models.User, models.UserRole.user_id == models.User.id)
+                .join(models.Role, models.UserRole.role_id == models.Role.id)
+                .where(
+                    models.Role.code == "system_admin",
+                    models.User.is_active == True,
+                    models.User.is_archived == False,
+                    models.User.is_locked == False,
+                    models.User.id != user.id,
+                )
+            )
+            other_admins = result.scalars().all()
+            if not other_admins:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot block/archive the last active system administrator",
+                )
+
+    if data.status == "active":
+        user.is_locked = False
+        user.locked_until = None
+        user.failed_attempts = 0
+        user.is_archived = False
+        user.is_active = True
+    elif data.status == "blocked":
+        user.is_locked = True
+        user.locked_until = None  # indefinite until admin unblocks
+        user.is_archived = False
+    elif data.status == "archived":
+        user.is_archived = True
+        user.archived_at = datetime.now(timezone.utc)
+        user.archived_by = actor_user_id
+        user.is_active = False
+
+    user.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+
+    # Audit
+    from app.domains.identity.audit import record_admin_action
+    await record_admin_action(
+        db=db,
+        actor_user_id=str(actor_user_id),
+        action=f"{data.status}_user",
+        target_type="user",
+        target_ref=username,
+        details={"reason": data.reason} if data.reason else None,
+    )
+
+    await db.commit()
+    return await get_user_by_username(db, username)
+
+
+# ── User RLS scopes management ───────────────────────────────────────────
+
+ALLOWED_RLS_SCOPE_TYPES = frozenset({
+    "advertiser_scope", "branch_scope", "store_scope",
+    "campaign_scope", "device_scope", "approval_scope", "report_scope",
+})
+
+
+async def update_user_rls_scopes(
+    db: AsyncSession,
+    username: str,
+    data: schemas.UserRlsScopeUpdate,
+    actor_user_id: UUID,
+) -> models.User:
+    """Replace all RLS scopes for a user.
+
+    Deletes existing scopes and inserts new ones.
+    Duplicate (user_id, scope_type, scope_value) safely skipped.
+    """
+    user = await get_user_by_username(db, username)
+
+    # Validate scope types
+    for item in data.scopes:
+        if item.scope_type not in ALLOWED_RLS_SCOPE_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unknown scope type: {item.scope_type}",
+            )
+
+    # Delete existing scopes for this user
+    await db.execute(
+        sa.delete(models.UserRlsScope).where(
+            models.UserRlsScope.user_id == user.id
+        )
+    )
+
+    # Insert new scopes (deduplicate by unique constraint)
+    for item in data.scopes:
+        db.add(
+            models.UserRlsScope(
+                user_id=user.id,
+                scope_type=item.scope_type,
+                scope_value=item.scope_value,
+                is_active=item.is_active,
+                created_by=actor_user_id,
+                reason=item.reason,
+            )
+        )
+
+    await db.flush()
+
+    # Audit
+    from app.domains.identity.audit import record_admin_action
+    scope_summary = [
+        f"{s.scope_type}={s.scope_value}"
+        for s in data.scopes if s.is_active
+    ]
+    await record_admin_action(
+        db=db,
+        actor_user_id=str(actor_user_id),
+        action="assign_rls_scopes",
+        target_type="rls_scope",
+        target_ref=username,
+        details={"scopes": scope_summary},
+    )
+
+    await db.commit()
+    return await get_user_by_username(db, username)
+
+
+# ── Admin audit ──────────────────────────────────────────────────────────
+
+async def list_admin_audit(
+    db: AsyncSession,
+    skip: int = 0,
+    limit: int = 50,
+) -> list[models.AdminAuditEvent]:
+    """List admin audit events, newest first."""
+    result = await db.execute(
+        select(models.AdminAuditEvent)
+        .order_by(models.AdminAuditEvent.occurred_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+# ── User RLS scopes read ─────────────────────────────────────────────────
+
+async def get_user_rls_scopes(db: AsyncSession, user_id: UUID) -> list[dict]:
+    """Get active RLS scopes for a user as dicts."""
+    result = await db.execute(
+        select(models.UserRlsScope)
+        .where(
+            models.UserRlsScope.user_id == user_id,
+            models.UserRlsScope.is_active == True,
+        )
+    )
+    scopes = result.scalars().all()
+    return [
+        {
+            "scope_type": s.scope_type,
+            "scope_value": s.scope_value,
+            "is_active": s.is_active,
+            "created_at": s.created_at,
+            "expires_at": s.expires_at,
+            "reason": s.reason,
+        }
+        for s in scopes
+    ]
