@@ -222,4 +222,8 @@
   <span class="note-icon">🛡️</span>
   <span class="note-text">BI-отчёты и Excel export должны учитывать <strong>роль пользователя</strong> и <strong>RLS-фильтры</strong>. Рекламодатель видит только свои кампании и креативы. Согласующий — только объекты в своём скоупе. Аналитик — агрегаты по своим филиалам/кампаниям. RLS enforced на уровне backend/DB/API.</span>
 </div>
+<div class="note-box">
+  <span class="note-icon">🔍</span>
+  <span class="note-text">RLS применяется <strong>до</strong> построения KPI, drill-down и Excel export. Фильтрация по scope выполняется на уровне БД/API до агрегации. Out-of-scope данные не попадают в totals, графики и выгрузки.</span>
+</div>
 {% endblock %}

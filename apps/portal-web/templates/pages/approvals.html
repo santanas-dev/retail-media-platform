@@ -195,4 +195,8 @@
   <span class="note-icon">🛡️</span>
   <span class="note-text">Публикация на КСО <strong>невозможна без финального approval</strong>. Все решения сохраняются в истории. Статусы согласований будут доступны в BI-отчётах и выгрузках Excel как отдельный фильтр/срез.</span>
 </div>
+<div class="note-box">
+  <span class="note-icon">🔍</span>
+  <span class="note-text">Согласующий видит только задачи <strong>своего маршрута и scope</strong>. RLS применяется до отображения очереди согласования — пользователь не видит объекты вне своего approval_scope и campaign_scope. Maker-checker: пользователь не может согласовать собственный объект.</span>
+</div>
 {% endblock %}

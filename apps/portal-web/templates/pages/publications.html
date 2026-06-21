@@ -182,4 +182,8 @@
   <span class="note-icon">📊</span>
   <span class="note-text">Публикация manifest использует согласованную кампанию и расписание. Факт доставки (sidecar) и подтверждение применения (player, Proof of Play) будут использоваться в BI-отчётности и выгрузке в Excel.</span>
 </div>
+<div class="note-box">
+  <span class="note-icon">🛡️</span>
+  <span class="note-text">Публикация доступна только при <strong>permission publish_manifest</strong> и совпадении <strong>RLS scope</strong>. Пользователь не может опубликовать manifest в филиал/магазин/КСО вне своего scope. Manifest publication требует финального approval — без approval публикация заблокирована.</span>
+</div>
 {% endblock %}

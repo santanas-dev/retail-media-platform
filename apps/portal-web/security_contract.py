@@ -297,3 +297,372 @@ ADMIN_PRINCIPLES: tuple[str, ...] = (
     "Plaintext passwords запрещены — только безопасный hash (bcrypt/argon2).",
     "Пароли никогда не отображаются в UI и не передаются в открытом виде.",
 )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Expanded Security Principles (RLS-specific)
+# ═══════════════════════════════════════════════════════════════════════
+
+RLS_RULES: tuple[str, ...] = (
+    "RLS enforced on backend/API/DB level — never client-side.",
+    "Excel export uses the same RLS as report UI.",
+    "BI drill-down cannot reveal out-of-scope data.",
+    "RLS applied BEFORE pagination — out-of-scope rows never counted.",
+    "RLS applied BEFORE aggregation — out-of-scope data not in totals.",
+    "RLS applied BEFORE drill-down — cannot navigate outside scope.",
+    "RLS applied BEFORE Excel export — exported data respects scope.",
+    "RLS applied BEFORE approval queue — only in-scope objects visible.",
+    "Inside one scope type, scopes are OR (union).",
+    "Across different scope types, scopes are AND (intersection).",
+    "UI hiding is not security — manual URL/API call cannot bypass RLS.",
+    "User cannot final-approve own object (maker-checker rule).",
+    "Manifest publication requires final approval.",
+    "Emergency stop requires MFA, reason, and audit entry.",
+    "Device service account has no human portal UI access (machine-only).",
+    "Advertiser sees only own campaigns and reports (advertiser_scope).",
+    "Operations sees technical KSO state but not commercial terms.",
+    "Admin user management does not bypass business approvals.",
+    "Role/RLS changes are audited with timestamp and admin identity.",
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Role Portal Views — detailed role descriptions
+# ═══════════════════════════════════════════════════════════════════════
+
+@dataclass(frozen=True)
+class RolePortalView:
+    """Full portal perspective for a given role."""
+    role_id: str
+    role_label: str
+    primary_zone: str                          # главная зона ответственности
+    allowed_pages: FrozenSet[str]              # доступные страницы
+    primary_page: str                          # основной экран после входа
+    allowed_actions: FrozenSet[str]            # разрешённые действия
+    forbidden_actions: FrozenSet[str]           # явно запрещённые действия
+    required_rls: FrozenSet[str]               # обязательные RLS scopes
+    sees_commercial_data: bool                 # видит коммерческие данные
+    sees_technical_data: bool                  # видит технические данные
+    bi_excel_access: str                       # доступ к BI/Excel
+    requires_mfa: bool                         # требуется MFA
+    requires_audit: bool                        # все действия аудируются
+    description: str                           # краткое описание
+
+
+ROLE_PORTAL_VIEWS: tuple[RolePortalView, ...] = (
+    RolePortalView(
+        role_id="system_admin",
+        role_label="Системный администратор",
+        primary_zone="Полный доступ к платформе без RLS-ограничений",
+        allowed_pages=frozenset({
+            "/dashboard", "/stores", "/devices", "/creatives",
+            "/campaigns", "/schedule", "/publications",
+            "/proof-of-play", "/approvals", "/reports",
+            "/deployment", "/admin",
+        }),
+        primary_page="/dashboard",
+        allowed_actions=frozenset({
+            "view_all", "manage_users", "manage_roles",
+            "manage_devices", "export_reports", "view_audit",
+            "publish_manifest", "approve_objects",
+        }),
+        forbidden_actions=frozenset(),
+        required_rls=frozenset(),
+        sees_commercial_data=True,
+        sees_technical_data=True,
+        bi_excel_access="Полный доступ ко всем BI-отчётам и Excel export без RLS-ограничений",
+        requires_mfa=True,
+        requires_audit=True,
+        description="Полный административный доступ. Видит всю сеть, все кампании, всех рекламодателей.",
+    ),
+    RolePortalView(
+        role_id="security_admin",
+        role_label="Администратор безопасности",
+        primary_zone="Управление пользователями, ролями, аудит безопасности",
+        allowed_pages=frozenset({"/dashboard", "/admin"}),
+        primary_page="/admin",
+        allowed_actions=frozenset({
+            "manage_users", "manage_roles", "view_audit",
+            "assign_roles", "assign_rls_scopes", "require_mfa",
+        }),
+        forbidden_actions=frozenset({
+            "view_campaigns", "view_creatives", "view_reports",
+            "export_reports", "publish_manifest", "approve_objects",
+        }),
+        required_rls=frozenset(),
+        sees_commercial_data=False,
+        sees_technical_data=False,
+        bi_excel_access="Нет доступа к BI-отчётам и Excel export",
+        requires_mfa=True,
+        requires_audit=True,
+        description="Управление доступом и аудит. Не видит коммерческие данные, кампании и отчёты.",
+    ),
+    RolePortalView(
+        role_id="ad_manager",
+        role_label="Менеджер рекламы",
+        primary_zone="Управление рекламными кампаниями, креативами, расписанием, публикацией",
+        allowed_pages=frozenset({
+            "/dashboard", "/stores", "/devices", "/creatives",
+            "/campaigns", "/schedule", "/publications",
+            "/proof-of-play", "/approvals", "/reports",
+            "/deployment",
+        }),
+        primary_page="/campaigns",
+        allowed_actions=frozenset({
+            "view_campaigns", "view_creatives", "view_schedule",
+            "view_publications", "view_proof_of_play",
+            "approve_objects", "publish_manifest", "export_reports",
+        }),
+        forbidden_actions=frozenset({
+            "manage_users", "manage_roles", "view_admin",
+        }),
+        required_rls=frozenset({
+            "branch_scope", "store_scope", "campaign_scope",
+            "device_scope", "approval_scope", "report_scope",
+        }),
+        sees_commercial_data=True,
+        sees_technical_data=True,
+        bi_excel_access="BI-отчёты и Excel export в рамках RLS (свои филиалы/кампании)",
+        requires_mfa=False,
+        requires_audit=True,
+        description="Создание и управление кампаниями. Видит техническое состояние КСО для публикации.",
+    ),
+    RolePortalView(
+        role_id="approver",
+        role_label="Согласующий",
+        primary_zone="Проверка и согласование креативов, кампаний, расписания, публикаций",
+        allowed_pages=frozenset({
+            "/dashboard", "/creatives", "/campaigns",
+            "/schedule", "/publications", "/approvals", "/reports",
+        }),
+        primary_page="/approvals",
+        allowed_actions=frozenset({
+            "approve_objects", "view_approvals",
+            "view_campaigns", "view_creatives", "view_reports",
+        }),
+        forbidden_actions=frozenset({
+            "publish_manifest", "manage_users", "manage_roles",
+            "view_admin", "view_devices", "view_stores",
+            "manage_devices", "export_reports",
+        }),
+        required_rls=frozenset({
+            "campaign_scope", "approval_scope", "report_scope",
+        }),
+        sees_commercial_data=True,
+        sees_technical_data=False,
+        bi_excel_access="Только просмотр BI-отчётов в своём approval scope. Excel export запрещён",
+        requires_mfa=False,
+        requires_audit=True,
+        description="Проверка объектов согласования. Не видит технические данные КСО и магазинов.",
+    ),
+    RolePortalView(
+        role_id="analyst",
+        role_label="Аналитик",
+        primary_zone="BI-отчётность, план/факт анализ, Excel export",
+        allowed_pages=frozenset({
+            "/dashboard", "/stores", "/devices", "/creatives",
+            "/campaigns", "/schedule", "/publications",
+            "/proof-of-play", "/reports",
+        }),
+        primary_page="/reports",
+        allowed_actions=frozenset({
+            "view_reports", "export_reports",
+            "view_campaigns", "view_creatives", "view_proof_of_play",
+        }),
+        forbidden_actions=frozenset({
+            "approve_objects", "publish_manifest",
+            "manage_users", "manage_roles", "manage_devices",
+            "view_admin", "view_deployment",
+        }),
+        required_rls=frozenset({
+            "branch_scope", "store_scope", "campaign_scope",
+            "device_scope", "report_scope",
+        }),
+        sees_commercial_data=True,
+        sees_technical_data=True,
+        bi_excel_access="BI-отчёты и Excel export в рамках RLS (свои филиалы/кампании/КСО)",
+        requires_mfa=False,
+        requires_audit=True,
+        description="Аналитика и отчётность. Видит агрегированные данные, не управляет кампаниями.",
+    ),
+    RolePortalView(
+        role_id="advertiser",
+        role_label="Рекламодатель",
+        primary_zone="Просмотр своих кампаний, креативов и отчётов",
+        allowed_pages=frozenset({
+            "/dashboard", "/creatives", "/campaigns",
+            "/schedule", "/publications", "/proof-of-play",
+            "/reports",
+        }),
+        primary_page="/campaigns",
+        allowed_actions=frozenset({
+            "view_campaigns", "view_creatives", "view_reports",
+        }),
+        forbidden_actions=frozenset({
+            "approve_objects", "publish_manifest", "export_reports",
+            "manage_users", "manage_roles", "manage_devices",
+            "view_admin", "view_devices", "view_stores",
+            "view_deployment", "view_approvals",
+        }),
+        required_rls=frozenset({
+            "advertiser_scope", "campaign_scope", "report_scope",
+        }),
+        sees_commercial_data=True,
+        sees_technical_data=False,
+        bi_excel_access="Только просмотр BI-отчётов по своим кампаниям. Excel export запрещён",
+        requires_mfa=False,
+        requires_audit=True,
+        description="Видит только свои кампании и креативы. Не видит сеть, устройства, согласования.",
+    ),
+    RolePortalView(
+        role_id="operations",
+        role_label="Оператор",
+        primary_zone="Мониторинг магазинов, КСО, развёртывание",
+        allowed_pages=frozenset({
+            "/dashboard", "/stores", "/devices", "/deployment",
+        }),
+        primary_page="/devices",
+        allowed_actions=frozenset({
+            "view_stores", "view_devices", "manage_devices",
+            "view_deployment",
+        }),
+        forbidden_actions=frozenset({
+            "view_campaigns", "view_creatives", "view_schedule",
+            "view_publications", "view_proof_of_play",
+            "view_approvals", "view_reports",
+            "approve_objects", "publish_manifest",
+            "manage_users", "manage_roles", "export_reports",
+            "view_admin",
+        }),
+        required_rls=frozenset({
+            "branch_scope", "store_scope", "device_scope",
+        }),
+        sees_commercial_data=False,
+        sees_technical_data=True,
+        bi_excel_access="Нет доступа к BI-отчётам и Excel export",
+        requires_mfa=False,
+        requires_audit=True,
+        description="Мониторинг технического состояния. Не видит коммерческие данные, кампании и отчёты.",
+    ),
+    RolePortalView(
+        role_id="device_service",
+        role_label="Сервис КСО",
+        primary_zone="Техническое обслуживание КСО-устройств",
+        allowed_pages=frozenset({"/deployment"}),
+        primary_page="/deployment",
+        allowed_actions=frozenset({
+            "manage_devices", "view_devices", "view_deployment",
+        }),
+        forbidden_actions=frozenset({
+            "view_dashboard", "view_stores", "view_campaigns",
+            "view_creatives", "view_schedule", "view_publications",
+            "view_proof_of_play", "view_approvals", "view_reports",
+            "view_admin", "approve_objects", "publish_manifest",
+            "manage_users", "manage_roles", "export_reports",
+        }),
+        required_rls=frozenset({
+            "store_scope", "device_scope",
+        }),
+        sees_commercial_data=False,
+        sees_technical_data=True,
+        bi_excel_access="Нет доступа к BI-отчётам и Excel export",
+        requires_mfa=False,
+        requires_audit=False,
+        description="Машинная учётная запись. Нет human UI-доступа к порталу, кроме deployment-статуса.",
+    ),
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Page-Role Matrix — which roles see which pages
+# ═══════════════════════════════════════════════════════════════════════
+
+PAGE_ROLE_MATRIX: dict[str, FrozenSet[str]] = {
+    "/dashboard": frozenset({
+        "system_admin", "security_admin", "ad_manager",
+        "approver", "analyst", "advertiser", "operations",
+    }),
+    "/stores": frozenset({
+        "system_admin", "ad_manager", "analyst", "operations",
+    }),
+    "/devices": frozenset({
+        "system_admin", "ad_manager", "analyst", "operations",
+    }),
+    "/creatives": frozenset({
+        "system_admin", "ad_manager", "approver",
+        "analyst", "advertiser",
+    }),
+    "/campaigns": frozenset({
+        "system_admin", "ad_manager", "approver",
+        "analyst", "advertiser",
+    }),
+    "/schedule": frozenset({
+        "system_admin", "ad_manager", "approver",
+        "analyst", "advertiser",
+    }),
+    "/publications": frozenset({
+        "system_admin", "ad_manager", "approver",
+        "analyst", "advertiser",
+    }),
+    "/proof-of-play": frozenset({
+        "system_admin", "ad_manager", "analyst", "advertiser",
+    }),
+    "/approvals": frozenset({
+        "system_admin", "ad_manager", "approver",
+    }),
+    "/reports": frozenset({
+        "system_admin", "ad_manager", "approver",
+        "analyst", "advertiser",
+    }),
+    "/deployment": frozenset({
+        "system_admin", "ad_manager", "operations", "device_service",
+    }),
+    "/admin": frozenset({
+        "system_admin", "security_admin",
+    }),
+    "/login": frozenset(),
+    "/logout": frozenset(),
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Field Visibility Rules — forbidden fields per role
+# ═══════════════════════════════════════════════════════════════════════
+
+FORBIDDEN_FIELDS_ALL: FrozenSet[str] = frozenset({
+    "device_secret", "access_token", "token", "authorization",
+    "backend_url", "api_key",
+    "password", "password_hash",
+    "manifest_hash", "sha256", "fingerprint",
+    "storage_key", "minio", "file_path", "filename",
+    "campaign_id", "creative_id", "rendition_id",
+    "store_id", "device_id", "schedule_item_id",
+    "manifest_item_id", "booking_id",
+    "device_event_id", "batch_id",
+    "receipt_number", "card_number", "customer_id",
+    "phone", "email", "fiscal_data",
+    "sku_id", "price",
+})
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Data Hierarchy (for RLS reference)
+# ═══════════════════════════════════════════════════════════════════════
+
+NETWORK_HIERARCHY: tuple[str, ...] = (
+    "Сеть",
+    "  → Филиал",
+    "    → Кластер",
+    "      → Магазин",
+    "        → КСО",
+)
+
+COMMERCIAL_HIERARCHY: tuple[str, ...] = (
+    "Рекламодатель",
+    "  → Бренд",
+    "    → Кампания",
+    "      → Размещение",
+    "        → Manifest",
+    "          → PoP-событие",
+    "            → Отчёт",
+)

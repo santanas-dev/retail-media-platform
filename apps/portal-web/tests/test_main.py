@@ -1734,6 +1734,177 @@ class TestSecurityContractLocalAuth(unittest.TestCase):
         self.assertIn("аудируются", principles)
 
 
+class TestRolePortalViews(unittest.TestCase):
+    """security_contract has detailed RolePortalView for all 8 roles."""
+
+    @classmethod
+    def setUpClass(cls):
+        from security_contract import (
+            ROLE_PORTAL_VIEWS, PAGE_ROLE_MATRIX,
+            RLS_RULES, FORBIDDEN_FIELDS_ALL,
+        )
+        cls.views = {v.role_id: v for v in ROLE_PORTAL_VIEWS}
+        cls.page_matrix = PAGE_ROLE_MATRIX
+        cls.rls_rules = RLS_RULES
+        cls.forbidden = FORBIDDEN_FIELDS_ALL
+
+    def test_all_8_roles_have_portal_views(self):
+        for role_id in ("system_admin", "security_admin", "ad_manager",
+                         "approver", "analyst", "advertiser",
+                         "operations", "device_service"):
+            self.assertIn(role_id, self.views,
+                          f"Role '{role_id}' must have RolePortalView")
+
+    def test_all_roles_have_allowed_pages(self):
+        for view in self.views.values():
+            self.assertTrue(len(view.allowed_pages) > 0,
+                            f"{view.role_id} must have allowed pages")
+
+    def test_all_roles_have_rls_scopes_defined(self):
+        for view in self.views.values():
+            self.assertIsInstance(view.required_rls, frozenset,
+                                  f"{view.role_id} must have RLS scopes")
+
+    def test_system_admin_and_security_admin_require_mfa(self):
+        self.assertTrue(self.views["system_admin"].requires_mfa)
+        self.assertTrue(self.views["security_admin"].requires_mfa)
+
+    def test_device_service_has_no_human_ui(self):
+        view = self.views["device_service"]
+        self.assertIn("/deployment", view.allowed_pages)
+        self.assertNotIn("/dashboard", view.allowed_pages)
+        self.assertNotIn("/campaigns", view.allowed_pages)
+
+    def test_advertiser_cannot_access_admin_deployment_devices(self):
+        view = self.views["advertiser"]
+        for forbidden in ("/admin", "/deployment", "/devices", "/stores"):
+            self.assertNotIn(forbidden, view.allowed_pages,
+                             f"advertiser must not access {forbidden}")
+
+    def test_operations_cannot_access_commercial_pages(self):
+        view = self.views["operations"]
+        for forbidden in ("view_campaigns", "view_creatives", "view_reports"):
+            self.assertIn(forbidden, view.forbidden_actions,
+                          f"operations must not have {forbidden}")
+
+    def test_approver_has_approval_scope(self):
+        self.assertIn("approval_scope", self.views["approver"].required_rls)
+
+    def test_analyst_has_report_scope(self):
+        self.assertIn("report_scope", self.views["analyst"].required_rls)
+
+    def test_page_role_matrix_covers_all_pages(self):
+        for route in ("/dashboard", "/stores", "/devices", "/creatives",
+                       "/campaigns", "/schedule", "/publications",
+                       "/proof-of-play", "/approvals", "/reports",
+                       "/deployment", "/admin", "/login", "/logout"):
+            self.assertIn(route, self.page_matrix,
+                          f"Page-Role matrix must cover '{route}'")
+
+    def test_admin_only_for_sys_and_sec_admin(self):
+        self.assertIn("system_admin", self.page_matrix["/admin"])
+        self.assertIn("security_admin", self.page_matrix["/admin"])
+        self.assertNotIn("advertiser", self.page_matrix["/admin"])
+
+    def test_rls_rules_mention_before_pagination(self):
+        text = " ".join(self.rls_rules).lower()
+        self.assertIn("before pagination", text)
+
+    def test_rls_rules_mention_before_aggregation(self):
+        text = " ".join(self.rls_rules).lower()
+        self.assertIn("before aggregation", text)
+
+    def test_rls_rules_mention_before_drill_down(self):
+        text = " ".join(self.rls_rules).lower()
+        self.assertIn("before drill-down", text)
+
+    def test_rls_rules_mention_before_excel(self):
+        text = " ".join(self.rls_rules).lower()
+        self.assertIn("excel export", text)
+
+    def test_rls_rules_mention_maker_checker(self):
+        text = " ".join(self.rls_rules).lower()
+        self.assertIn("maker-checker", text)
+
+    def test_forbidden_fields_include_secrets(self):
+        for fb in ("device_secret", "access_token", "password",
+                    "manifest_hash", "sha256", "fingerprint",
+                    "file_path", "filename"):
+            self.assertIn(fb, self.forbidden,
+                          f"FORBIDDEN_FIELDS must include '{fb}'")
+
+
+class TestRlsNotesOnPages(unittest.TestCase):
+    """Key pages have RLS-specific note boxes."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_admin_has_role_portal_views_block(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Представления портала по ролям", resp.text)
+
+    def test_admin_has_rls_matrix_block(self):
+        resp = self.client.get("/admin")
+        self.assertIn("RLS-матрица", resp.text)
+
+    def test_reports_says_rls_before_kpi_drilldown_excel(self):
+        resp = self.client.get("/reports")
+        self.assertIn("rls применяется", resp.text.lower())
+        self.assertIn("drill-down", resp.text.lower())
+        self.assertIn("до агрегации", resp.text.lower())
+
+    def test_approvals_says_route_scope_based_visibility(self):
+        resp = self.client.get("/approvals")
+        self.assertIn("своего маршрута и scope", resp.text.lower())
+
+    def test_publications_says_publish_requires_permission_and_rls(self):
+        resp = self.client.get("/publications")
+        self.assertIn("publish_manifest", resp.text)
+        self.assertIn("RLS scope", resp.text)
+
+    def test_devices_says_device_visibility_is_scope_limited(self):
+        resp = self.client.get("/devices")
+        self.assertIn("своём филиале", resp.text.lower())
+
+
+class TestRlsDocsExist(unittest.TestCase):
+    """docs/portal/rls-role-portal-views.md exists and covers key topics."""
+
+    @classmethod
+    def setUpClass(cls):
+        doc = Path(__file__).resolve().parent.parent.parent.parent
+        doc = doc / "docs" / "portal" / "rls-role-portal-views.md"
+        cls.content = doc.read_text().lower()
+
+    def test_doc_exists_and_has_content(self):
+        self.assertTrue(len(self.content) > 500,
+                        "RLS doc must have substantial content")
+
+    def test_doc_covers_role_views(self):
+        for role in ("системный администратор", "менеджер рекламы",
+                      "согласующий", "аналитик", "рекламодатель",
+                      "оператор", "сервис ксо"):
+            self.assertIn(role, self.content,
+                          f"Doc must cover role: {role}")
+
+    def test_doc_covers_page_matrix(self):
+        self.assertIn("матрица страниц", self.content)
+
+    def test_doc_covers_excel_export_rls(self):
+        self.assertIn("excel export", self.content)
+        self.assertIn("rls", self.content)
+
+    def test_doc_covers_maker_checker(self):
+        self.assertIn("maker-checker", self.content)
+
+    def test_doc_covers_forbidden_fields(self):
+        self.assertIn("запрещённые поля", self.content)
+
+    def test_doc_says_ui_hiding_is_not_security(self):
+        self.assertIn("ui hiding is not security", self.content)
+
+
 # ══════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":

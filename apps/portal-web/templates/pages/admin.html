@@ -262,4 +262,160 @@
   <span class="note-icon">🛡️</span>
   <span class="note-text">Локальные пользователи заводятся в Admin. Роли назначаются администратором. SSO/AD может быть подключён дополнительно. Пароли никогда не отображаются в UI и не передаются в открытом виде. Все изменения пользователей/ролей/RLS аудируются. RLS enforced на backend/DB/API.</span>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- Role-Based Portal Views -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="requirements-box">
+  <div class="requirements-title">Представления портала по ролям</div>
+  <div class="table-container" style="margin-top:12px">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Роль</th><th>Основной экран</th><th>Доступные разделы</th><th>RLS</th><th>MFA</th><th>Аудит</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Системный администратор</strong></td>
+        <td>Dashboard</td>
+        <td>Все разделы, Admin</td>
+        <td>Без RLS</td>
+        <td>✅</td>
+        <td>✅</td>
+      </tr>
+      <tr>
+        <td><strong>Администратор безопасности</strong></td>
+        <td>Admin</td>
+        <td>Dashboard, Admin</td>
+        <td>Без RLS</td>
+        <td>✅</td>
+        <td>✅</td>
+      </tr>
+      <tr>
+        <td><strong>Менеджер рекламы</strong></td>
+        <td>Кампании</td>
+        <td>Все, кроме Admin</td>
+        <td>Филиалы, магазины, кампании, КСО</td>
+        <td>—</td>
+        <td>✅</td>
+      </tr>
+      <tr>
+        <td><strong>Согласующий</strong></td>
+        <td>Согласования</td>
+        <td>Кампании, креативы, расписание, согласования</td>
+        <td>Кампании, approval scope</td>
+        <td>—</td>
+        <td>✅</td>
+      </tr>
+      <tr>
+        <td><strong>Аналитик</strong></td>
+        <td>Отчёты</td>
+        <td>Всё для анализа, кроме Admin/Deployment</td>
+        <td>Филиалы, кампании, КСО</td>
+        <td>—</td>
+        <td>✅</td>
+      </tr>
+      <tr>
+        <td><strong>Рекламодатель</strong></td>
+        <td>Кампании</td>
+        <td>Только свои кампании, креативы, отчёты</td>
+        <td>advertiser_scope, кампании</td>
+        <td>—</td>
+        <td>✅</td>
+      </tr>
+      <tr>
+        <td><strong>Оператор</strong></td>
+        <td>КСО</td>
+        <td>Магазины, КСО, развёртывание</td>
+        <td>Филиалы, магазины, КСО</td>
+        <td>—</td>
+        <td>✅</td>
+      </tr>
+      <tr>
+        <td><strong>Сервис КСО</strong></td>
+        <td>Deployment</td>
+        <td>Только развёртывание</td>
+        <td>Магазины, КСО</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- RLS Matrix -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="requirements-box">
+  <div class="requirements-title">RLS-матрица: роль → страницы → области данных → BI/Excel</div>
+  <div class="table-container" style="margin-top:12px">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Роль</th><th>Страницы</th><th>Области данных</th><th>BI/Excel</th><th>Критичные действия</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>system_admin</td>
+        <td>Все 12 страниц</td>
+        <td>Без ограничений</td>
+        <td>Полный доступ</td>
+        <td>Управление пользователями, ролями, аудит</td>
+      </tr>
+      <tr>
+        <td>security_admin</td>
+        <td>Dashboard, Admin</td>
+        <td>Без ограничений</td>
+        <td>Нет доступа</td>
+        <td>Управление пользователями, ролями, аудит</td>
+      </tr>
+      <tr>
+        <td>ad_manager</td>
+        <td>Все, кроме Admin</td>
+        <td>Свои филиалы/кампании</td>
+        <td>Excel export в RLS</td>
+        <td>Публикация manifest, согласование</td>
+      </tr>
+      <tr>
+        <td>approver</td>
+        <td>Кампании, креативы, согласования, отчёты</td>
+        <td>Свои кампании</td>
+        <td>Только просмотр BI</td>
+        <td>Согласование объектов</td>
+      </tr>
+      <tr>
+        <td>analyst</td>
+        <td>Всё, кроме Admin/Deployment</td>
+        <td>Свои филиалы/кампании</td>
+        <td>Excel export в RLS</td>
+        <td>Выгрузка отчётов в Excel</td>
+      </tr>
+      <tr>
+        <td>advertiser</td>
+        <td>Свои кампании, креативы, отчёты</td>
+        <td>advertiser_scope</td>
+        <td>Только просмотр BI</td>
+        <td>Нет критичных действий</td>
+      </tr>
+      <tr>
+        <td>operations</td>
+        <td>Магазины, КСО, развёртывание</td>
+        <td>Свои филиалы/КСО</td>
+        <td>Нет доступа</td>
+        <td>Управление КСО</td>
+      </tr>
+      <tr>
+        <td>device_service</td>
+        <td>Только развёртывание</td>
+        <td>Свои КСО</td>
+        <td>Нет доступа</td>
+        <td>Нет (machine-only)</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
 {% endblock %}
