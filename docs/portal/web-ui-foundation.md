@@ -8,30 +8,31 @@
 
 **Приложение:** `apps/portal-web/` — FastAPI + Jinja2 серверный портал.
 **Стек:** FastAPI 0.133 + Jinja2 3.1 + Starlette TestClient.
-**Тестов:** 108 (routes, navigation, devices, stores, creatives, campaigns, schedule, content, security).
+**Тестов:** 127 (routes, navigation, devices, stores, creatives, campaigns, schedule, approvals, content, security).
 
-## Страницы (12 routes v1)
+## Страницы (13 routes v1)
 
 | Route | Страница | Статус |
 |---|---|---|
 | `/` `/dashboard` | Dashboard — обзорные карточки | ✅ заглушка |
-| `/campaigns` | Кампании | ✅ UI foundation (cards + lifecycle + filters + table) |
-| `/creatives` | Креативы | ✅ UI foundation (cards + requirements + filters + table) |
-| `/schedule` | Расписание | ✅ UI foundation (cards + planning + filters + table) |
-| `/publications` | Публикации манифестов | ✅ заглушка |
+| `/campaigns` | Кампании | ✅ UI foundation (cards + lifecycle + filters + table + approval note) |
+| `/creatives` | Креативы | ✅ UI foundation (cards + requirements + filters + table + approval note) |
+| `/schedule` | Расписание | ✅ UI foundation (cards + planning + filters + table + approval note) |
+| `/publications` | Публикации манифестов | ✅ заглушка + approval note |
 | `/stores` | Магазины и КСО-инвентаризация | ✅ UI foundation (cards + filters + table) |
 | `/devices` | КСО Устройства | ✅ UI foundation (cards + filters + table) |
 | `/proof-of-play` | Proof of Play | ✅ заглушка |
+| `/approvals` | Согласования | ✅ UI foundation (cards + workflow + rules + filters + table) |
 | `/reports` | Отчёты | ✅ заглушка |
 | `/deployment` | Развёртывание (KSO Runtime) | ✅ контент |
 | `/admin` | Администрирование | ✅ заглушка |
 
-## Меню v1 (11 пунктов)
+## Меню v1 (12 пунктов)
 
 Главное: Dashboard
 Реклама: Кампании, Креативы, Расписание, Публикации
 КСО: КСО Устройства, Proof of Play, Магазины
-Управление: Отчёты, Развёртывание, Администрирование
+Управление: Отчёты, Развёртывание, Согласования, Администрирование
 
 ## Что входит в v1
 
@@ -227,9 +228,54 @@
 - ❌ Нет Android TV, LED-шелф, ESL, Mobile App
 - ✅ Все значения статичные (—)
 
+## KSO Approval Workflow page
+
+**Структура:**
+- **6 summary cards:** На согласовании, Ожидают моего решения, Возвращены на доработку, Просрочены по SLA, Готовы к публикации, Заблокированы
+- **Workflow блок:** Черновик → Отправлено на согласование → На проверке → Согласовано → Готово к публикации. Возврат: Возвращено на доработку → На доработке. Терминальные: Отклонено, Просрочено, Экстренная остановка, Заблокировано ИБ
+- **6 фильтров:** Тип объекта, Статус согласования, Согласующий, Инициатор, SLA/срок, Период кампании (все disabled)
+- **Таблица (10 колонок):** Объект, Тип, Статус, Инициатор, Согласующий, SLA, Последнее решение, Комментарий, Следующий шаг, Действия
+- **Правила согласования (7):** Креатив нельзя использовать без согласования, Кампанию нельзя публиковать без согласования, Расписание нельзя публиковать без согласования, Manifest нельзя публиковать без финального approval, Экстренная остановка требует причины и аудита, Возврат требует комментария, Каждое решение сохраняется в истории
+- **Empty state:** «Пока нет объектов на согласовании»
+- **Легенда статусов:** На согласовании, Согласовано, На доработке, Отклонено, Просрочено, Заблокировано, Нет данных
+
+**Status badges:** `.badge-review` (blue), `.badge-ready` (green), `.badge-draft` (gray), `.badge-rejected` (dark red), `.badge-overdue` (amber), `.badge-blocked` (dark gray), `.badge-unknown` (light gray)
+
+**Approval note-boxes на других страницах:**
+- `/campaigns` — «Публикация кампании требует прохождения согласования»
+- `/creatives` — «Перед использованием в кампании креатив должен пройти согласование»
+- `/schedule` — «Публикация расписания требует прохождения согласования»
+- `/publications` — «Публикация manifest невозможна без финального approval»
+
+**Covered objects:**
+- ✅ Креативы — согласование перед использованием в кампании
+- ✅ Кампании — согласование перед публикацией
+- ✅ Расписание — согласование перед публикацией
+- ✅ Manifest — финальный approval перед публикацией на КСО
+- ✅ Экстренная остановка — причина + аудит
+
+**Mandatory constraint (зафиксировано):**
+Публикация на КСО **невозможна без финального approval**. Это UI/documentation constraint на шаге 34.6.1; backend enforcement — будущие шаги.
+
+**Future backend workflow (не на этом шаге):**
+- Backend approval workflow с ролями и маршрутами
+- Approval DB models и миграции
+- Real approve/reject/return actions
+- SLA tracking и эскалации
+- История решений и аудит
+- BI/Excel фильтр по статусу согласования
+
+**Security:**
+- ❌ Нет approval_id, user_id, email
+- ❌ Нет campaign_id, creative_id, schedule_item_id, manifest_item_id
+- ❌ Нет device_secret, access_token, backend_url
+- ❌ Нет storage_key, minio, sha256, file_path, filename
+- ❌ Нет Android TV, LED-шелф, ESL, Mobile App
+- ✅ Все значения статичные (—)
+
 ## Styling
 
-- Минимальный CSS (311 строк) — без внешних CDN
+- Минимальный CSS (314 строк) — без внешних CDN
 - Светлая тема, corporate layout
 - Fixed sidebar (240px), fixed header (56px)
 - Адаптивная сетка карточек (`auto-fill, minmax(240px, 1fr)`)
@@ -257,7 +303,7 @@ python3 main.py  # или uvicorn main:app --port 8422
 ```bash
 cd apps/portal-web
 python3 -m unittest discover -s tests -v
-# 108 tests: routes, navigation, content, security
+# 127 tests: routes, navigation, content, security
 ```
 
 ## Следующие UI шаги

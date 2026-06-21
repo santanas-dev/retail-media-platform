@@ -84,6 +84,10 @@ class TestPortalRoutes(unittest.TestCase):
         resp = self.client.get("/admin")
         self.assertEqual(resp.status_code, 200)
 
+    def test_approvals_route(self):
+        resp = self.client.get("/approvals")
+        self.assertEqual(resp.status_code, 200)
+
     def test_health_route(self):
         resp = self.client.get("/health")
         self.assertEqual(resp.status_code, 200)
@@ -108,7 +112,8 @@ class TestNavigation(unittest.TestCase):
     def test_contains_kso_v1_menu_items(self):
         for item in ("Dashboard", "Кампании", "Креативы", "Расписание",
                       "Публикации", "КСО Устройства", "Proof of Play",
-                      "Магазины", "Отчёты", "Развёртывание", "Администрирование"):
+                      "Магазины", "Отчёты", "Развёртывание",
+                      "Согласования", "Администрирование"):
             self.assertIn(item, self.html,
                           f"Navigation must contain '{item}'")
 
@@ -621,6 +626,124 @@ class TestSchedulePage(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Approvals page tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestApprovalsPage(unittest.TestCase):
+    """KSO Approval Workflow page — cards, workflow, filters, table, rules, legend."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+        resp = self.client.get("/approvals")
+        self.html = resp.text
+
+    def test_renders_summary_cards(self):
+        for card in ("На согласовании", "Ожидают моего решения",
+                      "Возвращены на доработку", "Просрочены по SLA",
+                      "Готовы к публикации", "Заблокированы"):
+            self.assertIn(card, self.html,
+                          f"Approvals page must render summary card '{card}'")
+
+    def test_has_workflow_block(self):
+        for step in ("Черновик", "Отправлено на согласование", "На проверке",
+                      "Согласовано", "Готово к публикации",
+                      "Возвращено на доработку"):
+            self.assertIn(step, self.html,
+                          f"Workflow must contain step '{step}'")
+
+    def test_workflow_has_terminal_states(self):
+        for state in ("Отклонено", "Просрочено", "Экстренная остановка",
+                       "Заблокировано ИБ"):
+            self.assertIn(state, self.html,
+                          f"Workflow terminals must contain '{state}'")
+
+    def test_has_filters_block(self):
+        for flt in ("Тип объекта", "Статус согласования", "Согласующий",
+                     "Инициатор", "SLA", "Период кампании"):
+            self.assertIn(flt, self.html,
+                          f"Approvals page must have filter '{flt}'")
+
+    def test_filters_disabled(self):
+        self.assertIn("disabled", self.html)
+
+    def test_has_table_structure(self):
+        for col in ("Объект", "Тип", "Статус", "Инициатор",
+                     "Согласующий", "SLA", "Последнее решение",
+                     "Комментарий", "Следующий шаг", "Действия"):
+            self.assertIn(col, self.html,
+                          f"Approvals table must have column '{col}'")
+
+    def test_table_shows_empty_state(self):
+        self.assertIn("Пока нет объектов на согласовании", self.html)
+        self.assertIn("креативов, кампаний, расписаний", self.html)
+
+    def test_has_approval_rules(self):
+        for rule in ("Нельзя использовать в кампании без согласования",
+                      "Нельзя отправить в публикацию без согласования",
+                      "Нельзя публиковать без согласования",
+                      "Нельзя публиковать на КСО без финального approval",
+                      "Требует причины и попадает в аудит",
+                      "Требует комментария",
+                      "Каждое решение сохраняется в истории"):
+            self.assertIn(rule, self.html,
+                          f"Rules must contain '{rule[:60]}'")
+
+    def test_mentions_covered_objects(self):
+        for obj in ("креативы", "кампании", "расписание", "manifest"):
+            self.assertIn(obj, self.html.lower(),
+                          f"Approvals page must mention '{obj}'")
+
+    def test_mentions_final_approval_required(self):
+        self.assertIn("финального approval", self.html)
+        self.assertIn("невозможна", self.html.lower())
+
+    def test_mentions_bi_reporting(self):
+        self.assertIn("BI-отчётах", self.html)
+        self.assertIn("Excel", self.html)
+
+    def test_has_status_legend(self):
+        for badge in ("На согласовании", "Согласовано", "На доработке",
+                       "Отклонено", "Просрочено", "Заблокировано",
+                       "Нет данных"):
+            self.assertIn(badge, self.html,
+                          f"Legend must contain status '{badge}'")
+
+    def test_no_forbidden_content(self):
+        _assert_safe(self, self.html)
+
+    def test_no_out_of_scope_channels(self):
+        for banned in ("Android TV", "LED", "ESL", "Mobile App",
+                        "Ценники", "Price Checker"):
+            self.assertNotIn(banned, self.html,
+                             f"Approvals page must NOT contain '{banned}'")
+
+    def test_no_raw_ids_secrets_hashes(self):
+        lower = self.html.lower()
+        for forbidden in ("device_secret", "access_token", "manifest_hash",
+                           "campaign_id", "creative_id", "backend_url",
+                           "rendition_id", "store_id", "device_id",
+                           "schedule_item_id", "manifest_item_id",
+                           "booking_id", "approval_id", "user_id",
+                           "storage_key", "minio", "sha256",
+                           "file_path", "filename", "email",
+                           "http://", "https://backend"):
+            self.assertNotIn(forbidden, lower,
+                             f"Approvals page must NOT contain '{forbidden}'")
+
+    def test_status_badge_classes_in_css(self):
+        css = (_PORTAL_DIR / "static" / "styles.css").read_text()
+        for cls_name in (".badge-rejected", ".badge-overdue",
+                          ".badge-blocked", ".badge-review",
+                          ".badge-ready", ".badge-error", ".badge-unknown"):
+            self.assertIn(cls_name, css,
+                          f"CSS must define '{cls_name}'")
+
+    def test_approvals_route_returns_200(self):
+        resp = self.client.get("/approvals")
+        self.assertEqual(resp.status_code, 200)
+
+
 class TestPageStubsRender(unittest.TestCase):
     """All page stubs render with title and safe empty state."""
 
@@ -653,6 +776,9 @@ class TestPageStubsRender(unittest.TestCase):
 
     def test_admin_page(self):
         self._check_page("/admin", "Администрирование")
+
+    def test_approvals_page(self):
+        self._check_page("/approvals", "Согласования")
 
 
 class TestPortalSafety(unittest.TestCase):

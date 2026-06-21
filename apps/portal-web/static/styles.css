@@ -226,6 +226,9 @@ a:hover { text-decoration: underline; }
 .badge-scheduled { background: var(--color-info); }
 .badge-published { background: #6366f1; }
 .badge-conflict  { background: var(--color-error); }
+.badge-rejected  { background: #b91c1c; }
+.badge-overdue   { background: var(--color-warning); }
+.badge-blocked   { background: #374151; }
 
 /* ── Legend ─────────────────────────────────────── */
 .legend {
