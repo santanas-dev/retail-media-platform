@@ -218,4 +218,8 @@
   <span class="note-icon">📊</span>
   <span class="note-text">BI-отчётность проектируется как <strong>Power BI-like</strong>: интерактивные дашборды, KPI-карточки, срезы, drill-down от сети до отдельного креатива и выгрузка в Excel с учётом всех применённых фильтров.</span>
 </div>
+<div class="note-box">
+  <span class="note-icon">🛡️</span>
+  <span class="note-text">BI-отчёты и Excel export должны учитывать <strong>роль пользователя</strong> и <strong>RLS-фильтры</strong>. Рекламодатель видит только свои кампании и креативы. Согласующий — только объекты в своём скоупе. Аналитик — агрегаты по своим филиалам/кампаниям. RLS enforced на уровне backend/DB/API.</span>
+</div>
 {% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">Вход</h1>
+<p class="page-description">Вход через корпоративную учётную запись. SSO / Active Directory будет подключён позже. Локальные пароли не используются.</p>
+
+<div class="requirements-box">
+  <div class="requirements-title">Способ входа</div>
+  <div class="requirements-grid">
+    <div class="requirements-item">
+      <span class="requirements-label">Провайдер</span>
+      <span class="requirements-value">Корпоративный SSO / Active Directory</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Локальные пароли</span>
+      <span class="requirements-value requirements-forbidden">Не используются</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Токены</span>
+      <span class="requirements-value">Не используются в UI</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Роли и права</span>
+      <span class="requirements-value">Назначаются через группы AD / IdP</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">RLS-фильтры</span>
+      <span class="requirements-value">Применяются на уровне backend/DB/API</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Статус</span>
+      <span class="requirements-value">Будет подключено в следующих шагах</span>
+    </div>
+  </div>
+</div>
+
+<div class="export-action">
+  <button class="btn-disabled" disabled aria-disabled="true">🔐 Войти через SSO</button>
+</div>
+
+<div class="note-box" style="margin-top:16px">
+  <span class="note-icon">ℹ️</span>
+  <span class="note-text">После подключения корпоративной авторизации вход будет выполняться через SSO-провайдера организации. Роли, права и RLS-фильтры будут назначены автоматически на основе групп Active Directory.</span>
+</div>
+{% endblock %}

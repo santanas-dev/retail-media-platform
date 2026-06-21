@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">Выход</h1>
+<p class="page-description">Выход будет доступен после подключения корпоративной авторизации.</p>
+
+<div class="empty-state">
+  <div class="empty-state-title">Выход не настроен</div>
+  <div class="empty-state-text">Функция выхода будет доступна после подключения SSO / Active Directory и сессионного менеджмента.</div>
+</div>
+
+<div class="note-box" style="margin-top:16px">
+  <span class="note-icon">ℹ️</span>
+  <span class="note-text">После подключения корпоративной авторизации кнопка выхода будет завершать SSO-сессию и очищать локальные учётные данные. Вся сессионная информация хранится на стороне сервера.</span>
+</div>
+{% endblock %}

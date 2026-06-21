@@ -88,6 +88,14 @@ class TestPortalRoutes(unittest.TestCase):
         resp = self.client.get("/approvals")
         self.assertEqual(resp.status_code, 200)
 
+    def test_login_route(self):
+        resp = self.client.get("/login")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_logout_route(self):
+        resp = self.client.get("/logout")
+        self.assertEqual(resp.status_code, 200)
+
     def test_health_route(self):
         resp = self.client.get("/health")
         self.assertEqual(resp.status_code, 200)
@@ -123,6 +131,12 @@ class TestNavigation(unittest.TestCase):
                         "mobile app", "Mobile App", "Ценники"):
             self.assertNotIn(banned, self.html,
                              f"Navigation must NOT contain '{banned}'")
+
+    def test_header_shows_login_link(self):
+        self.assertIn("Вход", self.html,
+                      "Header must show login link")
+        self.assertIn("Пользователь: вход не выполнен", self.html,
+                      "Header must show unauthenticated status")
 
 
 class TestDashboardContent(unittest.TestCase):
@@ -1387,6 +1401,155 @@ class TestDemoData(unittest.TestCase):
         self.assertIn("12", resp.text)      # kso_devices
         self.assertIn("1 247", resp.text)   # pop_today
         self.assertIn("3", resp.text)       # active_campaigns
+
+
+class TestAuthPages(unittest.TestCase):
+    """Login and logout placeholder pages."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_login_mentions_corporate_sso(self):
+        resp = self.client.get("/login")
+        self.assertIn("SSO", resp.text)
+        self.assertIn("Active Directory", resp.text)
+        self.assertIn("корпоративн", resp.text.lower())
+
+    def test_login_no_password_field(self):
+        resp = self.client.get("/login")
+        lower = resp.text.lower()
+        self.assertNotIn("password", lower)
+        self.assertNotIn("пароль", lower)
+        self.assertNotIn('<input type="password"', lower)
+
+    def test_login_no_token_field(self):
+        resp = self.client.get("/login")
+        lower = resp.text.lower()
+        self.assertNotIn("token", lower)
+        self.assertNotIn("access_token", lower)
+
+    def test_login_sso_button_disabled(self):
+        resp = self.client.get("/login")
+        self.assertIn("Войти через SSO", resp.text)
+        self.assertIn("disabled", resp.text.lower())
+        self.assertIn("btn-disabled", resp.text)
+
+    def test_logout_mentions_sso(self):
+        resp = self.client.get("/logout")
+        self.assertIn("SSO", resp.text)
+        self.assertIn("выход", resp.text.lower())
+
+    def test_auth_pages_no_raw_ids_secrets(self):
+        for route in ["/login", "/logout"]:
+            resp = self.client.get(route)
+            _assert_safe(self, resp.text)
+
+    def test_auth_pages_no_forbidden_terms(self):
+        for route in ["/login", "/logout"]:
+            resp = self.client.get(route)
+            lower = resp.text.lower()
+            for fb in ("device_secret", "access_token", "backend_url",
+                        "password", "пароль"):
+                self.assertNotIn(fb, lower,
+                                 f"{route}: must not contain '{fb}'")
+
+
+class TestSecurityContract(unittest.TestCase):
+    """security_contract.py defines required roles, permissions, RLS scopes."""
+
+    @classmethod
+    def setUpClass(cls):
+        from security_contract import (
+            Role, Permission, RLSScope,
+            ROLE_PERMISSIONS, ROLE_RLS_SCOPES,
+            PAGE_ACCESS_MATRIX, SECURITY_PRINCIPLES,
+        )
+        cls.Role = Role
+        cls.Permission = Permission
+        cls.RLSScope = RLSScope
+        cls.role_perms = ROLE_PERMISSIONS
+        cls.role_rls = ROLE_RLS_SCOPES
+        cls.page_access = PAGE_ACCESS_MATRIX
+        cls.principles = SECURITY_PRINCIPLES
+
+    def test_required_roles_present(self):
+        for role_id in ("system_admin", "security_admin", "ad_manager",
+                         "approver", "analyst", "advertiser",
+                         "operations", "device_service"):
+            self.assertIn(role_id, self.role_perms,
+                          f"Role '{role_id}' must be defined")
+
+    def test_required_permissions_present(self):
+        perms = set()
+        for perm_set in self.role_perms.values():
+            perms |= perm_set
+        for perm in ("view_dashboard", "view_stores", "view_devices",
+                      "view_creatives", "view_campaigns", "view_schedule",
+                      "view_publications", "view_proof_of_play",
+                      "view_approvals", "view_reports",
+                      "view_deployment", "view_admin",
+                      "export_reports", "approve_objects",
+                      "publish_manifest", "manage_users",
+                      "manage_roles", "manage_devices", "view_audit"):
+            self.assertIn(perm, perms,
+                          f"Permission '{perm}' must be assigned to ≥1 role")
+
+    def test_required_rls_scopes_present(self):
+        scopes = set()
+        for scope_set in self.role_rls.values():
+            scopes |= scope_set
+        for scope in ("advertiser_scope", "branch_scope", "store_scope",
+                       "campaign_scope", "device_scope",
+                       "approval_scope", "report_scope"):
+            self.assertIn(scope, scopes,
+                          f"RLS scope '{scope}' must be assigned to ≥1 role")
+
+    def test_page_access_matrix_covers_all_portal_pages(self):
+        routes = {p.route for p in self.page_access}
+        for route in ("/dashboard", "/campaigns", "/creatives",
+                       "/schedule", "/publications", "/stores",
+                       "/devices", "/proof-of-play", "/approvals",
+                       "/reports", "/deployment", "/admin"):
+            self.assertIn(route, routes,
+                          f"Page access matrix must cover '{route}'")
+
+    def test_security_principles_ui_hiding_not_security(self):
+        principles_text = " ".join(self.principles).lower()
+        self.assertIn("ui hiding is not security", principles_text)
+        self.assertIn("backend", principles_text)
+
+    def test_security_principles_rls_enforced_on_backend_db_api(self):
+        principles_text = " ".join(self.principles).lower()
+        self.assertIn("rls must be enforced", principles_text)
+        self.assertIn("excel export must apply the same rls", principles_text)
+        self.assertIn("manual url opening must not bypass", principles_text)
+
+
+class TestAdminAndReportsRLSNotes(unittest.TestCase):
+    """Admin page mentions RBAC/RLS; Reports page mentions RLS for BI."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_admin_mentions_users_roles_rls(self):
+        resp = self.client.get("/admin")
+        self.assertIn("рол", resp.text.lower())
+        self.assertIn("RLS", resp.text)
+        self.assertIn("SSO", resp.text)
+
+    def test_admin_mentions_ad_groups(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Active Directory", resp.text)
+
+    def test_reports_mentions_rls_for_bi(self):
+        resp = self.client.get("/reports")
+        self.assertIn("RLS", resp.text)
+        self.assertIn("роль пользователя", resp.text.lower())
+
+    def test_reports_mentions_rls_for_excel(self):
+        resp = self.client.get("/reports")
+        self.assertIn("Excel export", resp.text)
+        self.assertIn("RLS-фильтр", resp.text)
 
 
 # ══════════════════════════════════════════════════════════════════════

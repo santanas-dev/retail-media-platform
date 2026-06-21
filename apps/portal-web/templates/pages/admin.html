@@ -2,8 +2,14 @@
 {% block content %}
 <h1 class="page-title">Администрирование</h1>
 <p class="page-description">Управление платформой: пользователи, роли, каналы, типы устройств, конфигурация.</p>
+
 <div class="empty-state">
   <div class="empty-state-title">Администрирование появится здесь</div>
   <div class="empty-state-text">Функционал администрирования будет добавлен в следующих шагах.</div>
+</div>
+
+<div class="note-box">
+  <span class="note-icon">🛡️</span>
+  <span class="note-text">Пользователи, роли, permissions и RLS будут доступны после подключения <strong>корпоративной авторизации</strong> (SSO / Active Directory). Группы AD будут маппиться на роли платформы: system_admin, security_admin, ad_manager, approver, analyst, advertiser, operations, device_service. RLS-фильтры будут применены на уровне backend/DB/API.</span>
 </div>
 {% endblock %}
