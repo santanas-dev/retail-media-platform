@@ -219,6 +219,7 @@ def run_kso_state_adapter_daemon(
             break
 
         # ── Read state from source ──────────────────────────────
+        source_failed = False
         try:
             state = source.read_state()
             if state.state == "idle":
@@ -226,21 +227,26 @@ def run_kso_state_adapter_daemon(
                 pass
         except Exception:
             # Source error → fail-closed
+            source_failed = True
             state = KsoState(state=STATE_ERROR)
             errors += 1
             consecutive_errors += 1
 
         # ── Write state ─────────────────────────────────────────
+        write_failed = False
         try:
             write_result = atomic_write_state(_root, state)
             if write_result["status"] == STATUS_WRITTEN:
                 last_state = state.state
                 state_written = True
-                consecutive_errors = 0
+                if not source_failed:
+                    consecutive_errors = 0
             else:
+                write_failed = True
                 errors += 1
                 consecutive_errors += 1
         except Exception:
+            write_failed = True
             errors += 1
             consecutive_errors += 1
 
