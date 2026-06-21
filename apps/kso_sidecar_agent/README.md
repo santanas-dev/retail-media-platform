@@ -157,6 +157,58 @@ auth token, mediaRef, raw JSON, stacktrace.
 
 Это НЕ scheduler/systemd — цикличный запуск будет отдельным шагом.
 
+## KSO End-to-End Local Delivery Smoke
+
+🧪 **Реализован:** `tests/test_kso_e2e_local_delivery_smoke.py` (12 тестов).
+
+Полный локальный путь доставки без реального backend, Chromium, systemd и PoP:
+
+```
+fake gateway → sidecar sync_kso_manifest_and_media()
+→ local manifest/current_manifest.json + media/current/slot-NNN
+→ player: gate → playlist → render_plan → shell_snapshot
+```
+
+### Smoke сценарии
+
+**Happy path**: sidecar sync → player pipeline → render snapshot (`test_full_e2e_sync_then_player_pipeline`):
+- Fake gateway отдаёт `status=served` + KSO safe manifest + media bytes
+- Sidecar `sync_kso_manifest_and_media()` пишет manifest и media локально
+- Player `evaluate_kso_runtime_gate()` → `play_allowed` (state=idle)
+- Player `build_playlist()` → `ready=true` (манифест + media на месте)
+- Player `build_kso_render_plan()` → `render_action=render`
+- Player `build_kso_shell_snapshot()` → `snapshot_mode=render`, `shell_method=setRenderPlan`
+
+**Пустой манифест**: items=[] → manifest записан, media 0, player hold.
+
+**Not modified**: `status=not_modified` → no-op, файлы не создаются.
+
+**Media download failure**:
+- Любой media download error → **manifest НЕ публикуется**
+- Старый manifest сохраняется (если был)
+- Player → `playlist: not_ready (manifest_missing)` → render plan = hold
+
+**Content-type mismatch**:
+- Ответ media не совпадает с заявленным contentType в manifest → manifest НЕ публикуется
+- Старый manifest сохраняется (если был)
+- Player → hold
+
+**Play + no manifest**: gate разрешает play (state=idle) но player hol'dит (нет manifest).
+
+### Что НЕ делается
+
+- ❌ Real backend не вызывается (fake gateway + fake media responses)
+- ❌ Chromium не запускается
+- ❌ Systemd не используется
+- ❌ PoP event не пишется
+- ❌ kso_state.json пишется ТОЛЬКО test fixture (не production runtime)
+
+### Safe output
+
+Все `repr()`/`format()` результатов проверены — без:
+backend URL, device code, device secret, auth token,
+mediaRef значений, raw JSON, sha256, manifest IDs, stacktrace.
+
 ## PoP Pickup Design
 
 📝 **Mini-design создан:** `docs/pop_pickup_design.md`. Описывает будущий шаг run-cycle, в котором sidecar забирает локальные player events из `pop/pending/player_events.jsonl`, валидирует, классифицирует по статусу и готовит eligible-события к отправке в backend. Draft-события не являются фактом показа и не отправляются как PoP. Реализация pickup — отдельный шаг.

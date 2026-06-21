@@ -1318,6 +1318,36 @@ Player — **read-only**, safety gate — **pure logic**:
 - Вывод только агрегированный — без полного manifest и media bytes
 - Customer/payment/receipt data не хранится и не выводится
 
+## KSO End-to-End Local Delivery Smoke
+
+🧪 **E2E интеграционный тест:** `../kso_sidecar_agent/tests/test_kso_e2e_local_delivery_smoke.py` (12 тестов).
+
+Проверяет полный локальный путь доставки рекламы на КСО без реального backend, Chromium, systemd и PoP:
+
+```
+fake gateway → sidecar sync → local manifest/current_manifest.json
++ media/current/slot-NNN → player: gate → playlist → render_plan → shell_snapshot
+```
+
+### Happy path
+
+Sidecar `sync_kso_manifest_and_media()` + player pipeline:
+- Fake gateway → `status=served` + KSO safe manifest + PNG bytes
+- Sidecar пишет `manifest/current_manifest.json` (safe body, без wrapper)
+- Sidecar пишет `media/current/slot-000`
+- Player `evaluate_kso_runtime_gate()` → `play_allowed` (state=idle)
+- Player `build_playlist()` → `ready=true`
+- Player `build_kso_render_plan()` → `render_action=render`
+- Player `build_kso_shell_snapshot()` → `snapshot_mode=render`, `shell_method=setRenderPlan`
+
+### Что НЕ вызывается
+
+- ❌ Real backend (fake gateway + fake media responses)
+- ❌ Chromium запуск
+- ❌ Systemd
+- ❌ PoP event запись
+- ❌ kso_state.json пишется только test fixture
+
 ## Структура
 
 ```
