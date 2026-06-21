@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retail Media Platform — {{ title }}</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <span class="header-logo">Retail Media Platform</span>
+  <span class="header-subtitle">KSO v1</span>
+</div>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-section">Главное</div>
+  <a href="/dashboard" class="{{ 'active' if active == 'dashboard' }}">📊 Dashboard</a>
+
+  <div class="sidebar-section">Реклама</div>
+  <a href="/campaigns" class="{{ 'active' if active == 'campaigns' }}">📢 Кампании</a>
+  <a href="/creatives" class="{{ 'active' if active == 'creatives' }}">🎨 Креативы</a>
+  <a href="/schedule" class="{{ 'active' if active == 'schedule' }}">🗓 Расписание</a>
+  <a href="/publications" class="{{ 'active' if active == 'publications' }}">📋 Публикации</a>
+
+  <div class="sidebar-section">КСО</div>
+  <a href="/devices" class="{{ 'active' if active == 'devices' }}">🖥️ КСО Устройства</a>
+  <a href="/proof-of-play" class="{{ 'active' if active == 'pop' }}">✅ Proof of Play</a>
+  <a href="/stores" class="{{ 'active' if active == 'stores' }}">🏪 Магазины</a>
+
+  <div class="sidebar-section">Управление</div>
+  <a href="/reports" class="{{ 'active' if active == 'reports' }}">📈 Отчёты</a>
+  <a href="/deployment" class="{{ 'active' if active == 'deployment' }}">🚀 Развёртывание</a>
+  <a href="/admin" class="{{ 'active' if active == 'admin' }}">⚙️ Администрирование</a>
+</div>
+
+<!-- Main content -->
+<div class="main">
+{% block content %}{% endblock %}
+</div>
+
+</body>
+</html>

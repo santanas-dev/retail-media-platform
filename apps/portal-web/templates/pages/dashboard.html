@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">Dashboard</h1>
+<p class="page-description">Обзор ключевых метрик Retail Media Platform. Данные обновляются в реальном времени по мере подключения КСО.</p>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-title">КСО устройств</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Подключены к платформе</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Активных кампаний</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Кампании в статусе active</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Опубликованных манифестов</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Текущие публикации на КСО</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Proof of Play сегодня</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Подтверждённых показов</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Устройств в hold</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">КСО в не-idle состоянии</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Устройств с ошибками</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">КСО с ошибками за 24ч</div>
+  </div>
+</div>
+
+<div class="empty-state">
+  <div class="empty-state-title">Платформа запущена</div>
+  <div class="empty-state-text">Backend работает. Метрики появятся после подключения первых КСО.</div>
+</div>
+{% endblock %}
