@@ -8,14 +8,14 @@
 
 **Приложение:** `apps/portal-web/` — FastAPI + Jinja2 серверный портал.
 **Стек:** FastAPI 0.133 + Jinja2 3.1 + Starlette TestClient.
-**Тестов:** 77 (routes, navigation, devices, stores, creatives, content, security).
+**Тестов:** 93 (routes, navigation, devices, stores, creatives, campaigns, content, security).
 
 ## Страницы (12 routes v1)
 
 | Route | Страница | Статус |
 |---|---|---|
 | `/` `/dashboard` | Dashboard — обзорные карточки | ✅ заглушка |
-| `/campaigns` | Кампании | ✅ заглушка |
+| `/campaigns` | Кампании | ✅ UI foundation (cards + lifecycle + filters + table) |
 | `/creatives` | Креативы | ✅ UI foundation (cards + requirements + filters + table) |
 | `/schedule` | Расписание | ✅ заглушка |
 | `/publications` | Публикации манифестов | ✅ заглушка |
@@ -157,9 +157,47 @@
 - ❌ Нет Android TV, LED-шелф, ESL, Mobile App
 - ✅ Все значения статичные (—)
 
+## KSO Campaigns page
+
+**Структура:**
+- **6 summary cards:** Всего кампаний, Активные, Черновики, На согласовании, Опубликованы, Требуют внимания
+- **Жизненный цикл:** Черновик → На согласовании → Готова к публикации → Опубликована → В эфире → Завершена. Терминальные: Ошибка публикации, Остановлена, Архив
+- **6 фильтров:** Статус кампании, Период, Креатив, Филиал/магазин, Готовность публикации, План/факт (все disabled)
+- **Таблица (10 колонок):** Кампания, Статус, Период, Креативы, Магазины/КСО, Публикация, Показы план, Показы факт, PoP, Действия
+- **Empty state:** «Пока нет рекламных кампаний»
+- **Легенда статусов:** Черновик, На согласовании, Готова, В эфире, Завершена, Ошибка, Архив, Нет данных
+- **Связи:** инфо-блоки — кампания связывает креативы, магазины/КСО, расписание публикации и план/факт; BI-отчётность и Excel в модуле Reports
+
+**Status badges:** `.badge-draft` (light gray), `.badge-review` (blue), `.badge-ready` (green), `.badge-live` (green), `.badge-completed` (dark gray), `.badge-error` (red), `.badge-archived` (gray), `.badge-unknown` (light gray)
+
+**Planned future API fields (не отображаются пока):**
+- campaign_name, status, period_start/end, creative_count, store_count
+- publication_status, planned_impressions, actual_impressions, pop_status
+- Без campaign_id, creative_id, store_id, device_id, schedule_item_id, manifest_item_id, booking_id
+
+**Future BI reporting (зафиксировано на этом шаге):**
+- Power BI-like интерактивные дашборды, фильтры, срезы
+- Drill-down от кампании → магазин → КСО → креатив
+- Выгрузка в Excel с учётом выбранных фильтров
+- Реализация в модуле Reports (не на этом шаге)
+
+**Future workflow (не на этом шаге):**
+- Создание/редактирование/удаление кампаний
+- Согласование и публикация
+- Backend campaign workflow
+- Excel export и BI dashboards
+
+**Security:**
+- ❌ Нет campaign_id, creative_id, rendition_id, store_id, device_id
+- ❌ Нет schedule_item_id, manifest_item_id, booking_id
+- ❌ Нет manifest_hash, storage_key, minio, sha256, file_path, filename
+- ❌ Нет device_secret, access_token, backend_url
+- ❌ Нет Android TV, LED-шелф, ESL, Mobile App
+- ✅ Все значения статичные (—)
+
 ## Styling
 
-- Минимальный CSS (278 строк) — без внешних CDN
+- Минимальный CSS (307 строк) — без внешних CDN
 - Светлая тема, corporate layout
 - Fixed sidebar (240px), fixed header (56px)
 - Адаптивная сетка карточек (`auto-fill, minmax(240px, 1fr)`)
@@ -187,7 +225,7 @@ python3 main.py  # или uvicorn main:app --port 8422
 ```bash
 cd apps/portal-web
 python3 -m unittest discover -s tests -v
-# 77 tests: routes, navigation, content, security
+# 93 tests: routes, navigation, content, security
 ```
 
 ## Следующие UI шаги

@@ -418,6 +418,111 @@ class TestCreativesPage(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Campaigns page tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestCampaignsPage(unittest.TestCase):
+    """KSO Campaigns page — cards, lifecycle, filters, table, legend, notes."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+        resp = self.client.get("/campaigns")
+        self.html = resp.text
+
+    def test_renders_summary_cards(self):
+        for card in ("Всего кампаний", "Активные", "Черновики",
+                      "На согласовании", "Опубликованы", "Требуют внимания"):
+            self.assertIn(card, self.html,
+                          f"Campaigns page must render summary card '{card}'")
+
+    def test_has_lifecycle_block(self):
+        for step in ("Черновик", "На согласовании", "Готова к публикации",
+                      "Опубликована", "В эфире", "Завершена"):
+            self.assertIn(step, self.html,
+                          f"Lifecycle must contain step '{step}'")
+
+    def test_lifecycle_has_terminal_states(self):
+        for state in ("Ошибка публикации", "Остановлена", "Архив"):
+            self.assertIn(state, self.html,
+                          f"Lifecycle terminals must contain '{state}'")
+
+    def test_has_filters_block(self):
+        for flt in ("Статус кампании", "Период", "Креатив",
+                     "Филиал", "Готовность публикации", "План / факт"):
+            self.assertIn(flt, self.html,
+                          f"Campaigns page must have filter '{flt}'")
+
+    def test_filters_disabled(self):
+        self.assertIn("disabled", self.html)
+
+    def test_has_table_structure(self):
+        for col in ("Кампания", "Статус", "Период", "Креативы",
+                     "Магазины", "Публикация",
+                     "Показы план", "Показы факт", "PoP", "Действия"):
+            self.assertIn(col, self.html,
+                          f"Campaigns table must have column '{col}'")
+
+    def test_table_shows_empty_state(self):
+        self.assertIn("Пока нет рекламных кампаний", self.html)
+        self.assertIn("Proof of Play", self.html)
+
+    def test_has_status_legend(self):
+        for badge in ("Черновик", "На согласовании", "Готова",
+                       "В эфире", "Завершена", "Ошибка", "Архив",
+                       "Нет данных"):
+            self.assertIn(badge, self.html,
+                          f"Legend must contain status '{badge}'")
+
+    def test_mentions_plan_fact_and_pop(self):
+        self.assertIn("План / факт", self.html)
+        self.assertIn("Proof of Play", self.html)
+
+    def test_mentions_bi_reporting_excel(self):
+        self.assertIn("BI-отчётность", self.html)
+        self.assertIn("Power BI", self.html)
+        self.assertIn("Excel", self.html)
+        self.assertIn("Reports", self.html)
+
+    def test_mentions_related_pages(self):
+        for term in ("креативы", "магазины", "расписание"):
+            self.assertIn(term, self.html.lower(),
+                          f"Campaigns page must mention '{term}'")
+
+    def test_no_forbidden_content(self):
+        _assert_safe(self, self.html)
+
+    def test_no_out_of_scope_channels(self):
+        for banned in ("Android TV", "LED", "ESL", "Mobile App",
+                        "Ценники", "Price Checker"):
+            self.assertNotIn(banned, self.html,
+                             f"Campaigns page must NOT contain '{banned}'")
+
+    def test_no_raw_ids_secrets_hashes(self):
+        lower = self.html.lower()
+        for forbidden in ("device_secret", "access_token", "manifest_hash",
+                           "campaign_id", "creative_id", "backend_url",
+                           "rendition_id", "store_id", "device_id",
+                           "schedule_item_id", "manifest_item_id",
+                           "booking_id", "storage_key", "minio", "sha256",
+                           "file_path", "filename",
+                           "http://", "https://backend"):
+            self.assertNotIn(forbidden, lower,
+                             f"Campaigns page must NOT contain '{forbidden}'")
+
+    def test_status_badge_classes_in_css(self):
+        css = (_PORTAL_DIR / "static" / "styles.css").read_text()
+        for cls_name in (".badge-draft", ".badge-live", ".badge-completed",
+                          ".badge-ready", ".badge-review", ".badge-error",
+                          ".badge-archived", ".badge-unknown"):
+            self.assertIn(cls_name, css,
+                          f"CSS must define '{cls_name}'")
+
+    def test_campaigns_route_returns_200(self):
+        resp = self.client.get("/campaigns")
+        self.assertEqual(resp.status_code, 200)
+
+
 class TestPageStubsRender(unittest.TestCase):
     """All page stubs render with title and safe empty state."""
 

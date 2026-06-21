@@ -1,9 +1,170 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Кампании</h1>
-<p class="page-description">Управление рекламными кампаниями. Создание, настройка таргетинга, планирование показов.</p>
-<div class="empty-state">
-  <div class="empty-state-title">Кампании появятся здесь</div>
-  <div class="empty-state-text">Функционал создания и управления кампаниями будет добавлен в следующих шагах.</div>
+<p class="page-description">Управление рекламными кампаниями КСО — от создания до публикации. План/факт по показам и Proof of Play.</p>
+
+<!-- Summary Cards -->
+<div class="cards">
+  <div class="card">
+    <div class="card-title">Всего кампаний</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Активные</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Черновики</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">На согласовании</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Опубликованы</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Требуют внимания</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+</div>
+
+<!-- Campaign Lifecycle -->
+<div class="requirements-box">
+  <div class="requirements-title">Жизненный цикл кампании</div>
+  <div class="lifecycle-flow">
+    <span class="lifecycle-step lifecycle-draft">Черновик</span>
+    <span class="lifecycle-arrow">→</span>
+    <span class="lifecycle-step lifecycle-review">На согласовании</span>
+    <span class="lifecycle-arrow">→</span>
+    <span class="lifecycle-step lifecycle-ready">Готова к публикации</span>
+    <span class="lifecycle-arrow">→</span>
+    <span class="lifecycle-step lifecycle-published">Опубликована</span>
+    <span class="lifecycle-arrow">→</span>
+    <span class="lifecycle-step lifecycle-live">В эфире</span>
+    <span class="lifecycle-arrow">→</span>
+    <span class="lifecycle-step lifecycle-completed">Завершена</span>
+  </div>
+  <div class="lifecycle-terminals">
+    <span class="lifecycle-step lifecycle-error">Ошибка публикации</span>
+    <span class="lifecycle-step lifecycle-stopped">Остановлена</span>
+    <span class="lifecycle-step lifecycle-archived">Архив</span>
+  </div>
+</div>
+
+<!-- Filters Toolbar -->
+<div class="filter-toolbar">
+  <div class="filter-group">
+    <label class="filter-label">Статус кампании</label>
+    <select class="filter-select" disabled>
+      <option>Все статусы</option>
+      <option>Черновик</option>
+      <option>На согласовании</option>
+      <option>Готова</option>
+      <option>Опубликована</option>
+      <option>В эфире</option>
+      <option>Завершена</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Период</label>
+    <select class="filter-select" disabled>
+      <option>Все периоды</option>
+      <option>Текущие</option>
+      <option>Прошедшие</option>
+      <option>Планируемые</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Креатив</label>
+    <select class="filter-select" disabled>
+      <option>Все креативы</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Филиал / магазин</label>
+    <select class="filter-select" disabled>
+      <option>Все магазины</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Готовность публикации</label>
+    <select class="filter-select" disabled>
+      <option>Все</option>
+      <option>Готова</option>
+      <option>Не готова</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">План / факт</label>
+    <select class="filter-select" disabled>
+      <option>Все</option>
+      <option>Выполняется</option>
+      <option>Отстаёт</option>
+      <option>Перевыполняет</option>
+    </select>
+  </div>
+</div>
+
+<!-- Campaigns Table -->
+<div class="table-container">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Кампания</th>
+      <th>Статус</th>
+      <th>Период</th>
+      <th>Креативы</th>
+      <th>Магазины / КСО</th>
+      <th>Публикация</th>
+      <th>Показы план</th>
+      <th>Показы факт</th>
+      <th>PoP</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="empty-row">
+      <td colspan="10">
+        <div class="table-empty-state">
+          <div class="table-empty-icon">📢</div>
+          <div class="table-empty-title">Пока нет рекламных кампаний</div>
+          <div class="table-empty-text">После создания кампаний здесь появится их статус, публикация и выполнение по Proof of Play.</div>
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- Status Legend -->
+<div class="legend">
+  <span class="legend-title">Статус:</span>
+  <span class="legend-item"><span class="badge badge-draft"></span> Черновик</span>
+  <span class="legend-item"><span class="badge badge-review"></span> На согласовании</span>
+  <span class="legend-item"><span class="badge badge-ready"></span> Готова</span>
+  <span class="legend-item"><span class="badge badge-live"></span> В эфире</span>
+  <span class="legend-item"><span class="badge badge-completed"></span> Завершена</span>
+  <span class="legend-item"><span class="badge badge-error"></span> Ошибка</span>
+  <span class="legend-item"><span class="badge badge-archived"></span> Архив</span>
+  <span class="legend-item"><span class="badge badge-unknown"></span> Нет данных</span>
+</div>
+
+<!-- Notes -->
+<div class="note-box">
+  <span class="note-icon">ℹ️</span>
+  <span class="note-text">Кампания связывает <strong>креативы</strong>, <strong>магазины/КСО</strong>, <strong>расписание</strong> публикации и будущий отчёт план/факт.</span>
+</div>
+<div class="note-box">
+  <span class="note-icon">📊</span>
+  <span class="note-text">Детальная BI-отчётность в стиле Power BI — интерактивные дашборды, фильтры, срезы, drill-down и выгрузка в Excel — будет реализована в отдельном модуле <strong>Reports</strong>.</span>
 </div>
 {% endblock %}
