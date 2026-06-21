@@ -120,27 +120,104 @@
 
 ### Phase 2 — Auth / Session / User CRUD / RBAC / RLS Backend
 
-**Результат:** можно создать пользователя, назначить роль, войти в портал, backend проверяет permissions.
+**Результат:** можно создать пользователя, назначить роль, войти в портал, backend проверяет permissions и RLS.
 
-**Блокеры решаются:** B1, B3.
+**Блокеры решаются:** B1, B2, B3.
 
-**Что должно быть в commit:**
-- `backend/app/domains/identity/` — JWT session, login/logout endpoints
-- `backend/app/core/security.py` — RBAC enforcement middleware
-- `backend/app/core/deps.py` — get_current_user dependency
-- `apps/portal-web/` — API client, реальный login/logout
-- Тесты на auth flow
+**Документ:** `docs/backend/auth-user-rbac-rls-architecture.md`
 
-**Тесты:**
+**Декомпозиция:**
+
+#### Шаг 36.2 — Auth/User/RBAC/RLS Architecture Contract ✅
+
+Настоящий документ. Описывает целевую модель:
+- Локальная авторизация + будущий SSO/AD
+- Password policy (bcrypt, 8-128 символов, 5 попыток)
+- Session model (JWT + refresh token rotation)
+- RBAC enforcement (permission check middleware)
+- RLS enforcement (scopes → SQLAlchemy filters)
+- Будущие таблицы: user_rls_scopes, login_audit_events, admin_audit_events, mfa_settings
+- Будущие API endpoints: /api/auth/*, /api/users, /api/roles, /api/admin/audit
+- Forbidden fields, log safety, admin safety
+
+#### Шаг 36.3 — Auth DB Model and Migrations
+
+- Alembic миграция для новых таблиц: `user_rls_scopes`, `login_audit_events`, `admin_audit_events`, `mfa_settings`
+- Обновление `users`: `is_archived`, `archived_at`, `archived_by`
+- Индексы согласно контракту
+- Seed-обновление: начальные RLS scopes для admin
+
+#### Шаг 36.4 — Password Hashing / Session Foundation
+
+- `hash_password()` / `verify_password()` — bcrypt через passlib
+- `create_access_token()` / `create_refresh_token()` — JWT с PyJWT
+- `get_current_user()` dependency — извлекает пользователя из JWT
+- `check_permission(required)` dependency — проверяет permission
+- Session lifecycle: login → access + refresh → refresh rotation → logout → revocation
+
+#### Шаг 36.5 — User CRUD Backend
+
+- `POST /api/auth/login` — вход с audit
+- `POST /api/auth/logout` — выход с revoke
+- `POST /api/auth/refresh` — обновление токенов
+- `GET /api/auth/me` — текущий пользователь
+- `GET /api/users` — список (admin)
+- `POST /api/users` — создание (admin)
+- `PATCH /api/users/{username}/status` — блокировка/архивирование (admin)
+- Rate limiting на login (5 попыток)
+- Все forbidden fields исключены из ответов
+
+#### Шаг 36.6 — Admin Users API + Portal Integration
+
+- `GET /api/roles` — список ролей
+- `POST /api/users/{username}/roles` — назначение ролей (admin)
+- `POST /api/users/{username}/rls-scopes` — назначение RLS (admin)
+- `GET /api/admin/audit` — журнал аудита (admin)
+- Portal API client (httpx) для вызова backend
+- Portal login page: функциональная форма, обработка ошибок
+- Portal header: отображение текущего пользователя
+- Portal page guards: redirect на /login если не auth
+
+#### Шаг 36.7 — RBAC/RLS Enforcement Tests
+
 - Unit: JWT generation/validation
+- Unit: bcrypt hash/verify
 - Integration: login → session → protected endpoint
-- Portal: login page функциональна, redirect после входа
+- Integration: permission check → 403
+- Integration: RLS filter → filtered results
+- Portal: login page функциональна
+- Portal: страницы недоступны без auth
+- Security: forbidden fields не в ответах
+- Security: device_service не может войти через /login
+- Security: admin auditor changes
+
+**Что должно быть в commit (суммарно 36.3–36.7):**
+- `backend/alembic/versions/023_auth_rbac_rls.py` — миграция
+- `backend/app/domains/identity/` — обновлённые модели, router, service, schemas
+- `backend/app/core/security.py` — JWT + bcrypt + deps
+- `backend/app/core/deps.py` — get_current_user, check_permission
+- `backend/app/domains/identity/seed.py` — обновлён
+- `apps/portal-web/` — API client, обновлён login/logout/admin
+
+**Тесты (суммарно 36.3–36.7):**
+- Auth flow (login, refresh, logout, session expiry)
+- JWT validation, refresh rotation
+- Password hashing (bcrypt verify, reject wrong)
+- Rate limiting (5 попыток → lock)
+- Permission check (allow/deny per endpoint)
+- RLS filter (scoped queries)
+- Portal login/logout функциональность
+- Security: forbidden fields audit
 
 **Критерий готовности:**
 - Пользователь создаётся через API
 - Пользователь входит через portal login
 - Backend проверяет permission на каждом запросе
+- RLS фильтрует данные до pagination/aggregation
 - Нет доступа к страницам без auth
+- device_service заблокирован от portal login
+- Все изменения аудируются
+- Все forbidden fields исключены
 
 ---
 
