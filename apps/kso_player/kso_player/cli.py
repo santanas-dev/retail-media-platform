@@ -16,6 +16,7 @@ Commands:
     visible-runtime-once Prepare and optionally launch a visible KSO ad in Chromium
     runtime-cycle-once   Run one timed cycle: prepare → launch → wait → re-check → PoP
     runtime-loop         Run multi-cycle loop with live snapshot rotation
+    runtime-daemon       Run as long-running daemon process
     --help             Show help
 
 Only reads manifest/current_manifest.json and media/current/.
@@ -55,6 +56,12 @@ from kso_player.runtime_loop import (
     format_kso_runtime_loop_result,
     STATUS_OK as RL_STATUS_OK,
     STATUS_ERROR as RL_STATUS_ERROR,
+)
+from kso_player.runtime_daemon import (
+    run_kso_runtime_daemon,
+    format_kso_runtime_daemon_result,
+    STATUS_OK as RD_STATUS_OK,
+    STATUS_ERROR as RD_STATUS_ERROR,
 )
 from kso_player.session import select_next_item
 from kso_player.simulator import simulate_playback_step, SIM_STATUS_WOULD_PLAY
@@ -443,6 +450,33 @@ def cmd_runtime_loop(args: argparse.Namespace) -> None:
     sys.exit(0)
 
 
+def cmd_runtime_daemon(args: argparse.Namespace) -> None:
+    """Run KSO player as a long-running daemon process.
+
+    Prepares once, then runs cycles until stopped via --max-cycles
+    or SIGTERM. Writes safe health JSON if --health-file is set.
+
+    Chromium is launched at most ONCE. Shell refreshes via live snapshots.
+    Completed PoP is NEVER written without --confirm-display-completed.
+    """
+    result = run_kso_runtime_daemon(
+        root=args.root,
+        source_shell_dir=args.source_shell_dir,
+        runtime_shell_dir=args.runtime_shell_dir,
+        chromium_bin=args.chromium_bin,
+        confirm_launch=args.confirm_launch,
+        confirm_display_completed=args.confirm_display_completed,
+        prepare_demo_fixture=args.prepare_demo_fixture,
+        max_cycles=args.max_cycles if args.max_cycles >= 0 else None,
+        stale_seconds=args.stale_seconds,
+        health_file=args.health_file,
+    )
+    print(format_kso_runtime_daemon_result(result))
+    if result.status == RD_STATUS_ERROR:
+        sys.exit(1)
+    sys.exit(0)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kso-player",
@@ -597,6 +631,29 @@ def _build_parser() -> argparse.ArgumentParser:
     rl.add_argument("--max-cycles", type=int, default=1,
                     help="Max cycles to run (default: 1, for safety)")
     rl.set_defaults(func=cmd_runtime_loop)
+
+    rd = sub.add_parser("runtime-daemon",
+                        help="Run KSO player as a long-running daemon process")
+    rd.add_argument("--root", required=True, help="Agent root path")
+    rd.add_argument("--source-shell-dir", required=True,
+                    help="Immutable source shell directory")
+    rd.add_argument("--runtime-shell-dir", required=True,
+                    help="Mutable runtime shell directory")
+    rd.add_argument("--chromium-bin", type=str, default="chromium",
+                    help="Chromium binary path (default: chromium)")
+    rd.add_argument("--stale-seconds", type=int, default=30,
+                    help="Max state age before stale (default: 30)")
+    rd.add_argument("--confirm-launch", action="store_true", default=False,
+                    help="Launch Chromium once")
+    rd.add_argument("--confirm-display-completed", action="store_true", default=False,
+                    help="Write completed PoP after each successful cycle")
+    rd.add_argument("--prepare-demo-fixture", action="store_true", default=False,
+                    help="Auto-create demo root")
+    rd.add_argument("--max-cycles", type=int, default=-1,
+                    help="Max cycles (-1 = run until stopped, for daemon mode)")
+    rd.add_argument("--health-file", type=str, default=None,
+                    help="Optional path to safe health JSON file")
+    rd.set_defaults(func=cmd_runtime_daemon)
 
     return parser
 

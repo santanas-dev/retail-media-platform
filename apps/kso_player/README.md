@@ -1610,6 +1610,85 @@ python3 -m kso_player.cli runtime-loop \
 
 - Future systemd service будет вызывать `runtime-loop` непрерывно
 
+## Production daemon loop core
+
+🛡 **Реализован:** `runtime-daemon` CLI — долгоживущий процесс плеера.
+
+### Что делает
+
+```
+prepare once → launch Chromium once → enter daemon loop:
+  → check stop_check / max_cycles
+  → build playlist (re-read manifest each cycle)
+  → check gate → hold / render
+  → write live snapshot → shell auto-refreshes
+  → wait duration → re-check gate
+  → if idle + confirm → completed PoP
+  → on error → error_count++, check limit
+  → write health file (if configured)
+```
+
+### CLI
+
+```bash
+# Daemon mode (runs until stopped)
+python3 -m kso_player.cli runtime-daemon \
+  --root /var/lib/verny/kso \
+  --source-shell-dir /opt/verny/kso/player_shell \
+  --runtime-shell-dir /var/lib/verny/kso/runtime/player_shell \
+  --chromium-bin chromium \
+  --health-file /run/verny/kso/player-health.json
+
+# Тестовый запуск с ограничением циклов
+python3 -m kso_player.cli runtime-daemon \
+  --root /tmp/kso-demo-root \
+  --source-shell-dir ./player_shell \
+  --runtime-shell-dir /tmp/kso-demo-runtime/player_shell \
+  --chromium-bin chromium \
+  --prepare-demo-fixture \
+  --confirm-launch \
+  --max-cycles 3
+```
+
+### Error recovery
+
+| Ошибка | Поведение |
+|---|---|
+| Missing manifest/media | `no_items` → daemon продолжает |
+| State not idle | `hold` → daemon продолжает |
+| State stale | `hold` → daemon продолжает |
+| 3 consecutive errors | daemon останавливается с `max_consecutive_errors_exceeded` |
+
+### Graceful stop
+
+- `stop_check()` callback — для tests
+- `max_cycles` достигнут → clean stop
+- Будущий systemd будет отправлять SIGTERM
+
+### Health file
+
+```json
+{
+  "status": "ok",
+  "last_cycle_status": "rendered_with_pop",
+  "cycles_completed": 3,
+  "rendered_count": 3,
+  "hold_count": 0,
+  "error_count": 0,
+  "completed_pop_written_count": 3,
+  "last_reason": "daemon_stopped"
+}
+```
+
+Только safe поля — без paths, mediaRef, raw IDs, hash, secret, stacktrace.
+
+### Сравнение команд
+
+| Команда | Режим | Циклы | Остановка |
+|---|---|---|---|
+| `runtime-loop` | конечный | N (по умолчанию 1) | по завершении циклов |
+| `runtime-daemon` | долгоживущий | ∞ или N | stop_check / max_cycles / SIGTERM |
+
 ## Live snapshot refresh
 
 🔄 **Реализован:** Shell live refresh — обновление рекламы без перезапуска Chromium.
