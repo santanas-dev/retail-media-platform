@@ -13,6 +13,7 @@ Commands:
     local-demo-fixture    Create local demo fixture: idle state + manifest + media
     display-cycle-once    Run one display cycle: render decision + optional draft PoP
     display-complete-once Run completed display cycle: optional completed PoP write
+    visible-runtime-once Prepare and optionally launch a visible KSO ad in Chromium
     --help             Show help
 
 Only reads manifest/current_manifest.json and media/current/.
@@ -34,6 +35,12 @@ from kso_player.display_cycle import (
     run_kso_display_cycle_once,
     run_kso_display_completion_once,
     format_kso_display_cycle_result,
+)
+from kso_player.visible_runtime import (
+    run_kso_visible_runtime_once,
+    format_kso_visible_runtime_result,
+    STATUS_OK as VR_STATUS_OK,
+    STATUS_ERROR as VR_STATUS_ERROR,
 )
 from kso_player.session import select_next_item
 from kso_player.simulator import simulate_playback_step, SIM_STATUS_WOULD_PLAY
@@ -325,6 +332,37 @@ def cmd_display_completion_once(args: argparse.Namespace) -> None:
     sys.exit(0)  # ← was missing
 
 
+def cmd_visible_runtime_once(args: argparse.Namespace) -> None:
+    """Prepare and optionally launch a visible KSO ad in Chromium.
+
+    Full pipeline:
+      1. (optional) --prepare-demo-fixture → idle state + manifest + media
+      2. Prepare runtime shell workspace from source shell
+      3. Build render snapshot → bootstrap_snapshot.js
+      4. Build guarded Chromium command
+      5. (if --confirm-launch) launch Chromium
+
+    By default (no --confirm-launch): only prepares, does NOT launch.
+    This command does NOT write completed PoP automatically.
+
+    Chromium opens local runtime shell only — NO external URLs, NO network.
+    NO systemd, NO backend, NO sidecar, NO PoP.
+    """
+    result = run_kso_visible_runtime_once(
+        root=args.root,
+        source_shell_dir=args.source_shell_dir,
+        runtime_shell_dir=args.runtime_shell_dir,
+        chromium_bin=args.chromium_bin,
+        confirm_launch=args.confirm_launch,
+        prepare_demo_fixture=args.prepare_demo_fixture,
+        stale_seconds=args.stale_seconds,
+    )
+    print(format_kso_visible_runtime_result(result))
+    if result.status == VR_STATUS_ERROR:
+        sys.exit(1)
+    sys.exit(0)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kso-player",
@@ -422,6 +460,23 @@ def _build_parser() -> argparse.ArgumentParser:
     dco.add_argument("--confirm-display-completed", action="store_true", default=False,
                      help="Write completed PoP event to local JSONL (default: no write)")
     dco.set_defaults(func=cmd_display_completion_once)
+
+    vr = sub.add_parser("visible-runtime-once",
+                        help="Prepare and optionally launch a visible KSO ad in Chromium")
+    vr.add_argument("--root", required=True, help="Agent root path")
+    vr.add_argument("--source-shell-dir", required=True,
+                    help="Immutable source shell directory")
+    vr.add_argument("--runtime-shell-dir", required=True,
+                    help="Mutable runtime shell directory")
+    vr.add_argument("--chromium-bin", type=str, default="chromium",
+                    help="Chromium binary path (default: chromium)")
+    vr.add_argument("--stale-seconds", type=int, default=30,
+                    help="Max state age before stale (default: 30)")
+    vr.add_argument("--confirm-launch", action="store_true", default=False,
+                    help="Actually launch Chromium (default: prepare only)")
+    vr.add_argument("--prepare-demo-fixture", action="store_true", default=False,
+                    help="Auto-create demo root: idle state + manifest + media")
+    vr.set_defaults(func=cmd_visible_runtime_once)
 
     return parser
 

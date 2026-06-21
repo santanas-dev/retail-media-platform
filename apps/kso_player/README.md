@@ -1429,6 +1429,61 @@ Sidecar `sync_kso_manifest_and_media()` + player pipeline:
 - ❌ PoP event запись
 - ❌ kso_state.json пишется только test fixture
 
+## How to see KSO ad locally
+
+🖥 **Реализован:** `visible-runtime-once` CLI — одна команда для локального показа рекламы.
+
+### Quick start
+
+```bash
+# Подготовить demo fixture + показать в Chromium
+python3 -m kso_player.cli visible-runtime-once \
+  --root /tmp/kso-demo-root \
+  --source-shell-dir ./player_shell \
+  --runtime-shell-dir /tmp/kso-demo-runtime/player_shell \
+  --chromium-bin chromium \
+  --prepare-demo-fixture \
+  --confirm-launch
+```
+
+### Без запуска Chromium (prepare only)
+
+```bash
+python3 -m kso_player.cli visible-runtime-once \
+  --root /tmp/kso-demo-root \
+  --source-shell-dir ./player_shell \
+  --runtime-shell-dir /tmp/kso-demo-runtime/player_shell \
+  --chromium-bin chromium \
+  --prepare-demo-fixture
+```
+
+Вывод:
+```
+status: ok
+fixture_ready: true
+render_ready: true
+shell_prepared: true
+snapshot_written: true
+launch_ready: true
+launched: false
+reason: ready
+```
+
+### Как это работает
+
+1. `--prepare-demo-fixture` → создаёт idle state + KSO safe manifest + media
+2. Player строит render plan → shell snapshot → `bootstrap_snapshot.js`
+3. Runtime shell копируется из source через whitelist
+4. Chromium command строится с безопасными флагами (`--app=file://...`)
+5. `--confirm-launch` → Chromium запускается через subprocess.Popen
+
+### Важные замечания
+
+- Это **local visual runtime** — не production systemd сервис
+- **НЕ пишет completed PoP автоматически** (для этого отдельная команда `display-complete-once`)
+- Production KSO будет использовать Linux + Chromium kiosk + systemd в будущем шаге
+- Chromium открывает **только локальный runtime shell** — без внешних URL, без сети
+
 ## Структура
 
 ```
