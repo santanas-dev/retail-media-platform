@@ -267,6 +267,42 @@ python3 infra/kso-linux/install/kso_linux_bootstrap.py --apply \
     --validate-env /etc/verny/kso/sidecar.env.example
 ```
 
+## Preflight validator
+
+После bootstrap используйте `preflight/kso_linux_preflight.py` для проверки готовности.
+
+```bash
+# Staging:
+python3 infra/kso-linux/preflight/kso_linux_preflight.py \
+    --target-root /tmp/kso-install-root
+
+# Production (readonly):
+python3 infra/kso-linux/preflight/kso_linux_preflight.py --target-root /
+
+# С проверкой unit syntax и CLI:
+python3 infra/kso-linux/preflight/kso_linux_preflight.py \
+    --target-root / --verify-units --verify-cli
+```
+
+**Что проверяет preflight:**
+
+| Категория | Что проверяется |
+|---|---|
+| Каталоги | 6 контрактных директорий, writable для var_lib/run/log |
+| Systemd units | Наличие kso-sidecar.service + kso-player.service |
+| Env files | Наличие, placeholders, required keys, HTTPS |
+| Chromium | Настроен ли VERNY_KSO_CHROMIUM_BIN |
+| Player shell | 5 required files в player_shell/ |
+| Health path | Writable /run/verny/kso |
+| CLI | sidecar-daemon --help, runtime-daemon --help |
+
+**Preflight НИКОГДА:**
+- ❌ Не меняет файлы
+- ❌ Не запускает сервисы
+- ❌ Не печатает значения секретов/токенов/URL
+
+**Порядок:** bootstrap готовит структуру → preflight проверяет → ручной запуск сервисов.
+
 ## Что будет позже
 
 - `install.sh` — установочный скрипт
