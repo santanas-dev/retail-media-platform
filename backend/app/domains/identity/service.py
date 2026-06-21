@@ -43,7 +43,7 @@ async def authenticate_user(
             user.failed_attempts = (user.failed_attempts or 0) + 1
             if user.failed_attempts >= 5:
                 user.is_locked = True
-                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=30)
             await db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -55,6 +55,16 @@ async def authenticate_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is disabled",
+        )
+    if user.is_archived:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is archived",
+        )
+    if user.is_service_account:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Service accounts cannot login through portal",
         )
     if user.is_locked:
         if user.locked_until and user.locked_until > datetime.now(timezone.utc):

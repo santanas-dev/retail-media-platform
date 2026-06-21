@@ -23,9 +23,37 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
 
 
+def validate_password_policy(plain_password: str) -> tuple[bool, str | None]:
+    """Validate password meets the platform policy.
+
+    Returns (is_valid, error_message).
+    Error is None when password is valid.
+
+    Policy:
+    - Length: 8–128 characters
+    - Future: complexity enforcement (not in v1 — admin sets passwords)
+    """
+    if not plain_password:
+        return False, "Password must not be empty"
+    if len(plain_password) < 8:
+        return False, "Password must be at least 8 characters"
+    if len(plain_password) > 128:
+        return False, "Password must not exceed 128 characters"
+    return True, None
+
+
 def hash_refresh_token(token: str) -> str:
     """SHA-256 hash of a refresh token for storage."""
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def verify_refresh_token_hash(raw_token: str, token_hash: str) -> bool:
+    """Verify a raw refresh token against its stored SHA-256 hash.
+
+    Uses constant-time comparison via hmac.compare_digest.
+    """
+    computed = hash_refresh_token(raw_token)
+    return hmac.compare_digest(computed.encode(), token_hash.encode())
 
 
 def create_access_token(data: dict, settings: Settings) -> tuple[str, datetime]:
