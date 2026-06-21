@@ -1,0 +1,35 @@
+[Unit]
+Description=KSO Sidecar Agent — manifest/media sync + PoP delivery
+Documentation=https://hermes-agent.nousresearch.com/docs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/verny/kso/sidecar.env
+ExecStart=/usr/bin/python3 -m kso_sidecar_agent.cli sidecar-daemon \
+    --root /var/lib/verny/kso \
+    --backend-url ${VERNY_KSO_BACKEND_URL} \
+    --device-code ${VERNY_KSO_DEVICE_CODE} \
+    --device-secret-env VERNY_KSO_DEVICE_SECRET \
+    --health-file /run/verny/kso/sidecar-health.json
+
+WorkingDirectory=/opt/verny/kso
+Restart=always
+RestartSec=5
+
+# ── Security hardening ────────────────────────────────────────────────
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/verny/kso /run/verny/kso /var/log/verny/kso
+ReadOnlyPaths=/opt/verny/kso /etc/verny/kso
+
+# ── Logging ───────────────────────────────────────────────────────────
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kso-sidecar
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,38 @@
+[Unit]
+Description=KSO Player — Chromium kiosk ad display daemon
+Documentation=https://hermes-agent.nousresearch.com/docs
+After=kso-sidecar.service
+Wants=kso-sidecar.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/verny/kso/player.env
+ExecStart=/usr/bin/python3 -m kso_player.cli runtime-daemon \
+    --root /var/lib/verny/kso \
+    --source-shell-dir /opt/verny/kso/player_shell \
+    --runtime-shell-dir /var/lib/verny/kso/runtime/player_shell \
+    --chromium-bin ${VERNY_KSO_CHROMIUM_BIN} \
+    --confirm-launch \
+    --confirm-display-completed \
+    --max-cycles -1 \
+    --health-file /run/verny/kso/player-health.json
+
+WorkingDirectory=/opt/verny/kso
+Restart=always
+RestartSec=5
+
+# ── Security hardening ────────────────────────────────────────────────
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/verny/kso /run/verny/kso /var/log/verny/kso
+ReadOnlyPaths=/opt/verny/kso /etc/verny/kso
+
+# ── Logging ───────────────────────────────────────────────────────────
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kso-player
+
+[Install]
+WantedBy=multi-user.target
