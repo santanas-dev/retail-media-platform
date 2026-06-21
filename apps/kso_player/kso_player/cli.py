@@ -15,6 +15,7 @@ Commands:
     display-complete-once Run completed display cycle: optional completed PoP write
     visible-runtime-once Prepare and optionally launch a visible KSO ad in Chromium
     runtime-cycle-once   Run one timed cycle: prepare → launch → wait → re-check → PoP
+    runtime-loop         Run multi-cycle loop with live snapshot rotation
     --help             Show help
 
 Only reads manifest/current_manifest.json and media/current/.
@@ -48,6 +49,12 @@ from kso_player.runtime_cycle import (
     format_kso_runtime_cycle_result,
     STATUS_OK as RC_STATUS_OK,
     STATUS_ERROR as RC_STATUS_ERROR,
+)
+from kso_player.runtime_loop import (
+    run_kso_runtime_loop,
+    format_kso_runtime_loop_result,
+    STATUS_OK as RL_STATUS_OK,
+    STATUS_ERROR as RL_STATUS_ERROR,
 )
 from kso_player.session import select_next_item
 from kso_player.simulator import simulate_playback_step, SIM_STATUS_WOULD_PLAY
@@ -402,6 +409,40 @@ def cmd_runtime_cycle_once(args: argparse.Namespace) -> None:
     sys.exit(0)
 
 
+def cmd_runtime_loop(args: argparse.Namespace) -> None:
+    """Run a multi-cycle KSO runtime loop with live snapshot rotation.
+
+    Full pipeline:
+      1. (optional) --prepare-demo-fixture
+      2. Prepare runtime shell once
+      3. (if --confirm-launch) launch Chromium once
+      4. Loop --max-cycles times:
+         - Check KSO state → hold if not idle
+         - Select next item (round-robin by slot_order)
+         - Write live snapshot → shell auto-refreshes
+         - Wait durationMs
+         - Re-check state → if idle + confirm → write completed PoP
+
+    Chromium is launched at most ONCE. Shell refreshes via live snapshots.
+    Completed PoP is NEVER written without --confirm-display-completed.
+    """
+    result = run_kso_runtime_loop(
+        root=args.root,
+        source_shell_dir=args.source_shell_dir,
+        runtime_shell_dir=args.runtime_shell_dir,
+        chromium_bin=args.chromium_bin,
+        confirm_launch=args.confirm_launch,
+        confirm_display_completed=args.confirm_display_completed,
+        prepare_demo_fixture=args.prepare_demo_fixture,
+        max_cycles=args.max_cycles,
+        stale_seconds=args.stale_seconds,
+    )
+    print(format_kso_runtime_loop_result(result))
+    if result.status == RL_STATUS_ERROR:
+        sys.exit(1)
+    sys.exit(0)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kso-player",
@@ -535,6 +576,27 @@ def _build_parser() -> argparse.ArgumentParser:
     rc.add_argument("--prepare-demo-fixture", action="store_true", default=False,
                     help="Auto-create demo root: idle state + manifest + media")
     rc.set_defaults(func=cmd_runtime_cycle_once)
+
+    rl = sub.add_parser("runtime-loop",
+                        help="Run a multi-cycle KSO runtime loop with live snapshot rotation")
+    rl.add_argument("--root", required=True, help="Agent root path")
+    rl.add_argument("--source-shell-dir", required=True,
+                    help="Immutable source shell directory")
+    rl.add_argument("--runtime-shell-dir", required=True,
+                    help="Mutable runtime shell directory")
+    rl.add_argument("--chromium-bin", type=str, default="chromium",
+                    help="Chromium binary path (default: chromium)")
+    rl.add_argument("--stale-seconds", type=int, default=30,
+                    help="Max state age before stale (default: 30)")
+    rl.add_argument("--confirm-launch", action="store_true", default=False,
+                    help="Launch Chromium once for all cycles")
+    rl.add_argument("--confirm-display-completed", action="store_true", default=False,
+                    help="Write completed PoP after each successful cycle")
+    rl.add_argument("--prepare-demo-fixture", action="store_true", default=False,
+                    help="Auto-create demo root: idle state + manifest + media")
+    rl.add_argument("--max-cycles", type=int, default=1,
+                    help="Max cycles to run (default: 1, for safety)")
+    rl.set_defaults(func=cmd_runtime_loop)
 
     return parser
 

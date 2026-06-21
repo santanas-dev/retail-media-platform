@@ -1550,6 +1550,66 @@ python3 -m kso_player.cli runtime-cycle-once \
 - `runtime-cycle-once` — готовит показ, ждёт durationMs, перепроверяет idle, пишет PoP только по confirm
 - Future systemd service будет вызывать этот цикл непрерывно
 
+## Runtime loop
+
+🔁 **Реализован:** `runtime-loop` CLI — многоцикловая ротация без перезапуска Chromium.
+
+### Что делает
+
+```
+Chromium shell открыт один раз
+→ Loop max_cycles:
+  → check KSO state (idle?)
+  → select next item (round-robin by slotOrder)
+  → write live snapshot → shell auto-refreshes
+  → wait durationMs (clamped 1-60s)
+  → re-check state
+  → if idle + confirm → write completed PoP
+```
+
+### Без confirm-флагов
+
+```bash
+python3 -m kso_player.cli runtime-loop \
+  --root /tmp/kso-demo-root \
+  --source-shell-dir ./player_shell \
+  --runtime-shell-dir /tmp/kso-demo-runtime/player_shell \
+  --chromium-bin chromium \
+  --max-cycles 3
+```
+
+### С Chromium и PoP
+
+```bash
+python3 -m kso_player.cli runtime-loop \
+  --root /tmp/kso-demo-root \
+  --source-shell-dir ./player_shell \
+  --runtime-shell-dir /tmp/kso-demo-runtime/player_shell \
+  --chromium-bin chromium \
+  --prepare-demo-fixture \
+  --confirm-launch \
+  --confirm-display-completed \
+  --max-cycles 3
+```
+
+### Ротация
+
+- Items sorted by `slotOrder`
+- Round-robin: 0→1→2→0→1→...
+- Один item в manifest → показывается каждый цикл
+
+### Сравнение команд
+
+| Команда | Chromium | Циклы | PoP |
+|---|---|---|---|
+| `visible-runtime-once` | один раз | 1 snapshot | нет |
+| `runtime-cycle-once` | один раз | 1 цикл + wait | optional |
+| `runtime-loop` | один раз | N циклов | per-cycle optional |
+
+### Важные замечания
+
+- Future systemd service будет вызывать `runtime-loop` непрерывно
+
 ## Live snapshot refresh
 
 🔄 **Реализован:** Shell live refresh — обновление рекламы без перезапуска Chromium.
