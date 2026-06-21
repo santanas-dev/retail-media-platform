@@ -46,6 +46,9 @@ class TestSystemdTemplatesExist(unittest.TestCase):
     def test_player_service_exists(self):
         self.assertTrue((_SYSTEMD_DIR / "kso-player.service").is_file())
 
+    def test_state_adapter_service_exists(self):
+        self.assertTrue((_SYSTEMD_DIR / "kso-state-adapter.service").is_file())
+
     def test_env_dir_exists(self):
         self.assertTrue(_ENV_DIR.is_dir())
 
@@ -54,6 +57,9 @@ class TestSystemdTemplatesExist(unittest.TestCase):
 
     def test_player_env_example_exists(self):
         self.assertTrue((_ENV_DIR / "kso-player.env.example").is_file())
+
+    def test_state_adapter_env_example_exists(self):
+        self.assertTrue((_ENV_DIR / "kso-state-adapter.env.example").is_file())
 
     def test_readme_exists(self):
         self.assertTrue(_README_PATH.is_file())
@@ -149,6 +155,11 @@ class TestSidecarServiceContent(unittest.TestCase):
     def test_root_path(self):
         self.assertIn("--root /var/lib/verny/kso", self.content)
 
+    def test_no_state_adapter_dependency(self):
+        """Sidecar must not depend on state adapter."""
+        self.assertNotIn("kso-state-adapter", self.content,
+                         "Sidecar must not depend on state adapter")
+
 
 class TestPlayerServiceContent(unittest.TestCase):
     """kso-player.service content checks."""
@@ -174,13 +185,17 @@ class TestPlayerServiceContent(unittest.TestCase):
         self.assertNotIn(".msi", self.content.lower())
 
     def test_uses_wants_not_requires_for_sidecar(self):
-        self.assertIn("Wants=kso-sidecar.service", self.content)
+        # Wants may list multiple services: "Wants=kso-state-adapter.service kso-sidecar.service"
+        self.assertIn("Wants=kso-state-adapter.service", self.content)
+        self.assertIn("kso-sidecar.service", self.content)
         self.assertNotIn("Requires=kso-sidecar.service", self.content,
-                         "Player must use Wants= not Requires= for sidecar "
-                         "(can work with local cache)")
+                         "Player must use Wants= not Requires= for sidecar")
+        self.assertNotIn("Requires=kso-state-adapter.service", self.content,
+                         "Player must use Wants= not Requires= for state adapter")
 
     def test_after_sidecar_service(self):
-        self.assertIn("After=kso-sidecar.service", self.content)
+        self.assertIn("kso-sidecar.service", self.content)
+        self.assertIn("kso-state-adapter.service", self.content)
 
     def test_chromium_bin_from_env(self):
         self.assertIn("${VERNY_KSO_CHROMIUM_BIN}", self.content)
@@ -235,6 +250,41 @@ class TestPlayerServiceContent(unittest.TestCase):
     def test_runtime_shell_path(self):
         self.assertIn("--runtime-shell-dir /var/lib/verny/kso/runtime/player_shell",
                       self.content)
+
+
+class TestAdapterServiceContent(unittest.TestCase):
+    """kso-state-adapter.service content checks."""
+
+    def setUp(self):
+        self.content = _read(_SYSTEMD_DIR / "kso-state-adapter.service")
+
+    def test_uses_state_adapter_cli(self):
+        self.assertIn("kso_state_adapter.cli daemon", self.content)
+
+    def test_uses_linux_paths_only(self):
+        self.assertIn("/var/lib/verny/kso", self.content)
+
+    def test_no_windows_paths(self):
+        self.assertNotIn("C:\\", self.content)
+
+    def test_no_real_secrets(self):
+        self.assertNotIn("CHANGE_ME", self.content)
+
+    def test_health_file_path(self):
+        self.assertIn("/run/verny/kso/state-adapter-health.json", self.content)
+
+    def test_security_hardening(self):
+        self.assertIn("NoNewPrivileges=true", self.content)
+        self.assertIn("ProtectSystem=full", self.content)
+
+    def test_source_state_from_env(self):
+        self.assertIn("${VERNY_KSO_STATIC_STATE}", self.content)
+
+    def test_env_file_path(self):
+        self.assertIn("/etc/verny/kso/state-adapter.env", self.content)
+
+    def test_restart_policy(self):
+        self.assertIn("Restart=always", self.content)
 
 
 class TestEnvExamples(unittest.TestCase):

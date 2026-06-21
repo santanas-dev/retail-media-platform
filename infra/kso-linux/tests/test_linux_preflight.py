@@ -63,6 +63,7 @@ def _setup_staging_root(base: Path) -> Path:
     sd.mkdir(parents=True, exist_ok=True)
     (sd / "kso-sidecar.service").write_text("[Unit]\n")
     (sd / "kso-player.service").write_text("[Unit]\n")
+    (sd / "kso-state-adapter.service").write_text("[Unit]\n")
 
     # Env files
     etc = target / "etc/verny/kso"
@@ -74,6 +75,9 @@ def _setup_staging_root(base: Path) -> Path:
     )
     (etc / "kso-player.env").write_text(
         "VERNY_KSO_CHROMIUM_BIN=/usr/bin/chromium\n"
+    )
+    (etc / "kso-state-adapter.env").write_text(
+        "VERNY_KSO_STATIC_STATE=unknown\n"
     )
 
     return target

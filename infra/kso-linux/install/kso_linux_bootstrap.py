@@ -180,6 +180,8 @@ def _collect_plan(target_root: str, result: BootstrapResult):
          _resolve_target(target_root, KSO_PATHS["systemd"]) / "kso-sidecar.service"),
         (_SYSTEMD_SRC / "kso-player.service",
          _resolve_target(target_root, KSO_PATHS["systemd"]) / "kso-player.service"),
+        (_SYSTEMD_SRC / "kso-state-adapter.service",
+         _resolve_target(target_root, KSO_PATHS["systemd"]) / "kso-state-adapter.service"),
     ]
 
     env_files = [
@@ -187,6 +189,8 @@ def _collect_plan(target_root: str, result: BootstrapResult):
          _resolve_target(target_root, KSO_PATHS["etc"]) / "kso-sidecar.env.example"),
         (_ENV_SRC / "kso-player.env.example",
          _resolve_target(target_root, KSO_PATHS["etc"]) / "kso-player.env.example"),
+        (_ENV_SRC / "kso-state-adapter.env.example",
+         _resolve_target(target_root, KSO_PATHS["etc"]) / "kso-state-adapter.env.example"),
     ]
 
     return dirs, files, env_files
@@ -339,9 +343,10 @@ def run_bootstrap(
         runner = command_runner or _default_command_runner
         sidecar_unit = _resolve_target(target_root, KSO_PATHS["systemd"]) / "kso-sidecar.service"
         player_unit = _resolve_target(target_root, KSO_PATHS["systemd"]) / "kso-player.service"
+        adapter_unit = _resolve_target(target_root, KSO_PATHS["systemd"]) / "kso-state-adapter.service"
 
         all_ok = True
-        for unit in [sidecar_unit, player_unit]:
+        for unit in [sidecar_unit, player_unit, adapter_unit]:
             if not unit.exists():
                 result.unit_verify_status = "missing"
                 result.warnings.append("Unit file not found for verify")

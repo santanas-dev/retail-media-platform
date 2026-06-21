@@ -1,20 +1,14 @@
 [Unit]
-Description=KSO Player — Chromium kiosk ad display daemon
+Description=KSO State Adapter — writes kso_state.json from UKM 4 terminal
 Documentation=https://hermes-agent.nousresearch.com/docs
-After=kso-state-adapter.service kso-sidecar.service
-Wants=kso-state-adapter.service kso-sidecar.service
 
 [Service]
 Type=simple
-EnvironmentFile=/etc/verny/kso/player.env
-ExecStart=/usr/bin/python3 -m kso_player.cli runtime-daemon \
+EnvironmentFile=/etc/verny/kso/state-adapter.env
+ExecStart=/usr/bin/python3 -m kso_state_adapter.cli daemon \
     --root /var/lib/verny/kso \
-    --source-shell-dir /opt/verny/kso/player_shell \
-    --runtime-shell-dir /var/lib/verny/kso/runtime/player_shell \
-    --chromium-bin ${VERNY_KSO_CHROMIUM_BIN} \
-    --confirm-launch \
-    --confirm-display-completed \
-    --health-file /run/verny/kso/player-health.json
+    --source-state ${VERNY_KSO_STATIC_STATE} \
+    --health-file /run/verny/kso/state-adapter-health.json
 
 WorkingDirectory=/opt/verny/kso
 Restart=always
@@ -31,7 +25,7 @@ ReadOnlyPaths=/opt/verny/kso /etc/verny/kso
 # ── Logging ───────────────────────────────────────────────────────────
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=kso-player
+SyslogIdentifier=kso-state-adapter
 
 [Install]
 WantedBy=multi-user.target

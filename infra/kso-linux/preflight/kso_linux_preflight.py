@@ -51,10 +51,11 @@ READONLY_DIRS = ("opt",)  # /opt/verny/kso — source
 WRITABLE_DIRS = ("var_lib", "run", "var_log")  # must be writable
 ALWAYS_CHECK = ("opt", "etc", "var_lib", "run", "var_log", "systemd")
 
-SYSTEMD_UNITS = ("kso-sidecar.service", "kso-player.service")
+SYSTEMD_UNITS = ("kso-sidecar.service", "kso-player.service", "kso-state-adapter.service")
 
 SIDECAR_ENV_NAME = "kso-sidecar.env"
 PLAYER_ENV_NAME = "kso-player.env"
+ADAPTER_ENV_NAME = "kso-state-adapter.env"
 
 SIDECAR_ENV_REQUIRED_KEYS = frozenset({
     "VERNY_KSO_BACKEND_URL",
@@ -64,6 +65,10 @@ SIDECAR_ENV_REQUIRED_KEYS = frozenset({
 
 PLAYER_ENV_REQUIRED_KEYS = frozenset({
     "VERNY_KSO_CHROMIUM_BIN",
+})
+
+ADAPTER_ENV_REQUIRED_KEYS = frozenset({
+    "VERNY_KSO_STATIC_STATE",
 })
 
 PLAYER_SHELL_REQUIRED_FILES = (
@@ -167,6 +172,12 @@ class PreflightResult:
     # ── CLI checks ──────────────────────────────────────────────────
     cli_sidecar_ok: bool = False
     cli_player_ok: bool = False
+    cli_state_adapter_ok: bool = False
+
+    # ── State adapter env ───────────────────────────────────────────
+    state_adapter_env_present: bool = False
+    state_adapter_env_has_placeholders: bool = True
+    state_adapter_env_missing_keys_count: int = 0
 
     # ── Health path check ───────────────────────────────────────────
     health_path_writable: bool = False
@@ -412,6 +423,41 @@ def run_preflight(
         result.player_env_present = False
         result.warnings.append("Player env file not found")
 
+    # ── State adapter env ───────────────────────────────────────────
+    adapter_env = etc_dir / ADAPTER_ENV_NAME
+    if adapter_env.is_file():
+        result.state_adapter_env_present = True
+        try:
+            content = adapter_env.read_text()
+            env_vars = _parse_env(content)
+
+            has_any = False
+            for val in env_vars.values():
+                if _has_placeholders(val):
+                    has_any = True
+                    break
+            result.state_adapter_env_has_placeholders = has_any
+            if has_any:
+                result.warnings.append("State adapter env contains placeholders")
+
+            missing = ADAPTER_ENV_REQUIRED_KEYS - set(env_vars.keys())
+            result.state_adapter_env_missing_keys_count = len(missing)
+            if missing:
+                result.warnings.append("State adapter env missing required keys")
+
+            # Warn if static_state=idle in production
+            static_state = env_vars.get("VERNY_KSO_STATIC_STATE", "")
+            if static_state == "idle":
+                result.warnings.append(
+                    "State adapter env has VERNY_KSO_STATIC_STATE=idle — "
+                    "safe only for local testing"
+                )
+        except Exception:
+            result.warnings.append("Cannot read state adapter env")
+    else:
+        result.state_adapter_env_present = False
+        result.warnings.append("State adapter env file not found")
+
     # ══════════════════════════════════════════════════════════════════
     # 4. Chromium check (via env — no launch)
     # ══════════════════════════════════════════════════════════════════
@@ -479,6 +525,18 @@ def run_preflight(
         except Exception:
             result.warnings.append("Player CLI not accessible")
 
+        # State adapter CLI
+        try:
+            exit_code, _, _ = command_runner(
+                ["python3", "-m", "kso_state_adapter.cli", "daemon", "--help"]
+            )
+            if exit_code == 0:
+                result.cli_state_adapter_ok = True
+            else:
+                result.warnings.append("State adapter CLI help failed")
+        except Exception:
+            result.warnings.append("State adapter CLI not accessible")
+
     # ══════════════════════════════════════════════════════════════════
     # Summary
     # ══════════════════════════════════════════════════════════════════
@@ -498,6 +556,9 @@ def run_preflight(
     if result.player_env_present:
         passed += 1
     total_checks += 1
+    if result.state_adapter_env_present:
+        passed += 1
+    total_checks += 1
 
     # Player shell
     total_checks += 1
@@ -511,10 +572,12 @@ def run_preflight(
 
     # CLI
     if verify_cli:
-        total_checks += 2
+        total_checks += 3
         if result.cli_sidecar_ok:
             passed += 1
         if result.cli_player_ok:
+            passed += 1
+        if result.cli_state_adapter_ok:
             passed += 1
 
     result.checks_passed = passed
