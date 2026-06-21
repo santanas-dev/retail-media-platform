@@ -481,7 +481,17 @@ def _materialize_under_lock(
         manifest_data = read_current_manifest(root)
         manifest_items = manifest_data.get("items", [])
     except Exception:
-        manifest_items = None
+        # Legacy format failed — try KSO safe format
+        try:
+            from kso_sidecar_agent.kso_safe_manifest_context import (
+                read_kso_safe_manifest_context,
+                get_manifest_items_for_classifier,
+            )
+            ctx = read_kso_safe_manifest_context(root)
+            if ctx.format == "kso_safe":
+                manifest_items = get_manifest_items_for_classifier(ctx)
+        except Exception:
+            manifest_items = None
 
     try:
         from kso_sidecar_agent.media_cache import media_cache_status
@@ -491,6 +501,13 @@ def _materialize_under_lock(
         media_cache_complete = (items_total > 0 and items_cached == items_total)
     except Exception:
         media_cache_complete = None
+
+    # Legacy media check incomplete — try KSO-aware check
+    if media_cache_complete is not True and manifest_items is not None:
+        from kso_sidecar_agent.pop_pickup import _kso_media_cache_check
+        kso_check = _kso_media_cache_check(root, manifest_items)
+        if kso_check is True:
+            media_cache_complete = True
 
     # ── Read JSONL ───────────────────────────────────────────────
     try:

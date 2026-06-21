@@ -1747,6 +1747,62 @@ python3 -m kso_sidecar_agent.cli sync-manifest \
 - ✅ Forbidden words в config/status/errors — reject
 - ✅ Атомарная запись: не оставляет `.tmp`
 
+## KSO Completed PoP Confirmed Send Lifecycle
+
+**Реализован:** полный lifecycle отправки completed PoP (шаг 29.7).
+
+### Pipeline
+
+```
+player completed PoP → pop/pending/player_events.jsonl
+→ sidecar pickup scan → CLASS_ELIGIBLE
+→ build_pop_send_package (под lock) → PopPayloadEnvelope + PopRotationSentScope
+→ run_pop_scoped_send → fake/real send → PopSendRunResult
+→ apply_pop_rotation_local → sent/quarantine/dry_run/failed → pending rewrite
+```
+
+### Ключевые правила
+
+| Правило | |
+|---|---|
+| **Pending не удаляется до confirmed accept** | Только `apply_pop_rotation_local` с `send_run_result.run_status=ok` и `pending_should_remain=False` перемещает события из pending в sent |
+| **Dry-run сохраняет pending** | `build_pop_send_package` + `scan_pending_pop_events` — read-only |
+| **Ошибки отправки сохраняют pending** | Network error, backend reject, validation error → pending untouched |
+| **Confirmed accept → sent** | После `run_pop_scoped_send` с `send_success=True` → `apply_pop_rotation_local` перемещает в `pop/sent/` |
+| **Duplicate/second send безопасен** | После rotation apply pending пуст → второй send не находит eligible → no-op |
+| **Sent event не отправляется дважды** | `pop/sent/` содержит архив отправленных событий |
+
+### Fake sender contract
+
+Тесты используют `FakeHttpClient` (из `test_pop_scoped_send.py`):
+
+```python
+FakeHttpResponse(
+    status_code=200,
+    json_body={"status": "processed", "summary": {"accepted": 1}},
+)
+```
+
+Запрещено: real POST, real HTTP, real token/config/secret reads.
+
+### Payload safety
+
+Completed PoP payload содержит только safe поля:
+- `selected_order` (int) — порядковый номер слота
+- `selected_content_type` (str) — тип контента
+- `duration_ms` (int) — длительность
+- `play_status` (str) — всегда `"completed"`
+
+Payload **не содержит** raw IDs, manifest_item_id, campaign_id, filename, sha256, paths, media bytes, token, secret, backend URL, stacktrace.
+
+### KSO Safe Manifest Support
+
+`pop_send_package.py` и `pop_rotation_materializer.py` поддерживают KSO safe manifest через fallback:
+1. Legacy manifest (`read_current_manifest`) 
+2. KSO safe manifest (`read_kso_safe_manifest_context`)
+
+KSO-aware media cache check через `_kso_media_cache_check` (existence-only, без sha256).
+
 ## Тесты
 
 ```bash
