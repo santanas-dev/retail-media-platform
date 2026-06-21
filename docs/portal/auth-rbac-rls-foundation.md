@@ -25,7 +25,7 @@
 | Аналитик | `analyst` | BI-отчёты, Excel export, план/факт |
 | Рекламодатель | `advertiser` | Только свои кампании и креативы |
 | Оператор | `operations` | Мониторинг магазинов/КСО, развёртывание |
-| Сервис КСО | `device_service` | Только КСО-устройства, развёртывание |
+| Сервис КСО | `device_service` | Machine-only: Device Gateway, Sidecar, Player, Service API. Нет human UI. |
 
 Роли назначаются через группы Active Directory / IdP. Маппинг: AD-группа → роль платформы.
 
@@ -57,7 +57,7 @@
 
 | Permission | sys_admin | sec_admin | ad_mgr | approver | analyst | advertiser | ops | device |
 |---|---|---|---|---|---|---|---|---|
-| view_dashboard | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| view_dashboard | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
 | view_stores | ✅ | — | ✅ | — | ✅ | — | ✅ | — |
 | view_devices | ✅ | — | ✅ | — | ✅ | — | ✅ | ✅ |
 | view_creatives | ✅ | — | ✅ | ✅ | ✅ | ✅ | — | — |
@@ -148,6 +148,16 @@ RLS scopes additive — пользователь видит union своих sco
 - Видит магазины и КСО в своём филиале
 - Мониторит статус устройств
 - Доступ к развёртыванию без возможности менять сервисы
+
+## Роль device_service (machine-only)
+
+**device_service не является пользователем портала.** Это техническая роль для сервисного взаимодействия:
+
+- **Не аутентифицируется через `/login`.** Не имеет human UI-сессии.
+- **Не имеет доступа к portal pages.** `allowed_pages` = пустой.
+- **Используется через:** Device Gateway, Sidecar, Player, Service API.
+- **Разрешения (`view_devices`, `view_deployment`, `manage_devices`) действуют только в API/сервисном контексте.**
+- **Отображается в Admin UI и RLS-документации только для governance.**
 
 ## Роль администратора
 

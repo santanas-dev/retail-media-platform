@@ -333,9 +333,9 @@
         <td>✅</td>
       </tr>
       <tr>
-        <td><strong>Сервис КСО</strong></td>
-        <td>Deployment</td>
-        <td>Только развёртывание</td>
+        <td><strong>Сервис КСО</strong> <span class="requirements-value requirements-forbidden">machine-only</span></td>
+        <td>— (machine-only)</td>
+        <td>Нет human UI-доступа</td>
         <td>Магазины, КСО</td>
         <td>—</td>
         <td>—</td>
@@ -409,7 +409,7 @@
       </tr>
       <tr>
         <td>device_service</td>
-        <td>Только развёртывание</td>
+        <td>Нет (machine-only, API-only)</td>
         <td>Свои КСО</td>
         <td>Нет доступа</td>
         <td>Нет (machine-only)</td>
@@ -417,5 +417,11 @@
     </tbody>
   </table>
   </div>
+</div>
+
+<!-- Note: device_service machine-only -->
+<div class="note-box">
+  <span class="note-icon">🤖</span>
+  <span class="note-text"><strong>device_service</strong> — техническая роль для сервисного взаимодействия (Device Gateway, Sidecar, Player, Service API). Вход в пользовательский web-портал для этой роли запрещён. Роль не имеет human UI-сессии и не аутентифицируется через страницу входа портала. В Admin и RLS-документации отображается только для governance и аудита.</span>
 </div>
 {% endblock %}

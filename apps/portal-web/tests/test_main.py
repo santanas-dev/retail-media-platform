@@ -1757,6 +1757,13 @@ class TestRolePortalViews(unittest.TestCase):
 
     def test_all_roles_have_allowed_pages(self):
         for view in self.views.values():
+            if view.role_id == "device_service":
+                # machine-only — allowed_pages must be empty
+                self.assertEqual(
+                    len(view.allowed_pages), 0,
+                    f"device_service must have empty allowed_pages (machine-only)"
+                )
+                continue
             self.assertTrue(len(view.allowed_pages) > 0,
                             f"{view.role_id} must have allowed pages")
 
@@ -1771,9 +1778,34 @@ class TestRolePortalViews(unittest.TestCase):
 
     def test_device_service_has_no_human_ui(self):
         view = self.views["device_service"]
-        self.assertIn("/deployment", view.allowed_pages)
+        # allowed_pages must be empty — no human portal pages
+        self.assertEqual(len(view.allowed_pages), 0,
+                         "device_service must have no human portal pages")
+        self.assertNotIn("/deployment", view.allowed_pages)
         self.assertNotIn("/dashboard", view.allowed_pages)
         self.assertNotIn("/campaigns", view.allowed_pages)
+        self.assertNotIn("/admin", view.allowed_pages)
+        self.assertNotIn("/reports", view.allowed_pages)
+        # primary_page must signal machine-only
+        self.assertIn("machine-only", view.primary_page.lower())
+
+    def test_device_service_is_marked_machine_only(self):
+        from security_contract import DEVICE_SERVICE_IS_MACHINE_ONLY
+        self.assertTrue(DEVICE_SERVICE_IS_MACHINE_ONLY,
+                        "DEVICE_SERVICE_IS_MACHINE_ONLY must be True")
+
+    def test_device_service_has_no_human_portal_login(self):
+        view = self.views["device_service"]
+        self.assertIn("machine-only", view.role_label.lower())
+        self.assertIn("machine-only", view.primary_page.lower())
+        # description must explicitly forbid human portal login
+        self.assertIn("не аутентифицируется", view.description.lower())
+        self.assertIn("human ui", view.description.lower())
+
+    def test_device_service_not_in_page_role_matrix(self):
+        for route, roles in self.page_matrix.items():
+            self.assertNotIn("device_service", roles,
+                             f"device_service must not be in PAGE_ROLE_MATRIX for '{route}'")
 
     def test_advertiser_cannot_access_admin_deployment_devices(self):
         view = self.views["advertiser"]
@@ -1826,6 +1858,12 @@ class TestRolePortalViews(unittest.TestCase):
         text = " ".join(self.rls_rules).lower()
         self.assertIn("maker-checker", text)
 
+    def test_rls_rules_explicitly_forbid_device_service_human_login(self):
+        text = " ".join(self.rls_rules).lower()
+        self.assertIn("device service must not authenticate through human portal login", text)
+        self.assertIn("device service must not access ordinary portal pages", text)
+        self.assertIn("service/api/device-gateway context", text)
+
     def test_forbidden_fields_include_secrets(self):
         for fb in ("device_secret", "access_token", "password",
                     "manifest_hash", "sha256", "fingerprint",
@@ -1867,6 +1905,13 @@ class TestRlsNotesOnPages(unittest.TestCase):
         resp = self.client.get("/devices")
         self.assertIn("своём филиале", resp.text.lower())
 
+    def test_admin_explains_device_service_is_machine_only(self):
+        resp = self.client.get("/admin")
+        self.assertIn("machine-only", resp.text)
+        self.assertIn("техническая роль", resp.text.lower())
+        self.assertIn("Вход в пользовательский web-портал", resp.text)
+        self.assertIn("запрещён", resp.text.lower())
+
 
 class TestRlsDocsExist(unittest.TestCase):
     """docs/portal/rls-role-portal-views.md exists and covers key topics."""
@@ -1903,6 +1948,16 @@ class TestRlsDocsExist(unittest.TestCase):
 
     def test_doc_says_ui_hiding_is_not_security(self):
         self.assertIn("ui hiding is not security", self.content)
+
+    def test_doc_explains_device_service_machine_only(self):
+        self.assertIn("machine-only", self.content)
+        self.assertIn("не является пользователем портала", self.content)
+        self.assertIn("не имеет human ui", self.content)
+        self.assertIn("device gateway", self.content)
+
+    def test_doc_says_device_service_no_human_portal_login(self):
+        self.assertIn("не аутентифицируется", self.content)
+        self.assertIn("отдельный контур", self.content)
 
 
 # ══════════════════════════════════════════════════════════════════════

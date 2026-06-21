@@ -40,8 +40,28 @@ ROLE_LABELS: dict[str, str] = {
     "analyst": "Аналитик",
     "advertiser": "Рекламодатель",
     "operations": "Оператор",
-    "device_service": "Сервис КСО",
+    "device_service": "Сервис КСО (machine-only)",
 }
+
+# ═══════════════════════════════════════════════════════════════════════
+# Machine-Only Role Contract
+# ═══════════════════════════════════════════════════════════════════════
+
+DEVICE_SERVICE_IS_MACHINE_ONLY: bool = True
+"""device_service is a technical machine-only role.
+
+It must NOT:
+- authenticate through human portal login
+- access ordinary portal pages as a user
+- have a human web UI session
+
+It MAY be referenced ONLY in:
+- service/API/device-gateway context
+- Admin/RLS documentation for governance and visibility
+
+This constant is checked by tests and docs to ensure the contract
+is never accidentally weakened.
+"""
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -116,8 +136,7 @@ ROLE_PERMISSIONS: dict[str, FrozenSet[str]] = {
         "view_deployment", "manage_devices",
     }),
     "device_service": frozenset({
-        "view_dashboard", "view_devices",
-        "view_deployment", "manage_devices",
+        "view_devices", "view_deployment", "manage_devices",
     }),
 }
 
@@ -219,6 +238,7 @@ SECURITY_PRINCIPLES: tuple[str, ...] = (
     "BI reports must apply RLS filters before aggregation.",
     "Approval workflow must enforce role-based routing.",
     "All access decisions are made server-side, never client-side.",
+    "device_service is a machine-only role — no human portal UI access.",
 )
 
 
@@ -319,6 +339,10 @@ RLS_RULES: tuple[str, ...] = (
     "Manifest publication requires final approval.",
     "Emergency stop requires MFA, reason, and audit entry.",
     "Device service account has no human portal UI access (machine-only).",
+    "Device service must not authenticate through human portal login.",
+    "Device service must not access ordinary portal pages as a user.",
+    "Device service may be referenced only in service/API/device-gateway context.",
+    "Device service may appear in Admin/RLS documentation for governance only.",
     "Advertiser sees only own campaigns and reports (advertiser_scope).",
     "Operations sees technical KSO state but not commercial terms.",
     "Admin user management does not bypass business approvals.",
@@ -546,10 +570,10 @@ ROLE_PORTAL_VIEWS: tuple[RolePortalView, ...] = (
     ),
     RolePortalView(
         role_id="device_service",
-        role_label="Сервис КСО",
-        primary_zone="Техническое обслуживание КСО-устройств",
-        allowed_pages=frozenset({"/deployment"}),
-        primary_page="/deployment",
+        role_label="Сервис КСО (machine-only)",
+        primary_zone="Автоматизированное обслуживание КСО (Device Gateway / Sidecar / Player / Service API)",
+        allowed_pages=frozenset(),
+        primary_page="— (machine-only, no human UI)",
         allowed_actions=frozenset({
             "manage_devices", "view_devices", "view_deployment",
         }),
@@ -568,7 +592,10 @@ ROLE_PORTAL_VIEWS: tuple[RolePortalView, ...] = (
         bi_excel_access="Нет доступа к BI-отчётам и Excel export",
         requires_mfa=False,
         requires_audit=False,
-        description="Машинная учётная запись. Нет human UI-доступа к порталу, кроме deployment-статуса.",
+        description="Машинная учётная запись. Доступ только через Device Gateway / Sidecar / Player / Service API. "
+                    "Не аутентифицируется через пользовательский портал. "
+                    "Не имеет human UI-сессии. "
+                    "В Admin и RLS-документации отображается только для governance.",
     ),
 )
 
@@ -615,7 +642,7 @@ PAGE_ROLE_MATRIX: dict[str, FrozenSet[str]] = {
         "analyst", "advertiser",
     }),
     "/deployment": frozenset({
-        "system_admin", "ad_manager", "operations", "device_service",
+        "system_admin", "ad_manager", "operations",
     }),
     "/admin": frozenset({
         "system_admin", "security_admin",
