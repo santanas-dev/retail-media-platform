@@ -30,6 +30,7 @@ if _PLAYER_DIR not in _sys.path:
 
 from kso_player.display_cycle import (
     run_kso_display_cycle_once,
+    run_kso_display_completion_once,
 )
 from kso_sidecar_agent.pop_pickup import (
     scan_pending_pop_events,
@@ -372,6 +373,151 @@ class TestPlayerPopSidecarPickupSmoke(unittest.TestCase):
         self.assertTrue(pop_file.exists(), "Payload build must not delete pending")
         self.assertEqual(pop_file.read_text(), old_content,
                          "Payload build must not modify pending")
+
+    # ── Completed PoP flow ──────────────────────────────────────────
+
+    def test_completed_flow_without_confirm_no_write(self):
+        """Without confirm-display-completed → no completed PoP file."""
+        _setup_full_root(self.root)
+        result = run_kso_display_completion_once(
+            self.root, confirm_display_completed=False,
+        )
+        self.assertTrue(result.render_ready)
+        self.assertFalse(result.completed_pop_written)
+
+        pop_file = self.root / "pop" / "pending" / "player_events.jsonl"
+        self.assertFalse(pop_file.exists(),
+                         "No PoP without confirm-display-completed")
+
+    def test_completed_flow_with_confirm_writes_completed(self):
+        """With confirm-display-completed → completed PoP written."""
+        _setup_full_root(self.root)
+        result = run_kso_display_completion_once(
+            self.root, confirm_display_completed=True,
+        )
+        self.assertTrue(result.render_ready)
+        self.assertTrue(result.completed_pop_write_requested)
+        self.assertTrue(result.completed_pop_written)
+
+        pop_file = self.root / "pop" / "pending" / "player_events.jsonl"
+        self.assertTrue(pop_file.exists(), "Completed PoP file exists")
+
+        content = pop_file.read_text(encoding="utf-8")
+        self.assertIn('"event_status": "completed"', content,
+                      "PoP has event_status=completed")
+
+    def test_completed_event_becomes_eligible(self):
+        """Sidecar sees completed event as CLASS_ELIGIBLE."""
+        _setup_full_root(self.root)
+        run_kso_display_completion_once(
+            self.root, confirm_display_completed=True,
+        )
+
+        scan = scan_pending_pop_events(self.root)
+        self.assertEqual(scan.total_lines, 1)
+        self.assertEqual(scan.eligible_events, 1,
+                         "Completed event + KSO manifest → eligible")
+        self.assertEqual(scan.draft_events, 0)
+
+    def test_completed_event_eligible_batch(self):
+        """Completed event builds eligible batch."""
+        _setup_full_root(self.root)
+        run_kso_display_completion_once(
+            self.root, confirm_display_completed=True,
+        )
+
+        batch = build_pop_eligible_batch(self.root)
+        self.assertEqual(batch.candidate_events, 1,
+                         "Completed event → batch candidate")
+        self.assertEqual(batch.draft_events, 0)
+        self.assertEqual(batch.status, "ok")
+
+    def test_completed_event_builds_payload(self):
+        """Completed event builds backend-ready payload."""
+        _setup_full_root(self.root)
+        run_kso_display_completion_once(
+            self.root, confirm_display_completed=True,
+        )
+
+        payload = build_pop_backend_payload(self.root)
+        self.assertEqual(payload.payload_events, 1,
+                         "Completed event → payload_events=1")
+        self.assertEqual(payload.status, "ok")
+        self._assert_safe_output(repr(payload))
+
+    def test_completed_event_payload_has_selected_order(self):
+        """Payload from completed event contains selected_order."""
+        _setup_full_root(self.root)
+        run_kso_display_completion_once(
+            self.root, confirm_display_completed=True,
+        )
+
+        payload = build_pop_backend_payload(self.root)
+        env = payload._envelope
+        self.assertIsNotNone(env, "Payload envelope exists")
+        self.assertEqual(len(env.events), 1)
+        evt = env.events[0]
+        self.assertEqual(evt.selected_order, 0,
+                         "selected_order is populated")
+        self.assertEqual(evt.selected_content_type, "image/png",
+                         "selected_content_type is populated")
+
+    def test_completed_event_pending_not_deleted(self):
+        """Completed PoP — pending not deleted."""
+        _setup_full_root(self.root)
+        run_kso_display_completion_once(
+            self.root, confirm_display_completed=True,
+        )
+
+        pop_file = self.root / "pop" / "pending" / "player_events.jsonl"
+        old_content = pop_file.read_text()
+
+        scan_pending_pop_events(self.root)
+        build_pop_eligible_batch(self.root)
+        build_pop_backend_payload(self.root)
+
+        self.assertTrue(pop_file.exists(), "Pending NOT deleted")
+        self.assertEqual(pop_file.read_text(), old_content,
+                         "Pending NOT modified")
+
+    def test_completed_non_idle_no_pop(self):
+        """Non-idle state → no completed PoP."""
+        (self.root / "state").mkdir(parents=True, exist_ok=True)
+        state = {"state": "transaction",
+                 "updated_at_utc": datetime.now(timezone.utc).isoformat(),
+                 "source": "ukm4"}
+        (self.root / "state" / "kso_state.json").write_text(json.dumps(state))
+        (self.root / "manifest").mkdir(parents=True, exist_ok=True)
+        (self.root / "manifest" / "current_manifest.json").write_text(
+            json.dumps(_make_kso_manifest()))
+        (self.root / "media" / "current").mkdir(parents=True, exist_ok=True)
+        (self.root / "media" / "current" / "slot-000").write_bytes(_PNG_BODY)
+
+        result = run_kso_display_completion_once(
+            self.root, confirm_display_completed=True,
+        )
+        self.assertFalse(result.completed_pop_written,
+                         "Non-idle → no completed PoP")
+
+    def test_completed_missing_manifest_no_pop(self):
+        """Missing manifest → no completed PoP."""
+        (self.root / "state").mkdir(parents=True, exist_ok=True)
+        (self.root / "state" / "kso_state.json").write_text(
+            json.dumps(_make_idle_state()))
+
+        result = run_kso_display_completion_once(
+            self.root, confirm_display_completed=True,
+        )
+        self.assertFalse(result.completed_pop_written,
+                         "Missing manifest → no completed PoP")
+
+    def test_completed_repr_safe(self):
+        """Completed display cycle result repr is safe."""
+        _setup_full_root(self.root)
+        result = run_kso_display_completion_once(
+            self.root, confirm_display_completed=True,
+        )
+        self._assert_safe_output(repr(result))
 
     # ── Output safety ──────────────────────────────────────────────
 

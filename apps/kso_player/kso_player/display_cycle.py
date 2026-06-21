@@ -32,6 +32,7 @@ from kso_player.simulator import (
 )
 from kso_player.events import (
     build_playback_event_draft,
+    build_playback_event_completed,
     PlaybackEventDraft,
 )
 from kso_player.safety import PlaybackSafetySnapshot, decide_playback_safety
@@ -54,6 +55,8 @@ STATUS_HOLD = "hold"
 REASON_RENDER_READY = "render_ready"
 REASON_POP_WRITTEN = "pop_written"
 REASON_NO_POP_CONFIRM = "render_ready_no_pop_confirm"
+REASON_NO_COMPLETED_CONFIRM = "render_ready_no_completed_confirm"
+REASON_COMPLETED_POP_WRITTEN = "completed_pop_written"
 REASON_DECISION_HOLD = "decision_hold"
 REASON_INVALID_ARGS = "invalid_args"
 REASON_INTERNAL_ERROR = "internal_error"
@@ -76,6 +79,8 @@ class KsoDisplayCycleResult:
     render_action: str = RENDER_ACTION_HOLD
     pop_write_requested: bool = False
     pop_written: bool = False
+    completed_pop_write_requested: bool = False
+    completed_pop_written: bool = False
     reason: str = REASON_INVALID_ARGS
 
     # Internal — never exposed in repr/format
@@ -89,6 +94,8 @@ class KsoDisplayCycleResult:
             f"render_action={self.render_action!r}, "
             f"pop_write_requested={self.pop_write_requested}, "
             f"pop_written={self.pop_written}, "
+            f"completed_pop_write_requested={self.completed_pop_write_requested}, "
+            f"completed_pop_written={self.completed_pop_written}, "
             f"reason={self.reason!r})"
         )
 
@@ -258,6 +265,161 @@ def format_kso_display_cycle_result(result: KsoDisplayCycleResult) -> str:
         f"render_action: {result.render_action}",
         f"pop_write_requested: {str(result.pop_write_requested).lower()}",
         f"pop_written: {str(result.pop_written).lower()}",
+        f"completed_pop_write_requested: {str(result.completed_pop_write_requested).lower()}",
+        f"completed_pop_written: {str(result.completed_pop_written).lower()}",
         f"reason: {result.reason}",
     ]
     return "\n".join(lines)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Completed Display Cycle
+# ══════════════════════════════════════════════════════════════════════
+
+
+def run_kso_display_completion_once(
+    root,
+    now: Optional[datetime] = None,
+    stale_seconds: int = 30,
+    confirm_display_completed: bool = False,
+) -> KsoDisplayCycleResult:
+    """Run one KSO completed display cycle.
+
+    This writes a "completed" PoP event (event_status=completed) instead of draft.
+    The sidecar classifies completed events as CLASS_ELIGIBLE when manifest+media
+    are available, making them ready for backend payload building.
+
+    IMPORTANT: This is core-level completion simulation. Real Chromium runtime
+    loop must call this only after display duration has elapsed and the item
+    was actually rendered on screen.
+
+    Steps:
+      1. Build render plan (gate + playlist + safety + session)
+      2. Simulate playback step
+      3. Build completed event (event_status=completed)
+      4. If confirm_display_completed → write PoP event
+
+    Args:
+        root: Agent root path (str or Path).
+        now: Optional datetime for test time injection.
+        stale_seconds: Max state age before stale (default 30s).
+        confirm_display_completed: If True, write completed PoP event.
+
+    Returns:
+        KsoDisplayCycleResult — safe aggregate, never raises.
+    """
+    # ── Validate args ────────────────────────────────────────────
+    if stale_seconds <= 0:
+        return KsoDisplayCycleResult(
+            status=STATUS_ERROR,
+            reason=REASON_INVALID_ARGS,
+        )
+
+    try:
+        root = Path(root)
+    except (TypeError, ValueError):
+        return KsoDisplayCycleResult(
+            status=STATUS_ERROR,
+            reason=REASON_INVALID_ARGS,
+        )
+
+    # ── Step 1: Render plan ──────────────────────────────────────
+    try:
+        plan = build_kso_render_plan(root, stale_seconds, now)
+    except Exception:
+        return KsoDisplayCycleResult(
+            status=STATUS_ERROR,
+            reason=REASON_INTERNAL_ERROR,
+        )
+
+    if plan.render_action != RENDER_ACTION_RENDER:
+        return KsoDisplayCycleResult(
+            status=plan.status,
+            reason=REASON_DECISION_HOLD,
+            render_action=plan.render_action,
+        )
+
+    # ── Render is ready ─────────────────────────────────────────
+    if not confirm_display_completed:
+        return KsoDisplayCycleResult(
+            status=STATUS_OK,
+            render_ready=True,
+            render_action=RENDER_ACTION_RENDER,
+            completed_pop_write_requested=False,
+            reason=REASON_NO_COMPLETED_CONFIRM,
+        )
+
+    # ── Step 2: Gate (get state for PoP) ──────────────────────
+    try:
+        gate = evaluate_kso_runtime_gate(root, stale_seconds, now)
+        safety_state = gate.state
+    except Exception:
+        return KsoDisplayCycleResult(
+            status=STATUS_ERROR,
+            render_ready=True,
+            render_action=RENDER_ACTION_RENDER,
+            completed_pop_write_requested=True,
+            reason=REASON_INTERNAL_ERROR,
+        )
+
+    # ── Step 3: Simulate + build completed event ────────────────
+    try:
+        playlist = build_playlist(root)
+        snapshot = PlaybackSafetySnapshot(state=safety_state)
+        safety_decision = decide_playback_safety(snapshot, playlist)
+
+        sim_result = simulate_playback_step(
+            playlist, safety_decision, session_state=None,
+        )
+    except Exception:
+        return KsoDisplayCycleResult(
+            status=STATUS_ERROR,
+            render_ready=True,
+            render_action=RENDER_ACTION_RENDER,
+            completed_pop_write_requested=True,
+            reason=REASON_INTERNAL_ERROR,
+        )
+
+    try:
+        event_completed = build_playback_event_completed(sim_result)
+    except Exception:
+        return KsoDisplayCycleResult(
+            status=STATUS_ERROR,
+            render_ready=True,
+            render_action=RENDER_ACTION_RENDER,
+            completed_pop_write_requested=True,
+            reason=REASON_INTERNAL_ERROR,
+        )
+
+    # ── Step 4: Write completed PoP ─────────────────────────────
+    try:
+        pop_result = write_pop_event(root, event_completed, safety_state)
+    except Exception:
+        return KsoDisplayCycleResult(
+            status=STATUS_ERROR,
+            render_ready=True,
+            render_action=RENDER_ACTION_RENDER,
+            completed_pop_write_requested=True,
+            reason=REASON_INTERNAL_ERROR,
+        )
+
+    if pop_result.status == STATUS_WRITTEN:
+        return KsoDisplayCycleResult(
+            status=STATUS_OK,
+            render_ready=True,
+            render_action=RENDER_ACTION_RENDER,
+            completed_pop_write_requested=True,
+            completed_pop_written=True,
+            reason=REASON_COMPLETED_POP_WRITTEN,
+            _pop_write_result=pop_result,
+        )
+
+    return KsoDisplayCycleResult(
+        status=STATUS_WARNING,
+        render_ready=True,
+        render_action=RENDER_ACTION_RENDER,
+        completed_pop_write_requested=True,
+        completed_pop_written=False,
+        reason=pop_result.reason,
+        _pop_write_result=pop_result,
+    )

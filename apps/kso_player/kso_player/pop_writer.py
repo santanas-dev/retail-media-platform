@@ -24,6 +24,7 @@ from kso_player.events import (
     EVENT_TYPE_NOT_READY,
     EVENT_TYPE_ERROR,
     EVENT_STATUS_DRAFT,
+    EVENT_STATUS_COMPLETED,
 )
 
 # ══════════════════════════════════════════════════════════════════════
@@ -215,7 +216,7 @@ def build_pop_jsonl_record(
         return None
 
     es = getattr(event_draft, "event_status", EVENT_STATUS_DRAFT)
-    if es != EVENT_STATUS_DRAFT:
+    if es not in (EVENT_STATUS_DRAFT, EVENT_STATUS_COMPLETED):
         return None
 
     # ── Validate safety_state ───────────────────────────────────

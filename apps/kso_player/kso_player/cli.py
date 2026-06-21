@@ -11,7 +11,8 @@ Commands:
     local-demo-prepare    Full vertical demo: workspace + media alias + snapshot
     local-chromium-demo   Guarded local Chromium demo: prepare + optionally launch
     local-demo-fixture    Create local demo fixture: idle state + manifest + media
-    display-cycle-once    Run one display cycle: render decision + optional PoP write
+    display-cycle-once    Run one display cycle: render decision + optional draft PoP
+    display-complete-once Run completed display cycle: optional completed PoP write
     --help             Show help
 
 Only reads manifest/current_manifest.json and media/current/.
@@ -31,6 +32,7 @@ from kso_player.safety import (
 )
 from kso_player.display_cycle import (
     run_kso_display_cycle_once,
+    run_kso_display_completion_once,
     format_kso_display_cycle_result,
 )
 from kso_player.session import select_next_item
@@ -302,6 +304,27 @@ def cmd_display_cycle_once(args: argparse.Namespace) -> None:
     sys.exit(0)
 
 
+def cmd_display_completion_once(args: argparse.Namespace) -> None:
+    """Run one completed display cycle: writes completed PoP event.
+
+    By default, completed PoP is NOT written. Use --confirm-display-completed.
+    This simulates a display cycle where the item was actually shown
+    for its full duration. The sidecar classifies completed events as eligible
+    (with manifest + media available).
+
+    No backend, no Chromium, no systemd, no sidecar.
+    """
+    result = run_kso_display_completion_once(
+        root=args.root,
+        stale_seconds=args.stale_seconds,
+        confirm_display_completed=args.confirm_display_completed,
+    )
+    print(format_kso_display_cycle_result(result))
+    if result.status == "error":
+        sys.exit(1)
+    sys.exit(0)  # ← was missing
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kso-player",
@@ -390,6 +413,15 @@ def _build_parser() -> argparse.ArgumentParser:
     dc.add_argument("--confirm-pop-write", action="store_true", default=False,
                     help="Write PoP event to local JSONL (default: no write)")
     dc.set_defaults(func=cmd_display_cycle_once)
+
+    dco = sub.add_parser("display-complete-once",
+                         help="Run completed display cycle: render + optional completed PoP write")
+    dco.add_argument("--root", required=True, help="Agent root path")
+    dco.add_argument("--stale-seconds", type=int, default=30,
+                     help="Max state age before stale (default: 30)")
+    dco.add_argument("--confirm-display-completed", action="store_true", default=False,
+                     help="Write completed PoP event to local JSONL (default: no write)")
+    dco.set_defaults(func=cmd_display_completion_once)
 
     return parser
 

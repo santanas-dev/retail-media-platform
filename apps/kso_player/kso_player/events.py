@@ -29,6 +29,7 @@ EVENT_TYPE_NOT_READY = "not_ready"
 EVENT_TYPE_ERROR = "error"
 
 EVENT_STATUS_DRAFT = "draft"
+EVENT_STATUS_COMPLETED = "completed"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -37,10 +38,12 @@ EVENT_STATUS_DRAFT = "draft"
 
 @dataclass
 class PlaybackEventDraft:
-    """In-memory draft of a playback event.
+    """In-memory playback event model.
 
     Safe fields only — no paths, no secrets, no media bytes, no backend URLs.
-    event_status is always "draft" — NOT written to disk, NOT sent to backend.
+    event_status governs sidecar classification:
+      - "draft"      → CLASS_DRAFT, not eligible for backend
+      - "completed"  → CLASS_ELIGIBLE (with manifest + media), ready for send
     """
 
     event_type: str = EVENT_TYPE_ERROR
@@ -127,4 +130,40 @@ def build_playback_event_draft(
         started_at=simulation_result.started_at,
         would_end_at=simulation_result.would_end_at,
         created_at=now,
+    )
+
+
+def build_playback_event_completed(
+    simulation_result: PlaybackSimulationResult,
+    safety_decision=None,
+    now: Optional[str] = None,
+) -> PlaybackEventDraft:
+    """Build a completed playback event — identical to draft but status=completed.
+
+    This is the event written ONLY after display duration has elapsed.
+    The sidecar classifies completed events as CLASS_ELIGIBLE (with manifest + media).
+
+    Pure logic — no file I/O, no HTTP, no media bytes, no auth, no secret.
+
+    Args:
+        simulation_result: PlaybackSimulationResult from simulate_playback_step().
+        safety_decision: Optional PlaybackSafetyDecision for playback_allowed flag.
+        now: Optional ISO8601 timestamp (defaults to current UTC).
+
+    Returns:
+        PlaybackEventDraft with event_status="completed" — always safe.
+    """
+    draft = build_playback_event_draft(simulation_result, safety_decision, now)
+    return PlaybackEventDraft(
+        event_type=draft.event_type,
+        event_status=EVENT_STATUS_COMPLETED,
+        playback_allowed=draft.playback_allowed,
+        session_action=draft.session_action,
+        session_reason=draft.session_reason,
+        selected_order=draft.selected_order,
+        selected_content_type=draft.selected_content_type,
+        selected_duration_ms=draft.selected_duration_ms,
+        started_at=draft.started_at,
+        would_end_at=draft.would_end_at,
+        created_at=draft.created_at,
     )

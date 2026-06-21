@@ -574,14 +574,25 @@ Future Chromium runtime loop должен вызывать display cycle **то�
 истечения display duration**. Сейчас это core contract — simulated completion,
 без реального browser pixel signal.
 
+### Draft vs Completed
+
+- `display-cycle-once` → пишет **draft** PoP (`event_status=draft`) — sidecar видит CLASS_DRAFT, не eligible
+- `display-complete-once` → пишет **completed** PoP (`event_status=completed`) — sidecar видит CLASS_ELIGIBLE (с manifest + media), готов к send
+
 ### CLI
 
 ```bash
 # Только render decision (PoP НЕ пишется)
 python3 -m kso_player.cli display-cycle-once --root /tmp/kso-root
 
-# Render + PoP запись
+# Render + draft PoP запись
 python3 -m kso_player.cli display-cycle-once --root /tmp/kso-root --confirm-pop-write
+
+# Только render decision (completed PoP НЕ пишется)
+python3 -m kso_player.cli display-complete-once --root /tmp/kso-root
+
+# Render + completed PoP запись
+python3 -m kso_player.cli display-complete-once --root /tmp/kso-root --confirm-display-completed
 ```
 
 ### Safe output
@@ -592,6 +603,8 @@ render_ready: true
 render_action: render
 pop_write_requested: false
 pop_written: false
+completed_pop_write_requested: false
+completed_pop_written: false
 reason: render_ready_no_pop_confirm
 ```
 

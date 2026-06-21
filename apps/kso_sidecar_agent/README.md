@@ -168,10 +168,18 @@ auth token, mediaRef, raw JSON, stacktrace.
 Проверяет связку player → sidecar для Proof of Play:
 
 ```
+# Draft flow (display-cycle-once):
 player display-cycle-once --confirm-pop-write
 → pop/pending/player_events.jsonl (draft)
 → sidecar scan_pending_pop_events() → draft classification
 → sidecar build_pop_eligible_batch() → empty batch (draft not eligible)
+
+# Completed flow (display-complete-once):
+player display-complete-once --confirm-display-completed
+→ pop/pending/player_events.jsonl (completed)
+→ sidecar scan_pending_pop_events() → CLASS_ELIGIBLE
+→ sidecar build_pop_eligible_batch() → candidate_events=1
+→ sidecar build_pop_backend_payload() → payload_events=1
 ```
 
 ### Сценарии
