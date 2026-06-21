@@ -326,3 +326,39 @@ def get_report_kpi() -> dict:
 
 def get_report_table() -> list:
     return DEMO_REPORT_TABLE
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Demo Users (for Admin page)
+# ═══════════════════════════════════════════════════════════════════════
+
+@dataclass
+class DemoUser:
+    display_name: str
+    login: str
+    roles: str
+    status: str
+    status_label: str
+    rls_scopes: str
+    mfa: str
+    last_login: str
+
+
+DEMO_USERS = [
+    DemoUser("DEMO: Администратор портала", "admin",
+             "system_admin, security_admin", "active", "Активен",
+             "Без ограничений", "✅", "Сегодня 09:15"),
+    DemoUser("DEMO: Менеджер рекламы", "ad_manager",
+             "ad_manager", "active", "Активен",
+             "Филиалы: Северный, Центральный", "❌", "Сегодня 08:30"),
+    DemoUser("DEMO: Согласующий", "approver",
+             "approver", "active", "Активен",
+             "Кампании: все", "❌", "Вчера 17:45"),
+    DemoUser("DEMO: Аналитик BI", "analyst",
+             "analyst", "active", "Активен",
+             "Филиалы: все", "❌", "Сегодня 07:00"),
+]
+
+
+def get_users_data() -> list:
+    return DEMO_USERS

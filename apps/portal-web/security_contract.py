@@ -220,3 +220,80 @@ SECURITY_PRINCIPLES: tuple[str, ...] = (
     "Approval workflow must enforce role-based routing.",
     "All access decisions are made server-side, never client-side.",
 )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Auth Modes
+# ═══════════════════════════════════════════════════════════════════════
+
+LOCAL_AUTH_SUPPORTED: bool = True
+"""Portal supports local user accounts managed in Admin."""
+
+SSO_AUTH_SUPPORTED: bool = True
+"""Portal supports corporate SSO / Active Directory."""
+
+LOCAL_USER_MANAGEMENT_REQUIRED: bool = True
+"""Users must be creatable, editable, and manageable within the portal Admin UI."""
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# User Statuses
+# ═══════════════════════════════════════════════════════════════════════
+
+class UserStatus(Enum):
+    """User account lifecycle states."""
+    ACTIVE = "active"
+    BLOCKED = "blocked"
+    ARCHIVED = "archived"
+    PENDING_ACTIVATION = "pending_activation"
+
+
+USER_STATUS_LABELS: dict[str, str] = {
+    "active": "Активен",
+    "blocked": "Заблокирован",
+    "archived": "Архив",
+    "pending_activation": "Ожидает активации",
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Admin Capabilities
+# ═══════════════════════════════════════════════════════════════════════
+
+class AdminCapability(Enum):
+    """Capabilities available to security/system administrators."""
+    CREATE_USER = "create_user"
+    BLOCK_USER = "block_user"
+    ARCHIVE_USER = "archive_user"
+    ASSIGN_ROLES = "assign_roles"
+    ASSIGN_RLS_SCOPES = "assign_rls_scopes"
+    REQUIRE_MFA = "require_mfa"
+    VIEW_ADMIN_AUDIT = "view_admin_audit"
+
+
+ADMIN_CAPABILITY_LABELS: dict[str, str] = {
+    "create_user": "Создание пользователя",
+    "block_user": "Блокировка пользователя",
+    "archive_user": "Архивирование пользователя",
+    "assign_roles": "Назначение ролей",
+    "assign_rls_scopes": "Назначение областей доступа / RLS",
+    "require_mfa": "Требовать MFA",
+    "view_admin_audit": "Просмотр аудита администрирования",
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Admin Principles
+# ═══════════════════════════════════════════════════════════════════════
+
+ADMIN_PRINCIPLES: tuple[str, ...] = (
+    "Пользователь создаётся в Admin.",
+    "Роли назначаются администратором портала.",
+    "Для критичных ролей требуется MFA.",
+    "Все изменения доступа аудируются.",
+    "Удаление пользователя должно быть логическим (archive, не физическое удаление).",
+    "RLS применяется на backend/DB/API уровне.",
+    "Excel export и BI reports учитывают RLS пользователя.",
+    "Plaintext passwords запрещены — только безопасный hash (bcrypt/argon2).",
+    "Пароли никогда не отображаются в UI и не передаются в открытом виде.",
+)

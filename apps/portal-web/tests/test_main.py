@@ -1418,8 +1418,6 @@ class TestAuthPages(unittest.TestCase):
     def test_login_no_password_field(self):
         resp = self.client.get("/login")
         lower = resp.text.lower()
-        self.assertNotIn("password", lower)
-        self.assertNotIn("пароль", lower)
         self.assertNotIn('<input type="password"', lower)
 
     def test_login_no_token_field(self):
@@ -1448,8 +1446,7 @@ class TestAuthPages(unittest.TestCase):
         for route in ["/login", "/logout"]:
             resp = self.client.get(route)
             lower = resp.text.lower()
-            for fb in ("device_secret", "access_token", "backend_url",
-                        "password", "пароль"):
+            for fb in ("device_secret", "access_token", "backend_url"):
                 self.assertNotIn(fb, lower,
                                  f"{route}: must not contain '{fb}'")
 
@@ -1539,7 +1536,7 @@ class TestAdminAndReportsRLSNotes(unittest.TestCase):
 
     def test_admin_mentions_ad_groups(self):
         resp = self.client.get("/admin")
-        self.assertIn("Active Directory", resp.text)
+        self.assertIn("SSO", resp.text)
 
     def test_reports_mentions_rls_for_bi(self):
         resp = self.client.get("/reports")
@@ -1550,6 +1547,191 @@ class TestAdminAndReportsRLSNotes(unittest.TestCase):
         resp = self.client.get("/reports")
         self.assertIn("Excel export", resp.text)
         self.assertIn("RLS-фильтр", resp.text)
+
+
+class TestAdminUserManagement(unittest.TestCase):
+    """Admin page has local user management, roles, RLS, audit."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_admin_has_users_section(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Пользователи портала", resp.text)
+        self.assertIn("DEMO: Администратор портала", resp.text)
+
+    def test_admin_has_users_table_columns(self):
+        resp = self.client.get("/admin")
+        for col in ("Пользователь", "Логин", "Роли", "Статус",
+                     "Область доступа", "MFA", "Последний вход", "Действия"):
+            self.assertIn(col, resp.text,
+                          f"Admin users table must have column '{col}'")
+
+    def test_admin_has_role_assignment_section(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Назначение ролей", resp.text)
+        for role in ("system_admin", "security_admin", "ad_manager",
+                      "approver", "analyst", "advertiser",
+                      "operations", "device_service"):
+            self.assertIn(role, resp.text,
+                          f"Admin must show role '{role}'")
+
+    def test_admin_has_rls_assignment_section(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Области доступа / RLS", resp.text)
+        for scope in ("advertiser_scope", "branch_scope", "store_scope",
+                       "campaign_scope", "device_scope",
+                       "approval_scope", "report_scope"):
+            self.assertIn(scope, resp.text,
+                          f"Admin must show RLS scope '{scope}'")
+
+    def test_admin_mentions_users_created_in_admin(self):
+        resp = self.client.get("/admin")
+        self.assertIn("создаётся в admin", resp.text.lower())
+
+    def test_admin_mentions_roles_assigned_by_admin(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Роли назначаются администратором", resp.text)
+
+    def test_admin_mentions_mfa_for_critical_roles(self):
+        resp = self.client.get("/admin")
+        self.assertIn("MFA", resp.text)
+        self.assertIn("Требует MFA", resp.text)
+
+    def test_admin_mentions_audit_of_access_changes(self):
+        resp = self.client.get("/admin")
+        self.assertIn("аудируются", resp.text.lower())
+
+    def test_admin_mentions_logical_archive_not_delete(self):
+        resp = self.client.get("/admin")
+        self.assertIn("логическ", resp.text.lower())
+
+    def test_admin_mentions_password_hashing(self):
+        resp = self.client.get("/admin")
+        lower = resp.text.lower()
+        self.assertTrue("bcrypt" in lower or "argon2" in lower,
+                        "Admin must mention password hashing algorithm")
+
+    def test_create_user_button_disabled(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Создать пользователя", resp.text)
+        self.assertIn("btn-disabled", resp.text)
+
+    def test_assign_role_button_disabled(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Назначить роль", resp.text)
+
+    def test_assign_rls_button_disabled(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Назначить область", resp.text)
+
+    def test_admin_has_audit_section(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Аудит администрирования", resp.text)
+
+    def test_admin_has_policy_section(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Правила администрирования", resp.text)
+
+    def test_admin_mentions_rls_for_excel_and_bi(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Excel export", resp.text)
+        self.assertIn("BI reports", resp.text)
+
+
+class TestLoginLocalAuth(unittest.TestCase):
+    """Login page mentions local portal account alongside SSO."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_login_mentions_local_portal_account(self):
+        resp = self.client.get("/login")
+        self.assertIn("локальн", resp.text.lower())
+        self.assertIn("учётная запись", resp.text.lower())
+
+    def test_login_mentions_sso_ad(self):
+        resp = self.client.get("/login")
+        self.assertIn("SSO", resp.text)
+        self.assertIn("Active Directory", resp.text)
+
+    def test_login_has_no_password_field(self):
+        resp = self.client.get("/login")
+        lower = resp.text.lower()
+        self.assertNotIn('<input type="password"', lower)
+
+    def test_login_has_no_token_field(self):
+        resp = self.client.get("/login")
+        lower = resp.text.lower()
+        self.assertNotIn("token", lower)
+        self.assertNotIn("access_token", lower)
+
+    def test_login_has_two_disabled_buttons(self):
+        resp = self.client.get("/login")
+        self.assertIn("локальную учётную запись", resp.text.lower())
+        self.assertIn("Войти через SSO", resp.text)
+
+    def test_login_mentions_password_hashing(self):
+        resp = self.client.get("/login")
+        lower = resp.text.lower()
+        self.assertTrue("bcrypt" in lower or "argon2" in lower,
+                        "Login page must mention safe password hashing")
+
+    def test_login_mentions_local_portal_account(self):
+        resp = self.client.get("/login")
+        self.assertIn("локальн", resp.text.lower())
+        self.assertIn("учётн", resp.text.lower())
+
+
+class TestSecurityContractLocalAuth(unittest.TestCase):
+    """security_contract defines local auth flags, user statuses, admin caps."""
+
+    @classmethod
+    def setUpClass(cls):
+        from security_contract import (
+            LOCAL_AUTH_SUPPORTED, SSO_AUTH_SUPPORTED,
+            LOCAL_USER_MANAGEMENT_REQUIRED,
+            UserStatus, AdminCapability,
+            ADMIN_PRINCIPLES,
+        )
+        cls.local_auth = LOCAL_AUTH_SUPPORTED
+        cls.sso_auth = SSO_AUTH_SUPPORTED
+        cls.local_mgmt = LOCAL_USER_MANAGEMENT_REQUIRED
+        cls.UserStatus = UserStatus
+        cls.AdminCapability = AdminCapability
+        cls.admin_principles = ADMIN_PRINCIPLES
+
+    def test_local_auth_supported(self):
+        self.assertTrue(self.local_auth)
+
+    def test_sso_auth_supported(self):
+        self.assertTrue(self.sso_auth)
+
+    def test_local_user_management_required(self):
+        self.assertTrue(self.local_mgmt)
+
+    def test_user_statuses_defined(self):
+        for status in ("active", "blocked", "archived", "pending_activation"):
+            self.assertIn(status, [s.value for s in self.UserStatus])
+
+    def test_admin_capabilities_defined(self):
+        for cap in ("create_user", "block_user", "archive_user",
+                     "assign_roles", "assign_rls_scopes",
+                     "require_mfa", "view_admin_audit"):
+            self.assertIn(cap, [c.value for c in self.AdminCapability])
+
+    def test_admin_principles_forbid_plaintext(self):
+        principles = " ".join(self.admin_principles).lower()
+        self.assertIn("plaintext", principles)
+        self.assertIn("hash", principles)
+
+    def test_admin_principles_require_mfa(self):
+        principles = " ".join(self.admin_principles).lower()
+        self.assertIn("mfa", principles)
+
+    def test_admin_principles_mention_audit(self):
+        principles = " ".join(self.admin_principles).lower()
+        self.assertIn("аудируются", principles)
 
 
 # ══════════════════════════════════════════════════════════════════════

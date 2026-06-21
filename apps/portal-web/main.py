@@ -23,6 +23,7 @@ from demo_data import (
     get_approvals_data,
     get_report_kpi,
     get_report_table,
+    get_users_data,
 )
 
 APP_DIR = Path(__file__).resolve().parent
@@ -82,7 +83,8 @@ app.add_api_route("/reports", _page("pages/reports.html", "Отчёты", "repor
                   methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/deployment", _page("pages/deployment.html", "Развёртывание", "deployment"),
                   methods=["GET"], response_class=HTMLResponse)
-app.add_api_route("/admin", _page("pages/admin.html", "Администрирование", "admin"),
+app.add_api_route("/admin", _page("pages/admin.html", "Администрирование", "admin",
+                                {"users": get_users_data()}),
                   methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/approvals", _page("pages/approvals.html", "Согласования", "approvals",
                                       {"approvals": get_approvals_data()}),

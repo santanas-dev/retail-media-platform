@@ -170,5 +170,54 @@ RLS scopes additive — пользователь видит union своих sco
 - `apps/portal-web/templates/pages/login.html` — placeholder страницы входа
 - `apps/portal-web/templates/pages/logout.html` — placeholder страницы выхода
 - `apps/portal-web/templates/base.html` — статус пользователя в header
-- `apps/portal-web/templates/pages/admin.html` — note про RBAC/RLS
+- `apps/portal-web/templates/pages/admin.html` — управление пользователями, ролями, RLS, аудит
 - `apps/portal-web/templates/pages/reports.html` — note про RLS для BI/Excel
+- `apps/portal-web/demo_data.py` — demo users для Admin
+
+## Local Portal Authorization and Admin User Management (Шаг 35.2.1)
+
+### Два режима авторизации
+
+| Режим | Статус |
+|---|---|
+| Локальная учётная запись портала | Будет реализована |
+| Корпоративный SSO / Active Directory | Будет подключён |
+
+### Создание пользователей
+
+- Пользователи заводятся **локально в меню Администрирование** администратором портала.
+- Роли назначаются администратором.
+- SSO/AD может быть подключён дополнительно.
+
+### User Statuses
+
+| Статус | Описание |
+|---|---|
+| `active` | Активен |
+| `blocked` | Заблокирован |
+| `archived` | Архив (логическое удаление) |
+| `pending_activation` | Ожидает активации |
+
+### Admin Capabilities
+
+| Capability | Описание |
+|---|---|
+| `create_user` | Создание пользователя |
+| `block_user` | Блокировка пользователя |
+| `archive_user` | Архивирование пользователя |
+| `assign_roles` | Назначение ролей |
+| `assign_rls_scopes` | Назначение областей доступа / RLS |
+| `require_mfa` | Требовать MFA |
+| `view_admin_audit` | Просмотр аудита администрирования |
+
+### Принципы локальной авторизации
+
+1. Пользователь создаётся в Admin.
+2. Роли назначаются администратором портала.
+3. Для критичных ролей (system_admin, security_admin) требуется MFA.
+4. Все изменения доступа аудируются.
+5. Удаление пользователя должно быть логическим (archive, не физическое удаление).
+6. RLS применяется на backend/DB/API уровне.
+7. Excel export и BI reports учитывают RLS пользователя.
+8. **Plaintext passwords запрещены** — только безопасный hash (bcrypt/argon2).
+9. Пароли никогда не отображаются в UI и не передаются в открытом виде.
