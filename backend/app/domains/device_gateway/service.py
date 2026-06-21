@@ -24,6 +24,11 @@ from app.domains.media.storage import _get_client as _get_minio_client
 from app.domains.publications.models import (
     ManifestItem, ManifestVersion, PublicationBatch, PublicationTarget,
 )
+from app.domains.publications.kso_manifest_projection import (
+    ManifestSourceItem,
+    build_kso_safe_manifest_projection,
+    KSO_CHANNEL_CODE,
+)
 
 # Forbidden keys (same as publications)
 FORBIDDEN_KEYS = frozenset({
@@ -686,6 +691,151 @@ async def _match_publication_targets(
 # ── Current manifest ───────────────────────────────────────────────
 
 
+async def _collect_kso_source_items(
+    manifest: ManifestVersion, db: AsyncSession,
+) -> list[ManifestSourceItem]:
+    """Collect ManifestSourceItem objects from a published manifest.
+
+    Joins manifest_items → schedule_items → campaigns → creatives
+    → renditions to collect all statuses needed for safe projection.
+    """
+    from app.domains.campaigns.models import Campaign
+    from app.domains.inventory.models import CampaignBooking
+    from app.domains.media.models import Creative, CreativeVersion, Rendition
+    from app.domains.organization.models import Store
+    from app.domains.scheduling.models import ScheduleItem
+
+    # Load manifest items with eager loading of related data
+    items_result = await db.execute(
+        select(ManifestItem).where(
+            ManifestItem.manifest_version_id == manifest.id,
+        )
+    )
+    manifest_items = items_result.scalars().all()
+
+    if not manifest_items:
+        return []
+
+    # Collect IDs for batch loading
+    si_ids = [mi.schedule_item_id for mi in manifest_items]
+    campaign_ids = list({mi.campaign_id for mi in manifest_items})
+    rendition_ids = list({mi.rendition_id for mi in manifest_items})
+    creative_version_ids = list({mi.creative_version_id for mi in manifest_items})
+
+    # Batch load schedule items
+    si_map: dict = {}
+    if si_ids:
+        si_result = await db.execute(
+            select(ScheduleItem).where(ScheduleItem.id.in_(si_ids))
+        )
+        for si in si_result.scalars():
+            si_map[si.id] = si
+
+    # Batch load campaigns
+    campaign_map: dict = {}
+    if campaign_ids:
+        camp_result = await db.execute(
+            select(Campaign).where(Campaign.id.in_(campaign_ids))
+        )
+        for c in camp_result.scalars():
+            campaign_map[c.id] = c
+
+    # Batch load renditions
+    rendition_map: dict = {}
+    if rendition_ids:
+        rend_result = await db.execute(
+            select(Rendition).where(Rendition.id.in_(rendition_ids))
+        )
+        for r in rend_result.scalars():
+            rendition_map[r.id] = r
+
+    # Batch load creative versions
+    cv_map: dict = {}
+    if creative_version_ids:
+        cv_result = await db.execute(
+            select(CreativeVersion).where(
+                CreativeVersion.id.in_(creative_version_ids)
+            )
+        )
+        for cv in cv_result.scalars():
+            cv_map[cv.id] = cv
+
+    # Batch load creatives (from creative_versions)
+    creative_ids = list({cv.creative_id for cv in cv_map.values()})
+    creative_map: dict = {}
+    if creative_ids:
+        cr_result = await db.execute(
+            select(Creative).where(Creative.id.in_(creative_ids))
+        )
+        for cr in cr_result.scalars():
+            creative_map[cr.id] = cr
+
+    # ── Get store code ────────────────────────────────────────────
+    # We'll get this from the manifest's target publication_target.store_id
+    target_result = await db.execute(
+        select(PublicationTarget).where(
+            PublicationTarget.id == manifest.publication_target_id,
+        )
+    )
+    pub_target = target_result.scalar_one_or_none()
+
+    store_code = ""
+    store_is_active = False
+    if pub_target:
+        store_result = await db.execute(
+            select(Store).where(Store.id == pub_target.store_id)
+        )
+        store = store_result.scalar_one_or_none()
+        if store:
+            store_code = store.code or ""
+            store_is_active = store.is_active if hasattr(store, "is_active") else True
+
+    # ── Build source items ────────────────────────────────────────
+    source_items: list[ManifestSourceItem] = []
+    now = _now()
+
+    for mi in manifest_items:
+        si = si_map.get(mi.schedule_item_id)
+        campaign = campaign_map.get(mi.campaign_id)
+        rendition = rendition_map.get(mi.rendition_id)
+        cv = cv_map.get(mi.creative_version_id)
+        creative = creative_map.get(cv.creative_id) if cv else None
+
+        # Build valid_from/valid_to from schedule item
+        valid_from = None
+        valid_to = None
+        if si:
+            from datetime import datetime as dt, time as t, timezone as tz
+            if si.date and si.time_from:
+                valid_from = dt.combine(si.date, si.time_from, tz.utc)
+            if si.date and si.time_to:
+                valid_to = dt.combine(si.date, si.time_to, tz.utc)
+
+        item = ManifestSourceItem(
+            channel_code=KSO_CHANNEL_CODE,
+            campaign_status=campaign.status if campaign else "",
+            creative_status=creative.status if creative else "",
+            rendition_status=rendition.status if rendition else "",
+            publication_status="published",  # already verified
+            device_status="active",  # passed gateway auth
+            store_is_active=store_is_active,
+            store_code=store_code,
+            device_code="",  # filled later from device
+            content_type=rendition.mime_type if rendition else "",
+            duration_ms=(si.spot_duration_seconds * 1000) if si else 0,
+            slot_order=si.spot_position if si else 0,
+            valid_from=valid_from,
+            valid_to=valid_to,
+            now=now,
+        )
+        source_items.append(item)
+
+    return source_items
+
+
+
+
+
 async def get_current_manifest(
     device: models.GatewayDevice,
     db: AsyncSession,
@@ -804,6 +954,78 @@ async def get_current_manifest(
         )
 
     # Serve
+    # ── KSO detection: build safe projection ────────────────────
+    channel_code = ""
+    if device.channel_id:
+        from app.domains.channels.models import Channel
+        ch_result = await db.execute(
+            select(Channel.code).where(Channel.id == device.channel_id)
+        )
+        ch_code = ch_result.scalar_one_or_none()
+        if ch_code:
+            channel_code = ch_code
+
+    if channel_code == KSO_CHANNEL_CODE:
+        # Collect source items and build safe KSO projection
+        source_items = await _collect_kso_source_items(manifest, db)
+        # Set device_code on all items
+        for si_item in source_items:
+            si_item.device_code = device.device_code
+
+        projection = build_kso_safe_manifest_projection(
+            source_items, generated_at=_now(),
+        )
+
+        kso_hash = hashlib.sha256(
+            json.dumps(
+                projection.manifest, sort_keys=True, separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+
+        # Not-modified check for KSO manifest
+        if current_manifest_hash and current_manifest_hash == kso_hash:
+            await _record_manifest_request(
+                db, device, manifest.id, target_id, "not_modified",
+                response_hash=kso_hash,
+                client_manifest_hash=current_manifest_hash,
+                ip_address=client_ip, user_agent=user_agent,
+            )
+            await _log_event(
+                db, "manifest_not_modified",
+                f"KSO manifest not modified: {kso_hash[:16]}",
+                device.id,
+            )
+            _touch_device(device)
+            await db.commit()
+            return schemas.DeviceManifestCurrentResponse(
+                status="not_modified",
+                manifest_version_id=manifest.id,
+                manifest_hash=kso_hash,
+            )
+
+        await _record_manifest_request(
+            db, device, manifest.id, target_id, "served",
+            response_hash=kso_hash,
+            client_manifest_hash=current_manifest_hash,
+            ip_address=client_ip, user_agent=user_agent,
+        )
+        await _log_event(
+            db, "manifest_served",
+            f"KSO safe manifest served: {kso_hash[:16]}",
+            device.id,
+        )
+        _touch_device(device)
+        await db.commit()
+
+        return schemas.DeviceManifestCurrentResponse(
+            status="served",
+            manifest_version_id=manifest.id,
+            manifest_hash=kso_hash,
+            published_at=manifest.published_at,
+            manifest=projection.manifest,
+        )
+
+    # ── Non-KSO: return raw manifest as before ────────────────────
     await _record_manifest_request(
         db, device, manifest.id, target_id, "served",
         response_hash=manifest.manifest_hash,
