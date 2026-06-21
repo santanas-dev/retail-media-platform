@@ -9,6 +9,8 @@
  *   window.KsoPlayerShell.setRenderPlan(plan)
  *   window.KsoPlayerShell.clear()
  *   window.KsoPlayerShell.applySnapshot(snapshot)
+ *   window.KsoPlayerShell.startLiveSnapshotRefresh(intervalMs)
+ *   window.KsoPlayerShell.stopLiveSnapshotRefresh()
  *
  * Plan accepts only safe fields:
  *   { mediaType: "image"|"video", durationBucket: "...",
@@ -206,6 +208,70 @@
     showScreen(holdScreen);
   }
 
+  /* ── Live snapshot refresh ──────────────────────────────────────── */
+
+  var _liveRefreshInterval = null;
+  var DEFAULT_REFRESH_INTERVAL_MS = 5000;  // 5 seconds
+
+  /**
+   * Load the latest bootstrap_snapshot.js via <script> injection.
+   * Cache-busting prevents stale copies. On load → applySnapshot.
+   * On error → safe hold (no crash, no error leakage).
+   *
+   * NEVER uses fetch/XHR/WebSocket. Only local <script> tag.
+   */
+  function _refreshLiveSnapshot() {
+    var script = document.createElement("script");
+    // Cache-bust with timestamp — same-origin, CSP: script-src 'self'
+    script.src = "bootstrap_snapshot.js?ts=" + Date.now();
+    script.onload = function () {
+      try {
+        var snap = window.KSO_PLAYER_BOOTSTRAP_SNAPSHOT;
+        if (snap && typeof snap === "object") {
+          applySnapshot(snap);
+        }
+      } catch (_e) {
+        // Safe hold — never expose errors
+        setHold("hold");
+      }
+      // Clean up script tag
+      if (script && script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+    script.onerror = function () {
+      // Script load error → safe hold, no crash
+      if (script && script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+    document.head.appendChild(script);
+  }
+
+  /**
+   * Start periodic live snapshot refresh.
+   * @param {number} [intervalMs] — refresh interval in ms (default 5000).
+   */
+  function startLiveSnapshotRefresh(intervalMs) {
+    if (_liveRefreshInterval !== null) {
+      return;  // Already running
+    }
+    var interval = (typeof intervalMs === "number" && intervalMs >= 1000)
+      ? intervalMs
+      : DEFAULT_REFRESH_INTERVAL_MS;
+    _liveRefreshInterval = setInterval(_refreshLiveSnapshot, interval);
+  }
+
+  /**
+   * Stop periodic live snapshot refresh.
+   */
+  function stopLiveSnapshotRefresh() {
+    if (_liveRefreshInterval !== null) {
+      clearInterval(_liveRefreshInterval);
+      _liveRefreshInterval = null;
+    }
+  }
+
   /* ── Export ──────────────────────────────────────────────────────── */
 
   function applySnapshot(snapshot) {
@@ -309,6 +375,8 @@
     setRenderPlan: setRenderPlan,
     clear: clear,
     applySnapshot: applySnapshot,
+    startLiveSnapshotRefresh: startLiveSnapshotRefresh,
+    stopLiveSnapshotRefresh: stopLiveSnapshotRefresh,
   };
 
   /* ── Initial state ───────────────────────────────────────────────── */

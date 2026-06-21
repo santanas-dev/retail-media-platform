@@ -1550,6 +1550,35 @@ python3 -m kso_player.cli runtime-cycle-once \
 - `runtime-cycle-once` — готовит показ, ждёт durationMs, перепроверяет idle, пишет PoP только по confirm
 - Future systemd service будет вызывать этот цикл непрерывно
 
+## Live snapshot refresh
+
+🔄 **Реализован:** Shell live refresh — обновление рекламы без перезапуска Chromium.
+
+### Как работает
+
+```
+Player runtime loop → atomic write bootstrap_snapshot.js
+→ Shell setInterval (5s) → <script> tag injection with cache-busting
+→ window.KSO_PLAYER_BOOTSTRAP_SNAPSHOT updated → applySnapshot()
+→ Render screen обновляется без page reload
+```
+
+### API
+
+```javascript
+KsoPlayerShell.startLiveSnapshotRefresh(intervalMs);  // default 5000
+KsoPlayerShell.stopLiveSnapshotRefresh();
+```
+
+### Безопасность
+
+- **NO fetch** — только `<script>` tag injection (script-src 'self')
+- **NO XHR / WebSocket / EventSource** — ни в коде, ни в документации
+- **CSP неизменен** — `connect-src 'none'`, `script-src 'self'`
+- **Cache-busting** — `bootstrap_snapshot.js?ts=...` предотвращает кеширование
+- **Fail-closed** — при ошибке загрузки → safe hold, без crash
+- **Invalid snapshot** → `applySnapshot()` валидирует → hold
+
 ## Структура
 
 ```
