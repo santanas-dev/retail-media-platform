@@ -8,7 +8,7 @@
 
 **Приложение:** `apps/portal-web/` — FastAPI + Jinja2 серверный портал.
 **Стек:** FastAPI 0.133 + Jinja2 3.1 + Starlette TestClient.
-**Тестов:** 39 (routes, navigation, content, security).
+**Тестов:** 51 (routes, navigation, devices, content, security).
 
 ## Страницы (12 routes v1)
 
@@ -20,7 +20,7 @@
 | `/schedule` | Расписание | ✅ заглушка |
 | `/publications` | Публикации манифестов | ✅ заглушка |
 | `/stores` | Магазины и филиалы | ✅ заглушка |
-| `/devices` | КСО Устройства | ✅ заглушка |
+| `/devices` | КСО Устройства | ✅ UI foundation (cards + filters + table) |
 | `/proof-of-play` | Proof of Play | ✅ заглушка |
 | `/reports` | Отчёты | ✅ заглушка |
 | `/deployment` | Развёртывание (KSO Runtime) | ✅ контент |
@@ -69,6 +69,29 @@
 - Pilot Runbook, Release Package Contract, UKM 4 Discovery
 
 Без raw system paths и секретов.
+
+## KSO Devices page
+
+**Структура:**
+- **6 summary cards:** Всего КСО, Онлайн, В hold, С ошибками, Без heartbeat, Требуют обновления
+- **4 фильтра:** Филиал, Магазин, Статус, Версия runtime (все disabled)
+- **Таблица (10 колонок):** Магазин, КСО, State Adapter, Sidecar, Player, Runtime, Heartbeat, Manifest, PoP, Действия
+- **Empty state:** «Пока нет подключённых КСО»
+- **Легенда статусов:** Онлайн, Hold, Ошибка, Офлайн, Нет данных
+
+**Status badges (CSS):** `.badge-online` (green), `.badge-hold` (yellow),
+`.badge-error` (red), `.badge-offline` (gray), `.badge-unknown` (light gray)
+
+**Planned future API fields (не отображаются пока):**
+- device_code, store_name, state_adapter_status, sidecar_status, player_status
+- runtime_version, last_heartbeat_utc, last_manifest_utc, pop_status
+- Без raw IDs/secret/hash/backend URL
+
+**Security:**
+- ❌ Нет device_secret, access_token, manifest_hash
+- ❌ Нет backend URL, campaign_id, creative_id
+- ❌ Нет Android TV, LED-шелф, ESL, Mobile App
+- ✅ Все значения статичные (—)
 
 ## Styling
 

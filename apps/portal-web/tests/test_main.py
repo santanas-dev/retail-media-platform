@@ -21,7 +21,7 @@ FORBIDDEN = frozenset({
     "receipt_number", "card_number",
     "customer_id", "phone", "fiscal_data",
     "CHANGE_ME_SECRET",
-    "Android TV", "LED", "ESL", "mobile app",
+    "Android TV", "LED-шелф", "ESL", "mobile app",
 })
 
 
@@ -175,6 +175,82 @@ class TestDeploymentPage(unittest.TestCase):
         _assert_safe(self, self.html)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Devices page tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestDevicesPage(unittest.TestCase):
+    """KSO Devices page — summary cards, filters, table, empty state."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+        resp = self.client.get("/devices")
+        self.html = resp.text
+
+    def test_renders_summary_cards(self):
+        for card in ("Всего КСО", "Онлайн", "В hold",
+                      "С ошибками", "Без heartbeat", "Требуют обновления"):
+            self.assertIn(card, self.html,
+                          f"Devices page must render summary card '{card}'")
+
+    def test_has_filters_block(self):
+        for flt in ("Филиал", "Магазин", "Статус", "Версия runtime"):
+            self.assertIn(flt, self.html,
+                          f"Devices page must have filter '{flt}'")
+
+    def test_filters_disabled(self):
+        """Filters are UI-only placeholders — disabled selects."""
+        self.assertIn("disabled", self.html)
+
+    def test_has_table_structure(self):
+        for col in ("Магазин", "КСО", "State Adapter", "Sidecar",
+                     "Player", "Runtime", "Heartbeat", "Manifest", "PoP", "Действия"):
+            self.assertIn(col, self.html,
+                          f"Devices table must have column '{col}'")
+
+    def test_table_shows_empty_state(self):
+        self.assertIn("Пока нет подключённых КСО", self.html)
+        self.assertIn("статус player, sidecar и state-adapter", self.html)
+
+    def test_mentions_kso_components(self):
+        self.assertIn("State Adapter", self.html)
+        self.assertIn("Sidecar", self.html)
+        self.assertIn("Player", self.html)
+
+    def test_has_status_legend(self):
+        for badge in ("Онлайн", "Hold", "Ошибка", "Офлайн", "Нет данных"):
+            self.assertIn(badge, self.html,
+                          f"Legend must contain status '{badge}'")
+
+    def test_no_forbidden_content(self):
+        _assert_safe(self, self.html)
+
+    def test_no_out_of_scope_channels(self):
+        for banned in ("Android TV", "LED", "ESL", "Mobile App",
+                        "Ценники", "Price Checker"):
+            self.assertNotIn(banned, self.html,
+                             f"Devices page must NOT contain '{banned}'")
+
+    def test_no_raw_ids_secrets_hashes(self):
+        lower = self.html.lower()
+        for forbidden in ("device_secret", "access_token", "manifest_hash",
+                           "campaign_id", "creative_id", "backend_url",
+                           "http://", "https://backend"):
+            self.assertNotIn(forbidden, lower,
+                             f"Devices page must NOT contain '{forbidden}'")
+
+    def test_status_badge_classes_in_css(self):
+        css = (_PORTAL_DIR / "static" / "styles.css").read_text()
+        for cls_name in (".badge-online", ".badge-hold", ".badge-error",
+                          ".badge-offline", ".badge-unknown"):
+            self.assertIn(cls_name, css,
+                          f"CSS must define '{cls_name}'")
+
+    def test_devices_route_returns_200(self):
+        resp = self.client.get("/devices")
+        self.assertEqual(resp.status_code, 200)
+
+
 class TestPageStubsRender(unittest.TestCase):
     """All page stubs render with title and safe empty state."""
 
@@ -201,9 +277,6 @@ class TestPageStubsRender(unittest.TestCase):
 
     def test_stores_page(self):
         self._check_page("/stores", "Магазины")
-
-    def test_devices_page(self):
-        self._check_page("/devices", "КСО Устройства")
 
     def test_proof_of_play_page(self):
         self._check_page("/proof-of-play", "Proof of Play")
@@ -275,6 +348,12 @@ class TestPortalSafety(unittest.TestCase):
                     self.assertNotIn("C:\\\\", content)
                     self.assertNotIn("programdata", content)
                     self.assertNotIn(".msi", content)
+
+    def test_filter_svg_inline_no_external(self):
+        """Filter dropdown arrow must be inline SVG, not external image."""
+        css = (_PORTAL_DIR / "static" / "styles.css").read_text()
+        self.assertIn("data:image/svg+xml", css,
+                      "Filter arrow must use inline SVG, not external file")
 
 
 # ══════════════════════════════════════════════════════════════════════

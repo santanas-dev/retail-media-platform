@@ -2,8 +2,111 @@
 {% block content %}
 <h1 class="page-title">КСО Устройства</h1>
 <p class="page-description">Список КСО-терминалов, статус player/sidecar/state-adapter, версия runtime и последний heartbeat.</p>
-<div class="empty-state">
-  <div class="empty-state-title">Устройства появятся здесь</div>
-  <div class="empty-state-text">Список подключённых КСО будет отображаться после регистрации устройств в системе.</div>
+
+<!-- Summary Cards -->
+<div class="cards">
+  <div class="card">
+    <div class="card-title">Всего КСО</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Онлайн</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">В hold</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">С ошибками</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Без heartbeat</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Требуют обновления</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+</div>
+
+<!-- Filters Toolbar -->
+<div class="filter-toolbar">
+  <div class="filter-group">
+    <label class="filter-label">Филиал</label>
+    <select class="filter-select" disabled>
+      <option>Все филиалы</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Магазин</label>
+    <select class="filter-select" disabled>
+      <option>Все магазины</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Статус</label>
+    <select class="filter-select" disabled>
+      <option>Все статусы</option>
+      <option>Онлайн</option>
+      <option>В hold</option>
+      <option>Ошибка</option>
+      <option>Офлайн</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Версия runtime</label>
+    <select class="filter-select" disabled>
+      <option>Все версии</option>
+    </select>
+  </div>
+</div>
+
+<!-- Devices Table -->
+<div class="table-container">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Магазин</th>
+      <th>КСО</th>
+      <th>State Adapter</th>
+      <th>Sidecar</th>
+      <th>Player</th>
+      <th>Runtime</th>
+      <th>Heartbeat</th>
+      <th>Manifest</th>
+      <th>PoP</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="empty-row">
+      <td colspan="10">
+        <div class="table-empty-state">
+          <div class="table-empty-icon">🖥️</div>
+          <div class="table-empty-title">Пока нет подключённых КСО</div>
+          <div class="table-empty-text">После подключения устройств здесь появится статус player, sidecar и state-adapter.</div>
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <span class="legend-title">Статусы:</span>
+  <span class="legend-item"><span class="badge badge-online"></span> Онлайн</span>
+  <span class="legend-item"><span class="badge badge-hold"></span> Hold</span>
+  <span class="legend-item"><span class="badge badge-error"></span> Ошибка</span>
+  <span class="legend-item"><span class="badge badge-offline"></span> Офлайн</span>
+  <span class="legend-item"><span class="badge badge-unknown"></span> Нет данных</span>
 </div>
 {% endblock %}

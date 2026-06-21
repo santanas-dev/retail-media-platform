@@ -142,3 +142,94 @@ a:hover { text-decoration: underline; }
 .breadcrumb a { color: var(--color-text-secondary); }
 .breadcrumb a:hover { color: var(--color-primary); }
 .breadcrumb span { color: var(--color-text); }
+
+/* ── Filter toolbar ─────────────────────────────── */
+.filter-toolbar {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  background: var(--color-surface); border-radius: var(--radius);
+  padding: 16px; margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.filter-group {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.filter-label {
+  font-size: 11px; color: var(--color-text-secondary);
+  text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+}
+.filter-select {
+  font-size: 13px; padding: 6px 28px 6px 10px;
+  border: 1px solid var(--color-border); border-radius: 6px;
+  background: var(--color-bg); color: var(--color-text);
+  cursor: pointer; min-width: 160px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%2364748b' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+.filter-select:disabled {
+  opacity: 0.5; cursor: not-allowed;
+}
+
+/* ── Data table ─────────────────────────────────── */
+.table-container {
+  background: var(--color-surface); border-radius: var(--radius);
+  box-shadow: var(--shadow); overflow: hidden;
+  margin-bottom: 16px;
+}
+.data-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.data-table thead {
+  background: var(--color-bg); border-bottom: 2px solid var(--color-border);
+}
+.data-table th {
+  padding: 10px 12px; text-align: left; font-weight: 600;
+  font-size: 12px; color: var(--color-text-secondary);
+  text-transform: uppercase; letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 10px 12px; border-bottom: 1px solid var(--color-border);
+}
+.data-table tbody tr:hover { background: #f8fafc; }
+
+.empty-row td {
+  padding: 0; border: none;
+}
+
+/* ── Table empty state ──────────────────────────── */
+.table-empty-state {
+  text-align: center; padding: 40px 24px;
+  color: var(--color-text-secondary);
+}
+.table-empty-icon { font-size: 36px; margin-bottom: 8px; opacity: 0.3; }
+.table-empty-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.table-empty-text { font-size: 12px; }
+
+/* ── Status badges ──────────────────────────────── */
+.badge {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  vertical-align: middle; margin-right: 4px;
+}
+.badge-online  { background: var(--color-success); }
+.badge-hold    { background: var(--color-warning); }
+.badge-error   { background: var(--color-error); }
+.badge-offline { background: #94a3b8; }
+.badge-unknown { background: #cbd5e1; }
+
+/* ── Legend ─────────────────────────────────────── */
+.legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+  font-size: 12px; color: var(--color-text-secondary);
+  padding: 12px 16px; background: var(--color-surface);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.legend-title { font-weight: 600; color: var(--color-text); }
+.legend-item { display: flex; align-items: center; gap: 4px; }
+
+/* ── Action links (disabled placeholders) ───────── */
+.action-link {
+  font-size: 12px; color: var(--color-text-secondary);
+  cursor: not-allowed; margin-right: 8px;
+}
+.action-link:hover { text-decoration: none; }
