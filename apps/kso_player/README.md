@@ -1174,14 +1174,17 @@ CLI и result НЕ содержат: пути, file URL, полную коман
 
 ### Demo fixture
 
-`prepare_kso_local_demo_fixture(root)` создаёт минимальный demo root:
+`prepare_kso_local_demo_fixture(root)` создаёт минимальный demo root
+в **KSO safe manifest формате** (v1+):
 
 | Файл | Содержимое |
 |---|---|
 | `state/kso_state.json` | idle state от будущего UKM 4 adapter |
-| `manifest/current_manifest.json` | 1 item (image/png, 5s) |
-| `media/current/ad_demo.png` | Валидный 1×1 синий PNG |
-| `media/current/ad_demo.png.sha256` | SHA-256 checksum |
+| `manifest/current_manifest.json` | KSO safe format: schemaVersion, channel=kso, items[].mediaRef |
+| `media/current/slot-000` | Валидный 1×1 синий PNG (mediaRef target) |
+
+Манифест использует KSO safe format — **без** filename, sha256, manifest_item_id.
+MediaRef: `media/current/slot-000`.
 
 Это **НЕ** production state adapter. Demo-only: имитирует idle state.
 
@@ -1223,6 +1226,70 @@ python3 -m kso_player.cli playlist-status --root /tmp/kso-demo-root
 - ❌ Production state adapter (UKM 4)
 - ❌ PoP write
 - ❌ Backend / auth / secret / media bytes
+
+---
+
+## Local Manifest Format
+
+Player поддерживает два формата манифеста:
+
+### KSO Safe Manifest (v1+) — основной
+
+Формат, получаемый от backend gateway через sidecar:
+
+```json
+{
+  "schemaVersion": 1,
+  "generatedAt": "ISO8601",
+  "channel": "kso",
+  "storeCode": "safe_code",
+  "deviceCode": "safe_code",
+  "items": [
+    {
+      "slotOrder": 0,
+      "contentType": "image/png",
+      "durationMs": 5000,
+      "mediaRef": "media/current/slot-000",
+      "validFrom": "ISO8601",
+      "validTo": "ISO8601"
+    }
+  ]
+}
+```
+
+Player:
+- Читает `media/current/slot-{slotOrder:03d}` как локальный media alias.
+- Проверяет существование файла — без sha256, без чтения bytes.
+- **НЕ** принимает gateway wrapper (`{"status": "...", "manifest": {...}}`) — уходит в hold.
+
+### Legacy Manifest — backward compat
+
+Старый формат (demo fixture до шага 28.3):
+
+```json
+{
+  "manifest_id": "...",
+  "schema_version": 1,
+  "items": [
+    {
+      "manifest_item_id": "UUID",
+      "order": 0,
+      "content_type": "image/png",
+      "duration_ms": 5000,
+      "filename": "ad_demo.png",
+      "sha256": "..."
+    }
+  ]
+}
+```
+
+Player поддерживает оба формата. Детекция автоматическая по наличию `mediaRef` vs `filename`.
+
+### Future Sidecar Delivery
+
+Sidecar скачивает gateway response (`GET /api/device-gateway/manifest/current`).
+В production sidecar сохраняет **только** `response["manifest"]` (safe manifest body)
+в `manifest/current_manifest.json`. Player никогда не получает gateway wrapper.
 
 ---
 

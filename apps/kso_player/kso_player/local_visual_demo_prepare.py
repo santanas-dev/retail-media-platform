@@ -172,11 +172,16 @@ def _prepare_media_aliases(
 ) -> bool:
     """Prepare safe media aliases for render snapshot.
 
-    Reads the current render plan to get selected item filename,
-    validates it's inside {root}/media/, then creates a safe symlink:
-      {runtime_shell_dir}/media/current/slot-{order:03d} → {root}/media/current/{filename}
+    Two code paths:
+      1. KSO safe format (selected_item has media_ref):
+         Source file is at {root}/{media_ref}.
+         Target alias is at {runtime_shell_dir}/{media_ref}.
+         If target already exists → skip (already prepared).
+      2. Legacy format (selected_item has filename):
+         Validates it's inside {root}/media/, then creates a safe symlink:
+           {runtime_shell_dir}/media/current/slot-{order:03d} → {root}/media/current/{filename}
 
-    Returns True if the alias was created successfully.
+    Returns True if the alias was created (or already exists).
     """
     try:
         render_plan = build_kso_render_plan(root, stale_seconds, now)
@@ -190,7 +195,32 @@ def _prepare_media_aliases(
     if selected_item is None:
         return False
 
-    filename = getattr(selected_item, "filename", None)
+    # ── KSO safe format: media_ref already present ────────────────
+    media_ref = getattr(selected_item, "media_ref", "")
+    if isinstance(media_ref, str) and media_ref.strip():
+        # Source: {root}/{media_ref} (e.g. root/media/current/slot-000)
+        src_media = root / media_ref
+        if not _validate_media_root(src_media, root):
+            return False
+        if not src_media.is_file() and not src_media.is_symlink():
+            return False
+
+        # Target: {runtime_shell_dir}/{media_ref}
+        dst = runtime_shell_dir / media_ref
+        if dst.exists() or dst.is_symlink():
+            # Already prepared — no-op
+            return True
+
+        # Create parent dirs and symlink
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            dst.symlink_to(src_media)
+            return True
+        except OSError:
+            return False
+
+    # ── Legacy format: filename + order → slot-{order:03d} ────────
+    filename = getattr(selected_item, "filename", "")
     if not isinstance(filename, str) or not _validate_filename_safe(filename):
         return False
 

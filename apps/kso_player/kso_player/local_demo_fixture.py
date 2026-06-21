@@ -1,15 +1,17 @@
 """KSO Player Local Demo Fixture — safe demo root generator.
 
-Creates a minimal demo root with:
-  - state/kso_state.json       (idle state from future UKM 4 adapter)
-  - manifest/current_manifest.json (1 item: demo image, 5s)
-  - media/current/ad_demo.png      (valid 1×1 PNG)
-  - media/current/ad_demo.png.sha256
+Creates a minimal demo root using the KSO safe manifest format:
+  - state/kso_state.json          (idle state from future UKM 4 adapter)
+  - manifest/current_manifest.json (KSO safe format: schemaVersion, channel, items[].mediaRef)
+  - media/current/slot-000         (valid 1×1 PNG at mediaRef target)
+
+Manifest uses the KSO safe format (v1+) aligned with backend gateway output.
+NO filename, NO sha256, NO manifest_item_id in manifest.
+Media alias file is written at the mediaRef target path.
 
 This is NOT production — purely for local smoke demo and tests.
 """
 
-import hashlib
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -29,15 +31,17 @@ REASON_WRITE_FAILED = "write_failed"
 REASON_INVALID_ARGS = "invalid_args"
 REASON_INTERNAL_ERROR = "internal_error"
 
-# Manifest schema constants
-MANIFEST_ID = "demo-fixture-v1"
+# KSO safe manifest constants
+KSO_CHANNEL = "kso"
 MANIFEST_SCHEMA_VERSION = 1
 
-MANIFEST_ITEM_ID = "demo-item-001"  # NOT a UUID — demo fixture marker
-DEMO_ORDER = 0
+DEMO_STORE_CODE = "demo-store"
+DEMO_DEVICE_CODE = "demo-device"
+
 DEMO_CONTENT_TYPE = "image/png"
 DEMO_DURATION_MS = 5000
-DEMO_FILENAME = "ad_demo.png"
+DEMO_SLOT_ORDER = 0
+DEMO_MEDIA_REF = "media/current/slot-000"
 
 # State constants
 DEMO_STATE_VALUE = "idle"
@@ -55,7 +59,7 @@ DEMO_PNG = bytes([
     0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44,  # IEND
     0xAE, 0x42, 0x60, 0x82,
 ])
-DEMO_PNG_SHA = hashlib.sha256(DEMO_PNG).hexdigest()
+
 
 # ══════════════════════════════════════════════════════════════════════
 # Dataclass
@@ -96,13 +100,12 @@ def prepare_kso_local_demo_fixture(
     root,
     now: Optional[datetime] = None,
 ) -> KsoLocalDemoFixtureResult:
-    """Create a minimal demo root with idle state, manifest, and media.
+    """Create a minimal demo root with idle state, KSO safe manifest, and media.
 
     Writes:
       state/kso_state.json          — idle state from future UKM 4 adapter
-      manifest/current_manifest.json — 1 item (image/png, 5s)
-      media/current/ad_demo.png      — valid 1×1 blue PNG
-      media/current/ad_demo.png.sha256
+      manifest/current_manifest.json — KSO safe format (schemaVersion, channel, items[].mediaRef)
+      media/current/slot-000         — valid 1×1 blue PNG at mediaRef target
 
     If any file already exists, it is NOT overwritten (safe non-destructive).
 
@@ -146,7 +149,7 @@ def prepare_kso_local_demo_fixture(
             state_ready=state_ready,
         )
 
-    # ── Step 2: Write manifest ───────────────────────────────────
+    # ── Step 2: Write KSO safe manifest ──────────────────────────
     manifest_ready = False
     try:
         manifest_dir = root / "manifest"
@@ -154,16 +157,19 @@ def prepare_kso_local_demo_fixture(
         manifest_file = manifest_dir / "current_manifest.json"
 
         manifest_obj = {
-            "manifest_id": MANIFEST_ID,
-            "schema_version": MANIFEST_SCHEMA_VERSION,
+            "schemaVersion": MANIFEST_SCHEMA_VERSION,
+            "generatedAt": now.isoformat(),
+            "channel": KSO_CHANNEL,
+            "storeCode": DEMO_STORE_CODE,
+            "deviceCode": DEMO_DEVICE_CODE,
             "items": [
                 {
-                    "manifest_item_id": MANIFEST_ITEM_ID,
-                    "order": DEMO_ORDER,
-                    "content_type": DEMO_CONTENT_TYPE,
-                    "duration_ms": DEMO_DURATION_MS,
-                    "filename": DEMO_FILENAME,
-                    "sha256": DEMO_PNG_SHA,
+                    "slotOrder": DEMO_SLOT_ORDER,
+                    "contentType": DEMO_CONTENT_TYPE,
+                    "durationMs": DEMO_DURATION_MS,
+                    "mediaRef": DEMO_MEDIA_REF,
+                    "validFrom": "",
+                    "validTo": "",
                 }
             ],
         }
@@ -177,16 +183,15 @@ def prepare_kso_local_demo_fixture(
             manifest_ready=manifest_ready,
         )
 
-    # ── Step 3: Write media ──────────────────────────────────────
+    # ── Step 3: Write media at mediaRef target ───────────────────
     media_ready = False
     try:
+        # Write media at media/current/slot-000 (the mediaRef target)
         media_dir = root / "media" / "current"
         media_dir.mkdir(parents=True, exist_ok=True)
-        media_file = media_dir / DEMO_FILENAME
-        sha_file = media_dir / (DEMO_FILENAME + ".sha256")
+        media_file = media_dir / "slot-000"
 
         media_file.write_bytes(DEMO_PNG)
-        sha_file.write_text(DEMO_PNG_SHA + "\n")
         media_ready = True
     except Exception:
         return KsoLocalDemoFixtureResult(

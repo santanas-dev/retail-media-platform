@@ -2,9 +2,12 @@
 
 Tests prepare_kso_local_demo_fixture() and local-demo-fixture CLI command.
 Uses temp fixture roots. NO backend, NO HTTP.
+
+KSO safe manifest format (v1+):
+  manifest has schemaVersion, channel=kso, storeCode, deviceCode, items[].mediaRef.
+  Media file is at media/current/slot-000.
 """
 
-import hashlib
 import json
 import shutil
 import sys
@@ -24,9 +27,11 @@ from kso_player.local_demo_fixture import (
     REASON_INVALID_ARGS,
     REASON_WRITE_FAILED,
     DEMO_PNG,
-    DEMO_PNG_SHA,
-    DEMO_FILENAME,
-    MANIFEST_ID,
+    DEMO_MEDIA_REF,
+    DEMO_CONTENT_TYPE,
+    DEMO_DURATION_MS,
+    DEMO_SLOT_ORDER,
+    KSO_CHANNEL,
 )
 
 # Forbidden substrings for output safety
@@ -74,37 +79,56 @@ class TestDemoFixture(TestCase):
         self.assertEqual(state["source"], "ukm4_state_adapter")
         self.assertIn("updated_at_utc", state)
 
-    def test_creates_valid_manifest(self):
+    def test_creates_valid_kso_manifest(self):
+        """Manifest uses KSO safe format: schemaVersion, channel=kso, mediaRef."""
         result = prepare_kso_local_demo_fixture(self.root)
         self.assertTrue(result.manifest_ready)
 
         manifest_path = self.root / "manifest" / "current_manifest.json"
         self.assertTrue(manifest_path.is_file())
         manifest = json.loads(manifest_path.read_text())
-        self.assertEqual(manifest["manifest_id"], MANIFEST_ID)
-        self.assertEqual(manifest["schema_version"], 1)
+
+        # KSO safe format top-level fields
+        self.assertEqual(manifest["schemaVersion"], 1)
+        self.assertEqual(manifest["channel"], KSO_CHANNEL)
+        self.assertEqual(manifest["storeCode"], "demo-store")
+        self.assertEqual(manifest["deviceCode"], "demo-device")
+        self.assertIn("generatedAt", manifest)
         self.assertEqual(len(manifest["items"]), 1)
 
         item = manifest["items"][0]
-        self.assertEqual(item["order"], 0)
-        self.assertEqual(item["content_type"], "image/png")
-        self.assertEqual(item["duration_ms"], 5000)
-        self.assertEqual(item["sha256"], DEMO_PNG_SHA)
+        self.assertEqual(item["slotOrder"], DEMO_SLOT_ORDER)
+        self.assertEqual(item["contentType"], DEMO_CONTENT_TYPE)
+        self.assertEqual(item["durationMs"], DEMO_DURATION_MS)
+        self.assertEqual(item["mediaRef"], DEMO_MEDIA_REF)
+        self.assertIn("validFrom", item)
+        self.assertIn("validTo", item)
+
+        # Forbidden fields: NO filename, NO sha256, NO manifest_item_id
+        self.assertNotIn("filename", item)
+        self.assertNotIn("sha256", item)
+        self.assertNotIn("manifest_item_id", item)
+        self.assertNotIn("manifest_id", manifest)
 
     def test_creates_valid_media(self):
+        """Media file is at media/current/slot-000 (mediaRef target)."""
         result = prepare_kso_local_demo_fixture(self.root)
         self.assertTrue(result.media_ready)
 
-        media_path = self.root / "media" / "current" / DEMO_FILENAME
+        media_path = self.root / "media" / "current" / "slot-000"
         self.assertTrue(media_path.is_file())
         self.assertEqual(media_path.read_bytes(), DEMO_PNG)
 
-        sha_path = self.root / "media" / "current" / (DEMO_FILENAME + ".sha256")
-        self.assertTrue(sha_path.is_file())
-        self.assertEqual(sha_path.read_text().strip(), DEMO_PNG_SHA)
+        # No .sha256 file (not in KSO safe format)
+        sha_path = self.root / "media" / "current" / "slot-000.sha256"
+        self.assertFalse(sha_path.exists())
+
+        # No legacy filename
+        legacy = self.root / "media" / "current" / "ad_demo.png"
+        self.assertFalse(legacy.exists())
 
     def test_manifest_compatible_with_build_playlist(self):
-        """After fixture, build_playlist returns ready."""
+        """After fixture, build_playlist returns ready with KSO safe format."""
         from kso_player.playlist import build_playlist
         prepare_kso_local_demo_fixture(self.root)
         playlist = build_playlist(self.root)
@@ -173,10 +197,11 @@ class TestDemoFixtureOutputSafety(TestCase):
         text = repr(result)
         self.assertNotIn(str(self.root), text)
 
-    def test_repr_no_filename(self):
+    def test_repr_no_media_ref(self):
+        """Result repr must not contain mediaRef value."""
         result = prepare_kso_local_demo_fixture(self.root)
         text = repr(result)
-        self.assertNotIn(DEMO_FILENAME, text)
+        self.assertNotIn(DEMO_MEDIA_REF, text)
 
     def test_repr_no_forbidden(self):
         result = prepare_kso_local_demo_fixture(self.root)
@@ -341,10 +366,11 @@ class TestCLIDemoFixture(TestCase):
         self.assertEqual(code, 0)
         self.assertNotIn(str(self.root_tmp), out)
 
-    def test_cli_output_no_filename(self):
+    def test_cli_output_no_media_ref(self):
+        """CLI output must not contain mediaRef values."""
         code, out = self._cli("--root", str(self.root_tmp))
         self.assertEqual(code, 0)
-        self.assertNotIn(DEMO_FILENAME, out)
+        self.assertNotIn(DEMO_MEDIA_REF, out)
 
     def test_cli_output_no_forbidden(self):
         code, out = self._cli("--root", str(self.root_tmp))

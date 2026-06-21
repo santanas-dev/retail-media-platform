@@ -2,6 +2,7 @@
 
 import hashlib as _hl
 import json as _json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -576,6 +577,285 @@ class TestBuildPlaylistEdgeCases(unittest.TestCase):
         self.assertEqual(pl.status, "error")
         self.assertEqual(pl.reason, REASON_MANIFEST_INVALID)
         self.assertEqual(pl.items_total, 2)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Tests: KSO safe manifest format
+# ══════════════════════════════════════════════════════════════════════
+
+KSO_CHANNEL = "kso"
+
+# KSO safe manifest helpers
+def _make_kso_manifest(items=None, channel=KSO_CHANNEL,
+                       store_code="store-01", device_code="dev-01"):
+    return {
+        "schemaVersion": 1,
+        "generatedAt": "2026-06-19T10:00:00Z",
+        "channel": channel,
+        "storeCode": store_code,
+        "deviceCode": device_code,
+        "items": items or [],
+    }
+
+
+def _make_kso_item(slot_order=0, content_type="image/png", dur_ms=5000,
+                   media_ref="media/current/slot-000",
+                   valid_from="", valid_to=""):
+    return {
+        "slotOrder": slot_order,
+        "contentType": content_type,
+        "durationMs": dur_ms,
+        "mediaRef": media_ref,
+        "validFrom": valid_from,
+        "validTo": valid_to,
+    }
+
+
+def _write_kso_manifest(root: Path, data: dict):
+    mf = root / MANIFEST_FILE
+    mf.parent.mkdir(parents=True, exist_ok=True)
+    mf.write_text(_json.dumps(data), encoding="utf-8")
+
+
+def _write_kso_media(root: Path, media_ref="slot-000", content=PNG):
+    """Write media at media/current/{media_ref}."""
+    mc = root / MEDIA_CURRENT
+    mc.mkdir(parents=True, exist_ok=True)
+    (mc / media_ref).write_bytes(content)
+
+
+class TestBuildPlaylistKsoSafe(unittest.TestCase):
+    """KSO safe manifest format tests."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    # ── Happy path ─────────────────────────────────────────────────
+
+    def test_single_kso_item_all_ok(self):
+        """KSO safe manifest with one valid item → ready."""
+        manifest = _make_kso_manifest(items=[
+            _make_kso_item()
+        ])
+        _write_kso_manifest(self.root, manifest)
+        _write_kso_media(self.root, "slot-000")
+
+        pl = build_playlist(self.root)
+        self.assertTrue(pl.ready)
+        self.assertEqual(pl.status, "ready")
+        self.assertEqual(pl.reason, REASON_READY)
+        self.assertEqual(pl.items_total, 1)
+        self.assertEqual(pl.items_ready, 1)
+
+    def test_two_kso_items_all_ok(self):
+        """Two valid KSO items → both ready."""
+        manifest = _make_kso_manifest(items=[
+            _make_kso_item(slot_order=0, media_ref="media/current/slot-000"),
+            _make_kso_item(slot_order=1, media_ref="media/current/slot-001"),
+        ])
+        _write_kso_manifest(self.root, manifest)
+        _write_kso_media(self.root, "slot-000")
+        _write_kso_media(self.root, "slot-001")
+
+        pl = build_playlist(self.root)
+        self.assertTrue(pl.ready)
+        self.assertEqual(pl.items_total, 2)
+        self.assertEqual(pl.items_ready, 2)
+
+    # ── Media verification ─────────────────────────────────────────
+
+    def test_kso_media_missing(self):
+        """Media file missing → media_incomplete."""
+        manifest = _make_kso_manifest(items=[
+            _make_kso_item(media_ref="media/current/slot-000"),
+        ])
+        _write_kso_manifest(self.root, manifest)
+        # No media written
+
+        pl = build_playlist(self.root)
+        self.assertFalse(pl.ready)
+        self.assertEqual(pl.status, "not_ready")
+        self.assertEqual(pl.reason, REASON_MEDIA_INCOMPLETE)
+        self.assertEqual(pl.items_total, 1)
+        self.assertEqual(pl.items_ready, 0)
+        self.assertEqual(pl.items_missing, 1)
+
+    # ── Format detection ───────────────────────────────────────────
+
+    def test_kso_format_detected_automatically(self):
+        """KSO format is auto-detected from schemaVersion + channel + mediaRef."""
+        manifest = _make_kso_manifest(items=[
+            _make_kso_item(),
+        ])
+        _write_kso_manifest(self.root, manifest)
+        _write_kso_media(self.root, "slot-000")
+
+        pl = build_playlist(self.root)
+        self.assertTrue(pl.ready)  # Must be detected as KSO, not legacy
+
+    def test_empty_kso_items(self):
+        """Empty items array in KSO manifest → no_media_items."""
+        manifest = _make_kso_manifest(items=[])
+        _write_kso_manifest(self.root, manifest)
+
+        pl = build_playlist(self.root)
+        self.assertFalse(pl.ready)
+        self.assertEqual(pl.reason, REASON_NO_MEDIA_ITEMS)
+
+    # ── Gateway wrapper rejection ──────────────────────────────────
+
+    def test_gateway_wrapper_rejected(self):
+        """Gateway wrapper {status, manifest} → invalid (hold)."""
+        wrapper = {
+            "status": "served",
+            "manifest_version_id": "some-uuid",
+            "manifest_hash": "abc123",
+            "published_at": "2026-06-19T10:00:00Z",
+            "manifest": {
+                "schemaVersion": 1,
+                "channel": "kso",
+                "storeCode": "s1",
+                "deviceCode": "d1",
+                "items": [],
+            }
+        }
+        mf = self.root / MANIFEST_FILE
+        mf.parent.mkdir(parents=True, exist_ok=True)
+        mf.write_text(_json.dumps(wrapper), encoding="utf-8")
+
+        pl = build_playlist(self.root)
+        self.assertFalse(pl.ready)
+        self.assertEqual(pl.status, "error")
+        self.assertEqual(pl.reason, REASON_MANIFEST_INVALID)
+
+    def test_gateway_wrapper_rejected_even_with_items(self):
+        """Gateway wrapper with valid items inside → still rejected."""
+        wrapper = {
+            "status": "not_modified",
+            "manifest": {
+                "schemaVersion": 1,
+                "channel": "kso",
+                "storeCode": "s1",
+                "deviceCode": "d1",
+                "items": [_make_kso_item()],
+            }
+        }
+        mf = self.root / MANIFEST_FILE
+        mf.parent.mkdir(parents=True, exist_ok=True)
+        mf.write_text(_json.dumps(wrapper), encoding="utf-8")
+
+        pl = build_playlist(self.root)
+        self.assertFalse(pl.ready)
+        self.assertEqual(pl.reason, REASON_MANIFEST_INVALID)
+
+    # ── Channel check ──────────────────────────────────────────────
+
+    def test_non_kso_channel_rejected(self):
+        """Manifest with channel != kso → all items excluded → manifest_invalid."""
+        manifest = _make_kso_manifest(
+            channel="android-tv",
+            items=[_make_kso_item()],
+        )
+        _write_kso_manifest(self.root, manifest)
+        _write_kso_media(self.root, "slot-000")
+
+        pl = build_playlist(self.root)
+        self.assertFalse(pl.ready)
+        self.assertEqual(pl.reason, REASON_MANIFEST_INVALID)
+
+    # ── Unsupported content type ───────────────────────────────────
+
+    def test_unsupported_content_type_excluded(self):
+        """KSO item with unsupported MIME → excluded → no items."""
+        item = _make_kso_item(content_type="application/pdf")
+        manifest = _make_kso_manifest(items=[item])
+        _write_kso_manifest(self.root, manifest)
+
+        pl = build_playlist(self.root)
+        self.assertFalse(pl.ready)
+        self.assertEqual(pl.reason, REASON_MANIFEST_INVALID)
+        self.assertEqual(pl.items_total, 1)
+
+    # ── Unsafe mediaRef rejection ──────────────────────────────────
+
+    def test_unsafe_media_ref_path_traversal(self):
+        """mediaRef with path traversal → item excluded."""
+        item = _make_kso_item(media_ref="../etc/passwd")
+        manifest = _make_kso_manifest(items=[item])
+        _write_kso_manifest(self.root, manifest)
+
+        pl = build_playlist(self.root)
+        self.assertFalse(pl.ready)
+        self.assertEqual(pl.reason, REASON_MANIFEST_INVALID)
+
+    def test_unsafe_media_ref_absolute(self):
+        """mediaRef as absolute path → excluded."""
+        item = _make_kso_item(media_ref="/etc/passwd")
+        manifest = _make_kso_manifest(items=[item])
+        _write_kso_manifest(self.root, manifest)
+
+        pl = build_playlist(self.root)
+        self.assertFalse(pl.ready)
+        self.assertEqual(pl.reason, REASON_MANIFEST_INVALID)
+
+    def test_unsafe_media_ref_url(self):
+        """mediaRef as URL → excluded."""
+        item = _make_kso_item(media_ref="http://evil.com/bad.png")
+        manifest = _make_kso_manifest(items=[item])
+        _write_kso_manifest(self.root, manifest)
+
+        pl = build_playlist(self.root)
+        self.assertFalse(pl.ready)
+        self.assertEqual(pl.reason, REASON_MANIFEST_INVALID)
+
+    def test_unsafe_media_ref_backslash(self):
+        """mediaRef with backslash → excluded."""
+        item = _make_kso_item(media_ref="media\\current\\slot-000")
+        manifest = _make_kso_manifest(items=[item])
+        _write_kso_manifest(self.root, manifest)
+
+        pl = build_playlist(self.root)
+        self.assertFalse(pl.ready)
+        self.assertEqual(pl.reason, REASON_MANIFEST_INVALID)
+
+    # ── Output safety ──────────────────────────────────────────────
+
+    def test_kso_playlist_item_no_raw_ids(self):
+        """KSO playlist items never expose raw IDs/paths/filename/hash."""
+        manifest = _make_kso_manifest(items=[_make_kso_item()])
+        _write_kso_manifest(self.root, manifest)
+        _write_kso_media(self.root, "slot-000")
+
+        pl = build_playlist(self.root)
+        self.assertTrue(pl.ready)
+        item = pl.items[0]
+        # No legacy fields
+        self.assertEqual(item.manifest_item_id, "")
+        self.assertEqual(item.filename, "")
+        self.assertEqual(item.sha256, "")
+        # Has KSO fields
+        self.assertEqual(item.media_ref, "media/current/slot-000")
+        self.assertEqual(item.slot_order, 0)
+        self.assertEqual(item.content_type, "image/png")
+        self.assertEqual(item.duration_ms, 5000)
+
+    def test_kso_summary_no_forbidden(self):
+        """Safe output summary has no forbidden substrings."""
+        from kso_player.safe_output import format_playlist_summary
+        manifest = _make_kso_manifest(items=[_make_kso_item()])
+        _write_kso_manifest(self.root, manifest)
+        _write_kso_media(self.root, "slot-000")
+
+        pl = build_playlist(self.root)
+        summary = format_playlist_summary(pl)
+        lower = summary.lower()
+        for fb in ("filename", "sha256", "manifest_item_id", "media_ref",
+                    "media/current", "slot-000"):
+            self.assertNotIn(fb, lower,
+                f"forbidden '{fb}' in summary: {summary}")
 
 
 if __name__ == "__main__":
