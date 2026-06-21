@@ -81,6 +81,47 @@ published_at, token, secret, campaign_id, creative_id, filename, sha256, ...
 
 Это НЕ HTTP client, НЕ media downloader — это будет отдельным шагом.
 
+## KSO Manifest + Media Sync
+
+**Реализован:** `kso_manifest_media_sync.py`.
+
+Полный цикл синхронизации: gateway → manifest extraction → media download → publish.
+
+**Sync flow** (`sync_kso_manifest_and_media`):
+1. `gateway_client.fetch_current_manifest()` — получает gateway response
+2. `extract_kso_safe_manifest_body_from_gateway_response()` — извлекает safe body
+3. Если `not_modified` или `no_manifest` → no-op
+4. Если items пустые → пишет только manifest
+5. Для каждого items[].mediaRef:
+   - `gateway_client.download_kso_media(mediaRef)` — скачивает media
+   - Валидирует content-type совпадает с manifest
+   - Проверяет размер ≤ 100 MB
+   - Атомарно пишет `media/current/slot-NNN`
+6. **Только после успешной загрузки всех media** — атомарно пишет `manifest/current_manifest.json`
+
+**Ключевое правило**: manifest публикуется **после** media.
+Если любой media download падает — старый manifest сохраняется, новый не пишется.
+
+**Gateway client contract** (injectable):
+```python
+class KsoGatewayClient(Protocol):
+    def fetch_current_manifest(self) -> Mapping[str, Any]: ...
+    def download_kso_media(self, media_ref: str) -> KsoMediaDownloadResponse: ...
+```
+
+В тестах используется fake client — без real HTTP.
+
+**Что пишется**:
+- `manifest/current_manifest.json` — только safe manifest body
+- `media/current/slot-000` ... `slot-NNN` — media файлы
+- НЕ пишется: `pop/`, `state/`, `config/`, `status/`
+
+**Safe result fields**: status, manifest_written, media_downloaded_count,
+media_written_count, items_count, reason.
+Без: paths, filenames, mediaRef values, IDs, raw JSON, hash, secret.
+
+Это НЕ scheduler/systemd — цикличный запуск будет отдельным шагом.
+
 ## PoP Pickup Design
 
 📝 **Mini-design создан:** `docs/pop_pickup_design.md`. Описывает будущий шаг run-cycle, в котором sidecar забирает локальные player events из `pop/pending/player_events.jsonl`, валидирует, классифицирует по статусу и готовит eligible-события к отправке в backend. Draft-события не являются фактом показа и не отправляются как PoP. Реализация pickup — отдельный шаг.
