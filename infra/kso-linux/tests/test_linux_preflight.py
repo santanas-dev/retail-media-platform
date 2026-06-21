@@ -77,7 +77,9 @@ def _setup_staging_root(base: Path) -> Path:
         "VERNY_KSO_CHROMIUM_BIN=/usr/bin/chromium\n"
     )
     (etc / "kso-state-adapter.env").write_text(
+        "VERNY_KSO_STATE_SOURCE=static\n"
         "VERNY_KSO_STATIC_STATE=unknown\n"
+        "VERNY_KSO_SOURCE_FILE=/run/verny/kso/ukm4-safe-state.json\n"
     )
 
     return target
@@ -206,6 +208,127 @@ class TestPreflightEnv(unittest.TestCase):
         result = run_preflight(target_root=str(target))
         self.assertFalse(result.sidecar_env_has_placeholders)
         self.assertFalse(result.player_env_has_placeholders)
+        _assert_safe(self, format_preflight_result(result))
+
+
+class TestPreflightAdapterSource(unittest.TestCase):
+    """Source mode + source file path checks for state adapter env."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="kso_pf_"))
+
+    def tearDown(self):
+        _shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _setup_with_adapter_env(self, env_content: str):
+        target = _setup_staging_root(self.tmp)
+        (target / "etc/verny/kso/kso-state-adapter.env").write_text(env_content)
+        # Clean sidecar env to avoid placeholder warnings
+        (target / "etc/verny/kso/kso-sidecar.env").write_text(
+            "VERNY_KSO_BACKEND_URL=https://backend.prod.example\n"
+            "VERNY_KSO_DEVICE_CODE=a-05954\n"
+            "VERNY_KSO_DEVICE_SECRET=prd_sec\n"
+        )
+        return target
+
+    def test_accepts_static_unknown_default(self):
+        target = self._setup_with_adapter_env(
+            "VERNY_KSO_STATE_SOURCE=static\n"
+            "VERNY_KSO_STATIC_STATE=unknown\n"
+        )
+        result = run_preflight(target_root=str(target))
+        self.assertEqual(result.state_adapter_source_mode, "static")
+        self.assertEqual(result.status, STATUS_OK)
+
+    def test_accepts_source_file_with_allowed_path(self):
+        target = self._setup_with_adapter_env(
+            "VERNY_KSO_STATE_SOURCE=file\n"
+            "VERNY_KSO_STATIC_STATE=unknown\n"
+            "VERNY_KSO_SOURCE_FILE=/run/verny/kso/ukm4-safe-state.json\n"
+        )
+        result = run_preflight(target_root=str(target))
+        self.assertEqual(result.state_adapter_source_mode, "file")
+        self.assertTrue(result.state_adapter_source_file_configured)
+        self.assertTrue(result.state_adapter_source_file_allowed)
+
+    def test_rejects_source_file_outside_allowed_roots(self):
+        target = self._setup_with_adapter_env(
+            "VERNY_KSO_STATE_SOURCE=file\n"
+            "VERNY_KSO_STATIC_STATE=unknown\n"
+            "VERNY_KSO_SOURCE_FILE=/tmp/bad-file.json\n"
+        )
+        result = run_preflight(target_root=str(target))
+        self.assertEqual(result.state_adapter_source_mode, "file")
+        self.assertTrue(result.state_adapter_source_file_configured)
+        self.assertFalse(result.state_adapter_source_file_allowed)
+
+    def test_rejects_invalid_source_mode(self):
+        target = self._setup_with_adapter_env(
+            "VERNY_KSO_STATE_SOURCE=invalid\n"
+            "VERNY_KSO_STATIC_STATE=unknown\n"
+        )
+        result = run_preflight(target_root=str(target))
+        self.assertEqual(result.state_adapter_source_mode, "invalid")
+
+    def test_warns_if_source_file_and_file_missing(self):
+        """Warning only — file may not exist before UKM 4 integration."""
+        target = self._setup_with_adapter_env(
+            "VERNY_KSO_STATE_SOURCE=file\n"
+            "VERNY_KSO_STATIC_STATE=unknown\n"
+            "VERNY_KSO_SOURCE_FILE=/run/verny/kso/ukm4-safe-state.json\n"
+        )
+        result = run_preflight(target_root=str(target))
+        self.assertEqual(result.state_adapter_source_mode, "file")
+        # File doesn't exist — should have a warning but not error
+        # (file may not exist yet before UKM 4 integration)
+
+    def test_does_not_read_source_file_content(self):
+        """Preflight must NOT read content of the source file."""
+        sf = self.tmp / "ukm4-safe-state.json"
+        sf.write_text('{"receipt":"secret"}')
+        target = _setup_staging_root(self.tmp)
+        (target / "etc/verny/kso/kso-state-adapter.env").write_text(
+            f"VERNY_KSO_STATE_SOURCE=file\n"
+            f"VERNY_KSO_STATIC_STATE=unknown\n"
+            f"VERNY_KSO_SOURCE_FILE={sf}\n"
+        )
+        # Even if file is outside allowed roots, preflight should not
+        # print its content
+        result = run_preflight(target_root=str(target))
+        output = format_preflight_result(result).lower()
+        self.assertNotIn("secret", output)
+        self.assertNotIn("receipt", output)
+
+    def test_output_does_not_print_source_file_path(self):
+        """Preflight output must not contain the raw source file path."""
+        target = self._setup_with_adapter_env(
+            "VERNY_KSO_STATE_SOURCE=file\n"
+            "VERNY_KSO_STATIC_STATE=unknown\n"
+            "VERNY_KSO_SOURCE_FILE=/run/verny/kso/ukm4-safe-state.json\n"
+        )
+        result = run_preflight(target_root=str(target))
+        output = format_preflight_result(result)
+        self.assertNotIn("ukm4-safe-state.json", output)
+
+    def test_output_does_not_print_env_values(self):
+        """Preflight output must not print raw env values."""
+        target = self._setup_with_adapter_env(
+            "VERNY_KSO_STATE_SOURCE=static\n"
+            "VERNY_KSO_STATIC_STATE=unknown\n"
+        )
+        result = run_preflight(target_root=str(target))
+        output = format_preflight_result(result).lower()
+        self.assertNotIn("static", output)
+        self.assertNotIn("unknown", output)
+        _assert_safe(self, format_preflight_result(result))
+
+    def test_output_safe(self):
+        target = self._setup_with_adapter_env(
+            "VERNY_KSO_STATE_SOURCE=file\n"
+            "VERNY_KSO_STATIC_STATE=unknown\n"
+            "VERNY_KSO_SOURCE_FILE=/run/verny/kso/ukm4-safe-state.json\n"
+        )
+        result = run_preflight(target_root=str(target))
         _assert_safe(self, format_preflight_result(result))
 
 

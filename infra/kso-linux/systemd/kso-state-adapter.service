@@ -7,7 +7,9 @@ Type=simple
 EnvironmentFile=/etc/verny/kso/state-adapter.env
 ExecStart=/usr/bin/python3 -m kso_state_adapter.cli daemon \
     --root /var/lib/verny/kso \
+    --source ${VERNY_KSO_STATE_SOURCE} \
     --source-state ${VERNY_KSO_STATIC_STATE} \
+    --source-file ${VERNY_KSO_SOURCE_FILE} \
     --health-file /run/verny/kso/state-adapter-health.json
 
 WorkingDirectory=/opt/verny/kso

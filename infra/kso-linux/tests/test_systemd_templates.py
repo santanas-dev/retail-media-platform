@@ -280,6 +280,25 @@ class TestAdapterServiceContent(unittest.TestCase):
     def test_source_state_from_env(self):
         self.assertIn("${VERNY_KSO_STATIC_STATE}", self.content)
 
+    def test_source_mode_from_env(self):
+        """Unit uses --source env variable for switching static/file."""
+        self.assertIn("--source ${VERNY_KSO_STATE_SOURCE}", self.content)
+
+    def test_source_file_from_env(self):
+        """Unit uses --source-file env variable for file source path."""
+        self.assertIn("--source-file ${VERNY_KSO_SOURCE_FILE}", self.content)
+
+    def test_no_idle_default(self):
+        """Unit must not hardcode idle as default state."""
+        self.assertNotIn("--source-state idle", self.content.lower())
+        self.assertNotIn("--source-state=idle", self.content.lower())
+
+    def test_no_real_ukm_path(self):
+        """Unit must not contain real UKM 4 paths."""
+        self.assertNotIn("/opt/supermag", self.content.lower())
+        self.assertNotIn("/var/lib/supermag", self.content.lower())
+        self.assertNotIn("ukm4", self.content.lower())
+
     def test_env_file_path(self):
         self.assertIn("/etc/verny/kso/state-adapter.env", self.content)
 
@@ -315,6 +334,24 @@ class TestEnvExamples(unittest.TestCase):
         content = _read(_ENV_DIR / "kso-player.env.example")
         self.assertNotIn("Bearer", content)
         self.assertNotIn("password", content.lower())
+
+    def test_adapter_env_default_source_static(self):
+        content = _read(_ENV_DIR / "kso-state-adapter.env.example")
+        self.assertIn("VERNY_KSO_STATE_SOURCE=static", content)
+
+    def test_adapter_env_default_state_unknown(self):
+        content = _read(_ENV_DIR / "kso-state-adapter.env.example")
+        self.assertIn("VERNY_KSO_STATIC_STATE=unknown", content)
+
+    def test_adapter_env_source_file_path(self):
+        content = _read(_ENV_DIR / "kso-state-adapter.env.example")
+        self.assertIn("VERNY_KSO_SOURCE_FILE=/run/verny/kso/ukm4-safe-state.json",
+                       content)
+
+    def test_adapter_env_no_idle_default(self):
+        content = _read(_ENV_DIR / "kso-state-adapter.env.example")
+        # Must not set idle as default (unknown is safe)
+        self.assertNotIn("VERNY_KSO_STATIC_STATE=idle", content)
 
     def test_env_files_are_examples_not_production(self):
         """Ensure .example files, not real .env files."""

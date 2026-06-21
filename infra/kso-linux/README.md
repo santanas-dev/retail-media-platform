@@ -318,3 +318,10 @@ Discovery-скрипт: `infra/kso-linux/discovery/ukm4_state_discovery.py`
 Безопасный readonly инструмент для определения источника состояния УКМ 4.
 **Не читает** чеки, товары, карты, покупателей, fiscal data.
 См. `--help` и `--dry-run`.
+
+### Switching to file source
+
+1. Установить `VERNY_KSO_STATE_SOURCE=file` в `/etc/verny/kso/state-adapter.env`
+2. Установить `VERNY_KSO_SOURCE_FILE` на путь в `/run/verny/kso/` или `/var/lib/verny/kso/`
+3. Файл должен содержать ТОЛЬКО `{"state":"idle"}` или `idle`
+4. **Не default** — по умолчанию `static unknown` (player hold)

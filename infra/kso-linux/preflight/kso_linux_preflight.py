@@ -68,7 +68,15 @@ PLAYER_ENV_REQUIRED_KEYS = frozenset({
 })
 
 ADAPTER_ENV_REQUIRED_KEYS = frozenset({
+    "VERNY_KSO_STATE_SOURCE",
     "VERNY_KSO_STATIC_STATE",
+})
+
+ALLOWED_SOURCE_MODES = frozenset({"static", "file"})
+
+ADAPTER_SOURCE_FILE_ALLOWED_ROOTS = frozenset({
+    "/run/verny/kso",
+    "/var/lib/verny/kso",
 })
 
 PLAYER_SHELL_REQUIRED_FILES = (
@@ -178,6 +186,9 @@ class PreflightResult:
     state_adapter_env_present: bool = False
     state_adapter_env_has_placeholders: bool = True
     state_adapter_env_missing_keys_count: int = 0
+    state_adapter_source_mode: str = "unknown"
+    state_adapter_source_file_configured: bool = False
+    state_adapter_source_file_allowed: bool = False
 
     # ── Health path check ───────────────────────────────────────────
     health_path_writable: bool = False
@@ -452,6 +463,54 @@ def run_preflight(
                     "State adapter env has VERNY_KSO_STATIC_STATE=idle — "
                     "safe only for local testing"
                 )
+
+            # Source mode validation
+            source_mode = env_vars.get("VERNY_KSO_STATE_SOURCE", "")
+            if source_mode in ALLOWED_SOURCE_MODES:
+                result.state_adapter_source_mode = source_mode
+            else:
+                result.state_adapter_source_mode = "invalid"
+                result.warnings.append(
+                    f"State adapter source mode '{source_mode}' is invalid — "
+                    f"allowed: {','.join(sorted(ALLOWED_SOURCE_MODES))}"
+                )
+
+            # Source file check (only when mode=file)
+            source_file = env_vars.get("VERNY_KSO_SOURCE_FILE", "")
+            if source_mode == "file":
+                if source_file:
+                    result.state_adapter_source_file_configured = True
+                    # Check path is within allowed roots
+                    sf_path = Path(source_file) if source_file.startswith("/") else None
+                    allowed = False
+                    if sf_path:
+                        for root in ADAPTER_SOURCE_FILE_ALLOWED_ROOTS:
+                            try:
+                                sf_path.resolve().relative_to(Path(root).resolve())
+                                allowed = True
+                                break
+                            except ValueError:
+                                pass
+                    result.state_adapter_source_file_allowed = allowed
+                    if not allowed:
+                        result.warnings.append(
+                            "State adapter source file path outside allowed roots"
+                        )
+                    # Check file existence (warning only — may not exist yet pre-UKM4)
+                    if allowed and sf_path and not sf_path.is_file():
+                        result.warnings.append(
+                            "State adapter source file configured but not found "
+                            "(expected before UKM 4 integration)"
+                        )
+                else:
+                    result.warnings.append(
+                        "State adapter source=file but VERNY_KSO_SOURCE_FILE is empty"
+                    )
+            else:
+                # Source file path present but mode is not file — just note it
+                if source_file:
+                    result.state_adapter_source_file_configured = True
+                    # Not checking allowlist for non-file mode, just FYI
         except Exception:
             result.warnings.append("Cannot read state adapter env")
     else:
