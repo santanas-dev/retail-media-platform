@@ -9,14 +9,17 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
+import sqlalchemy as sa  # for __table_args__ Index/UniqueConstraint references
 
 from app.core.database import Base
 
@@ -60,6 +63,15 @@ class User(Base):
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
+    )
+
+    # Archived (soft delete)
+    is_archived = Column(Boolean, server_default=func.text("false"))
+    archived_at = Column(DateTime(timezone=True))
+    archived_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     # Relationships
@@ -219,3 +231,173 @@ class RefreshToken(Base):
 
     # Relationships
     user = relationship("User", back_populates="refresh_tokens")
+
+
+class UserRlsScope(Base):
+    """RLS scope assignment for a user.
+
+    Each row represents one scope grant — e.g. branch_scope=central,
+    store_scope=store-001.  Scopes of the same type are OR'd (union).
+    Scopes of different types are AND'd (intersection).
+    """
+
+    __tablename__ = "user_rls_scopes"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    scope_type = Column(
+        String(64),
+        nullable=False,
+        comment="advertiser_scope | branch_scope | store_scope | campaign_scope | device_scope | approval_scope | report_scope",
+    )
+    scope_value = Column(String(255), nullable=False)
+    starts_at = Column(DateTime(timezone=True))
+    expires_at = Column(DateTime(timezone=True))
+    is_active = Column(Boolean, server_default=func.text("true"))
+    created_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+    reason = Column(String(512))
+
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (
+        sa.UniqueConstraint("user_id", "scope_type", "scope_value",
+                            name="uq_user_rls_scope"),
+    )
+
+
+class LoginAuditEvent(Base):
+    """Immutable log of every login attempt (success or failure)."""
+
+    __tablename__ = "login_audit_events"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    username = Column(String(100), nullable=False)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    success = Column(Boolean, nullable=False)
+    result_code = Column(String(50))
+    # result_code: 'success' | 'invalid_credentials' | 'locked' | 'inactive' | 'archived' | 'service_account'
+    reason_code = Column(String(100))
+    occurred_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    ip_hash = Column(String(128))
+    user_agent_hash = Column(String(128))
+
+    __table_args__ = (
+        sa.Index("idx_login_audit_user_time", "user_id", "occurred_at"),
+        sa.Index("idx_login_audit_time", "occurred_at"),
+    )
+
+
+class AdminAuditEvent(Base):
+    """Immutable log of administrative actions (user/role/RLS changes)."""
+
+    __tablename__ = "admin_audit_events"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    actor_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    action = Column(String(100), nullable=False)
+    # action: 'create_user' | 'block_user' | 'archive_user' | 'unblock_user' |
+    #         'assign_role' | 'remove_role' | 'assign_rls_scope' | 'remove_rls_scope'
+    target_type = Column(String(64))
+    # target_type: 'user' | 'role' | 'rls_scope'
+    target_ref = Column(String(255))
+    # opaque reference: username, role code, or scope type+value
+    details_json = Column(JSONB)
+    # structured audit details — only safe fields (no secrets/tokens/passwords)
+    occurred_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # Relationships
+    actor = relationship("User", foreign_keys=[actor_user_id])
+
+    __table_args__ = (
+        sa.Index("idx_admin_audit_actor_time", "actor_user_id", "occurred_at"),
+        sa.Index("idx_admin_audit_time", "occurred_at"),
+        sa.Index("idx_admin_audit_action_time", "action", "occurred_at"),
+    )
+
+
+class MfaSettings(Base):
+    """Per-user MFA configuration.
+
+    Secret is stored as an opaque reference — the actual TOTP secret lives
+    in a dedicated secure storage, not in this table.
+    """
+
+    __tablename__ = "mfa_settings"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    mfa_required = Column(Boolean, server_default=func.text("false"))
+    mfa_enabled = Column(Boolean, server_default=func.text("false"))
+    method = Column(String(20))
+    # method: 'totp' (future: 'webauthn', 'sms')
+    secret_ref = Column(String(255))
+    # opaque reference to secure storage; NOT the raw secret
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])

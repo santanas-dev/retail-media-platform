@@ -195,7 +195,10 @@ ROLE_PERMISSIONS = {
         "campaign_reports.read", "campaign_reports.manage",
     ],
     "device_service": [
-        # No interactive permissions — service account only
+        # Machine-only role — service/API permissions only, no human portal access.
+        "devices.gateway.read",
+        "devices.gateway.manage",
+        "devices.gateway.credentials",
     ],
 }
 
