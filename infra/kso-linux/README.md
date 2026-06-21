@@ -212,6 +212,61 @@ journalctl -u kso-player.service -f
 - Price checker
 - Мобильное приложение как рекламный канал
 
+## Safe bootstrap script
+
+Вместо ручного копирования используйте `install/kso_linux_bootstrap.py`.
+
+### Dry-run (безопасно, без изменений)
+
+```bash
+python3 infra/kso-linux/install/kso_linux_bootstrap.py --dry-run
+```
+
+### Staging target-root
+
+```bash
+python3 infra/kso-linux/install/kso_linux_bootstrap.py --apply \
+    --target-root /tmp/kso-install-root
+```
+
+Создаст полное дерево каталогов и скопирует unit/env файлы под `/tmp/kso-install-root`.
+
+### Production (требует явного подтверждения)
+
+```bash
+python3 infra/kso-linux/install/kso_linux_bootstrap.py --apply \
+    --target-root / \
+    --i-understand-this-writes-to-system-paths
+```
+
+**Что делает bootstrap:**
+- Создаёт каталоги (`/opt/verny/kso`, `/etc/verny/kso`, ...)
+- Копирует systemd unit templates в `/etc/systemd/system/`
+- Копирует env examples как `.example` (не перезаписывает реальные `.env`)
+- Проверяет env на `CHANGE_ME` placeholders (`--validate-env`)
+- Проверяет unit syntax (`--verify-units`)
+
+**Что НЕ делает bootstrap:**
+- ❌ systemctl start / enable / restart / daemon-reload
+- ❌ Не перезаписывает существующие env файлы
+- ❌ Не перезаписывает существующие unit файлы
+- ❌ Не запускает Chromium / player / sidecar
+
+### Проверка unit syntax
+
+```bash
+python3 infra/kso-linux/install/kso_linux_bootstrap.py --apply \
+    --target-root /tmp/kso-install-root --verify-units
+```
+
+### Проверка env на placeholders
+
+```bash
+python3 infra/kso-linux/install/kso_linux_bootstrap.py --apply \
+    --target-root /tmp/kso-install-root \
+    --validate-env /etc/verny/kso/sidecar.env.example
+```
+
 ## Что будет позже
 
 - `install.sh` — установочный скрипт

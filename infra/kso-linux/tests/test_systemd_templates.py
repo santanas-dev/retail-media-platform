@@ -191,8 +191,10 @@ class TestPlayerServiceContent(unittest.TestCase):
     def test_confirm_display_completed(self):
         self.assertIn("--confirm-display-completed", self.content)
 
-    def test_max_cycles_minus_one(self):
-        self.assertIn("--max-cycles -1", self.content)
+    def test_max_cycles_daemon_mode(self):
+        """Daemon mode: no --max-cycles flag (None = run forever)."""
+        self.assertNotIn("--max-cycles", self.content,
+                         "Daemon mode should not use --max-cycles flag")
 
     def test_restart_policy(self):
         self.assertIn("Restart=always", self.content)

@@ -14,7 +14,6 @@ ExecStart=/usr/bin/python3 -m kso_player.cli runtime-daemon \
     --chromium-bin ${VERNY_KSO_CHROMIUM_BIN} \
     --confirm-launch \
     --confirm-display-completed \
-    --max-cycles -1 \
     --health-file /run/verny/kso/player-health.json
 
 WorkingDirectory=/opt/verny/kso
