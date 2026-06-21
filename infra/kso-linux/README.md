@@ -335,6 +335,20 @@ python3 -m pytest infra/kso-linux/tests/test_staging_deployment_scenario.py -v
 - Никакого запуска Chromium
 - Никакой реальной интеграции с УКМ 4
 
+## Pilot first-start runbook
+
+**Документ:** `docs/kso/linux-kso-pilot-first-start-runbook.md`
+
+Пошаговая инструкция первого ручного запуска на тестовом Linux КСО:
+bootstrap → preflight → systemd-analyze → manual start → проверка hold/idle → rollback.
+
+**Содержит:** 13 шагов, команды ручного запуска `systemctl start`,
+безопасный тест `idle`, rollback-план, критерии успешного пилота,
+правила безопасности отчёта.
+
+**НЕ содержит:** `systemctl enable`, `restart`, автозапуск,
+production-умолчания `idle`, чтение чеков/ПДн/УКМ 4.
+
 ## Что будет позже
 
 - `install.sh` — установочный скрипт
