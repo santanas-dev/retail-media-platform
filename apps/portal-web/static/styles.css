@@ -318,3 +318,42 @@ a:hover { text-decoration: underline; }
   font-size: 12px; color: var(--color-text-secondary);
   border-top: 1px solid var(--color-border); padding-top: 12px;
 }
+
+/* ── Drill-down note ────────────────────────────── */
+.drilldown-note {
+  font-size: 12px; color: var(--color-text-secondary);
+  margin-top: 12px; border-top: 1px solid var(--color-border);
+  padding-top: 12px;
+}
+
+/* ── Chart placeholders ─────────────────────────── */
+.chart-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.chart-placeholder {
+  background: var(--color-bg); border: 1px dashed var(--color-border);
+  border-radius: var(--radius); padding: 24px;
+  text-align: center; min-height: 140px;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 8px;
+}
+.chart-placeholder-title {
+  font-size: 12px; color: var(--color-text-secondary);
+  text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+}
+.chart-placeholder-body {
+  font-size: 28px; font-weight: 700; color: var(--color-text);
+}
+.chart-placeholder-hint {
+  font-size: 11px; color: var(--color-text-secondary);
+}
+
+/* ── Disabled button ────────────────────────────── */
+.btn-disabled {
+  font-size: 13px; padding: 8px 20px;
+  border: 1px solid var(--color-border); border-radius: 6px;
+  background: var(--color-bg); color: var(--color-text-secondary);
+  cursor: not-allowed; font-weight: 500;
+}
+.export-action { margin-top: 12px; }

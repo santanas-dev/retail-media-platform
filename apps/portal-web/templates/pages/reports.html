@@ -1,9 +1,211 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Отчёты</h1>
-<p class="page-description">Отчёты по показам, кампаниям, устройствам. Экспорт данных для рекламодателей.</p>
-<div class="empty-state">
-  <div class="empty-state-title">Отчёты появятся здесь</div>
-  <div class="empty-state-text">Функционал построения и экспорта отчётов будет добавлен в следующих шагах.</div>
+<p class="page-description">BI-отчётность в стиле Power BI — интерактивные дашборды, KPI, план/факт, drill-down и выгрузка в Excel по выбранным фильтрам. Только агрегированные данные, без raw ID и технических hash.</p>
+
+<!-- KPI Summary Cards -->
+<div class="cards">
+  <div class="card">
+    <div class="card-title">Показы план</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Показы факт</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Выполнение</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">КСО онлайн</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Кампании без факта</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Ошибки публикации / PoP</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+</div>
+
+<!-- BI Slicers / Filters Panel -->
+<div class="requirements-box">
+  <div class="requirements-title">Срезы и фильтры</div>
+  <div class="filter-toolbar" style="margin-bottom:0; box-shadow:none">
+    <div class="filter-group">
+      <label class="filter-label">Период</label>
+      <select class="filter-select" disabled><option>Все периоды</option></select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Кампания</label>
+      <select class="filter-select" disabled><option>Все кампании</option></select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Креатив</label>
+      <select class="filter-select" disabled><option>Все креативы</option></select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Филиал / магазин</label>
+      <select class="filter-select" disabled><option>Все магазины</option></select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">КСО</label>
+      <select class="filter-select" disabled><option>Все КСО</option></select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Статус публикации</label>
+      <select class="filter-select" disabled><option>Все</option></select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Статус PoP</label>
+      <select class="filter-select" disabled><option>Все</option></select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Статус согласования</label>
+      <select class="filter-select" disabled><option>Все</option></select>
+    </div>
+  </div>
+</div>
+
+<!-- Drill-down Block -->
+<div class="requirements-box">
+  <div class="requirements-title">Drill-down иерархия</div>
+  <div class="lifecycle-flow">
+    <span class="lifecycle-step lifecycle-draft">Сеть</span>
+    <span class="lifecycle-arrow">→</span>
+    <span class="lifecycle-step lifecycle-scheduled">Филиал</span>
+    <span class="lifecycle-arrow">→</span>
+    <span class="lifecycle-step lifecycle-review">Магазин</span>
+    <span class="lifecycle-arrow">→</span>
+    <span class="lifecycle-step lifecycle-ready">КСО</span>
+    <span class="lifecycle-arrow">→</span>
+    <span class="lifecycle-step lifecycle-published">Кампания</span>
+    <span class="lifecycle-arrow">→</span>
+    <span class="lifecycle-step lifecycle-live">Креатив</span>
+    <span class="lifecycle-arrow">→</span>
+    <span class="lifecycle-step lifecycle-completed">День / час</span>
+  </div>
+  <p class="drilldown-note">Drill-down будет работать по агрегированным данным, без раскрытия raw ID и технических hash.</p>
+</div>
+
+<!-- Chart Placeholders -->
+<div class="requirements-box">
+  <div class="requirements-title">Графики и визуализации</div>
+  <div class="chart-grid">
+    <div class="chart-placeholder">
+      <div class="chart-placeholder-title">План / факт показов</div>
+      <div class="chart-placeholder-body">—</div>
+      <div class="chart-placeholder-hint">Нет данных</div>
+    </div>
+    <div class="chart-placeholder">
+      <div class="chart-placeholder-title">Показы по дням</div>
+      <div class="chart-placeholder-body">—</div>
+      <div class="chart-placeholder-hint">Нет данных</div>
+    </div>
+    <div class="chart-placeholder">
+      <div class="chart-placeholder-title">Показы по магазинам</div>
+      <div class="chart-placeholder-body">—</div>
+      <div class="chart-placeholder-hint">Нет данных</div>
+    </div>
+    <div class="chart-placeholder">
+      <div class="chart-placeholder-title">Ошибки по КСО</div>
+      <div class="chart-placeholder-body">—</div>
+      <div class="chart-placeholder-hint">Нет данных</div>
+    </div>
+    <div class="chart-placeholder">
+      <div class="chart-placeholder-title">Статусы публикаций</div>
+      <div class="chart-placeholder-body">—</div>
+      <div class="chart-placeholder-hint">Нет данных</div>
+    </div>
+    <div class="chart-placeholder">
+      <div class="chart-placeholder-title">Статусы согласований</div>
+      <div class="chart-placeholder-body">—</div>
+      <div class="chart-placeholder-hint">Нет данных</div>
+    </div>
+  </div>
+</div>
+
+<!-- Report Table Placeholder -->
+<div class="table-container">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Кампания</th>
+      <th>Период</th>
+      <th>Магазины / КСО</th>
+      <th>Креативы</th>
+      <th>Показы план</th>
+      <th>Показы факт</th>
+      <th>Выполнение</th>
+      <th>PoP</th>
+      <th>Публикация</th>
+      <th>Approval</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="empty-row">
+      <td colspan="10">
+        <div class="table-empty-state">
+          <div class="table-empty-icon">📈</div>
+          <div class="table-empty-title">Пока нет данных отчётности</div>
+          <div class="table-empty-text">После публикации manifest и поступления Proof of Play здесь появятся BI-дашборды, план/факт и Excel export.</div>
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- Excel Export Block -->
+<div class="requirements-box">
+  <div class="requirements-title">Выгрузка в Excel</div>
+  <div class="requirements-grid">
+    <div class="requirements-item">
+      <span class="requirements-label">Формат</span>
+      <span class="requirements-value">.xlsx — несколько листов</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Фильтры</span>
+      <span class="requirements-value">Применяются выбранные срезы</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Дата</span>
+      <span class="requirements-value">Дата формирования отчёта</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Итоги</span>
+      <span class="requirements-value">Агрегированные KPI и сводки</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Таблицы</span>
+      <span class="requirements-value">Plan/fact с drill-down структурой</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Безопасность</span>
+      <span class="requirements-value">Без raw ID, hash и секретов</span>
+    </div>
+  </div>
+  <div class="export-action">
+    <button class="btn-disabled" disabled aria-disabled="true">📥 Выгрузить в Excel</button>
+  </div>
+</div>
+
+<!-- Notes -->
+<div class="note-box">
+  <span class="note-icon">ℹ️</span>
+  <span class="note-text">Отчёты используют <strong>агрегированные данные</strong> из кампаний, публикаций, Proof of Play, устройств, магазинов и согласований. Raw PoP payload, device events и технические hash не отображаются.</span>
+</div>
+<div class="note-box">
+  <span class="note-icon">📊</span>
+  <span class="note-text">BI-отчётность проектируется как <strong>Power BI-like</strong>: интерактивные дашборды, KPI-карточки, срезы, drill-down от сети до отдельного креатива и выгрузка в Excel с учётом всех применённых фильтров.</span>
 </div>
 {% endblock %}

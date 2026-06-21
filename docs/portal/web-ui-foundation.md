@@ -8,7 +8,7 @@
 
 **Приложение:** `apps/portal-web/` — FastAPI + Jinja2 серверный портал.
 **Стек:** FastAPI 0.133 + Jinja2 3.1 + Starlette TestClient.
-**Тестов:** 162 (routes, navigation, devices, stores, creatives, campaigns, schedule, approvals, publications, pop, content, security).
+**Тестов:** 182 (routes, navigation, devices, stores, creatives, campaigns, schedule, approvals, publications, pop, reports, content, security).
 
 ## Страницы (13 routes v1)
 
@@ -23,7 +23,7 @@
 | `/devices` | КСО Устройства | ✅ UI foundation (cards + filters + table) |
 | `/proof-of-play` | Proof of Play | ✅ UI foundation (cards + flow + filters + table) |
 | `/approvals` | Согласования | ✅ UI foundation (cards + workflow + rules + filters + table) |
-| `/reports` | Отчёты | ✅ заглушка |
+| `/reports` | Отчёты | ✅ UI foundation (KPI + slicers + drill-down + charts + table + Excel) |
 | `/deployment` | Развёртывание (KSO Runtime) | ✅ контент |
 | `/admin` | Администрирование | ✅ заглушка |
 
@@ -348,9 +348,57 @@
 - ❌ Нет Android TV, LED-шелф, ESL, Mobile App
 - ✅ Все значения статичные (—)
 
+## KSO Reports / BI page
+
+**Структура:**
+- **6 KPI cards:** Показы план, Показы факт, Выполнение, КСО онлайн, Кампании без факта, Ошибки публикации / PoP
+- **8 BI slicers:** Период, Кампания, Креатив, Филиал/магазин, КСО, Статус публикации, Статус PoP, Статус согласования (все disabled)
+- **Drill-down иерархия (7 уровней):** Сеть → Филиал → Магазин → КСО → Кампания → Креатив → День/час
+- **6 chart placeholders (HTML/CSS):** План/факт показов, Показы по дням, Показы по магазинам, Ошибки по КСО, Статусы публикаций, Статусы согласований
+- **Report table (10 колонок):** Кампания, Период, Магазины/КСО, Креативы, Показы план, Показы факт, Выполнение, PoP, Публикация, Approval
+- **Excel export block:** Формат .xlsx, несколько листов, выбранные срезы, дата формирования, агрегированные KPI, план/факт таблицы, без raw ID
+- **Empty state:** «Пока нет данных отчётности»
+- **Notes:** Агрегированные данные только; BI Power BI-like
+
+**Chart placeholders (без JS/CDN):**
+- 6 блоков в сетке с dashed border, центрированным текстом «—»
+- Стиль: `.chart-grid`, `.chart-placeholder`, `.chart-placeholder-title`, `.chart-placeholder-body`, `.chart-placeholder-hint`
+- ❌ Нет Chart.js, Recharts, внешних JS-библиотек
+
+**Excel export block (disabled):**
+- Кнопка `📥 Выгрузить в Excel` — disabled, класс `.btn-disabled`
+- Требования: несколько листов, применённые фильтры, дата, итоги, план/факт, без raw ID
+- ❌ Не генерирует .xlsx
+- ❌ Не делает реальной выгрузки
+
+**Power BI-like reporting (зафиксировано):**
+- Интерактивные дашборды
+- KPI-карточки с агрегированными метриками
+- Срезы и фильтры
+- Drill-down от сети до отдельного креатива
+- Графики и визуализации (Chart.js в будущем)
+- Выгрузка в Excel с учётом всех активных фильтров
+
+**Future workflow (не на этом шаге):**
+- Backend reporting engine
+- Реальные BI calculations
+- Chart.js / Recharts интеграция
+- Генерация .xlsx
+- Real report download
+
+**Security:**
+- ❌ Нет device_event_id, batch_id, fingerprint, sha256
+- ❌ Нет campaign_id, creative_id, rendition_id, store_id, device_id
+- ❌ Нет manifest_item_id, schedule_item_id, booking_id
+- ❌ Нет raw PoP payload, storage_key, minio, file_path, filename
+- ❌ Нет device_secret, access_token, backend_url
+- ❌ Нет Android TV, LED-шелф, ESL, Mobile App
+- ✅ Все значения статичные (—)
+- ✅ Только агрегированные данные
+
 ## Styling
 
-- Минимальный CSS (320 строк) — без внешних CDN
+- Минимальный CSS (356 строк) — без внешних CDN
 - Светлая тема, corporate layout
 - Fixed sidebar (240px), fixed header (56px)
 - Адаптивная сетка карточек (`auto-fill, minmax(240px, 1fr)`)
@@ -378,7 +426,7 @@ python3 main.py  # или uvicorn main:app --port 8422
 ```bash
 cd apps/portal-web
 python3 -m unittest discover -s tests -v
-# 162 tests: routes, navigation, content, security
+# 182 tests: routes, navigation, content, security
 ```
 
 ## Следующие UI шаги

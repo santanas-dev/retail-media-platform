@@ -979,6 +979,128 @@ class TestProofOfPlayPage(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Reports / BI page tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestReportsPage(unittest.TestCase):
+    """KSO Reports / BI page — KPI, slicers, drill-down, charts, table, Excel, notes."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+        resp = self.client.get("/reports")
+        self.html = resp.text
+
+    def test_renders_kpi_cards(self):
+        for card in ("Показы план", "Показы факт", "Выполнение",
+                      "КСО онлайн", "Кампании без факта",
+                      "Ошибки публикации / PoP"):
+            self.assertIn(card, self.html,
+                          f"Reports page must render KPI card '{card}'")
+
+    def test_has_bi_slicers(self):
+        for slc in ("Период", "Кампания", "Креатив", "Филиал",
+                     "КСО", "Статус публикации", "Статус PoP",
+                     "Статус согласования"):
+            self.assertIn(slc, self.html,
+                          f"Reports page must have slicer '{slc}'")
+
+    def test_slicers_disabled(self):
+        self.assertIn("disabled", self.html)
+
+    def test_has_drill_down_block(self):
+        for level in ("Сеть", "Филиал", "Магазин", "КСО",
+                       "Кампания", "Креатив", "День"):
+            self.assertIn(level, self.html,
+                          f"Drill-down must contain level '{level}'")
+
+    def test_drill_down_mentions_aggregated_data(self):
+        self.assertIn("агрегированным данным", self.html)
+        self.assertIn("raw ID", self.html)
+        self.assertIn("hash", self.html.lower())
+
+    def test_has_chart_placeholders(self):
+        for chart in ("План / факт показов", "Показы по дням",
+                       "Показы по магазинам", "Ошибки по КСО",
+                       "Статусы публикаций", "Статусы согласований"):
+            self.assertIn(chart, self.html,
+                          f"Reports page must have chart placeholder '{chart}'")
+
+    def test_no_js_chart_libraries(self):
+        self.assertNotIn("Chart.js", self.html)
+        self.assertNotIn("chartjs", self.html.lower())
+        self.assertNotIn("recharts", self.html.lower())
+
+    def test_has_report_table_columns(self):
+        for col in ("Кампания", "Период", "Магазины", "Креативы",
+                     "Показы план", "Показы факт", "Выполнение",
+                     "PoP", "Публикация", "Approval"):
+            self.assertIn(col, self.html,
+                          f"Reports table must have column '{col}'")
+
+    def test_table_shows_empty_state(self):
+        self.assertIn("Пока нет данных отчётности", self.html)
+        self.assertIn("BI-дашборды", self.html)
+
+    def test_has_excel_export_block(self):
+        self.assertIn("Выгрузка в Excel", self.html)
+        self.assertIn(".xlsx", self.html)
+
+    def test_has_excel_export_requirements(self):
+        for req in ("несколько листов", "выбранные срезы",
+                     "Дата формирования", "Агрегированные KPI",
+                     "Plan/fact", "raw ID"):
+            self.assertIn(req, self.html,
+                          f"Excel block must contain '{req}'")
+
+    def test_excel_export_button_disabled(self):
+        self.assertIn("Выгрузить в Excel", self.html)
+        self.assertIn("btn-disabled", self.html)
+        self.assertIn("disabled", self.html)
+
+    def test_mentions_power_bi(self):
+        self.assertIn("Power BI", self.html)
+
+    def test_mentions_plan_fact(self):
+        self.assertIn("план/факт", self.html.lower())
+
+    def test_mentions_aggregated_data_only(self):
+        self.assertIn("агрегированные данные", self.html.lower())
+        self.assertIn("raw pop payload", self.html.lower())
+        self.assertIn("технические hash", self.html)
+
+    def test_no_forbidden_content(self):
+        _assert_safe(self, self.html)
+
+    def test_no_out_of_scope_channels(self):
+        for banned in ("Android TV", "LED", "ESL", "Mobile App",
+                        "Ценники", "Price Checker"):
+            self.assertNotIn(banned, self.html,
+                             f"Reports page must NOT contain '{banned}'")
+
+    def test_no_raw_ids_secrets_hashes(self):
+        lower = self.html.lower()
+        for forbidden in ("device_secret", "access_token", "manifest_hash",
+                           "campaign_id", "creative_id", "backend_url",
+                           "rendition_id", "store_id", "device_id",
+                           "schedule_item_id", "manifest_item_id",
+                           "booking_id", "device_event_id", "batch_id",
+                           "fingerprint", "sha256", "storage_key",
+                           "minio", "file_path", "filename",
+                           "http://", "https://backend"):
+            self.assertNotIn(forbidden, lower,
+                             f"Reports page must NOT contain '{forbidden}'")
+
+    def test_no_js_cdn(self):
+        for cdn in ("cdnjs", "unpkg", "jsdelivr", "googleapis"):
+            self.assertNotIn(cdn, self.html.lower(),
+                             f"Reports page must NOT contain CDN '{cdn}'")
+
+    def test_reports_route_returns_200(self):
+        resp = self.client.get("/reports")
+        self.assertEqual(resp.status_code, 200)
+
+
 class TestPageStubsRender(unittest.TestCase):
     """All page stubs render with title and safe empty state."""
 
