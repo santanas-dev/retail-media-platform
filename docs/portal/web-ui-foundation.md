@@ -8,7 +8,7 @@
 
 **Приложение:** `apps/portal-web/` — FastAPI + Jinja2 серверный портал.
 **Стек:** FastAPI 0.133 + Jinja2 3.1 + Starlette TestClient.
-**Тестов:** 144 (routes, navigation, devices, stores, creatives, campaigns, schedule, approvals, publications, content, security).
+**Тестов:** 162 (routes, navigation, devices, stores, creatives, campaigns, schedule, approvals, publications, pop, content, security).
 
 ## Страницы (13 routes v1)
 
@@ -21,7 +21,7 @@
 | `/publications` | Публикации манифестов | ✅ UI foundation (cards + flow + approval-gate + filters + table) |
 | `/stores` | Магазины и КСО-инвентаризация | ✅ UI foundation (cards + filters + table) |
 | `/devices` | КСО Устройства | ✅ UI foundation (cards + filters + table) |
-| `/proof-of-play` | Proof of Play | ✅ заглушка |
+| `/proof-of-play` | Proof of Play | ✅ UI foundation (cards + flow + filters + table) |
 | `/approvals` | Согласования | ✅ UI foundation (cards + workflow + rules + filters + table) |
 | `/reports` | Отчёты | ✅ заглушка |
 | `/deployment` | Развёртывание (KSO Runtime) | ✅ контент |
@@ -309,9 +309,48 @@
 - ❌ Нет Android TV, LED-шелф, ESL, Mobile App
 - ✅ Все значения статичные (—)
 
+## KSO Proof of Play page
+
+**Структура:**
+- **6 summary cards:** Подтверждённые показы, Ожидают отправки, Отправлены, Ошибки PoP, КСО без подтверждений, Кампании без факта
+- **PoP event flow:** Player показал креатив → Создан PoP event → Sidecar забрал event → Сформирован batch → Backend принял → Показ подтверждён. Состояния: pending, sent, confirmed, duplicate, failed, unknown
+- **6 фильтров:** Период, Кампания, Креатив, Филиал/магазин, КСО, Статус PoP (все disabled)
+- **Таблица (10 колонок):** Период, Кампания, Креатив, Магазин/КСО, Публикация, Статус PoP, Показы, Последнее событие, Ошибка, Действия
+- **Empty state:** «Пока нет подтверждений показов»
+- **Легенда статусов:** Ожидает отправки, Отправлено, Подтверждено, Дубликат, Ошибка, Нет данных
+- **Связи:** Note — player → sidecar → batch → backend; Note — BI + план/факт + Excel + Power BI drill-down
+
+**Status badges:** `.badge-pending` (amber), `.badge-scheduled` (blue), `.badge-confirmed` (green), `.badge-duplicate` (gray), `.badge-error` (red), `.badge-unknown` (light gray)
+
+**Planned future API fields (не отображаются пока):**
+- period, campaign_name, creative_name, store_name, kso_code
+- publication_ref, pop_status, confirmed_impressions, last_event_utc, error_info
+- Без device_event_id, batch_id, campaign_id, creative_id, store_id, device_id, manifest_item_id
+
+**Future BI reporting (зафиксировано):**
+- Power BI-like дашборды: фильтры, срезы, drill-down
+- Plan/fact анализ: кампания → КСО → креатив → период
+- Выгрузка в Excel с учётом фильтров
+- Реализация в модуле Reports
+
+**Future workflow (не на этом шаге):**
+- Реальная обработка PoP событий (retry, resend, dedup)
+- Batch aggregation
+- Backend confirmation lifecycle
+- BI dashboards и Excel export
+
+**Security:**
+- ❌ Нет device_event_id, batch_id, fingerprint, sha256
+- ❌ Нет campaign_id, creative_id, rendition_id, store_id, device_id
+- ❌ Нет manifest_item_id, schedule_item_id, booking_id
+- ❌ Нет raw PoP payload, storage_key, minio, file_path, filename
+- ❌ Нет device_secret, access_token, backend_url
+- ❌ Нет Android TV, LED-шелф, ESL, Mobile App
+- ✅ Все значения статичные (—)
+
 ## Styling
 
-- Минимальный CSS (317 строк) — без внешних CDN
+- Минимальный CSS (320 строк) — без внешних CDN
 - Светлая тема, corporate layout
 - Fixed sidebar (240px), fixed header (56px)
 - Адаптивная сетка карточек (`auto-fill, minmax(240px, 1fr)`)
@@ -339,7 +378,7 @@ python3 main.py  # или uvicorn main:app --port 8422
 ```bash
 cd apps/portal-web
 python3 -m unittest discover -s tests -v
-# 144 tests: routes, navigation, content, security
+# 162 tests: routes, navigation, content, security
 ```
 
 ## Следующие UI шаги

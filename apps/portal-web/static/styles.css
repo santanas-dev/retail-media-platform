@@ -231,6 +231,9 @@ a:hover { text-decoration: underline; }
 .badge-blocked   { background: #374151; }
 .badge-delivered { background: var(--color-success); }
 .badge-stopped   { background: var(--color-warning); }
+.badge-confirmed { background: var(--color-success); }
+.badge-pending   { background: var(--color-warning); }
+.badge-duplicate { background: #94a3b8; }
 
 /* ── Legend ─────────────────────────────────────── */
 .legend {

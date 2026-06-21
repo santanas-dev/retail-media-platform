@@ -860,6 +860,125 @@ class TestPublicationsPage(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Proof of Play page tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestProofOfPlayPage(unittest.TestCase):
+    """KSO Proof of Play page — cards, flow, filters, table, legend, notes."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+        resp = self.client.get("/proof-of-play")
+        self.html = resp.text
+
+    def test_renders_summary_cards(self):
+        for card in ("Подтверждённые показы", "Ожидают отправки", "Отправлены",
+                      "Ошибки PoP", "КСО без подтверждений", "Кампании без факта"):
+            self.assertIn(card, self.html,
+                          f"PoP page must render summary card '{card}'")
+
+    def test_has_pop_flow_block(self):
+        for step in ("Player показал креатив", "Создан PoP event",
+                      "Sidecar забрал event", "Сформирован batch",
+                      "Backend принял", "Показ подтверждён"):
+            self.assertIn(step, self.html,
+                          f"PoP flow must contain step '{step}'")
+
+    def test_flow_has_event_states(self):
+        for state in ("pending", "sent", "confirmed", "duplicate",
+                       "failed", "unknown"):
+            self.assertIn(state, self.html.lower(),
+                          f"PoP flow must contain state '{state}'")
+
+    def test_has_filters_block(self):
+        for flt in ("Период", "Кампания", "Креатив", "Филиал",
+                     "КСО", "Статус PoP"):
+            self.assertIn(flt, self.html,
+                          f"PoP page must have filter '{flt}'")
+
+    def test_filters_disabled(self):
+        self.assertIn("disabled", self.html)
+
+    def test_has_table_structure(self):
+        for col in ("Период", "Кампания", "Креатив", "Магазин",
+                     "Публикация", "Статус PoP", "Показы",
+                     "Последнее событие", "Ошибка", "Действия"):
+            self.assertIn(col, self.html,
+                          f"PoP table must have column '{col}'")
+
+    def test_table_shows_empty_state(self):
+        self.assertIn("Пока нет подтверждений показов", self.html)
+        self.assertIn("агрегированные Proof of Play", self.html)
+
+    def test_mentions_player_sidecar_backend(self):
+        for term in ("player", "sidecar", "backend"):
+            self.assertIn(term, self.html.lower(),
+                          f"PoP page must mention '{term}'")
+
+    def test_mentions_event_states_in_note(self):
+        for state in ("pending", "sent", "confirmed", "duplicate", "failed"):
+            self.assertIn(state, self.html.lower(),
+                          f"PoP note must mention state '{state}'")
+
+    def test_mentions_bi_reporting(self):
+        self.assertIn("BI-отчётности", self.html)
+        self.assertIn("Excel", self.html)
+        self.assertIn("план/факт", self.html.lower())
+
+    def test_mentions_power_bi_drill_down(self):
+        self.assertIn("Power BI", self.html)
+        self.assertIn("drill-down", self.html)
+        self.assertIn("срезы", self.html)
+
+    def test_has_status_legend(self):
+        for badge in ("Ожидает отправки", "Отправлено", "Подтверждено",
+                       "Дубликат", "Ошибка", "Нет данных"):
+            self.assertIn(badge, self.html,
+                          f"Legend must contain status '{badge}'")
+
+    def test_no_forbidden_content(self):
+        _assert_safe(self, self.html)
+
+    def test_no_out_of_scope_channels(self):
+        for banned in ("Android TV", "LED", "ESL", "Mobile App",
+                        "Ценники", "Price Checker"):
+            self.assertNotIn(banned, self.html,
+                             f"PoP page must NOT contain '{banned}'")
+
+    def test_no_raw_ids_secrets_hashes(self):
+        lower = self.html.lower()
+        for forbidden in ("device_secret", "access_token", "manifest_hash",
+                           "campaign_id", "creative_id", "backend_url",
+                           "rendition_id", "store_id", "device_id",
+                           "schedule_item_id", "manifest_item_id",
+                           "booking_id", "device_event_id", "batch_id",
+                           "fingerprint", "sha256", "storage_key",
+                           "minio", "file_path", "filename",
+                           "http://", "https://backend"):
+            self.assertNotIn(forbidden, lower,
+                             f"PoP page must NOT contain '{forbidden}'")
+
+    def test_no_raw_pop_payload(self):
+        lower = self.html.lower()
+        for forbidden in ("raw payload", "pop payload", "event payload",
+                           "payload body", "manifest_item_id"):
+            self.assertNotIn(forbidden, lower,
+                             f"PoP page must NOT contain '{forbidden}'")
+
+    def test_status_badge_classes_in_css(self):
+        css = (_PORTAL_DIR / "static" / "styles.css").read_text()
+        for cls_name in (".badge-confirmed", ".badge-pending",
+                          ".badge-duplicate", ".badge-error",
+                          ".badge-unknown"):
+            self.assertIn(cls_name, css,
+                          f"CSS must define '{cls_name}'")
+
+    def test_pop_route_returns_200(self):
+        resp = self.client.get("/proof-of-play")
+        self.assertEqual(resp.status_code, 200)
+
+
 class TestPageStubsRender(unittest.TestCase):
     """All page stubs render with title and safe empty state."""
 
