@@ -438,3 +438,32 @@ python3 -m unittest discover -s tests -v
 - Таблицы с реальными данными
 - Формы создания/редактирования
 - Графики и отчёты
+
+## Demo Data (Шаг 35.1)
+
+**Файлы:** `apps/portal-web/demo_data.py`
+
+Безопасный слой синтетических данных для визуального показа портала.
+Все значения явно помечены префиксом `DEMO:`.
+
+**View Models (dataclasses):**
+- `DemoStore` — филиал, магазин, формат, КСО, компоненты, готовность
+- `DemoDevice` — магазин, КСО, state/sidecar/player, runtime, heartbeat
+- `DemoCampaign` — кампания, статус, период, креативы, магазины, план/факт
+- `DemoCreative` — название, тип, формат, размер, статус, использование
+- `DemoSchedule` — период, слот, длительность, занятость, конфликты
+- `DemoPublication` — кампания, approval, manifest, доставка, КСО
+- `DemoPopEvent` — период, креатив, статус, показы, ошибка
+- `DemoApproval` — объект, тип, статус, SLA, решение, комментарий
+- `DemoReportKPI` / `DemoReportTable` — BI-отчётность
+
+**Страницы с demo data:** все (dashboard, stores, devices, campaigns, creatives, schedule, publications, PoP, approvals, reports). Deployment и Admin — без demo.
+
+**Безопасность:**
+- Нет raw ID, hash, device_secret, token, backend URL
+- Нет filenames, file paths, storage keys, minio, sha256
+- Нет phone, email, customer, payment, receipt, fiscal данных
+- Нет Android/LED/ESL/mobile app
+- Все опасные действия disabled/absent
+- Excel export остаётся disabled
+- DEMO-баннер на каждой странице: «⚠️ Демо-данные. Не являются реальными данными сети.»

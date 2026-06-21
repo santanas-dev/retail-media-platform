@@ -194,12 +194,12 @@ class TestDevicesPage(unittest.TestCase):
 
     def test_renders_summary_cards(self):
         for card in ("Всего КСО", "Онлайн", "В hold",
-                      "С ошибками", "Без heartbeat", "Требуют обновления"):
+                      "Ошибки", "Без heartbeat", "Требуют обновления"):
             self.assertIn(card, self.html,
                           f"Devices page must render summary card '{card}'")
 
     def test_has_filters_block(self):
-        for flt in ("Филиал", "Магазин", "Статус", "Версия runtime"):
+        for flt in ("Филиал", "Магазин", "Статус", "Версия KSO"):
             self.assertIn(flt, self.html,
                           f"Devices page must have filter '{flt}'")
 
@@ -213,9 +213,9 @@ class TestDevicesPage(unittest.TestCase):
             self.assertIn(col, self.html,
                           f"Devices table must have column '{col}'")
 
-    def test_table_shows_empty_state(self):
-        self.assertIn("Пока нет подключённых КСО", self.html)
-        self.assertIn("статус player, sidecar и state-adapter", self.html)
+    def test_table_shows_demo_data(self):
+        self.assertIn("DEMO: КСО-01", self.html)
+        self.assertIn("DEMO: Магазин 001", self.html)
 
     def test_mentions_kso_components(self):
         self.assertIn("State Adapter", self.html)
@@ -275,8 +275,8 @@ class TestStoresPage(unittest.TestCase):
                           f"Stores page must render summary card '{card}'")
 
     def test_has_filters_block(self):
-        for flt in ("Филиал", "Город", "Формат магазина", "Статус КСО",
-                     "Готовность к рекламе", "Версия runtime"):
+        for flt in ("Филиал", "Регион", "Формат", "Статус КСО",
+                     "Готовность", "Версия KSO"):
             self.assertIn(flt, self.html,
                           f"Stores page must have filter '{flt}'")
 
@@ -290,9 +290,10 @@ class TestStoresPage(unittest.TestCase):
             self.assertIn(col, self.html,
                           f"Stores table must have column '{col}'")
 
-    def test_table_shows_empty_state(self):
-        self.assertIn("Пока нет данных по магазинам", self.html)
-        self.assertIn("готовность магазинов к показу рекламы", self.html)
+    def test_table_shows_demo_data(self):
+        self.assertIn("DEMO: Магазин 001", self.html)
+        self.assertIn("DEMO: Северный", self.html)
+        self.assertIn("Супермаркет", self.html)
 
     def test_mentions_kso_components(self):
         self.assertIn("State Adapter", self.html)
@@ -300,7 +301,7 @@ class TestStoresPage(unittest.TestCase):
         self.assertIn("Player", self.html)
 
     def test_has_readiness_legend(self):
-        for badge in ("Готов", "В hold", "Ошибка", "Нет связи", "Нет данных"):
+        for badge in ("Готов", "Hold", "Ошибка", "Нет связи", "Нет КСО"):
             self.assertIn(badge, self.html,
                           f"Legend must contain readiness '{badge}'")
 
@@ -380,9 +381,9 @@ class TestCreativesPage(unittest.TestCase):
             self.assertIn(col, self.html,
                           f"Creatives table must have column '{col}'")
 
-    def test_table_shows_empty_state(self):
-        self.assertIn("Пока нет загруженных креативов", self.html)
-        self.assertIn("библиотека рекламных файлов для КСО", self.html)
+    def test_table_shows_demo_data(self):
+        self.assertIn("DEMO: Тестовый баннер 1", self.html)
+        self.assertIn("DEMO: Тестовое видео 1", self.html)
 
     def test_has_status_legend(self):
         for badge in ("Готов", "На проверке", "Ошибка", "Архив", "Нет данных"):
@@ -468,9 +469,10 @@ class TestCampaignsPage(unittest.TestCase):
             self.assertIn(col, self.html,
                           f"Campaigns table must have column '{col}'")
 
-    def test_table_shows_empty_state(self):
-        self.assertIn("Пока нет рекламных кампаний", self.html)
-        self.assertIn("Proof of Play", self.html)
+    def test_table_shows_demo_data(self):
+        self.assertIn("DEMO: Весенняя акция", self.html)
+        self.assertIn("В эфире", self.html)
+        self.assertIn("На согласовании", self.html)
 
     def test_has_status_legend(self):
         for badge in ("Черновик", "На согласовании", "Готова",
@@ -569,9 +571,9 @@ class TestSchedulePage(unittest.TestCase):
             self.assertIn(col, self.html,
                           f"Schedule table must have column '{col}'")
 
-    def test_table_shows_empty_state(self):
-        self.assertIn("Пока нет расписания", self.html)
-        self.assertIn("готовность публикации на КСО", self.html)
+    def test_table_shows_demo_data(self):
+        self.assertIn("DEMO: Весенняя акция", self.html)
+        self.assertIn("75%", self.html)
 
     def test_has_status_legend(self):
         for badge in ("Запланировано", "Готово", "Опубликовано",
@@ -674,9 +676,10 @@ class TestApprovalsPage(unittest.TestCase):
             self.assertIn(col, self.html,
                           f"Approvals table must have column '{col}'")
 
-    def test_table_shows_empty_state(self):
-        self.assertIn("Пока нет объектов на согласовании", self.html)
-        self.assertIn("креативов, кампаний, расписаний", self.html)
+    def test_table_shows_demo_data(self):
+        self.assertIn("Менеджер А", self.html)
+        self.assertIn("Руководитель Б", self.html)
+        self.assertIn("Согласовано", self.html)
 
     def test_has_approval_rules(self):
         for rule in ("Нельзя использовать в кампании без согласования",
@@ -805,9 +808,9 @@ class TestPublicationsPage(unittest.TestCase):
             self.assertIn(col, self.html,
                           f"Publications table must have column '{col}'")
 
-    def test_table_shows_empty_state(self):
-        self.assertIn("Пока нет публикаций", self.html)
-        self.assertIn("готовность manifest к публикации", self.html)
+    def test_table_shows_demo_data(self):
+        self.assertIn("Опубликован", self.html)
+        self.assertIn("Согласовано", self.html)
 
     def test_mentions_sidecar_player_pop(self):
         for term in ("sidecar", "player", "Proof of Play"):
@@ -907,9 +910,9 @@ class TestProofOfPlayPage(unittest.TestCase):
             self.assertIn(col, self.html,
                           f"PoP table must have column '{col}'")
 
-    def test_table_shows_empty_state(self):
-        self.assertIn("Пока нет подтверждений показов", self.html)
-        self.assertIn("агрегированные Proof of Play", self.html)
+    def test_table_shows_demo_data(self):
+        self.assertIn("Подтверждено", self.html)
+        self.assertIn("DEMO: КСО-01", self.html)
 
     def test_mentions_player_sidecar_backend(self):
         for term in ("player", "sidecar", "backend"):
@@ -1038,9 +1041,9 @@ class TestReportsPage(unittest.TestCase):
             self.assertIn(col, self.html,
                           f"Reports table must have column '{col}'")
 
-    def test_table_shows_empty_state(self):
-        self.assertIn("Пока нет данных отчётности", self.html)
-        self.assertIn("BI-дашборды", self.html)
+    def test_table_shows_demo_data(self):
+        self.assertIn("DEMO: Весенняя акция", self.html)
+        self.assertIn("24.9%", self.html)
 
     def test_has_excel_export_block(self):
         self.assertIn("Выгрузка в Excel", self.html)
@@ -1204,6 +1207,186 @@ class TestPortalSafety(unittest.TestCase):
         css = (_PORTAL_DIR / "static" / "styles.css").read_text()
         self.assertIn("data:image/svg+xml", css,
                       "Filter arrow must use inline SVG, not external file")
+
+
+class TestDemoData(unittest.TestCase):
+    """Demo data is safe, synthetic, and marked as DEMO."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    # ── Demo banner ────────────────────────────────
+
+    def _assert_demo_banner(self, html: str, route: str):
+        self.assertIn("Демо-данные", html,
+                      f"{route}: must show demo banner")
+        self.assertIn("Не являются реальными данными сети", html,
+                      f"{route}: must show demo disclaimer")
+
+    def test_demo_banner_on_all_pages(self):
+        """Every page with demo data has the DEMO banner."""
+        routes = ["/dashboard", "/campaigns", "/creatives", "/schedule",
+                   "/publications", "/stores", "/devices", "/proof-of-play",
+                   "/approvals", "/reports"]
+        for route in routes:
+            resp = self.client.get(route)
+            self.assertEqual(resp.status_code, 200,
+                             f"{route} must return 200")
+            self._assert_demo_banner(resp.text, route)
+
+    # ── Demo data is marked DEMO ───────────────────
+
+    def test_demo_data_has_demo_prefix(self):
+        """Demo data contains 'DEMO:' prefix."""
+        resp = self.client.get("/campaigns")
+        self.assertIn("DEMO:", resp.text,
+                      "Demo data must be marked with DEMO: prefix")
+
+    def test_stores_has_demo_data(self):
+        resp = self.client.get("/stores")
+        self.assertIn("DEMO: Магазин 001", resp.text)
+        self.assertIn("DEMO: Северный", resp.text)
+
+    def test_devices_has_demo_data(self):
+        resp = self.client.get("/devices")
+        self.assertIn("DEMO: КСО-01", resp.text)
+
+    def test_campaigns_has_demo_data(self):
+        resp = self.client.get("/campaigns")
+        self.assertIn("DEMO: Весенняя акция", resp.text)
+        self.assertIn("В эфире", resp.text)
+
+    def test_creatives_has_demo_data(self):
+        resp = self.client.get("/creatives")
+        self.assertIn("DEMO: Тестовый баннер 1", resp.text)
+
+    def test_schedule_has_demo_data(self):
+        resp = self.client.get("/schedule")
+        self.assertIn("DEMO: Весенняя акция", resp.text)
+
+    def test_publications_has_demo_data(self):
+        resp = self.client.get("/publications")
+        self.assertIn("Опубликован", resp.text)
+
+    def test_pop_has_demo_data(self):
+        resp = self.client.get("/proof-of-play")
+        self.assertIn("Подтверждено", resp.text)
+
+    def test_approvals_has_demo_data(self):
+        resp = self.client.get("/approvals")
+        self.assertIn("Менеджер А", resp.text)
+        self.assertIn("Руководитель Б", resp.text)
+
+    def test_reports_has_demo_kpi(self):
+        resp = self.client.get("/reports")
+        self.assertIn("16 000", resp.text)
+        self.assertIn("1 247", resp.text)
+        self.assertIn("7.8%", resp.text)
+
+    # ── No raw IDs/secrets/hash ────────────────────
+
+    def test_no_raw_ids_in_demo_pages(self):
+        """Demo pages must not contain raw IDs or hashes."""
+        for route in ["/campaigns", "/creatives", "/schedule",
+                       "/publications", "/stores", "/devices",
+                       "/proof-of-play", "/approvals", "/reports"]:
+            resp = self.client.get(route)
+            _assert_safe(self, resp.text)
+            # Extra: no UUID-like patterns
+            self.assertNotIn("11111111-1111", resp.text.lower(),
+                             f"{route}: must not contain UUID-like IDs")
+
+    def test_no_filenames_paths_in_demo(self):
+        """Demo data must not contain filenames, paths, storage keys."""
+        for route in ["/campaigns", "/creatives", "/schedule",
+                       "/publications", "/stores", "/devices",
+                       "/proof-of-play", "/approvals", "/reports"]:
+            resp = self.client.get(route)
+            lower = resp.text.lower()
+            for fb in ("file_path", "filename", "storage_key",
+                        "minio", "sha256", "/var/", "/opt/", "/etc/"):
+                self.assertNotIn(fb, lower,
+                                 f"{route}: must not contain '{fb}'")
+
+    def test_no_phone_email_customer_payment(self):
+        """Demo data must not contain personal/payment data."""
+        for route in ["/campaigns", "/creatives", "/schedule",
+                       "/publications", "/stores", "/devices",
+                       "/proof-of-play", "/approvals", "/reports"]:
+            resp = self.client.get(route)
+            lower = resp.text.lower()
+            for fb in ("receipt", "payment", "card_data", "customer_data",
+                        "phone", "fiscal", "@", "руб.", "skuid", "sku_id"):
+                self.assertNotIn(fb, lower,
+                                 f"{route}: must not contain '{fb}'")
+
+    # ── Dangerous actions disabled ─────────────────
+
+    def test_dangerous_actions_disabled_or_absent(self):
+        """Publish/approve/reject/start/stop/restart/delete actions
+        must be disabled or absent."""
+        for route in ["/campaigns", "/creatives", "/schedule",
+                       "/publications", "/stores", "/devices",
+                       "/proof-of-play", "/approvals", "/reports"]:
+            resp = self.client.get(route)
+            lower = resp.text.lower()
+            # Buttons with these labels should not be active
+            for action in ("опубликовать", "отправить", "удалить",
+                            "перезапустить", "остановить", "запустить",
+                            "загрузить"):
+                # If present, must be in disabled context
+                if action in lower:
+                    self.assertIn("disabled", lower,
+                                  f"{route}: '{action}' must be disabled")
+
+    def test_excel_export_disabled(self):
+        """Excel export button must remain disabled."""
+        resp = self.client.get("/reports")
+        self.assertIn("disabled", resp.text.lower())
+        self.assertIn("Выгрузить в Excel", resp.text)
+        self.assertIn("btn-disabled", resp.text)
+
+    # ── No external deps ───────────────────────────
+
+    def test_no_external_cdn_or_js_in_demo(self):
+        """Demo pages must not pull external CDN/scripts/fonts/JS."""
+        for route in ["/campaigns", "/creatives", "/schedule",
+                       "/publications", "/stores", "/devices",
+                       "/proof-of-play", "/approvals", "/reports",
+                       "/deployment", "/admin", "/dashboard"]:
+            resp = self.client.get(route)
+            lower = resp.text.lower()
+            for fb in ("fonts.googleapis", "cdn.jsdelivr", "unpkg.com",
+                        "chart.js", "chartjs", "recharts",
+                        "fontawesome", "<script src="):
+                self.assertNotIn(fb, lower,
+                                 f"{route}: must not contain '{fb}'")
+
+    def test_no_android_led_esl_mobile(self):
+        """Android/LED/ESL/mobile app must NOT be in v1 UI."""
+        for route in ["/dashboard", "/devices", "/stores", "/campaigns",
+                       "/creatives", "/schedule", "/publications",
+                       "/proof-of-play", "/approvals", "/reports"]:
+            resp = self.client.get(route)
+            lower = resp.text.lower()
+            for banned in ("android tv", "led-шелф", "esl",
+                            "mobile app", "price checker"):
+                self.assertNotIn(banned, lower,
+                                 f"{route}: must not contain '{banned}'")
+
+    def test_deployment_admin_no_demo_banner(self):
+        """Deployment and Admin pages are static, no demo banner required."""
+        for route in ["/deployment", "/admin"]:
+            resp = self.client.get(route)
+            self.assertEqual(resp.status_code, 200)
+
+    # ── Dashboard demo values ──────────────────────
+
+    def test_dashboard_shows_demo_values(self):
+        resp = self.client.get("/dashboard")
+        self.assertIn("12", resp.text)      # kso_devices
+        self.assertIn("1 247", resp.text)   # pop_today
+        self.assertIn("3", resp.text)       # active_campaigns
 
 
 # ══════════════════════════════════════════════════════════════════════

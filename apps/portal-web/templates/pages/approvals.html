@@ -7,7 +7,7 @@
 <div class="cards">
   <div class="card">
     <div class="card-title">На согласовании</div>
-    <div class="card-value">—</div>
+    <div class="card-value">{{ approvals|selectattr('status', 'equalto', 'На согласовании')|list|length if demo else "—" }}</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
@@ -17,22 +17,22 @@
   </div>
   <div class="card">
     <div class="card-title">Возвращены на доработку</div>
-    <div class="card-value">—</div>
+    <div class="card-value">0</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
     <div class="card-title">Просрочены по SLA</div>
-    <div class="card-value">—</div>
+    <div class="card-value">0</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
     <div class="card-title">Готовы к публикации</div>
-    <div class="card-value">—</div>
+    <div class="card-value">1</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
     <div class="card-title">Заблокированы</div>
-    <div class="card-value">—</div>
+    <div class="card-value">0</div>
     <div class="card-hint">Нет данных</div>
   </div>
 </div>
@@ -69,51 +69,33 @@
   <div class="filter-group">
     <label class="filter-label">Тип объекта</label>
     <select class="filter-select" disabled>
-      <option>Все типы</option>
-      <option>Креатив</option>
-      <option>Кампания</option>
-      <option>Расписание</option>
-      <option>Публикация manifest</option>
+      <option>Все типы</option><option>Креатив</option><option>Кампания</option><option>Расписание</option><option>Публикация manifest</option>
     </select>
   </div>
   <div class="filter-group">
     <label class="filter-label">Статус согласования</label>
     <select class="filter-select" disabled>
-      <option>Все статусы</option>
-      <option>На согласовании</option>
-      <option>На проверке</option>
-      <option>Согласовано</option>
-      <option>Возвращено</option>
-      <option>Отклонено</option>
-      <option>Просрочено</option>
+      <option>Все статусы</option><option>На согласовании</option><option>На проверке</option>
+      <option>Согласовано</option><option>Возвращено</option><option>Отклонено</option><option>Просрочено</option>
     </select>
   </div>
   <div class="filter-group">
     <label class="filter-label">Согласующий</label>
-    <select class="filter-select" disabled>
-      <option>Все согласующие</option>
-    </select>
+    <select class="filter-select" disabled><option>Все согласующие</option></select>
   </div>
   <div class="filter-group">
     <label class="filter-label">Инициатор</label>
-    <select class="filter-select" disabled>
-      <option>Все инициаторы</option>
-    </select>
+    <select class="filter-select" disabled><option>Все инициаторы</option></select>
   </div>
   <div class="filter-group">
     <label class="filter-label">SLA / срок</label>
     <select class="filter-select" disabled>
-      <option>Все</option>
-      <option>В срок</option>
-      <option>Приближается дедлайн</option>
-      <option>Просрочено</option>
+      <option>Все</option><option>В срок</option><option>Приближается дедлайн</option><option>Просрочено</option>
     </select>
   </div>
   <div class="filter-group">
     <label class="filter-label">Период кампании</label>
-    <select class="filter-select" disabled>
-      <option>Все периоды</option>
-    </select>
+    <select class="filter-select" disabled><option>Все периоды</option></select>
   </div>
 </div>
 
@@ -122,28 +104,38 @@
 <table class="data-table">
   <thead>
     <tr>
-      <th>Объект</th>
-      <th>Тип</th>
-      <th>Статус</th>
-      <th>Инициатор</th>
-      <th>Согласующий</th>
-      <th>SLA</th>
-      <th>Последнее решение</th>
-      <th>Комментарий</th>
-      <th>Следующий шаг</th>
-      <th>Действия</th>
+      <th>Объект</th><th>Тип</th><th>Статус</th><th>Инициатор</th>
+      <th>Согласующий</th><th>SLA</th><th>Последнее решение</th>
+      <th>Комментарий</th><th>Следующий шаг</th><th>Действия</th>
     </tr>
   </thead>
   <tbody>
+  {% if demo and approvals %}
+  {% for a in approvals %}
+    <tr>
+      <td>{{ a.obj }}</td>
+      <td>{{ a.atype }}</td>
+      <td><span class="badge badge-{{ 'ready' if a.status == 'Согласовано' else 'review' if a.status == 'На согласовании' or a.status == 'На проверке' else 'rejected' }}"></span> {{ a.status }}</td>
+      <td>{{ a.initiator }}</td>
+      <td>{{ a.approver }}</td>
+      <td>{{ a.sla }}</td>
+      <td>{{ a.last_decision }}</td>
+      <td>{{ a.comment }}</td>
+      <td>{{ a.next_step }}</td>
+      <td><span class="action-link">—</span></td>
+    </tr>
+  {% endfor %}
+  {% else %}
     <tr class="empty-row">
       <td colspan="10">
         <div class="table-empty-state">
-          <div class="table-empty-icon">✅</div>
+          <div class="table-empty-icon">📝</div>
           <div class="table-empty-title">Пока нет объектов на согласовании</div>
           <div class="table-empty-text">После отправки креативов, кампаний, расписаний или публикаций здесь появится очередь решений.</div>
         </div>
       </td>
     </tr>
+  {% endif %}
   </tbody>
 </table>
 </div>
@@ -192,7 +184,6 @@
   <span class="legend-item"><span class="badge badge-rejected"></span> Отклонено</span>
   <span class="legend-item"><span class="badge badge-overdue"></span> Просрочено</span>
   <span class="legend-item"><span class="badge badge-blocked"></span> Заблокировано</span>
-  <span class="legend-item"><span class="badge badge-unknown"></span> Нет данных</span>
 </div>
 
 <!-- Notes -->

@@ -7,32 +7,32 @@
 <div class="cards">
   <div class="card">
     <div class="card-title">Показы план</div>
-    <div class="card-value">—</div>
+    <div class="card-value">{{ report_kpi.shows_plan if demo else "—" }}</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
     <div class="card-title">Показы факт</div>
-    <div class="card-value">—</div>
+    <div class="card-value">{{ report_kpi.shows_fact if demo else "—" }}</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
     <div class="card-title">Выполнение</div>
-    <div class="card-value">—</div>
+    <div class="card-value">{{ report_kpi.completion if demo else "—" }}</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
     <div class="card-title">КСО онлайн</div>
-    <div class="card-value">—</div>
+    <div class="card-value">{{ report_kpi.kso_online if demo else "—" }}</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
     <div class="card-title">Кампании без факта</div>
-    <div class="card-value">—</div>
+    <div class="card-value">{{ report_kpi.campaigns_no_fact if demo else "—" }}</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
     <div class="card-title">Ошибки публикации / PoP</div>
-    <div class="card-value">—</div>
+    <div class="card-value">{{ report_kpi.errors_pub_pop if demo else "—" }}</div>
     <div class="card-hint">Нет данных</div>
   </div>
 </div>
@@ -103,8 +103,8 @@
   <div class="chart-grid">
     <div class="chart-placeholder">
       <div class="chart-placeholder-title">План / факт показов</div>
-      <div class="chart-placeholder-body">—</div>
-      <div class="chart-placeholder-hint">Нет данных</div>
+      <div class="chart-placeholder-body">{{ report_kpi.completion if demo else "—" }}</div>
+      <div class="chart-placeholder-hint">Выполнение</div>
     </div>
     <div class="chart-placeholder">
       <div class="chart-placeholder-title">Показы по дням</div>
@@ -118,8 +118,8 @@
     </div>
     <div class="chart-placeholder">
       <div class="chart-placeholder-title">Ошибки по КСО</div>
-      <div class="chart-placeholder-body">—</div>
-      <div class="chart-placeholder-hint">Нет данных</div>
+      <div class="chart-placeholder-body">{{ report_kpi.errors_pub_pop if demo else "—" }}</div>
+      <div class="chart-placeholder-hint">Всего</div>
     </div>
     <div class="chart-placeholder">
       <div class="chart-placeholder-title">Статусы публикаций</div>
@@ -134,24 +134,33 @@
   </div>
 </div>
 
-<!-- Report Table Placeholder -->
+<!-- Report Table -->
 <div class="table-container">
 <table class="data-table">
   <thead>
     <tr>
-      <th>Кампания</th>
-      <th>Период</th>
-      <th>Магазины / КСО</th>
-      <th>Креативы</th>
-      <th>Показы план</th>
-      <th>Показы факт</th>
-      <th>Выполнение</th>
-      <th>PoP</th>
-      <th>Публикация</th>
-      <th>Approval</th>
+      <th>Кампания</th><th>Период</th><th>Магазины / КСО</th><th>Креативы</th>
+      <th>Показы план</th><th>Показы факт</th><th>Выполнение</th>
+      <th>PoP</th><th>Публикация</th><th>Approval</th>
     </tr>
   </thead>
   <tbody>
+  {% if demo and report_table %}
+  {% for r in report_table %}
+    <tr>
+      <td>{{ r.campaign }}</td>
+      <td>{{ r.period }}</td>
+      <td>{{ r.stores_kso }}</td>
+      <td>{{ r.creatives }}</td>
+      <td>{{ r.shows_plan }}</td>
+      <td>{{ r.shows_fact }}</td>
+      <td>{{ r.completion }}</td>
+      <td>{{ r.pop }}</td>
+      <td>{{ r.publication }}</td>
+      <td>{{ r.approval }}</td>
+    </tr>
+  {% endfor %}
+  {% else %}
     <tr class="empty-row">
       <td colspan="10">
         <div class="table-empty-state">
@@ -161,6 +170,7 @@
         </div>
       </td>
     </tr>
+  {% endif %}
   </tbody>
 </table>
 </div>

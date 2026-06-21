@@ -39,6 +39,12 @@
 
 <!-- Main content -->
 <div class="main">
+{% if demo %}
+<div class="demo-banner">
+  <span class="demo-banner-icon">⚠️</span>
+  <span class="demo-banner-text">Демо-данные. Не являются реальными данными сети.</span>
+</div>
+{% endif %}
 {% block content %}{% endblock %}
 </div>
 

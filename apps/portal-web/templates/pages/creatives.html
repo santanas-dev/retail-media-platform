@@ -7,27 +7,27 @@
 <div class="cards">
   <div class="card">
     <div class="card-title">Всего креативов</div>
-    <div class="card-value">—</div>
+    <div class="card-value">{{ creatives|length if demo else "—" }}</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
     <div class="card-title">Готовы к публикации</div>
-    <div class="card-value">—</div>
+    <div class="card-value">{{ creatives|selectattr('status', 'equalto', 'Готов')|list|length if demo else "—" }}</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
     <div class="card-title">На проверке</div>
-    <div class="card-value">—</div>
+    <div class="card-value">{{ creatives|selectattr('status', 'equalto', 'На проверке')|list|length if demo else "—" }}</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
     <div class="card-title">С ошибками</div>
-    <div class="card-value">—</div>
+    <div class="card-value">{{ creatives|selectattr('status', 'equalto', 'Ошибка')|list|length if demo else "—" }}</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
     <div class="card-title">Используются в кампаниях</div>
-    <div class="card-value">—</div>
+    <div class="card-value">{{ creatives|selectattr('used_in', 'ne', '—')|list|length if demo else "—" }}</div>
     <div class="card-hint">Нет данных</div>
   </div>
   <div class="card">
@@ -73,45 +73,29 @@
   <div class="filter-group">
     <label class="filter-label">Тип материала</label>
     <select class="filter-select" disabled>
-      <option>Все типы</option>
-      <option>Изображение</option>
-      <option>Видео</option>
+      <option>Все типы</option><option>Изображение</option><option>Видео</option>
     </select>
   </div>
   <div class="filter-group">
     <label class="filter-label">Статус проверки</label>
     <select class="filter-select" disabled>
-      <option>Все статусы</option>
-      <option>Готов</option>
-      <option>На проверке</option>
-      <option>Ошибка</option>
-      <option>Архив</option>
+      <option>Все статусы</option><option>Готов</option><option>На проверке</option><option>Ошибка</option><option>Архив</option>
     </select>
   </div>
   <div class="filter-group">
     <label class="filter-label">Формат</label>
     <select class="filter-select" disabled>
-      <option>Все форматы</option>
-      <option>PNG</option>
-      <option>JPEG</option>
-      <option>MP4</option>
+      <option>Все форматы</option><option>PNG</option><option>JPEG</option><option>MP4</option>
     </select>
   </div>
   <div class="filter-group">
     <label class="filter-label">Использование в кампаниях</label>
-    <select class="filter-select" disabled>
-      <option>Все</option>
-      <option>Используется</option>
-      <option>Не используется</option>
-    </select>
+    <select class="filter-select" disabled><option>Все</option><option>Используется</option><option>Не используется</option></select>
   </div>
   <div class="filter-group">
     <label class="filter-label">Дата обновления</label>
     <select class="filter-select" disabled>
-      <option>За всё время</option>
-      <option>Сегодня</option>
-      <option>Неделя</option>
-      <option>Месяц</option>
+      <option>За всё время</option><option>Сегодня</option><option>Неделя</option><option>Месяц</option>
     </select>
   </div>
 </div>
@@ -121,18 +105,27 @@
 <table class="data-table">
   <thead>
     <tr>
-      <th>Название</th>
-      <th>Тип</th>
-      <th>Формат</th>
-      <th>Размер</th>
-      <th>Длительность</th>
-      <th>Статус</th>
-      <th>Используется</th>
-      <th>Обновлён</th>
-      <th>Действия</th>
+      <th>Название</th><th>Тип</th><th>Формат</th><th>Размер</th>
+      <th>Длительность</th><th>Статус</th><th>Используется</th>
+      <th>Обновлён</th><th>Действия</th>
     </tr>
   </thead>
   <tbody>
+  {% if demo and creatives %}
+  {% for c in creatives %}
+    <tr>
+      <td>{{ c.name }}</td>
+      <td>{{ c.ctype }}</td>
+      <td>{{ c.fmt }}</td>
+      <td>{{ c.size }}</td>
+      <td>{{ c.duration }}</td>
+      <td><span class="badge badge-{{ 'ready' if c.status == 'Готов' else 'review' if c.status == 'На проверке' else 'error' }}"></span> {{ c.status }}</td>
+      <td>{{ c.used_in }}</td>
+      <td>{{ c.updated }}</td>
+      <td><span class="action-link">—</span></td>
+    </tr>
+  {% endfor %}
+  {% else %}
     <tr class="empty-row">
       <td colspan="9">
         <div class="table-empty-state">
@@ -142,6 +135,7 @@
         </div>
       </td>
     </tr>
+  {% endif %}
   </tbody>
 </table>
 </div>
@@ -156,7 +150,7 @@
   <span class="legend-item"><span class="badge badge-unknown"></span> Нет данных</span>
 </div>
 
-<!-- Note: link to campaigns -->
+<!-- Notes -->
 <div class="note-box">
   <span class="note-icon">ℹ️</span>
   <span class="note-text">Креативы будут использоваться при создании <strong>кампаний</strong> и публикации манифестов для КСО.</span>
