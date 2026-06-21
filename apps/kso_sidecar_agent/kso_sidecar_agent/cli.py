@@ -1220,7 +1220,7 @@ def cmd_kso_sync_once(args: argparse.Namespace) -> None:
 
         # ── 4. Auth ────────────────────────────────────────────────
         from kso_sidecar_agent.device_auth_client import DeviceAuthClient
-        auth = DeviceAuthClient(
+        auth = device_auth_client.DeviceAuthClient(
             http_client=http_client,
             config=cfg,
             secret_reader=_read_secret,
@@ -1251,6 +1251,95 @@ def cmd_kso_sync_once(args: argparse.Namespace) -> None:
         sys.exit(1)
     except HttpClientError as e:
         print(f"ERROR: Gateway sync failed", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def cmd_sidecar_daemon(args: argparse.Namespace) -> None:
+    """KSO sidecar daemon: periodically sync manifest/media + send PoP.
+
+    Never prints: backend URL, device code, device secret, auth token,
+    mediaRef values, raw JSON, stacktraces.
+    """
+    import os as _os
+
+    # ── 1. Read device secret from env ─────────────────────────────
+    secret = _os.environ.get(args.device_secret_env, "")
+    if not secret:
+        print("ERROR: Device secret not found in environment", file=sys.stderr)
+        sys.exit(1)
+
+    # ── 2. Build config ────────────────────────────────────────────
+    cfg = {
+        "backend_base_url": args.backend_url,
+        "request_timeout_sec": args.timeout,
+        "tls_verify": args.tls_verify.lower() in ("true", "1", "yes"),
+        "device_code": args.device_code,
+    }
+
+    def _read_secret() -> str:
+        return secret
+
+    try:
+        # ── 3. HTTP client ─────────────────────────────────────────
+        http_config = HttpClientConfig(
+            base_url=cfg["backend_base_url"],
+            timeout_sec=cfg["request_timeout_sec"],
+            tls_verify=cfg["tls_verify"],
+        )
+        http_client = SafeHttpClient(http_config)
+
+        # ── 4. Auth ────────────────────────────────────────────────
+        auth = device_auth_client.DeviceAuthClient(
+            http_client=http_client,
+            config=cfg,
+            secret_reader=_read_secret,
+        )
+        token_state = auth.authenticate()
+
+        def auth_provider() -> str:
+            """Refresh auth and return access token."""
+            try:
+                new_state = auth.authenticate()
+                return new_state.access_token
+            except Exception:
+                return ""
+
+        # ── 5. KSO gateway client ──────────────────────────────────
+        from kso_sidecar_agent.kso_gateway_client import KsoGatewayHttpClient
+        gw_client = KsoGatewayHttpClient(
+            http_client=http_client,
+            token_state=token_state,
+        )
+
+        # ── 6. Run daemon ──────────────────────────────────────────
+        from kso_sidecar_agent.kso_sidecar_daemon import (
+            run_kso_sidecar_daemon,
+            format_kso_sidecar_daemon_result,
+        )
+
+        result = run_kso_sidecar_daemon(
+            str(args.root),
+            gateway_client=gw_client,
+            http_client=http_client,
+            auth_provider=auth_provider,
+            max_cycles=args.max_cycles,
+            max_consecutive_errors=args.max_consecutive_errors,
+            health_file=args.health_file,
+        )
+
+        # ── 7. Safe output ─────────────────────────────────────────
+        print(format_kso_sidecar_daemon_result(result))
+        if result.status not in ("stopped", "stopping"):
+            sys.exit(1)
+
+    except RuntimeError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+    except HttpClientError as e:
+        print(f"ERROR: Daemon failed", file=sys.stderr)
         sys.exit(1)
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -1523,6 +1612,28 @@ def main() -> None:
     p_kso.add_argument("--tls-verify", type=str, default="true",
                        help="Verify TLS (true/false, default: true)")
     p_kso.set_defaults(func=cmd_kso_sync_once)
+
+    # ── sidecar-daemon ─────────────────────────────────────────────
+    p_sd = sub.add_parser("sidecar-daemon",
+                          help="Sidecar daemon: periodic sync manifest/media + send PoP")
+    p_sd.add_argument("--root", required=True, help="Agent root path")
+    p_sd.add_argument("--backend-url", required=True,
+                      help="Backend base URL (e.g. https://backend.example)")
+    p_sd.add_argument("--device-code", required=True,
+                      help="Device code for auth")
+    p_sd.add_argument("--device-secret-env", required=True,
+                      help="Environment variable name containing device secret")
+    p_sd.add_argument("--health-file", type=str, default=None,
+                      help="Optional path for atomic health JSON")
+    p_sd.add_argument("--max-cycles", type=int, default=None,
+                      help="Max cycles (None = run forever until stopped)")
+    p_sd.add_argument("--max-consecutive-errors", type=int, default=3,
+                      help="Stop after N consecutive errors (default: 3)")
+    p_sd.add_argument("--timeout", type=int, default=30,
+                      help="HTTP timeout seconds (default: 30)")
+    p_sd.add_argument("--tls-verify", type=str, default="true",
+                      help="Verify TLS (true/false, default: true)")
+    p_sd.set_defaults(func=cmd_sidecar_daemon)
 
     args = parser.parse_args()
 

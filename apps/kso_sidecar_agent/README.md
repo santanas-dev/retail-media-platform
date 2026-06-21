@@ -1815,3 +1815,145 @@ python3 -m unittest discover -s tests -v
 - `docs/kso_sidecar_agent_design.md` — mini-design агента
 - `docs/kso_player_architecture.md` — архитектура (Вариант D)
 - `docs/kso_local_interface_contract.md` — контракт локального интерфейса
+
+## Production Sidecar Daemon Loop Core
+
+**Реализован:** `kso_sidecar_daemon.py` + CLI `sidecar-daemon`.
+
+### `run_kso_sidecar_daemon(root, gateway_client, http_client, ...) -> KsoSidecarDaemonResult`
+
+Long-running sidecar daemon loop. Выполняет периодический цикл:
+
+1. **Stop check** — проверяет `stop_check()` перед каждым циклом
+2. **Manifest/media sync** — `sync_kso_manifest_and_media()` через injectable gateway client
+3. **PoP send** — `run_pop_scoped_send()` → build payload → send to backend
+4. **Rotation only after confirmed accept** — `apply_pop_rotation_local()` только при `send_success=True`
+5. **Health file** — атомарная запись safe JSON (опционально)
+6. **Wait** — `sleep_fn` между циклами
+
+### Daemon cycle
+
+Каждый daemon cycle = **sync once + pop send once**.
+
+| Шаг | Что делает | При ошибке |
+|---|---|---|
+| Sync | Загружает manifest + media с gateway | sync_error_count++, daemon продолжает |
+| Pop send | Pickup → payload → backend send | pop_error_count++, pending untouched |
+| Rotate | При confirmed accept → pending → sent | pending preserved |
+
+### Pending lifecycle rule
+
+**Pending НИКОГДА не удаляется/перемещается без confirmed backend accept:**
+
+| Сценарий | Поведение |
+|---|---|
+| Backend accepted | pending → sent (rotation apply) |
+| Backend reject | pending preserved |
+| Network error | pending preserved |
+| Sync failure | pending untouched |
+| Second cycle | не переотправляет уже-sent события |
+
+### Health file
+
+Если задан `health_file`, пишется атомарный JSON с safe полями:
+```json
+{
+  "status": "ok",
+  "daemon_status": "running",
+  "cycles_completed": 3,
+  "last_sync_status": "ok",
+  "last_pop_send_status": "sent",
+  "sync_ok_count": 3,
+  "sync_error_count": 0,
+  "pop_sent_count": 2,
+  "pop_error_count": 0,
+  "pending_preserved_count": 0,
+  "manifest_written": true,
+  "media_written_count": 2,
+  "pop_payload_events": 1,
+  "pop_sent_records": 2,
+  "pending_preserved_this_cycle": false,
+  "error_count": 0,
+  "last_reason": "ok"
+}
+```
+
+**Запрещено в health:** paths, filenames, mediaRef, raw manifest, raw JSON, IDs, hash, token, secret, backend URL, stacktrace.
+
+### Graceful stop
+
+| Способ | Поведение |
+|---|---|
+| `max_cycles` | После N циклов → `reason=max_cycles_reached` |
+| `stop_check()` | Callback → True → `reason=stop_check_triggered` |
+| `max_consecutive_errors` | После N ошибок подряд → `reason=max_consecutive_errors_exceeded`, статус `error` |
+
+После recoverable ошибки счётчик consecutive_errors сбрасывается.
+
+### CLI
+
+```bash
+# Production mode:
+python3 -m kso_sidecar_agent.cli sidecar-daemon \
+  --root /var/lib/verny/kso \
+  --backend-url https://backend.example \
+  --device-code DEVICE_CODE \
+  --device-secret-env VERNY_KSO_DEVICE_SECRET \
+  --health-file /run/verny/kso/sidecar-health.json
+
+# Test/dev mode:
+python3 -m kso_sidecar_agent.cli sidecar-daemon \
+  --root /tmp/kso-demo-root \
+  --backend-url https://backend.example \
+  --device-code DEVICE_CODE \
+  --device-secret-env VERNY_KSO_DEVICE_SECRET \
+  --max-cycles 3
+```
+
+**CLI output (safe):**
+```
+status: stopped
+cycles_completed: 3
+sync_ok_count: 3
+sync_error_count: 0
+pop_sent_count: 2
+pop_error_count: 0
+pending_preserved_count: 0
+error_count: 0
+health_written: true
+reason: max_cycles_reached
+```
+
+**Запрещено в output:** backend URL, device code, device secret, auth token, mediaRef, raw JSON, stacktrace, paths.
+
+### Что НЕ делается
+
+- ❌ Systemd не используется (будет отдельным шагом)
+- ❌ Backend/player/БД не меняются
+- ❌ Real HTTP в тестах не выполняется (injectable fake clients)
+- ❌ Real sleep в тестах не используется (`sleep_fn` injectable)
+- ❌ Windows/MSI/ProgramData отсутствуют
+
+### Тесты
+
+21 тест в `tests/test_kso_sidecar_daemon.py`:
+- max_cycles=0 safe no-op
+- max_cycles=3 completes 3 cycles
+- stop_check stops daemon cleanly
+- sync not_modified/no_manifest safe
+- manifest/media fetch error not fatal
+- media download failure does not break daemon
+- completed PoP accepted → moves to sent
+- backend reject → pending preserved
+- network error → pending preserved
+- no pending PoP → safe no-op
+- second cycle does not resend sent events
+- health file written atomically and safe
+- health file contains no paths/secrets
+- max_consecutive_errors stops daemon
+- result repr safe
+- invalid args returns error
+- auth token provided for send
+- format result safe
+- daemon with idempotent setup
+- daemon survives sync error then recovers
