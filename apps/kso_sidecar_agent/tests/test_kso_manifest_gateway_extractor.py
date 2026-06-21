@@ -528,7 +528,7 @@ class TestOutputSafety(unittest.TestCase):
         """Write result repr has no forbidden fields."""
         response = _make_gateway_response()
         result = write_kso_safe_local_manifest_from_gateway_response(
-            Path("."), response)
+            self.root, response)
         text = repr(result)
         self.assertNotIn("manifest_version_id", text)
         self.assertNotIn("manifest_hash", text)
@@ -538,7 +538,7 @@ class TestOutputSafety(unittest.TestCase):
         """Write format output has no forbidden fields."""
         response = _make_gateway_response()
         result = write_kso_safe_local_manifest_from_gateway_response(
-            Path("."), response)
+            self.root, response)
         text = format_write_result(result)
         self.assertNotIn("manifest_version_id", text)
         self.assertNotIn("manifest_hash", text)

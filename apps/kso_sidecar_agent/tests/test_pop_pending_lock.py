@@ -291,7 +291,17 @@ class TestResultSafety(TestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class TestInvalidInputs(TestCase):
-    """Invalid root paths — safe error, no crash."""
+    """Invalid root paths — safe error, no crash.
+    
+    Uses TemporaryDirectory to avoid leaking pop/ artifacts into cwd.
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_none_root(self):
         result = try_acquire_pop_pending_lock(None)
@@ -301,9 +311,13 @@ class TestInvalidInputs(TestCase):
 
     def test_empty_string_root(self):
         result = try_acquire_pop_pending_lock("")
-        # Path("") resolves to cwd, which exists and should be writable
-        # Just verify no crash
+        # Path("") → cwd; should not crash, may succeed or error depending on cwd
         self.assertIsNotNone(result)
+        # Release if acquired + remove leaked pop/ from cwd
+        if result.acquired:
+            release_pop_pending_lock(result)
+        import shutil
+        shutil.rmtree(Path("pop"), ignore_errors=True)
 
     def test_invalid_type(self):
         result = try_acquire_pop_pending_lock(12345)
