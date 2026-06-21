@@ -744,6 +744,122 @@ class TestApprovalsPage(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Publications page tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestPublicationsPage(unittest.TestCase):
+    """KSO Publications page — cards, flow, approval-gate, filters, table, legend."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+        resp = self.client.get("/publications")
+        self.html = resp.text
+
+    def test_renders_summary_cards(self):
+        for card in ("Готовы к публикации", "Ожидают approval", "Опубликованы",
+                      "Ошибки публикации", "КСО получили manifest", "Требуют внимания"):
+            self.assertIn(card, self.html,
+                          f"Publications page must render summary card '{card}'")
+
+    def test_has_publication_flow(self):
+        for step in ("Кампания согласована", "Расписание согласовано",
+                      "Manifest подготовлен", "Готов к публикации",
+                      "Опубликован на Gateway", "Получен sidecar",
+                      "Применён player", "Подтверждён PoP"):
+            self.assertIn(step, self.html,
+                          f"Publication flow must contain step '{step}'")
+
+    def test_flow_has_terminal_states(self):
+        for state in ("Ожидает approval", "Ошибка подготовки",
+                       "Ошибка доставки", "Остановлено"):
+            self.assertIn(state, self.html,
+                          f"Flow terminals must contain '{state}'")
+
+    def test_has_approval_gate_block(self):
+        for rule in ("нельзя публиковать без финального approval",
+                      "публикация заблокирована",
+                      "Останавливает публикацию",
+                      "Требует причины и попадает в аудит",
+                      "Сохраняется для отчётности"):
+            self.assertIn(rule, self.html,
+                          f"Approval gate must contain '{rule[:50]}'")
+
+    def test_mentions_final_approval_required(self):
+        self.assertIn("финального approval", self.html)
+        self.assertIn("невозможна", self.html.lower())
+
+    def test_has_filters_block(self):
+        for flt in ("Кампания", "Период", "Филиал", "Статус approval",
+                     "Статус публикации", "Статус доставки"):
+            self.assertIn(flt, self.html,
+                          f"Publications page must have filter '{flt}'")
+
+    def test_filters_disabled(self):
+        self.assertIn("disabled", self.html)
+
+    def test_has_table_structure(self):
+        for col in ("Кампания", "Период", "Approval", "Manifest",
+                     "Публикация", "Доставка", "КСО", "PoP",
+                     "Последнее событие", "Действия"):
+            self.assertIn(col, self.html,
+                          f"Publications table must have column '{col}'")
+
+    def test_table_shows_empty_state(self):
+        self.assertIn("Пока нет публикаций", self.html)
+        self.assertIn("готовность manifest к публикации", self.html)
+
+    def test_mentions_sidecar_player_pop(self):
+        for term in ("sidecar", "player", "Proof of Play"):
+            self.assertIn(term.lower(), self.html.lower(),
+                          f"Publications page must mention '{term}'")
+
+    def test_mentions_bi_reporting(self):
+        self.assertIn("BI-отчётности", self.html)
+        self.assertIn("Excel", self.html)
+
+    def test_has_status_legend(self):
+        for badge in ("Ожидает approval", "Готов", "Опубликовано",
+                       "Доставлено", "Ошибка", "Остановлено",
+                       "Нет данных"):
+            self.assertIn(badge, self.html,
+                          f"Legend must contain status '{badge}'")
+
+    def test_no_forbidden_content(self):
+        _assert_safe(self, self.html)
+
+    def test_no_out_of_scope_channels(self):
+        for banned in ("Android TV", "LED", "ESL", "Mobile App",
+                        "Ценники", "Price Checker"):
+            self.assertNotIn(banned, self.html,
+                             f"Publications page must NOT contain '{banned}'")
+
+    def test_no_raw_ids_secrets_hashes(self):
+        lower = self.html.lower()
+        for forbidden in ("device_secret", "access_token", "manifest_hash",
+                           "campaign_id", "creative_id", "backend_url",
+                           "rendition_id", "store_id", "device_id",
+                           "schedule_item_id", "manifest_item_id",
+                           "booking_id", "manifest_id", "manifest_version_id",
+                           "storage_key", "minio", "sha256",
+                           "file_path", "filename", "token",
+                           "http://", "https://backend"):
+            self.assertNotIn(forbidden, lower,
+                             f"Publications page must NOT contain '{forbidden}'")
+
+    def test_status_badge_classes_in_css(self):
+        css = (_PORTAL_DIR / "static" / "styles.css").read_text()
+        for cls_name in (".badge-delivered", ".badge-stopped",
+                          ".badge-published", ".badge-ready",
+                          ".badge-error", ".badge-unknown"):
+            self.assertIn(cls_name, css,
+                          f"CSS must define '{cls_name}'")
+
+    def test_publications_route_returns_200(self):
+        resp = self.client.get("/publications")
+        self.assertEqual(resp.status_code, 200)
+
+
 class TestPageStubsRender(unittest.TestCase):
     """All page stubs render with title and safe empty state."""
 

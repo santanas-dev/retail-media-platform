@@ -8,7 +8,7 @@
 
 **Приложение:** `apps/portal-web/` — FastAPI + Jinja2 серверный портал.
 **Стек:** FastAPI 0.133 + Jinja2 3.1 + Starlette TestClient.
-**Тестов:** 127 (routes, navigation, devices, stores, creatives, campaigns, schedule, approvals, content, security).
+**Тестов:** 144 (routes, navigation, devices, stores, creatives, campaigns, schedule, approvals, publications, content, security).
 
 ## Страницы (13 routes v1)
 
@@ -18,7 +18,7 @@
 | `/campaigns` | Кампании | ✅ UI foundation (cards + lifecycle + filters + table + approval note) |
 | `/creatives` | Креативы | ✅ UI foundation (cards + requirements + filters + table + approval note) |
 | `/schedule` | Расписание | ✅ UI foundation (cards + planning + filters + table + approval note) |
-| `/publications` | Публикации манифестов | ✅ заглушка + approval note |
+| `/publications` | Публикации манифестов | ✅ UI foundation (cards + flow + approval-gate + filters + table) |
 | `/stores` | Магазины и КСО-инвентаризация | ✅ UI foundation (cards + filters + table) |
 | `/devices` | КСО Устройства | ✅ UI foundation (cards + filters + table) |
 | `/proof-of-play` | Proof of Play | ✅ заглушка |
@@ -273,9 +273,45 @@
 - ❌ Нет Android TV, LED-шелф, ESL, Mobile App
 - ✅ Все значения статичные (—)
 
+## KSO Manifest Publications page
+
+**Структура:**
+- **6 summary cards:** Готовы к публикации, Ожидают approval, Опубликованы, Ошибки публикации, КСО получили manifest, Требуют внимания
+- **Publication flow:** Кампания согласована → Расписание согласовано → Manifest подготовлен → Готов к публикации → Опубликован на Gateway → Получен sidecar → Применён player → Подтверждён PoP. Терминальные: Ожидает approval, Ошибка подготовки, Ошибка доставки, Остановлено
+- **Approval gate (5 правил):** Manifest нельзя публиковать без финального approval; без approval — блокировка; возврат на доработку останавливает публикацию; экстренная остановка — причина + аудит; история публикаций сохраняется
+- **6 фильтров:** Кампания, Период, Филиал/магазин, Статус approval, Статус публикации, Статус доставки на КСО (все disabled)
+- **Таблица (10 колонок):** Кампания, Период, Approval, Manifest, Публикация, Доставка, КСО, PoP, Последнее событие, Действия
+- **Empty state:** «Пока нет публикаций»
+- **Легенда статусов:** Ожидает approval, Готов, Опубликовано, Доставлено, Ошибка, Остановлено, Нет данных
+- **Связи:** Note — публикация невозможна без approval; Note — delivery (sidecar) + PoP → BI/Excel
+
+**Status badges:** `.badge-review` (blue), `.badge-ready` (green), `.badge-published` (indigo), `.badge-delivered` (green), `.badge-error` (red), `.badge-stopped` (amber), `.badge-unknown` (light gray)
+
+**Planned future API fields (не отображаются пока):**
+- campaign_name, period_start/end, approval_status
+- manifest_status, publication_status, delivery_status, kso_count
+- pop_status, last_event_utc
+- Без campaign_id, manifest_id, manifest_hash, manifest_version_id, manifest_item_id, device_id, schedule_item_id, booking_id
+
+**Future workflow (не на этом шаге):**
+- Реальная публикация manifest на Device Gateway
+- Отправка и доставка sidecar
+- Применение player
+- Подтверждение PoP
+- BI/Excel reporting по публикациям
+
+**Security:**
+- ❌ Нет manifest_id, manifest_hash, manifest_version_id, manifest_item_id
+- ❌ Нет campaign_id, creative_id, rendition_id, store_id, device_id
+- ❌ Нет schedule_item_id, booking_id, storage_key, minio, sha256
+- ❌ Нет file_path, filename, token
+- ❌ Нет device_secret, access_token, backend_url
+- ❌ Нет Android TV, LED-шелф, ESL, Mobile App
+- ✅ Все значения статичные (—)
+
 ## Styling
 
-- Минимальный CSS (314 строк) — без внешних CDN
+- Минимальный CSS (317 строк) — без внешних CDN
 - Светлая тема, corporate layout
 - Fixed sidebar (240px), fixed header (56px)
 - Адаптивная сетка карточек (`auto-fill, minmax(240px, 1fr)`)
@@ -303,7 +339,7 @@ python3 main.py  # или uvicorn main:app --port 8422
 ```bash
 cd apps/portal-web
 python3 -m unittest discover -s tests -v
-# 127 tests: routes, navigation, content, security
+# 144 tests: routes, navigation, content, security
 ```
 
 ## Следующие UI шаги
