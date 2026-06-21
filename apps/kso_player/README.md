@@ -1013,6 +1013,83 @@ python3 -m kso_player.cli shell-snapshot-write \
 
 ---
 
+## KSO Player Local Visual Demo Prepare
+
+🧪 **Реализован:** `local_visual_demo_prepare.py` + CLI `local-demo-prepare`.
+
+Это первый вертикальный demo prepare: полная подготовка runtime shell → media symlink alias → bootstrap snapshot.
+После выполнения команды runtime shell готов для ручного запуска Chromium.
+
+### Pipeline
+
+```
+source shell → atomic copy → runtime shell
+state → gate → decision → render plan → shell snapshot → bootstrap_snapshot.js
+render plan → media filename → safe symlink → media/current/slot-XXX
+```
+
+### `prepare_kso_local_visual_demo(root, source_shell_dir, runtime_shell_dir, stale_seconds=30)`
+
+1. **Workspace** — атомарное копирование 5 whitelist файлов из source в runtime
+2. **Snapshot** — построение shell snapshot через полный пайплайн (state → gate → ... → snapshot)
+3. **Media alias** — для render: safe symlink `media/current/slot-{order:03d}` → реальный media файл
+4. **Write** — атомарная запись `bootstrap_snapshot.js` в runtime shell
+
+### Когда Render
+
+| Условие | |
+|---|---|
+| idle + image + manifest ready | render + media alias ready |
+| idle + video + manifest ready | render + media alias ready |
+
+### Когда Hold
+
+| Условие | |
+|---|---|
+| Non-idle / stale / missing state | hold |
+| Missing manifest | hold |
+| Unsupported media type | hold |
+| Media alias не удалось создать | **hold** (safe fallback) |
+| Source shell missing | error |
+
+### Media alias
+
+- **Формат:** `{runtime_shell_dir}/media/current/slot-{order:03d}`
+- **Тип:** safe symlink → реальный файл в `{root}/media/current/`
+- **Безопасность:** alias name только из safe mediaRef, путь валидируется на отсутствие `..`, `/`, `\\`
+- Если source media нельзя безопасно определить → hold snapshot
+
+### CLI
+
+```bash
+python3 -m kso_player.cli local-demo-prepare \
+  --root /tmp/kso-root \
+  --source-shell-dir /opt/verny/kso/player_shell \
+  --runtime-shell-dir /var/lib/verny/kso/runtime/player_shell
+```
+
+| Exit code | |
+|---|---|
+| 0 | Demo prepared |
+| 1 | Error |
+| 2 | Invalid args |
+
+### Atomic write
+
+```
+bootstrap_snapshot.js.tmp → flush/fsync → rename → fsync directory
+```
+
+### Что НЕ реализовано
+
+- ❌ Chromium kiosk launch
+- ❌ Systemd / service
+- ❌ PoP write
+- ❌ State adapter / kso_state.json write
+- ❌ Backend / auth / secret / media bytes
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay

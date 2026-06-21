@@ -7,6 +7,8 @@ Commands:
     simulate-step      Simulate one playback step (no media played, no sleep)
     event-dry-run      Build in-memory event draft (no PoP, no JSONL, no backend)
     pop-write          Build event draft + write to local JSONL (no backend, no sidecar)
+    shell-snapshot-write  Write bootstrap_snapshot.js to runtime shell directory
+    local-demo-prepare    Full vertical demo: workspace + media alias + snapshot
     --help             Show help
 
 Only reads manifest/current_manifest.json and media/current/.
@@ -33,6 +35,12 @@ from kso_player.runtime_snapshot_writer import (
     format_kso_runtime_snapshot_write_result,
     REASON_WRITTEN as REASON_SNAPSHOT_WRITTEN,
     STATUS_ERROR as SNAPSHOT_STATUS_ERROR,
+)
+from kso_player.local_visual_demo_prepare import (
+    prepare_kso_local_visual_demo,
+    format_kso_local_visual_demo_prepare_result,
+    STATUS_OK as DEMO_STATUS_OK,
+    STATUS_ERROR as DEMO_STATUS_ERROR,
 )
 
 
@@ -185,6 +193,25 @@ def cmd_shell_snapshot_write(args: argparse.Namespace) -> None:
     sys.exit(0)
 
 
+def cmd_local_demo_prepare(args: argparse.Namespace) -> None:
+    """Prepare a local visual demo: workspace + media alias + bootstrap snapshot.
+
+    Full pipeline: prepare workspace → build snapshot → media aliases → write JS.
+    Source shell is NEVER modified.
+    No backend, no Chromium, no systemd, no PoP.
+    """
+    result = prepare_kso_local_visual_demo(
+        root=args.root,
+        source_shell_dir=args.source_shell_dir,
+        runtime_shell_dir=args.runtime_shell_dir,
+        stale_seconds=args.stale_seconds,
+    )
+    print(format_kso_local_visual_demo_prepare_result(result))
+    if result.status == DEMO_STATUS_ERROR:
+        sys.exit(1)
+    sys.exit(0)
+
+
 def _validate_state(value: str) -> str:
     normalized = value.strip().lower()
     if normalized not in ALLOWED_STATES:
@@ -251,6 +278,17 @@ def _build_parser() -> argparse.ArgumentParser:
     ssw.add_argument("--stale-seconds", type=int, default=30,
                      help="Max state age before stale (default: 30)")
     ssw.set_defaults(func=cmd_shell_snapshot_write)
+
+    ldp = sub.add_parser("local-demo-prepare",
+                         help="Prepare local visual demo: workspace + media alias + snapshot")
+    ldp.add_argument("--root", required=True, help="Agent root path")
+    ldp.add_argument("--source-shell-dir", required=True,
+                     help="Immutable source shell directory")
+    ldp.add_argument("--runtime-shell-dir", required=True,
+                     help="Runtime shell directory path")
+    ldp.add_argument("--stale-seconds", type=int, default=30,
+                     help="Max state age before stale (default: 30)")
+    ldp.set_defaults(func=cmd_local_demo_prepare)
 
     return parser
 
