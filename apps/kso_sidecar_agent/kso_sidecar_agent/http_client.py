@@ -140,11 +140,16 @@ EXACT_ALLOWED_PATHS: frozenset[str] = frozenset({
 # Pattern: /api/device-gateway/media/{manifest_item_id}[/metadata]
 # Pattern: /api/device-gateway/manifest/{manifest_version_id}
 # Pattern: /api/device-gateway/pop/events
+# Pattern: /api/device-gateway/media/kso/{mediaRef:path}  — multi-segment mediaRef
 _ALLOWED_PREFIXES: tuple[str, ...] = (
     "/api/device-gateway/media/",
     "/api/device-gateway/manifest/",
     "/api/device-gateway/pop/",
 )
+
+# KSO media path: /api/device-gateway/media/kso/{mediaRef}
+# Allows multiple segments after kso/ since mediaRef is media/current/slot-NNN
+_KSO_MEDIA_PREFIX = "/api/device-gateway/media/kso/"
 
 
 def _validate_path(path: str) -> str:
@@ -163,6 +168,18 @@ def _validate_path(path: str) -> str:
 
     # Prefix allowlist: paths like /api/device-gateway/media/{id} or /manifest/{id}
     # Supports one optional additional segment: /api/device-gateway/media/{id}/metadata
+    # KSO media path allows multi-segment mediaRef (/api/device-gateway/media/kso/{mediaRef})
+    if path.startswith(_KSO_MEDIA_PREFIX):
+        remainder = path[len(_KSO_MEDIA_PREFIX):]
+        if not remainder:
+            raise ValueError(f"path '{path}' missing mediaRef")
+        if ".." in remainder:
+            raise ValueError(f"path '{path}' must not contain '..'")
+        if "?" in remainder:
+            raise ValueError(f"path '{path}' must not contain query string")
+        # Allow multiple forward-slash segments in mediaRef
+        return path
+
     for prefix in _ALLOWED_PREFIXES:
         if path.startswith(prefix):
             remainder = path[len(prefix):]

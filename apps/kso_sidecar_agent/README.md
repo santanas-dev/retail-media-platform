@@ -122,6 +122,41 @@ media_written_count, items_count, reason.
 
 Это НЕ scheduler/systemd — цикличный запуск будет отдельным шагом.
 
+## KSO Gateway HTTP Client + Sync CLI
+
+**Реализован:** `kso_gateway_client.py` + CLI `kso-sync-once`.
+
+**Gateway HTTP Client** (`KsoGatewayHttpClient`):
+- `fetch_current_manifest()` → `GET /api/device-gateway/manifest/current`
+- `download_kso_media(mediaRef)` → `GET /api/device-gateway/media/kso/{mediaRef}`
+- Валидирует mediaRef **до** HTTP запроса
+- Использует `SafeHttpClient` + `TokenState` auth
+- Never logs: URL, auth header, response body
+
+**CLI**:
+```bash
+python3 -m kso_sidecar_agent.cli kso-sync-once \
+  --root /var/lib/verny/kso \
+  --backend-url https://backend.example \
+  --device-code DEVICE_CODE \
+  --device-secret-env VERNY_KSO_DEVICE_SECRET
+```
+
+**CLI output** (safe):
+```
+status: ok
+manifest_written: true
+media_downloaded_count: 3
+media_written_count: 3
+items_count: 3
+reason: synced
+```
+
+**Запрещено в output**: backend URL, device code, device secret,
+auth token, mediaRef, raw JSON, stacktrace.
+
+Это НЕ scheduler/systemd — цикличный запуск будет отдельным шагом.
+
 ## PoP Pickup Design
 
 📝 **Mini-design создан:** `docs/pop_pickup_design.md`. Описывает будущий шаг run-cycle, в котором sidecar забирает локальные player events из `pop/pending/player_events.jsonl`, валидирует, классифицирует по статусу и готовит eligible-события к отправке в backend. Draft-события не являются фактом показа и не отправляются как PoP. Реализация pickup — отдельный шаг.

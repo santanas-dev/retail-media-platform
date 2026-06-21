@@ -1183,6 +1183,80 @@ def cmd_player_readiness(args: argparse.Namespace) -> None:
     sys.exit(0 if snap.ready else 1)
 
 
+def cmd_kso_sync_once(args: argparse.Namespace) -> None:
+    """KSO sync once: auth → fetch manifest → download media → publish locally.
+
+    Never prints: backend URL, device code, device secret, auth token,
+    mediaRef values, raw JSON, stacktraces.
+    """
+    import os as _os
+
+    # ── 1. Read device secret from env ─────────────────────────────
+    secret = _os.environ.get(args.device_secret_env, "")
+    if not secret:
+        print("ERROR: Device secret not found in environment", file=sys.stderr)
+        sys.exit(1)
+
+    # ── 2. Build auth config ──────────────────────────────────────
+    # Use a minimal config dict matching DeviceAuthClient expectations
+    cfg = {
+        "backend_base_url": args.backend_url,
+        "request_timeout_sec": args.timeout,
+        "tls_verify": args.tls_verify.lower() in ("true", "1", "yes"),
+        "device_code": args.device_code,
+    }
+
+    def _read_secret() -> str:
+        return secret
+
+    try:
+        # ── 3. HTTP client ─────────────────────────────────────────
+        http_config = HttpClientConfig(
+            base_url=cfg["backend_base_url"],
+            timeout_sec=cfg["request_timeout_sec"],
+            tls_verify=cfg["tls_verify"],
+        )
+        http_client = SafeHttpClient(http_config)
+
+        # ── 4. Auth ────────────────────────────────────────────────
+        from kso_sidecar_agent.device_auth_client import DeviceAuthClient
+        auth = DeviceAuthClient(
+            http_client=http_client,
+            config=cfg,
+            secret_reader=_read_secret,
+        )
+        token_state = auth.authenticate()
+
+        # ── 5. KSO gateway client ──────────────────────────────────
+        from kso_sidecar_agent.kso_gateway_client import KsoGatewayHttpClient
+        gw_client = KsoGatewayHttpClient(
+            http_client=http_client,
+            token_state=token_state,
+        )
+
+        # ── 6. Sync manifest + media ───────────────────────────────
+        from kso_sidecar_agent.kso_manifest_media_sync import (
+            sync_kso_manifest_and_media,
+            format_kso_manifest_media_sync_result,
+        )
+        result = sync_kso_manifest_and_media(args.root, gw_client)
+
+        # ── 7. Safe output ─────────────────────────────────────────
+        print(format_kso_manifest_media_sync_result(result))
+        if result.status not in ("ok", "not_modified", "no_manifest"):
+            sys.exit(1)
+
+    except RuntimeError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+    except HttpClientError as e:
+        print(f"ERROR: Gateway sync failed", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="kso-agent",
@@ -1433,6 +1507,22 @@ def main() -> None:
     p_auth.add_argument("--auth-max-attempts", type=int, default=3,
                         help="Max auth attempts when --retry-auth (default: 3)")
     p_auth.set_defaults(func=cmd_auth_check)
+
+    # ── kso-sync-once ─────────────────────────────────────────────
+    p_kso = sub.add_parser("kso-sync-once",
+                           help="KSO manifest + media sync: fetch→download→publish")
+    p_kso.add_argument("--root", required=True, help="Agent root path")
+    p_kso.add_argument("--backend-url", required=True,
+                       help="Backend base URL (e.g. https://backend.example)")
+    p_kso.add_argument("--device-code", required=True,
+                       help="Device code for auth")
+    p_kso.add_argument("--device-secret-env", required=True,
+                       help="Environment variable name containing device secret")
+    p_kso.add_argument("--timeout", type=int, default=30,
+                       help="HTTP timeout seconds (default: 30)")
+    p_kso.add_argument("--tls-verify", type=str, default="true",
+                       help="Verify TLS (true/false, default: true)")
+    p_kso.set_defaults(func=cmd_kso_sync_once)
 
     args = parser.parse_args()
 
