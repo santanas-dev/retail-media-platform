@@ -251,6 +251,86 @@ class TestDevicesPage(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Stores page tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestStoresPage(unittest.TestCase):
+    """Stores & KSO Inventory page — cards, filters, table, legend, note."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+        resp = self.client.get("/stores")
+        self.html = resp.text
+
+    def test_renders_summary_cards(self):
+        for card in ("Всего магазинов", "Магазинов с КСО", "КСО подключено",
+                      "Готовы к показу", "В hold", "Требуют внимания"):
+            self.assertIn(card, self.html,
+                          f"Stores page must render summary card '{card}'")
+
+    def test_has_filters_block(self):
+        for flt in ("Филиал", "Город", "Формат магазина", "Статус КСО",
+                     "Готовность к рекламе", "Версия runtime"):
+            self.assertIn(flt, self.html,
+                          f"Stores page must have filter '{flt}'")
+
+    def test_filters_disabled(self):
+        self.assertIn("disabled", self.html)
+
+    def test_has_table_structure(self):
+        for col in ("Филиал", "Магазин", "Формат", "КСО",
+                     "State Adapter", "Sidecar", "Player",
+                     "Готовность", "Heartbeat", "Действия"):
+            self.assertIn(col, self.html,
+                          f"Stores table must have column '{col}'")
+
+    def test_table_shows_empty_state(self):
+        self.assertIn("Пока нет данных по магазинам", self.html)
+        self.assertIn("готовность магазинов к показу рекламы", self.html)
+
+    def test_mentions_kso_components(self):
+        self.assertIn("State Adapter", self.html)
+        self.assertIn("Sidecar", self.html)
+        self.assertIn("Player", self.html)
+
+    def test_has_readiness_legend(self):
+        for badge in ("Готов", "В hold", "Ошибка", "Нет связи", "Нет данных"):
+            self.assertIn(badge, self.html,
+                          f"Legend must contain readiness '{badge}'")
+
+    def test_mentions_devices_page(self):
+        self.assertIn("КСО Устройства", self.html)
+
+    def test_no_forbidden_content(self):
+        _assert_safe(self, self.html)
+
+    def test_no_out_of_scope_channels(self):
+        for banned in ("Android TV", "LED-шелф", "ESL", "Mobile App",
+                        "Ценники", "Price Checker"):
+            self.assertNotIn(banned, self.html,
+                             f"Stores page must NOT contain '{banned}'")
+
+    def test_no_raw_ids_secrets_hashes(self):
+        lower = self.html.lower()
+        for forbidden in ("device_secret", "access_token", "manifest_hash",
+                           "campaign_id", "creative_id", "backend_url",
+                           "store_id", "device_id", "http://", "https://backend"):
+            self.assertNotIn(forbidden, lower,
+                             f"Stores page must NOT contain '{forbidden}'")
+
+    def test_stores_route_returns_200(self):
+        resp = self.client.get("/stores")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_status_badge_classes_in_css(self):
+        css = (_PORTAL_DIR / "static" / "styles.css").read_text()
+        for cls_name in (".badge-ready", ".badge-no-connection",
+                          ".badge-online", ".badge-hold"):
+            self.assertIn(cls_name, css,
+                          f"CSS must define '{cls_name}'")
+
+
 class TestPageStubsRender(unittest.TestCase):
     """All page stubs render with title and safe empty state."""
 
@@ -274,9 +354,6 @@ class TestPageStubsRender(unittest.TestCase):
 
     def test_publications_page(self):
         self._check_page("/publications", "Публикации")
-
-    def test_stores_page(self):
-        self._check_page("/stores", "Магазины")
 
     def test_proof_of_play_page(self):
         self._check_page("/proof-of-play", "Proof of Play")

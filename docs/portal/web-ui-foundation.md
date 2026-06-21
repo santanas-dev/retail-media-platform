@@ -8,7 +8,7 @@
 
 **Приложение:** `apps/portal-web/` — FastAPI + Jinja2 серверный портал.
 **Стек:** FastAPI 0.133 + Jinja2 3.1 + Starlette TestClient.
-**Тестов:** 51 (routes, navigation, devices, content, security).
+**Тестов:** 63 (routes, navigation, devices, stores, content, security).
 
 ## Страницы (12 routes v1)
 
@@ -19,7 +19,7 @@
 | `/creatives` | Креативы | ✅ заглушка |
 | `/schedule` | Расписание | ✅ заглушка |
 | `/publications` | Публикации манифестов | ✅ заглушка |
-| `/stores` | Магазины и филиалы | ✅ заглушка |
+| `/stores` | Магазины и КСО-инвентаризация | ✅ UI foundation (cards + filters + table) |
 | `/devices` | КСО Устройства | ✅ UI foundation (cards + filters + table) |
 | `/proof-of-play` | Proof of Play | ✅ заглушка |
 | `/reports` | Отчёты | ✅ заглушка |
@@ -92,6 +92,31 @@
 - ❌ Нет backend URL, campaign_id, creative_id
 - ❌ Нет Android TV, LED-шелф, ESL, Mobile App
 - ✅ Все значения статичные (—)
+
+## Stores & KSO Inventory page
+
+**Структура:**
+- **6 summary cards:** Всего магазинов, Магазинов с КСО, КСО подключено, Готовы к показу, В hold, Требуют внимания
+- **6 фильтров:** Филиал, Город/Регион, Формат магазина, Статус КСО, Готовность к рекламе, Версия runtime (все disabled)
+- **Таблица (10 колонок):** Филиал, Магазин, Формат, КСО, State Adapter, Sidecar, Player, Готовность, Heartbeat, Действия
+- **Empty state:** «Пока нет данных по магазинам»
+- **Легенда готовности:** Готов, В hold, Ошибка, Нет связи, Нет данных
+- **Связь с /devices:** инфо-блок «Детальный статус отдельных КСО отображается на странице КСО Устройства»
+
+**Status badges:** `.badge-ready` (green), `.badge-no-connection` (gray)
+
+**Planned future API fields (не отображаются пока):**
+- branch_name, store_name, store_format, kso_count
+- readiness_status, last_heartbeat_utc
+- Без store_id, device_id, raw addresses, real store codes
+
+**Security:**
+- ❌ Нет store_id, device_id, address, city
+- ❌ Нет device_secret, access_token, manifest_hash
+- ❌ Нет backend URL, campaign_id, creative_id
+- ❌ Нет Android TV, LED-шелф, ESL, Mobile App
+- ✅ Все значения статичные (—)
+- ✅ Реальные магазины/адреса не использовались
 
 ## Styling
 
