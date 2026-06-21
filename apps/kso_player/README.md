@@ -1165,6 +1165,67 @@ CLI и result НЕ содержат: пути, file URL, полную коман
 
 ---
 
+## First Local Visual Smoke Demo
+
+🧪 **Реализован:** `local_demo_fixture.py` + CLI `local-demo-fixture`.
+
+Первый локальный smoke demo КСО-плеера: генератор demo root + полный smoke flow
+до render-снапшота.
+
+### Demo fixture
+
+`prepare_kso_local_demo_fixture(root)` создаёт минимальный demo root:
+
+| Файл | Содержимое |
+|---|---|
+| `state/kso_state.json` | idle state от будущего UKM 4 adapter |
+| `manifest/current_manifest.json` | 1 item (image/png, 5s) |
+| `media/current/ad_demo.png` | Валидный 1×1 синий PNG |
+| `media/current/ad_demo.png.sha256` | SHA-256 checksum |
+
+Это **НЕ** production state adapter. Demo-only: имитирует idle state.
+
+### Smoke flow
+
+```bash
+# 1. Создать demo root
+python3 -m kso_player.cli local-demo-fixture --root /tmp/kso-demo-root
+
+# 2. Подготовить runtime shell + snapshot (без запуска Chromium)
+python3 -m kso_player.cli local-chromium-demo \
+  --root /tmp/kso-demo-root \
+  --source-shell-dir ./player_shell \
+  --runtime-shell-dir /tmp/kso-demo-runtime/player_shell \
+  --chromium-bin chromium
+# → prepared: true, launch_ready: true, launched: false
+
+# 3. Опционально: запустить Chromium
+python3 -m kso_player.cli local-chromium-demo \
+  --root /tmp/kso-demo-root \
+  --source-shell-dir ./player_shell \
+  --runtime-shell-dir /tmp/kso-demo-runtime/player_shell \
+  --chromium-bin chromium \
+  --confirm-launch
+# → launched: true (Chromium 1440×1080, левая зона)
+```
+
+### Verify pipeline
+
+```bash
+# Проверить, что snapshot будет render:
+python3 -m kso_player.cli playlist-status --root /tmp/kso-demo-root
+# → playlist_ready: true
+```
+
+### Что НЕ реализовано
+
+- ❌ Systemd / production service
+- ❌ Production state adapter (UKM 4)
+- ❌ PoP write
+- ❌ Backend / auth / secret / media bytes
+
+---
+
 ## Что НЕ работает (будет отдельными шагами)
 
 - ❌ UI / окно / overlay

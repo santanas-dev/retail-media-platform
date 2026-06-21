@@ -10,6 +10,7 @@ Commands:
     shell-snapshot-write  Write bootstrap_snapshot.js to runtime shell directory
     local-demo-prepare    Full vertical demo: workspace + media alias + snapshot
     local-chromium-demo   Guarded local Chromium demo: prepare + optionally launch
+    local-demo-fixture    Create local demo fixture: idle state + manifest + media
     --help             Show help
 
 Only reads manifest/current_manifest.json and media/current/.
@@ -48,6 +49,12 @@ from kso_player.local_chromium_demo_runner import (
     format_kso_local_chromium_demo_runner_result,
     STATUS_OK as CHROMIUM_STATUS_OK,
     STATUS_ERROR as CHROMIUM_STATUS_ERROR,
+)
+from kso_player.local_demo_fixture import (
+    prepare_kso_local_demo_fixture,
+    format_kso_local_demo_fixture_result,
+    STATUS_OK as FIXTURE_STATUS_OK,
+    STATUS_ERROR as FIXTURE_STATUS_ERROR,
 )
 
 
@@ -240,6 +247,21 @@ def cmd_local_chromium_demo(args: argparse.Namespace) -> None:
     sys.exit(0)
 
 
+def cmd_local_demo_fixture(args: argparse.Namespace) -> None:
+    """Create a local demo fixture root: idle state + manifest + media.
+
+    Writes state/kso_state.json, manifest/current_manifest.json,
+    and media/current/ad_demo.png.
+    This is a demo-only generator — NOT production state adapter.
+    No backend, no secret, no PoP.
+    """
+    result = prepare_kso_local_demo_fixture(root=args.root)
+    print(format_kso_local_demo_fixture_result(result))
+    if result.status == FIXTURE_STATUS_ERROR:
+        sys.exit(1)
+    sys.exit(0)
+
+
 def _validate_state(value: str) -> str:
     normalized = value.strip().lower()
     if normalized not in ALLOWED_STATES:
@@ -332,6 +354,11 @@ def _build_parser() -> argparse.ArgumentParser:
     lcd.add_argument("--confirm-launch", action="store_true", default=False,
                      help="Actually launch Chromium (default: prepare only)")
     lcd.set_defaults(func=cmd_local_chromium_demo)
+
+    ldf = sub.add_parser("local-demo-fixture",
+                         help="Create local demo fixture: idle state + manifest + media")
+    ldf.add_argument("--root", required=True, help="Agent root path")
+    ldf.set_defaults(func=cmd_local_demo_fixture)
 
     return parser
 
