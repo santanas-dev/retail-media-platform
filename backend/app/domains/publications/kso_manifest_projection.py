@@ -61,7 +61,11 @@ _FORBIDDEN_CODE_PATTERNS = frozenset({"..", "/", "\\", " "})
 
 @dataclass
 class ManifestSourceItem:
-    """One item from the publication manifest to project."""
+    """One item from the publication manifest to project.
+
+    Carries internal IDs (repr=False) for server-side correlation
+    after projection — never exposed in KSO manifest output.
+    """
 
     channel_code: str = ""
     campaign_status: str = ""
@@ -80,6 +84,17 @@ class ManifestSourceItem:
     valid_from: Optional[datetime] = None
     valid_to: Optional[datetime] = None
     now: Optional[datetime] = None
+
+    # ── Internal IDs for server-side PoP correlation ────────────────
+    # Never exposed in KSO manifest — repr=False.
+    _internal_manifest_item_id: Optional[str] = field(default=None, repr=False)
+    _internal_manifest_version_id: Optional[str] = field(default=None, repr=False)
+    _internal_publication_target_id: Optional[str] = field(default=None, repr=False)
+    _internal_schedule_item_id: Optional[str] = field(default=None, repr=False)
+    _internal_campaign_id: Optional[str] = field(default=None, repr=False)
+    _internal_campaign_rendition_id: Optional[str] = field(default=None, repr=False)
+    _internal_rendition_id: Optional[str] = field(default=None, repr=False)
+    _internal_creative_version_id: Optional[str] = field(default=None, repr=False)
 
 
 @dataclass

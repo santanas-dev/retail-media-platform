@@ -234,9 +234,13 @@ class PoPEventRequest(BaseModel):
 
     manifest_item_id is optional for KSO channel events where server-side
     correlation is performed via manifest projection rather than direct ID.
+    For KSO events, selected_order and selected_content_type are used
+    for server-side correlation with the published manifest.
     """
     device_event_id: UUID
     manifest_item_id: Optional[UUID] = None
+    selected_order: Optional[int] = None
+    selected_content_type: Optional[str] = None
     played_at: Optional[datetime] = None
     duration_ms: Optional[int] = None
     play_status: Optional[str] = None
@@ -293,9 +297,12 @@ class PoPEventBatchItem(BaseModel):
     """Single event inside a batch — same shape as PoPEventRequest.
 
     manifest_item_id is optional for KSO channel events.
+    selected_order and selected_content_type are used for KSO correlation.
     """
     device_event_id: UUID
     manifest_item_id: Optional[UUID] = None
+    selected_order: Optional[int] = None
+    selected_content_type: Optional[str] = None
     played_at: Optional[datetime] = None
     duration_ms: Optional[int] = None
     play_status: Optional[str] = None

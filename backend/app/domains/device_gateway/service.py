@@ -827,6 +827,15 @@ async def _collect_kso_source_items(
             valid_from=valid_from,
             valid_to=valid_to,
             now=now,
+            # ── Internal IDs for server-side PoP correlation ──────
+            _internal_manifest_item_id=str(mi.id),
+            _internal_manifest_version_id=str(manifest.id),
+            _internal_publication_target_id=str(manifest.publication_target_id),
+            _internal_schedule_item_id=str(mi.schedule_item_id),
+            _internal_campaign_id=str(mi.campaign_id),
+            _internal_campaign_rendition_id=str(mi.campaign_rendition_id),
+            _internal_rendition_id=str(mi.rendition_id),
+            _internal_creative_version_id=str(mi.creative_version_id),
         )
         source_items.append(item)
 
@@ -2206,6 +2215,43 @@ async def _validate_pop_event(
     return None, mi, mv, pt
 
 
+# ═══════════════════════════════════════════════════════════════════════
+#  Internal proxy classes for KSO PoP correlation
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class ManifestItemProxy:
+    """Lightweight proxy carrying only FK IDs from correlation result."""
+    __slots__ = (
+        "id", "manifest_version_id", "campaign_id", "campaign_rendition_id",
+        "rendition_id", "creative_version_id", "schedule_item_id", "sha256",
+    )
+    def __init__(self, *, id, manifest_version_id, campaign_id,
+                 campaign_rendition_id, rendition_id, creative_version_id,
+                 schedule_item_id, sha256):
+        self.id = id
+        self.manifest_version_id = manifest_version_id
+        self.campaign_id = campaign_id
+        self.campaign_rendition_id = campaign_rendition_id
+        self.rendition_id = rendition_id
+        self.creative_version_id = creative_version_id
+        self.schedule_item_id = schedule_item_id
+        self.sha256 = sha256
+
+
+class ManifestVersionProxy:
+    __slots__ = ("id", "publication_target_id")
+    def __init__(self, *, id, publication_target_id):
+        self.id = id
+        self.publication_target_id = publication_target_id
+
+
+class PublicationTargetProxy:
+    __slots__ = ("id",)
+    def __init__(self, *, id):
+        self.id = id
+
+
 async def _ingest_single_event(
     db: AsyncSession,
     device: models.GatewayDevice,
@@ -2256,6 +2302,46 @@ async def _ingest_single_event(
     rejection_reason, mi, mv, pt = await _validate_pop_event(
         db, device, data, now,
     )
+
+    # ── KSO server-side correlation ────────────────────────────────
+    # When validation passes for KSO (mi is None), try to correlate
+    # with the current published manifest using selected_order.
+    kso_correlation_applied = False
+    if not rejection_reason and mi is None:
+        try:
+            from app.domains.device_gateway.kso_pop_correlation import (
+                correlate_kso_pop_event,
+            )
+            corr = await correlate_kso_pop_event(
+                db, device,
+                selected_order=data.selected_order,
+                selected_content_type=data.selected_content_type,
+                now=now,
+            )
+            if corr.correlated:
+                # Build lightweight mi/mv/pt proxies for the store path.
+                # We only need the FK IDs — no full ORM objects required.
+                mi = ManifestItemProxy(
+                    id=corr._manifest_item_id,
+                    manifest_version_id=corr._manifest_version_id,
+                    campaign_id=corr._campaign_id,
+                    campaign_rendition_id=corr._campaign_rendition_id,
+                    rendition_id=corr._rendition_id,
+                    creative_version_id=corr._creative_version_id,
+                    schedule_item_id=corr._schedule_item_id,
+                    sha256=None,
+                )
+                mv = ManifestVersionProxy(
+                    id=corr._manifest_version_id,
+                    publication_target_id=corr._publication_target_id,
+                )
+                pt = PublicationTargetProxy(
+                    id=corr._publication_target_id,
+                )
+                kso_correlation_applied = True
+        except Exception:
+            # Correlation failure → store uncorrelated (graceful)
+            pass
 
     is_valid_play = data.play_status in POP_VALID_PLAY_STATUSES
     is_valid_sha256 = bool(
@@ -2514,6 +2600,8 @@ async def ingest_pop_batch(
         single_data = schemas.PoPEventRequest(
             device_event_id=event_item.device_event_id,
             manifest_item_id=event_item.manifest_item_id,
+            selected_order=event_item.selected_order,
+            selected_content_type=event_item.selected_content_type,
             played_at=event_item.played_at,
             duration_ms=event_item.duration_ms,
             play_status=event_item.play_status,

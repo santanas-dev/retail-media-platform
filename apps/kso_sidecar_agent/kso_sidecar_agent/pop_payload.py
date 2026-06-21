@@ -63,6 +63,10 @@ class PopPayloadEvent:
 
     Internal-only: contains manifest_item_id and other FK UUIDs.
     repr=False prevents accidental logging of sensitive fields.
+
+    selected_order and selected_content_type are SAFE fields —
+    they carry the slot position and content type from the player event,
+    used by the backend for server-side KSO manifest correlation.
     """
 
     device_event_id: str = field(default="", repr=False)
@@ -74,6 +78,8 @@ class PopPayloadEvent:
     played_at: Optional[str] = None
     duration_ms: int = 0
     play_status: str = "completed"
+    selected_order: Optional[int] = None
+    selected_content_type: Optional[str] = None
 
 
 @dataclass
@@ -303,6 +309,8 @@ def build_pop_backend_payload(
                 played_at=record.get("started_at"),
                 duration_ms=record.get("duration_ms", 0),
                 play_status="completed",
+                selected_order=record.get("selected_order"),
+                selected_content_type=record.get("selected_content_type"),
             )
 
             envelope.events.append(payload_event)
