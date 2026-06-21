@@ -368,6 +368,49 @@ def classify_pop_event(
 
 
 # ══════════════════════════════════════════════════════════════════════
+# KSO-aware media cache check
+# ══════════════════════════════════════════════════════════════════════
+
+
+def _kso_media_cache_check(root: Path, manifest_items: list) -> Optional[bool]:
+    """Check if media files exist for KSO safe manifest items.
+
+    KSO safe items have order, content_type, duration_ms but NOT
+    filename or sha256. Legacy media_cache_status() requires those.
+    This function does simple existence-only check.
+
+    Returns True if ALL items have media files present.
+    Returns False if any item's media file is missing.
+    Returns None if items list is empty.
+    """
+    if not manifest_items:
+        return None
+
+    MEDIA_CURRENT = "media/current"
+    current_dir = root / MEDIA_CURRENT
+
+    for item in manifest_items:
+        if not isinstance(item, dict):
+            return False
+
+        # Try _media_ref first (KSO safe), then filename (legacy)
+        media_ref = item.get("_media_ref", "")
+        if media_ref:
+            # KSO safe: media_ref is "media/current/slot-NNN"
+            target = root / media_ref
+        else:
+            filename = item.get("filename", "")
+            if not filename:
+                return False
+            target = current_dir / filename
+
+        if not target.exists() or not target.is_file():
+            return False
+
+    return True
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Scanner
 # ══════════════════════════════════════════════════════════════════════
 
@@ -405,7 +448,17 @@ def scan_pending_pop_events(root) -> PopPickupScanResult:
         manifest_data = read_current_manifest(root)
         manifest_items = manifest_data.get("items", [])
     except Exception:
-        manifest_items = None
+        # Legacy format failed — try KSO safe format
+        try:
+            from kso_sidecar_agent.kso_safe_manifest_context import (
+                read_kso_safe_manifest_context,
+                get_manifest_items_for_classifier,
+            )
+            ctx = read_kso_safe_manifest_context(root)
+            if ctx.format == "kso_safe":
+                manifest_items = get_manifest_items_for_classifier(ctx)
+        except Exception:
+            manifest_items = None
 
     # ── Check media cache completeness ──────────────────────────
     media_cache_complete: Optional[bool] = None
@@ -422,6 +475,12 @@ def scan_pending_pop_events(root) -> PopPickupScanResult:
             media_cache_complete = None
     except Exception:
         media_cache_complete = None
+
+    # Legacy media check failed or returned incomplete — try KSO-aware check
+    if media_cache_complete is not True and manifest_items is not None:
+        kso_check = _kso_media_cache_check(root, manifest_items)
+        if kso_check is True:
+            media_cache_complete = True
 
     # ── Read and classify lines ─────────────────────────────────
     try:

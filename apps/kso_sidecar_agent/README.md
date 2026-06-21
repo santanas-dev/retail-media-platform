@@ -190,6 +190,15 @@ player display-cycle-once --confirm-pop-write
 - `classify_pop_event(completed, manifest_items=[...], media_cache_complete=True)` → `CLASS_ELIGIBLE`
 - Без manifest_items → `CLASS_QUARANTINE` (`manifest_unavailable`)
 
+**KSO safe manifest → eligible (новое):**
+- `scan_pending_pop_events` теперь понимает KSO safe manifest body:
+  - `read_current_manifest` падает на KSO формате → fallback к `read_kso_safe_manifest_context`
+  - KSO items мапятся: `slotOrder→order`, `contentType→content_type`, `durationMs→duration_ms`
+  - KSO-aware media check (`_kso_media_cache_check`) проверяет media по `_media_ref`
+  - completed event + KSO safe manifest + media → `CLASS_ELIGIBLE`
+- `build_pop_eligible_batch` и `build_pop_backend_payload` тоже используют KSO fallback
+- Legacy формат не сломан — `read_current_manifest` вызывается первым
+
 **Known limitation:** sidecar `read_current_manifest` ожидает legacy формат манифеста (`manifest_version_id`, `manifest_hash`, `source`). KSO safe manifest body этих полей не содержит → сканер fallback'ает к `manifest_items=None` → completed события идут в quarantine. Будет исправлено при поддержке KSO safe формата в manifest reading.
 
 **Pending preservation:** scan, batch build, payload build — **не удаляют и не модифицируют pending**.

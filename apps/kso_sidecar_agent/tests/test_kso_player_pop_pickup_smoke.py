@@ -240,12 +240,16 @@ class TestPlayerPopSidecarPickupSmoke(unittest.TestCase):
         self.assertEqual(cls.reason, REASON_MANIFEST_UNAVAILABLE)
         self.assertFalse(cls.backend_eligible)
 
-    def test_completed_event_scan_quarantine_kso_format(self):
-        """Scan with KSO safe manifest → completed goes to quarantine."""
-        self.root = self.tmp
-        _setup_full_root(self.root)
+    def test_completed_event_scan_eligible_with_kso_safe_manifest(self):
+        """Scan with KSO safe manifest + completed event → eligible."""
+        # Setup: manifest + media + completed event
+        (self.root / "manifest").mkdir(parents=True, exist_ok=True)
+        (self.root / "manifest" / "current_manifest.json").write_text(
+            json.dumps(_make_kso_manifest()))
 
-        # Write completed event directly + KSO manifest
+        (self.root / "media" / "current").mkdir(parents=True, exist_ok=True)
+        (self.root / "media" / "current" / "slot-000").write_bytes(_PNG_BODY)
+
         (self.root / "pop" / "pending").mkdir(parents=True, exist_ok=True)
         event = _make_completed_event()
         (self.root / "pop" / "pending" / "player_events.jsonl").write_text(
@@ -253,12 +257,49 @@ class TestPlayerPopSidecarPickupSmoke(unittest.TestCase):
 
         scan = scan_pending_pop_events(self.root)
         self.assertEqual(scan.total_lines, 1)
-        # With KSO safe manifest, read_current_manifest raises ValueError
-        # (missing manifest_version_id/manifest_hash/source) → manifest_items=None
-        # → completed goes to quarantine
-        self.assertEqual(scan.eligible_events, 0)
-        self.assertEqual(scan.quarantine_events, 1,
-                         "KSO safe manifest → quarantine (known limitation)")
+        self.assertEqual(scan.eligible_events, 1,
+                         "KSO safe manifest + completed event → eligible")
+        self.assertEqual(scan.quarantine_events, 0)
+
+    def test_completed_event_batch_with_kso_safe_manifest(self):
+        """KSO safe manifest → batch contains candidate."""
+        # Setup
+        (self.root / "manifest").mkdir(parents=True, exist_ok=True)
+        (self.root / "manifest" / "current_manifest.json").write_text(
+            json.dumps(_make_kso_manifest()))
+        (self.root / "media" / "current").mkdir(parents=True, exist_ok=True)
+        (self.root / "media" / "current" / "slot-000").write_bytes(_PNG_BODY)
+        (self.root / "pop" / "pending").mkdir(parents=True, exist_ok=True)
+        event = _make_completed_event()
+        (self.root / "pop" / "pending" / "player_events.jsonl").write_text(
+            json.dumps(event) + "\n", encoding="utf-8")
+
+        batch = build_pop_eligible_batch(self.root)
+        self.assertEqual(batch.candidate_events, 1,
+                         "KSO safe manifest → batch has candidate")
+        self.assertEqual(batch.total_lines, 1)
+        self.assertEqual(batch.status, "ok")
+
+        self._assert_safe_output(repr(batch))
+
+    def test_completed_event_payload_with_kso_safe_manifest(self):
+        """KSO safe manifest → payload built."""
+        (self.root / "manifest").mkdir(parents=True, exist_ok=True)
+        (self.root / "manifest" / "current_manifest.json").write_text(
+            json.dumps(_make_kso_manifest()))
+        (self.root / "media" / "current").mkdir(parents=True, exist_ok=True)
+        (self.root / "media" / "current" / "slot-000").write_bytes(_PNG_BODY)
+        (self.root / "pop" / "pending").mkdir(parents=True, exist_ok=True)
+        event = _make_completed_event()
+        (self.root / "pop" / "pending" / "player_events.jsonl").write_text(
+            json.dumps(event) + "\n", encoding="utf-8")
+
+        payload = build_pop_backend_payload(self.root)
+        self.assertEqual(payload.payload_events, 1,
+                         "KSO safe manifest → payload ready")
+        self.assertEqual(payload.status, "ok")
+
+        self._assert_safe_output(repr(payload))
 
     # ── Negative: corrupted PoP line ───────────────────────────────
 
