@@ -218,6 +218,8 @@ a:hover { text-decoration: underline; }
 .badge-unknown { background: #cbd5e1; }
 .badge-ready   { background: var(--color-success); }
 .badge-no-connection { background: #94a3b8; }
+.badge-review  { background: var(--color-info); }
+.badge-archived { background: #94a3b8; }
 
 /* ── Legend ─────────────────────────────────────── */
 .legend {
@@ -245,3 +247,32 @@ a:hover { text-decoration: underline; }
 }
 .note-icon { flex-shrink: 0; margin-top: 1px; }
 .note-text { line-height: 1.5; }
+
+/* ── Requirements box ───────────────────────────── */
+.requirements-box {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: 20px; margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+.requirements-title {
+  font-size: 14px; font-weight: 700; margin-bottom: 16px;
+  color: var(--color-text);
+}
+.requirements-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.requirements-item {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 12px; background: var(--color-bg); border-radius: 6px;
+}
+.requirements-label {
+  font-size: 11px; color: var(--color-text-secondary);
+  text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+}
+.requirements-value {
+  font-size: 13px; color: var(--color-text); font-weight: 500;
+}
+.requirements-forbidden {
+  color: var(--color-error); font-weight: 600;
+}

@@ -8,7 +8,7 @@
 
 **Приложение:** `apps/portal-web/` — FastAPI + Jinja2 серверный портал.
 **Стек:** FastAPI 0.133 + Jinja2 3.1 + Starlette TestClient.
-**Тестов:** 63 (routes, navigation, devices, stores, content, security).
+**Тестов:** 77 (routes, navigation, devices, stores, creatives, content, security).
 
 ## Страницы (12 routes v1)
 
@@ -16,7 +16,7 @@
 |---|---|---|
 | `/` `/dashboard` | Dashboard — обзорные карточки | ✅ заглушка |
 | `/campaigns` | Кампании | ✅ заглушка |
-| `/creatives` | Креативы | ✅ заглушка |
+| `/creatives` | Креативы | ✅ UI foundation (cards + requirements + filters + table) |
 | `/schedule` | Расписание | ✅ заглушка |
 | `/publications` | Публикации манифестов | ✅ заглушка |
 | `/stores` | Магазины и КСО-инвентаризация | ✅ UI foundation (cards + filters + table) |
@@ -118,9 +118,48 @@
 - ✅ Все значения статичные (—)
 - ✅ Реальные магазины/адреса не использовались
 
+## KSO Creatives Library page
+
+**Структура:**
+- **6 summary cards:** Всего креативов, Готовы к публикации, На проверке, С ошибками, Используются в кампаниях, Требуют замены
+- **Требования КСО v1:** Зона 1440×1080, PNG/JPEG, MP4, аудио запрещено, внешние ссылки/CDN запрещены, доставка через sidecar media cache
+- **5 фильтров:** Тип материала, Статус проверки, Формат, Использование в кампаниях, Дата обновления (все disabled)
+- **Таблица (9 колонок):** Название, Тип, Формат, Размер, Длительность, Статус, Используется, Обновлён, Действия
+- **Empty state:** «Пока нет загруженных креативов»
+- **Легенда статусов:** Готов, На проверке, Ошибка, Архив, Нет данных
+- **Связь с campaigns:** инфо-блок «Креативы будут использоваться при создании кампаний и публикации манифестов»
+
+**Status badges:** `.badge-ready` (green), `.badge-review` (blue), `.badge-error` (red), `.badge-archived` (gray), `.badge-unknown` (light gray)
+
+**Planned future API fields (не отображаются пока):**
+- creative_name, type (image/video), format (PNG/JPEG/MP4), file_size_bytes
+- duration_seconds, review_status, campaign_count, updated_at_utc
+- Без creative_id, rendition_id, storage key, sha256, file_path, filename
+
+**Supported KSO v1 formats:**
+- ✅ PNG, JPEG, MP4
+- ❌ Аудио запрещено
+- ❌ Внешние CDN/ссылки запрещены
+- ✅ Материалы доставляются локально через sidecar media cache
+
+**Future workflow (не на этом шаге):**
+- Реальная загрузка файлов
+- Модерация и проверка
+- Хранение в MinIO
+- Публикация в manifest
+- Интеграция с backend API
+
+**Security:**
+- ❌ Нет creative_id, rendition_id, storage_key, minio
+- ❌ Нет sha256, file_path, filename
+- ❌ Нет device_secret, access_token, manifest_hash
+- ❌ Нет backend URL, campaign_id
+- ❌ Нет Android TV, LED-шелф, ESL, Mobile App
+- ✅ Все значения статичные (—)
+
 ## Styling
 
-- Минимальный CSS (250 строк) — без внешних CDN
+- Минимальный CSS (278 строк) — без внешних CDN
 - Светлая тема, corporate layout
 - Fixed sidebar (240px), fixed header (56px)
 - Адаптивная сетка карточек (`auto-fill, minmax(240px, 1fr)`)
@@ -148,7 +187,7 @@ python3 main.py  # или uvicorn main:app --port 8422
 ```bash
 cd apps/portal-web
 python3 -m unittest discover -s tests -v
-# 39 tests: routes, navigation, content, security
+# 77 tests: routes, navigation, content, security
 ```
 
 ## Следующие UI шаги

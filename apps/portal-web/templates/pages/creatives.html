@@ -1,9 +1,164 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Креативы</h1>
-<p class="page-description">Загрузка и управление рекламными материалами — изображения, видео, HTML5.</p>
-<div class="empty-state">
-  <div class="empty-state-title">Креативы появятся здесь</div>
-  <div class="empty-state-text">Функционал загрузки и управления креативами будет добавлен в следующих шагах.</div>
+<p class="page-description">Библиотека рекламных материалов для КСО — изображения и видео. Загрузка, проверка и использование в кампаниях.</p>
+
+<!-- Summary Cards -->
+<div class="cards">
+  <div class="card">
+    <div class="card-title">Всего креативов</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Готовы к публикации</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">На проверке</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">С ошибками</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Используются в кампаниях</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Требуют замены</div>
+    <div class="card-value">—</div>
+    <div class="card-hint">Нет данных</div>
+  </div>
+</div>
+
+<!-- KSO Creative Requirements -->
+<div class="requirements-box">
+  <div class="requirements-title">Требования КСО v1</div>
+  <div class="requirements-grid">
+    <div class="requirements-item">
+      <span class="requirements-label">Зона показа</span>
+      <span class="requirements-value">1440×1080 px</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Изображения</span>
+      <span class="requirements-value">PNG, JPEG</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Видео</span>
+      <span class="requirements-value">MP4</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Аудио</span>
+      <span class="requirements-value requirements-forbidden">Запрещено</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Внешние ссылки / CDN</span>
+      <span class="requirements-value requirements-forbidden">Запрещены</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">Доставка</span>
+      <span class="requirements-value">Локально через sidecar media cache</span>
+    </div>
+  </div>
+</div>
+
+<!-- Filters Toolbar -->
+<div class="filter-toolbar">
+  <div class="filter-group">
+    <label class="filter-label">Тип материала</label>
+    <select class="filter-select" disabled>
+      <option>Все типы</option>
+      <option>Изображение</option>
+      <option>Видео</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Статус проверки</label>
+    <select class="filter-select" disabled>
+      <option>Все статусы</option>
+      <option>Готов</option>
+      <option>На проверке</option>
+      <option>Ошибка</option>
+      <option>Архив</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Формат</label>
+    <select class="filter-select" disabled>
+      <option>Все форматы</option>
+      <option>PNG</option>
+      <option>JPEG</option>
+      <option>MP4</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Использование в кампаниях</label>
+    <select class="filter-select" disabled>
+      <option>Все</option>
+      <option>Используется</option>
+      <option>Не используется</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Дата обновления</label>
+    <select class="filter-select" disabled>
+      <option>За всё время</option>
+      <option>Сегодня</option>
+      <option>Неделя</option>
+      <option>Месяц</option>
+    </select>
+  </div>
+</div>
+
+<!-- Creatives Table -->
+<div class="table-container">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Название</th>
+      <th>Тип</th>
+      <th>Формат</th>
+      <th>Размер</th>
+      <th>Длительность</th>
+      <th>Статус</th>
+      <th>Используется</th>
+      <th>Обновлён</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="empty-row">
+      <td colspan="9">
+        <div class="table-empty-state">
+          <div class="table-empty-icon">🎨</div>
+          <div class="table-empty-title">Пока нет загруженных креативов</div>
+          <div class="table-empty-text">После добавления материалов здесь появится библиотека рекламных файлов для КСО.</div>
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- Status Legend -->
+<div class="legend">
+  <span class="legend-title">Статус:</span>
+  <span class="legend-item"><span class="badge badge-ready"></span> Готов</span>
+  <span class="legend-item"><span class="badge badge-review"></span> На проверке</span>
+  <span class="legend-item"><span class="badge badge-error"></span> Ошибка</span>
+  <span class="legend-item"><span class="badge badge-archived"></span> Архив</span>
+  <span class="legend-item"><span class="badge badge-unknown"></span> Нет данных</span>
+</div>
+
+<!-- Note: link to campaigns -->
+<div class="note-box">
+  <span class="note-icon">ℹ️</span>
+  <span class="note-text">Креативы будут использоваться при создании <strong>кампаний</strong> и публикации манифестов для КСО.</span>
 </div>
 {% endblock %}

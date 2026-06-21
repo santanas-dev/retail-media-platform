@@ -331,6 +331,93 @@ class TestStoresPage(unittest.TestCase):
                           f"CSS must define '{cls_name}'")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Creatives page tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestCreativesPage(unittest.TestCase):
+    """KSO Creatives Library page — cards, requirements, filters, table, legend."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+        resp = self.client.get("/creatives")
+        self.html = resp.text
+
+    def test_renders_summary_cards(self):
+        for card in ("Всего креативов", "Готовы к публикации", "На проверке",
+                      "С ошибками", "Используются в кампаниях", "Требуют замены"):
+            self.assertIn(card, self.html,
+                          f"Creatives page must render summary card '{card}'")
+
+    def test_has_filters_block(self):
+        for flt in ("Тип материала", "Статус проверки", "Формат",
+                     "Использование в кампаниях", "Дата обновления"):
+            self.assertIn(flt, self.html,
+                          f"Creatives page must have filter '{flt}'")
+
+    def test_filters_disabled(self):
+        self.assertIn("disabled", self.html)
+
+    def test_has_kso_requirements(self):
+        for req in ("1440", "1080", "PNG", "JPEG", "MP4",
+                     "Запрещено", "sidecar media cache"):
+            self.assertIn(req, self.html,
+                          f"Requirements must mention '{req}'")
+
+    def test_requirements_audio_forbidden(self):
+        self.assertIn("Аудио", self.html)
+        self.assertIn("Запрещено", self.html)
+
+    def test_has_table_structure(self):
+        for col in ("Название", "Тип", "Формат", "Размер",
+                     "Длительность", "Статус", "Используется",
+                     "Обновлён", "Действия"):
+            self.assertIn(col, self.html,
+                          f"Creatives table must have column '{col}'")
+
+    def test_table_shows_empty_state(self):
+        self.assertIn("Пока нет загруженных креативов", self.html)
+        self.assertIn("библиотека рекламных файлов для КСО", self.html)
+
+    def test_has_status_legend(self):
+        for badge in ("Готов", "На проверке", "Ошибка", "Архив", "Нет данных"):
+            self.assertIn(badge, self.html,
+                          f"Legend must contain status '{badge}'")
+
+    def test_mentions_campaigns_publications(self):
+        self.assertIn("кампаний", self.html)
+
+    def test_no_forbidden_content(self):
+        _assert_safe(self, self.html)
+
+    def test_no_out_of_scope_channels(self):
+        for banned in ("Android TV", "LED", "ESL", "Mobile App",
+                        "Ценники", "Price Checker"):
+            self.assertNotIn(banned, self.html,
+                             f"Creatives page must NOT contain '{banned}'")
+
+    def test_no_raw_ids_secrets_hashes(self):
+        lower = self.html.lower()
+        for forbidden in ("device_secret", "access_token", "manifest_hash",
+                           "campaign_id", "creative_id", "backend_url",
+                           "storage_key", "minio", "sha256", "file_path",
+                           "filename", "rendition_id", "creative_version_id",
+                           "http://", "https://backend"):
+            self.assertNotIn(forbidden, lower,
+                             f"Creatives page must NOT contain '{forbidden}'")
+
+    def test_status_badge_classes_in_css(self):
+        css = (_PORTAL_DIR / "static" / "styles.css").read_text()
+        for cls_name in (".badge-ready", ".badge-review", ".badge-archived",
+                          ".badge-error", ".badge-unknown"):
+            self.assertIn(cls_name, css,
+                          f"CSS must define '{cls_name}'")
+
+    def test_creatives_route_returns_200(self):
+        resp = self.client.get("/creatives")
+        self.assertEqual(resp.status_code, 200)
+
+
 class TestPageStubsRender(unittest.TestCase):
     """All page stubs render with title and safe empty state."""
 
