@@ -157,6 +157,53 @@ State adapter уже умеет:
 Discovery нужен, чтобы безопасно определить этот источник
 перед реализацией `KsoUkm4StateSource`.
 
+## Recommended Safe Status-File Contract
+
+Если УКМ 4, официальный API, IPC или отдельный adapter
+могут писать безопасный статусный файл — state adapter
+уже умеет его читать через `SafeStatusFileSource`.
+
+**Разрешённый формат (JSON):**
+```json
+{"state": "idle"}
+```
+
+**Разрешённые ключи JSON:**
+- `state` (обязательный)
+- `updated_at_utc`, `source`, `schema_version` (опциональные)
+
+**Разрешённые состояния:** `idle`, `transaction`, `payment`, `receipt`,
+`service`, `error`, `maintenance`, `offline`, `unknown`
+
+**Разрешённый формат (plain text):**
+```
+idle
+```
+Одно слово, lowercase, из списка разрешённых состояний.
+
+**Разрешённые пути:** `/run/verny/kso/`, `/var/lib/verny/kso/`
+
+**Правила файла:**
+- Размер ≤ 1024 байт
+- Не лог (не растёт бесконечно)
+- Только атомарная запись (tmp → rename)
+
+**Запрещено в файле:**
+- Чеки, товары, SKU, суммы, скидки
+- Карты, PAN, телефоны, email, customer_id
+- Fiscal data, кассир, смена
+- Токены, секреты, пароли
+- Любые персональные данные
+
+**Пример CLI:**
+```bash
+python3 -m kso_state_adapter.cli daemon \
+    --root /var/lib/verny/kso \
+    --source file \
+    --source-file /run/verny/kso/ukm4-safe-state.json \
+    --health-file /run/verny/kso/state-adapter-health.json
+```
+
 ## Безопасность
 
 - Все проверки **read‑only**

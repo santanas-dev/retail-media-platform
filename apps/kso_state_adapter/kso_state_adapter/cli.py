@@ -21,6 +21,7 @@ from kso_state_adapter.state_writer import (
     STATUS_WRITTEN,
 )
 from kso_state_adapter.source import StaticStateSource
+from kso_state_adapter.file_source import SafeStatusFileSource, SafeStatusFileError
 from kso_state_adapter.daemon import (
     run_kso_state_adapter_daemon,
     format_daemon_result,
@@ -53,17 +54,32 @@ def cmd_write_once(args: argparse.Namespace) -> None:
 
 def cmd_daemon(args: argparse.Namespace) -> None:
     """Run state adapter daemon."""
-    try:
-        source_state = args.source_state.lower()
-        if source_state not in ALLOWED_STATES:
-            print(f"ERROR: Invalid source state '{args.source_state}'",
+    source_type = getattr(args, "source", "static")
+
+    if source_type == "file":
+        # File source
+        source_file = getattr(args, "source_file", None)
+        if not source_file:
+            print("ERROR: --source file requires --source-file PATH",
                   file=_sys.stderr)
             _sys.exit(2)
-    except Exception:
-        print(f"ERROR: Invalid --source-state", file=_sys.stderr)
-        _sys.exit(2)
-
-    source = StaticStateSource(state=source_state)
+        try:
+            source = SafeStatusFileSource(Path(source_file))
+        except Exception as e:
+            print(f"ERROR: Cannot create file source: {e}", file=_sys.stderr)
+            _sys.exit(2)
+    else:
+        # Static source (default)
+        try:
+            source_state = args.source_state.lower()
+            if source_state not in ALLOWED_STATES:
+                print(f"ERROR: Invalid source state '{args.source_state}'",
+                      file=_sys.stderr)
+                _sys.exit(2)
+        except Exception:
+            print(f"ERROR: Invalid --source-state", file=_sys.stderr)
+            _sys.exit(2)
+        source = StaticStateSource(state=source_state)
 
     result = run_kso_state_adapter_daemon(
         root=args.root,
@@ -99,8 +115,13 @@ def main() -> None:
     # daemon
     p_dm = sub.add_parser("daemon", help="Run state adapter daemon")
     p_dm.add_argument("--root", required=True, help="Agent root path")
+    p_dm.add_argument("--source", type=str, default="static",
+                      choices=["static", "file"],
+                      help="Source type: static (default) or file")
     p_dm.add_argument("--source-state", type=str, default="unknown",
-                      help="State from source (for static source, default: unknown)")
+                      help="State for static source (default: unknown)")
+    p_dm.add_argument("--source-file", type=str, default=None,
+                      help="Path to status file (for --source file)")
     p_dm.add_argument("--interval", type=float, default=1.0,
                       help="Interval between cycles in seconds (default: 1.0)")
     p_dm.add_argument("--max-cycles", type=int, default=None,

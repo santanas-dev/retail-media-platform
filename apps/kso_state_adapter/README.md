@@ -81,3 +81,20 @@ Discovery-пакет: `docs/kso/ukm4-state-source-discovery.md` + скрипт `
 
 Скрипт **не читает** чеки, товары, карты, покупателей, fiscal data.
 Только readonly-проверки: процесс, сервис, статусный файл (по allowlist).
+
+## Safe Status File Source
+
+`SafeStatusFileSource` — безопасное чтение состояния из файла.
+
+```bash
+python3 -m kso_state_adapter.cli daemon \
+    --root /var/lib/verny/kso \
+    --source file \
+    --source-file /run/verny/kso/ukm4-safe-state.json \
+    --health-file /run/verny/kso/state-adapter-health.json
+```
+
+Файл должен содержать ТОЛЬКО безопасное техническое состояние.
+**Запрещено:** чеки, суммы, карты, телефоны, email, SKU, fiscal data.
+Форматы: JSON `{"state":"idle"}` или plain text `idle`.
+Размер ≤ 1024 байт, только в разрешённых путях.
