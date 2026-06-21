@@ -11,6 +11,7 @@ Commands:
     local-demo-prepare    Full vertical demo: workspace + media alias + snapshot
     local-chromium-demo   Guarded local Chromium demo: prepare + optionally launch
     local-demo-fixture    Create local demo fixture: idle state + manifest + media
+    display-cycle-once    Run one display cycle: render decision + optional PoP write
     --help             Show help
 
 Only reads manifest/current_manifest.json and media/current/.
@@ -27,6 +28,10 @@ from kso_player.safety import (
     PlaybackSafetySnapshot,
     decide_playback_safety,
     ALLOWED_STATES,
+)
+from kso_player.display_cycle import (
+    run_kso_display_cycle_once,
+    format_kso_display_cycle_result,
 )
 from kso_player.session import select_next_item
 from kso_player.simulator import simulate_playback_step, SIM_STATUS_WOULD_PLAY
@@ -280,6 +285,23 @@ def _add_state_arg(subparser):
     )
 
 
+def cmd_display_cycle_once(args: argparse.Namespace) -> None:
+    """Run one display cycle: render decision + optional PoP write.
+
+    By default, PoP is NOT written. Use --confirm-pop-write to write.
+    No backend, no Chromium, no systemd, no sidecar.
+    """
+    result = run_kso_display_cycle_once(
+        root=args.root,
+        stale_seconds=args.stale_seconds,
+        confirm_pop_write=args.confirm_pop_write,
+    )
+    print(format_kso_display_cycle_result(result))
+    if result.status == "error":
+        sys.exit(1)
+    sys.exit(0)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kso-player",
@@ -359,6 +381,15 @@ def _build_parser() -> argparse.ArgumentParser:
                          help="Create local demo fixture: idle state + manifest + media")
     ldf.add_argument("--root", required=True, help="Agent root path")
     ldf.set_defaults(func=cmd_local_demo_fixture)
+
+    dc = sub.add_parser("display-cycle-once",
+                        help="Run one display cycle: gate → render → optional PoP write")
+    dc.add_argument("--root", required=True, help="Agent root path")
+    dc.add_argument("--stale-seconds", type=int, default=30,
+                    help="Max state age before stale (default: 30)")
+    dc.add_argument("--confirm-pop-write", action="store_true", default=False,
+                    help="Write PoP event to local JSONL (default: no write)")
+    dc.set_defaults(func=cmd_display_cycle_once)
 
     return parser
 

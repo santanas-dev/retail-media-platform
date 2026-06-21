@@ -538,6 +538,74 @@ pop_write_reason: written
 
 ---
 
+## KSO Player Display Cycle PoP Core
+
+🎬 **Реализован:** `display_cycle.py` + CLI `display-cycle-once` (20 тестов).
+
+Связывает player render decision с локальной записью Proof of Play.
+
+### `run_kso_display_cycle_once(root, confirm_pop_write=False) -> KsoDisplayCycleResult`
+
+Шаги:
+1. `build_kso_render_plan()` — gate + playlist + safety + session
+2. Если render → gate (state) + `simulate_playback_step()` + `build_playback_event_draft()`
+3. Если `confirm_pop_write=True` → `write_pop_event()` → локальный JSONL
+
+### Ключевое правило: PoP НЕ пишется без `confirm_pop_write=True`
+
+По умолчанию `confirm_pop_write=False` → только render decision, **PoP не пишется**.
+
+### Когда PoP пишется
+
+Только при ВСЕХ условиях:
+- `state = idle` (через `state/kso_state.json`)
+- State fresh (≤ stale_seconds)
+- Manifest: KSO safe body (без gateway wrapper)
+- MediaRef: safe (media/current/slot-NNN)
+- Media: файл существует
+- ContentType: поддерживаемый (image/png, image/jpeg, video/mp4)
+- DurationMs: валидный (≥ 0)
+- `confirm_pop_write=True`
+
+### Что считается completed PoP
+
+**Это core-level PoP integration, НЕ final production proof.**
+Future Chromium runtime loop должен вызывать display cycle **только после
+истечения display duration**. Сейчас это core contract — simulated completion,
+без реального browser pixel signal.
+
+### CLI
+
+```bash
+# Только render decision (PoP НЕ пишется)
+python3 -m kso_player.cli display-cycle-once --root /tmp/kso-root
+
+# Render + PoP запись
+python3 -m kso_player.cli display-cycle-once --root /tmp/kso-root --confirm-pop-write
+```
+
+### Safe output
+
+```
+status: ok
+render_ready: true
+render_action: render
+pop_write_requested: false
+pop_written: false
+reason: render_ready_no_pop_confirm
+```
+
+Запрещено: paths, mediaRef values, raw JSON, IDs, hashes, backend URLs, secrets, stacktrace.
+
+### Что НЕ делается
+
+- ❌ PoP не пишется без `confirm-pop-write`
+- ❌ Backend не вызывается
+- ❌ Chromium не запускается
+- ❌ Systemd не используется
+- ❌ Sidecar не трогается
+- ❌ kso_state.json НЕ пишется (read-only из `runtime_gate`)
+
 ## KSO Player Runtime Gate
 
 🚦 **Реализован:** `runtime_gate.py`. Безопасное read-only ядро принятия решения play/hold.
