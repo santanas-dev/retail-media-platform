@@ -219,6 +219,21 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    async def block_user(self, access_token: str, username: str) -> dict:
+        """Block a user via backend API.
+
+        PATCH /api/users/{username}/status
+        Payload: {"status": "blocked"}
+
+        Backend enforces: cannot block self, cannot block last system_admin.
+        Returns {ok, data: {username, is_locked: true, ...}} or error.
+        """
+        return await self._request(
+            "PATCH", f"/api/users/{username}/status",
+            json_data={"status": "blocked"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 

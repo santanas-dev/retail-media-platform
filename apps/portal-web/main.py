@@ -185,6 +185,9 @@ async def admin_page(request: Request):
     elif raw == "ok:rls_scopes_assigned":
         flash_type = "success"
         flash_msg = "Области доступа пользователя обновлены."
+    elif raw == "ok:user_blocked":
+        flash_type = "success"
+        flash_msg = "Пользователь заблокирован."
     elif raw == "error":
         flash_type = "error"
         flash_msg = request.session.pop("admin_flash_msg", "Ошибка при создании пользователя.")
@@ -570,6 +573,56 @@ async def admin_assign_rls_scopes(
         request.session["admin_flash"] = "ok:rls_scopes_assigned"
     else:
         error = result.get("error", "Не удалось обновить области доступа пользователя.")
+        if len(error) > 200:
+            error = error[:200]
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = error
+
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Admin Actions — Block User (Step 36.11)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.post("/admin/users/block", response_class=HTMLResponse)
+async def admin_block_user(
+    request: Request,
+    username: str = Form(..., min_length=1, max_length=100),
+):
+    """Block a user via backend API.
+
+    Flow:
+    1. RBAC: require users.manage permission
+    2. Validate username
+    3. Call BackendClient.block_user()
+    4. Redirect to /admin with success/error via session flash
+
+    Backend enforces: cannot block self, cannot block last system_admin.
+    """
+    # RBAC guard
+    guard = await require_portal_permission(request, "users.manage")
+    if guard is not None:
+        return guard
+
+    # Validate username
+    username = username.strip()
+    if not username:
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = "Имя пользователя не указано."
+        return RedirectResponse(url="/admin", status_code=303)
+
+    # Get access token from server-side store
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+
+    backend = BackendClient()
+    result = await backend.block_user(access_token, username)
+
+    if result["ok"]:
+        request.session["admin_flash"] = "ok:user_blocked"
+    else:
+        error = result.get("error", "Не удалось заблокировать пользователя.")
         if len(error) > 200:
             error = error[:200]
         request.session["admin_flash"] = "error"

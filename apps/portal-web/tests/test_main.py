@@ -2742,5 +2742,127 @@ class TestAssignRlsScopesNoLocalStorage(unittest.TestCase):
                              f"Admin must NOT reference CDN '{cdn}'")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Admin Block User Tests (Step 36.11)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestAdminBlockUserForm(unittest.TestCase):
+    """Admin page has block user form (server-side POST)."""
+
+    def setUp(self):
+        from main import app
+        from starlette.testclient import TestClient
+        self.client = TestClient(app)
+
+    def test_admin_page_has_block_user_form(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Заблокировать пользователя", resp.text)
+        self.assertIn('action="/admin/users/block"', resp.text)
+        self.assertIn('method="post"', resp.text.lower())
+
+    def test_block_form_has_username_field(self):
+        resp = self.client.get("/admin")
+        self.assertIn('name="username"', resp.text)
+
+    def test_block_form_warns_user_cannot_login(self):
+        resp = self.client.get("/admin")
+        self.assertIn("не сможет войти", resp.text)
+
+    def test_block_form_mentions_last_admin_protection(self):
+        resp = self.client.get("/admin")
+        self.assertIn("system_admin", resp.text)
+
+    def test_block_form_excludes_email_phone(self):
+        resp = self.client.get("/admin")
+        self.assertNotIn('name="email"', resp.text.lower())
+        self.assertNotIn('name="phone"', resp.text.lower())
+
+    def test_block_form_is_server_side_post(self):
+        resp = self.client.get("/admin")
+        lower = resp.text.lower()
+        self.assertNotIn("fetch(", lower)
+        self.assertNotIn("axios", lower)
+
+    def test_archive_button_still_disabled(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Архивировать", resp.text)
+        self.assertIn("btn-disabled", resp.text)
+
+    def test_create_user_remains_active(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Создать пользователя", resp.text)
+        self.assertIn('action="/admin/users/create"', resp.text)
+
+    def test_assign_roles_remains_active(self):
+        resp = self.client.get("/admin")
+        self.assertIn('action="/admin/users/assign-roles"', resp.text)
+
+    def test_assign_rls_remains_active(self):
+        resp = self.client.get("/admin")
+        self.assertIn('action="/admin/users/assign-rls-scopes"', resp.text)
+
+
+class TestAdminBlockUserRBAC(unittest.TestCase):
+    """Block user requires users.manage."""
+
+    def test_backend_client_has_block_user(self):
+        from backend_client import BackendClient
+        self.assertTrue(hasattr(BackendClient, "block_user"))
+        self.assertTrue(callable(BackendClient.block_user))
+
+    def test_block_route_requires_auth(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.post("/admin/users/block", data={
+            "username": "testuser",
+        }, follow_redirects=False)
+        self.assertIn(resp.status_code, (303, 403, 401))
+
+    def test_password_not_rendered_in_admin_html(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        for fb in ("password_hash", "token_hash", "access_token",
+                    "refresh_token", "bearer ", "authorization:"):
+            self.assertNotIn(fb, lower,
+                             f"Admin HTML must NOT contain '{fb}'")
+
+    def test_backend_url_not_in_admin_html(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        self.assertNotIn("localhost:8001", lower)
+        self.assertNotIn("PORTAL_BACKEND", lower)
+
+
+class TestBlockUserNoLocalStorage(unittest.TestCase):
+    """No localStorage/sessionStorage, no external CDN."""
+
+    def test_admin_page_no_localstorage(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        self.assertNotIn("localstorage", lower)
+        self.assertNotIn("sessionstorage", lower)
+
+    def test_admin_page_no_external_cdn(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        for cdn in ("cdn.", "cloudflare", "googleapis", "jsdelivr",
+                     "unpkg", "fontawesome", "bootstrapcdn"):
+            self.assertNotIn(cdn, lower,
+                             f"Admin must NOT reference CDN '{cdn}'")
+
+
 if __name__ == "__main__":
     unittest.main()

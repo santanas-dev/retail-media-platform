@@ -146,7 +146,24 @@
         </div>
       </form>
     </details>
-    <button class="btn-disabled" disabled aria-disabled="true" style="margin-left:8px">🔒 Заблокировать (disabled — read-only)</button>
+    <!-- Block User Form (server-side POST, Step 36.11) -->
+    <details style="margin-bottom:12px">
+      <summary style="cursor:pointer; font-weight:600; font-size:14px; color:var(--color-warning, #e67e22)">🔒 Заблокировать пользователя</summary>
+      <form method="POST" action="/admin/users/block" class="login-form" style="margin-top:12px">
+        <div class="form-group">
+          <label class="form-label">Имя пользователя (логин)</label>
+          <input type="text" name="username" class="form-input" required
+                 minlength="1" maxlength="100" autocomplete="off"
+                 placeholder="user_login">
+        </div>
+        <div class="form-hint" style="margin-top:4px; font-size:12px; color:var(--color-text-secondary)">
+          ⚠️ Заблокированный пользователь не сможет войти в систему. Последнего system_admin заблокировать нельзя.
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-danger" style="background:var(--color-warning,#e67e22);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer">🔒 Заблокировать</button>
+        </div>
+      </form>
+    </details>
     <button class="btn-disabled" disabled aria-disabled="true" style="margin-left:8px">📦 Архивировать (disabled — read-only)</button>
   </div>
 </div>
@@ -309,7 +326,7 @@
 
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Read-only режим. Действия create/assign-roles/assign-RLS активны. Block/archive будут доступны после реализации Admin API integration (шаг 36.11+). Пароли никогда не отображаются в UI. Все изменения пользователей/ролей/RLS аудируются. RLS enforced на backend/DB/API.</span>
+  <span class="note-text">Read-only режим. Действия create/assign-roles/assign-RLS/block активны. Archive будет доступен после реализации Admin API integration (шаг 36.12+). Пароли никогда не отображаются в UI. Все изменения пользователей/ролей/RLS аудируются. RLS enforced на backend/DB/API.</span>
 </div>
 
 <div class="note-box">
