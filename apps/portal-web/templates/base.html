@@ -13,8 +13,17 @@
   <span class="header-logo">Retail Media Platform</span>
   <span class="header-subtitle">KSO v1</span>
   <span class="header-spacer"></span>
+  {% if current_user %}
+  <span class="header-user">👤 {{ current_user.safe_name }}
+    {% if current_user.roles %}
+    <span class="header-roles">({{ current_user.role_labels | join(', ') }})</span>
+    {% endif %}
+  </span>
+  <a href="/logout" class="header-login-link">🚪 Выход</a>
+  {% else %}
   <span class="header-user">👤 Пользователь: вход не выполнен</span>
   <a href="/login" class="header-login-link">🔐 Вход</a>
+  {% endif %}
 </div>
 
 <!-- Sidebar -->

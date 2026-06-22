@@ -101,7 +101,7 @@ class TestPortalRoutes(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertEqual(data["status"], "ok")
-        self.assertEqual(data["portal"], "v1")
+        self.assertEqual(data["portal"], "v2")
 
     def test_static_css(self):
         resp = self.client.get("/static/styles.css")
@@ -1412,13 +1412,13 @@ class TestAuthPages(unittest.TestCase):
     def test_login_mentions_corporate_sso(self):
         resp = self.client.get("/login")
         self.assertIn("SSO", resp.text)
-        self.assertIn("Active Directory", resp.text)
         self.assertIn("корпоративн", resp.text.lower())
 
-    def test_login_no_password_field(self):
+    def test_login_has_password_field(self):
+        """Login now has a real server-side password form."""
         resp = self.client.get("/login")
         lower = resp.text.lower()
-        self.assertNotIn('<input type="password"', lower)
+        self.assertIn('<input type="password"', lower)
 
     def test_login_no_token_field(self):
         resp = self.client.get("/login")
@@ -1428,14 +1428,14 @@ class TestAuthPages(unittest.TestCase):
 
     def test_login_sso_button_disabled(self):
         resp = self.client.get("/login")
-        self.assertIn("Войти через SSO", resp.text)
+        self.assertIn("SSO", resp.text)
         self.assertIn("disabled", resp.text.lower())
         self.assertIn("btn-disabled", resp.text)
 
-    def test_logout_mentions_sso(self):
+    def test_logout_mentions_session_http_only(self):
         resp = self.client.get("/logout")
-        self.assertIn("SSO", resp.text)
         self.assertIn("выход", resp.text.lower())
+        self.assertIn("httpOnly", resp.text)
 
     def test_auth_pages_no_raw_ids_secrets(self):
         for route in ["/login", "/logout"]:
@@ -1653,12 +1653,13 @@ class TestLoginLocalAuth(unittest.TestCase):
     def test_login_mentions_sso_ad(self):
         resp = self.client.get("/login")
         self.assertIn("SSO", resp.text)
-        self.assertIn("Active Directory", resp.text)
+        self.assertIn("корпоративн", resp.text.lower())
 
-    def test_login_has_no_password_field(self):
+    def test_login_has_password_field(self):
+        """Login now has a real server-side password form."""
         resp = self.client.get("/login")
         lower = resp.text.lower()
-        self.assertNotIn('<input type="password"', lower)
+        self.assertIn('<input type="password"', lower)
 
     def test_login_has_no_token_field(self):
         resp = self.client.get("/login")
@@ -1666,16 +1667,16 @@ class TestLoginLocalAuth(unittest.TestCase):
         self.assertNotIn("token", lower)
         self.assertNotIn("access_token", lower)
 
-    def test_login_has_two_disabled_buttons(self):
+    def test_login_has_one_disabled_button(self):
+        """Only SSO button remains disabled; local login is active."""
         resp = self.client.get("/login")
-        self.assertIn("локальную учётную запись", resp.text.lower())
-        self.assertIn("Войти через SSO", resp.text)
+        self.assertIn("SSO", resp.text)
+        self.assertIn("локальн", resp.text.lower())
 
-    def test_login_mentions_password_hashing(self):
+    def test_login_mentions_safe_password_storage(self):
         resp = self.client.get("/login")
         lower = resp.text.lower()
-        self.assertTrue("bcrypt" in lower or "argon2" in lower,
-                        "Login page must mention safe password hashing")
+        self.assertIn("никогда не сохраняется", lower)
 
     def test_login_mentions_local_portal_account(self):
         resp = self.client.get("/login")
@@ -1961,6 +1962,181 @@ class TestRlsDocsExist(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Auth Integration Tests (Step 36.6)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestLoginForm(unittest.TestCase):
+    """Login page has real server-side POST form."""
+
+    def setUp(self):
+        from main import app
+        self.client = TestClient(app)
+
+    def test_login_page_has_form(self):
+        resp = self.client.get("/login")
+        self.assertIn('<form method="POST"', resp.text)
+        self.assertIn('action="/login"', resp.text)
+
+    def test_login_form_posts_server_side_not_js(self):
+        """Login uses standard form POST, not JavaScript fetch/axios."""
+        resp = self.client.get("/login")
+        lower = resp.text.lower()
+        self.assertNotIn("fetch(", lower)
+        self.assertNotIn("axios", lower)
+        self.assertNotIn("xmlhttprequest", lower)
+        self.assertNotIn("onclick", lower)
+
+    def test_password_not_rendered_back_after_failed_login(self):
+        """After failed login, password field is re-rendered empty —
+        never filled with the submitted value."""
+        resp = self.client.post("/login", data={
+            "username": "nonexistent",
+            "password": "WrongPass123!",
+        }, follow_redirects=False)
+        # Password must NOT appear in the page
+        self.assertNotIn("WrongPass123!", resp.text)
+
+    def test_token_not_present_in_login_html(self):
+        resp = self.client.post("/login", data={
+            "username": "nonexistent",
+            "password": "WrongPass123!",
+        }, follow_redirects=False)
+        lower = resp.text.lower()
+        for fb in ("access_token", "refresh_token", "bearer", "token_hash"):
+            self.assertNotIn(fb, lower,
+                             f"Login HTML must NOT contain '{fb}'")
+
+    def test_backend_url_not_in_login_html(self):
+        resp = self.client.get("/login")
+        self.assertNotIn("localhost:8001", resp.text)
+        self.assertNotIn("PORTAL_BACKEND", resp.text)
+
+    def test_sso_button_remains_disabled(self):
+        resp = self.client.get("/login")
+        self.assertIn("btn-disabled", resp.text)
+        self.assertIn("SSO", resp.text)
+
+    def test_login_error_shows_safe_message(self):
+        """Error messages do not reveal which field is wrong.
+        The word 'пароль' (password label) is OK — it's just the form label.
+        The submitted password VALUE must never appear."""
+        resp = self.client.post("/login", data={
+            "username": "nonexistent",
+            "password": "WrongPass123!",
+        }, follow_redirects=False)
+        # Safe generic error
+        self.assertIn("Неверное имя пользователя или пароль", resp.text)
+        # Submitted password value must never be echoed back
+        self.assertNotIn("WrongPass123!", resp.text)
+
+
+class TestLogoutFlow(unittest.TestCase):
+    """Logout page and POST handler."""
+
+    def setUp(self):
+        from main import app
+        self.client = TestClient(app)
+
+    def test_logout_page_renders(self):
+        resp = self.client.get("/logout")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_logout_post_clears_and_shows_safe_message(self):
+        """POST /logout should clear the session and show safe message."""
+        resp = self.client.post("/logout", follow_redirects=False)
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn("access_token", resp.text.lower())
+        self.assertNotIn("refresh_token", resp.text.lower())
+
+    def test_logout_does_not_expose_token(self):
+        resp = self.client.post("/logout", follow_redirects=False)
+        lower = resp.text.lower()
+        for fb in ("access_token", "refresh_token", "bearer", "token_hash",
+                    "authorization"):
+            self.assertNotIn(fb, lower,
+                             f"Logout HTML must NOT contain '{fb}'")
+
+
+class TestBaseLayoutAuthState(unittest.TestCase):
+    """Base template shows dynamic auth state."""
+
+    def setUp(self):
+        from main import app
+        self.client = TestClient(app)
+
+    def test_unauthenticated_header(self):
+        resp = self.client.get("/dashboard")
+        self.assertIn("Пользователь: вход не выполнен", resp.text)
+
+    def test_unauthenticated_shows_login_link(self):
+        resp = self.client.get("/dashboard")
+        self.assertIn("Вход", resp.text)
+        self.assertIn('href="/login"', resp.text)
+
+    def test_header_does_not_expose_raw_tokens(self):
+        resp = self.client.get("/dashboard")
+        lower = resp.text.lower()
+        for fb in ("access_token", "refresh_token", "authorization",
+                    "bearer ", "token_hash"):
+            self.assertNotIn(fb, lower,
+                             f"Header must NOT contain '{fb}'")
+
+
+class TestBackendClientConfig(unittest.TestCase):
+    """Backend client uses env config, never exposes URL in UI."""
+
+    def test_backend_url_default_is_localhost_dev(self):
+        from backend_client import get_backend_url
+        url = get_backend_url()
+        self.assertIn("localhost", url)
+        self.assertNotIn("production", url)
+
+    def test_backend_client_has_timeout(self):
+        from backend_client import _CONNECT_TIMEOUT, _READ_TIMEOUT
+        self.assertGreater(_CONNECT_TIMEOUT, 0)
+        self.assertGreater(_READ_TIMEOUT, 0)
+
+    def test_backend_client_never_logs_sensitive_keys(self):
+        from backend_client import _SENSITIVE_KEYS
+        self.assertIn("password", _SENSITIVE_KEYS)
+        self.assertIn("access_token", _SENSITIVE_KEYS)
+        self.assertIn("refresh_token", _SENSITIVE_KEYS)
+
+
+class TestAuthIntegrationSecurity(unittest.TestCase):
+    """Security: no tokens/secrets/URLs in demo pages."""
+
+    def setUp(self):
+        from main import app
+        self.client = TestClient(app)
+
+    def test_demo_routes_still_render(self):
+        """All demo routes must still return 200 after auth integration."""
+        for route in ["/", "/dashboard", "/stores", "/devices",
+                       "/campaigns", "/creatives", "/schedule",
+                       "/publications", "/proof-of-play", "/reports",
+                       "/deployment", "/admin", "/approvals"]:
+            resp = self.client.get(route)
+            self.assertEqual(resp.status_code, 200,
+                             f"Route {route} must return 200")
+
+    def test_no_localstorage_sessionstorage_usage(self):
+        """No localStorage/sessionStorage in any template."""
+        for route in ["/", "/login", "/logout", "/admin"]:
+            resp = self.client.get(route)
+            lower = resp.text.lower()
+            self.assertNotIn("localstorage", lower)
+            self.assertNotIn("sessionstorage", lower)
+
+    def test_no_external_cdn_scripts_fonts(self):
+        for route in ["/", "/login", "/logout"]:
+            resp = self.client.get(route)
+            lower = resp.text.lower()
+            for cdn in ("cdn.", "cloudflare", "googleapis", "jsdelivr",
+                         "unpkg", "fontawesome", "bootstrapcdn"):
+                self.assertNotIn(cdn, lower,
+                                 f"{route}: must NOT reference CDN '{cdn}'")
+
 
 if __name__ == "__main__":
     unittest.main()

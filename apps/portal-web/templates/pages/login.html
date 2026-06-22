@@ -1,49 +1,66 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Вход</h1>
-<p class="page-description">Портал поддерживает два режима входа. Оба будут подключены позже. Локальные пароли не хранятся в открытом виде.</p>
+<p class="page-description">Локальный вход через учётную запись портала. Пароль передаётся только на сервер и никогда не сохраняется.</p>
 
-<!-- Auth Modes -->
-<div class="requirements-box">
+{% if error %}
+<div class="error-banner">
+  <span class="error-banner-icon">⚠️</span>
+  <span class="error-banner-text">{{ error }}</span>
+</div>
+{% endif %}
+
+<!-- Local Login Form (server-side POST, no JS) -->
+<div class="login-form-container">
+  <form method="POST" action="/login" class="login-form">
+    <div class="form-group">
+      <label for="username" class="form-label">Имя пользователя</label>
+      <input type="text" id="username" name="username"
+             class="form-input" required autocomplete="username"
+             minlength="1" maxlength="100"
+             placeholder="Введите имя пользователя">
+    </div>
+
+    <div class="form-group">
+      <label for="password" class="form-label">Пароль</label>
+      <input type="password" id="password" name="password"
+             class="form-input" required autocomplete="current-password"
+             minlength="1"
+             placeholder="Введите пароль">
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">🔑 Войти</button>
+    </div>
+  </form>
+</div>
+
+<!-- Auth Modes Info -->
+<div class="requirements-box" style="margin-top:24px">
   <div class="requirements-title">Способы входа</div>
   <div class="requirements-grid">
     <div class="requirements-item">
       <span class="requirements-label">Режим 1 — Локальный</span>
-      <span class="requirements-value">Вход через локальную учётную запись портала</span>
+      <span class="requirements-value">Вход через локальную учётную запись портала (активен)</span>
     </div>
     <div class="requirements-item">
       <span class="requirements-label">Режим 2 — Корпоративный</span>
-      <span class="requirements-value">Вход через SSO / Active Directory</span>
+      <span class="requirements-value requirements-disabled">Вход через SSO / Active Directory (будет подключён позже)</span>
     </div>
     <div class="requirements-item">
-      <span class="requirements-label">Локальные пароли</span>
-      <span class="requirements-value requirements-forbidden">Только безопасный hash (bcrypt/argon2)</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Plaintext пароли</span>
-      <span class="requirements-value requirements-forbidden">Запрещены</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Роли и права</span>
-      <span class="requirements-value">Назначаются администратором портала или через группы AD</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">RLS-фильтры</span>
-      <span class="requirements-value">Применяются на уровне backend/DB/API</span>
+      <span class="requirements-label">Безопасность</span>
+      <span class="requirements-value">Пароль никогда не сохраняется в браузере. Сессия — httpOnly cookie.</span>
     </div>
   </div>
 </div>
 
-<!-- Login Actions (both disabled) -->
-<div class="export-action">
-  <button class="btn-disabled" disabled aria-disabled="true">🔑 Войти через локальную учётную запись</button>
-</div>
-<div class="export-action">
-  <button class="btn-disabled" disabled aria-disabled="true">🔐 Войти через SSO</button>
+<!-- SSO button — disabled per Step 36.6 contract -->
+<div class="export-action" style="margin-top:16px">
+  <button class="btn-disabled" disabled aria-disabled="true">🔐 Войти через SSO (скоро)</button>
 </div>
 
 <div class="note-box" style="margin-top:16px">
   <span class="note-icon">ℹ️</span>
-  <span class="note-text">Локальный вход будет доступен после реализации users/session/password hashing. Пользователи заводятся в меню <strong>Администрирование</strong>. Корпоративный SSO/AD может быть подключён дополнительно.</span>
+  <span class="note-text">Пользователи заводятся в меню <strong>Администрирование</strong>. Корпоративный SSO/AD будет подключён дополнительно.</span>
 </div>
 {% endblock %}
