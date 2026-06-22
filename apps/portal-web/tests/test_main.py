@@ -1532,11 +1532,10 @@ class TestAdminAndReportsRLSNotes(unittest.TestCase):
         resp = self.client.get("/admin")
         self.assertIn("рол", resp.text.lower())
         self.assertIn("RLS", resp.text)
-        self.assertIn("SSO", resp.text)
 
-    def test_admin_mentions_ad_groups(self):
+    def test_admin_mentions_read_only_mode(self):
         resp = self.client.get("/admin")
-        self.assertIn("SSO", resp.text)
+        self.assertIn("read-only", resp.text.lower())
 
     def test_reports_mentions_rls_for_bi(self):
         resp = self.client.get("/reports")
@@ -1558,12 +1557,11 @@ class TestAdminUserManagement(unittest.TestCase):
     def test_admin_has_users_section(self):
         resp = self.client.get("/admin")
         self.assertIn("Пользователи портала", resp.text)
-        self.assertIn("DEMO: Администратор портала", resp.text)
 
     def test_admin_has_users_table_columns(self):
         resp = self.client.get("/admin")
         for col in ("Пользователь", "Логин", "Роли", "Статус",
-                     "Область доступа", "MFA", "Последний вход", "Действия"):
+                     "Активен", "MFA", "Провайдер", "Действия"):
             self.assertIn(col, resp.text,
                           f"Admin users table must have column '{col}'")
 
@@ -1633,10 +1631,10 @@ class TestAdminUserManagement(unittest.TestCase):
         resp = self.client.get("/admin")
         self.assertIn("Правила администрирования", resp.text)
 
-    def test_admin_mentions_rls_for_excel_and_bi(self):
+    def test_admin_mentions_rls_enforced(self):
         resp = self.client.get("/admin")
-        self.assertIn("Excel export", resp.text)
-        self.assertIn("BI reports", resp.text)
+        self.assertIn("RLS", resp.text)
+        self.assertIn("backend/DB/API", resp.text)
 
 
 class TestLoginLocalAuth(unittest.TestCase):
@@ -1879,13 +1877,15 @@ class TestRlsNotesOnPages(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    def test_admin_has_role_portal_views_block(self):
+    def test_admin_has_backend_data_sections(self):
+        """Admin page loads data from backend API (users, roles, audit)."""
         resp = self.client.get("/admin")
-        self.assertIn("Представления портала по ролям", resp.text)
+        self.assertIn("backend api", resp.text.lower())
+        self.assertIn("read-only", resp.text.lower())
 
-    def test_admin_has_rls_matrix_block(self):
+    def test_admin_has_rls_section(self):
         resp = self.client.get("/admin")
-        self.assertIn("RLS-матрица", resp.text)
+        self.assertIn("RLS", resp.text)
 
     def test_reports_says_rls_before_kpi_drilldown_excel(self):
         resp = self.client.get("/reports")
@@ -1906,9 +1906,8 @@ class TestRlsNotesOnPages(unittest.TestCase):
         resp = self.client.get("/devices")
         self.assertIn("своём филиале", resp.text.lower())
 
-    def test_admin_explains_device_service_is_machine_only(self):
+    def test_admin_explains_device_service_is_technical(self):
         resp = self.client.get("/admin")
-        self.assertIn("machine-only", resp.text)
         self.assertIn("техническая роль", resp.text.lower())
         self.assertIn("Вход в пользовательский web-портал", resp.text)
         self.assertIn("запрещён", resp.text.lower())

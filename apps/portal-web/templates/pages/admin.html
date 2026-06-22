@@ -1,7 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Администрирование</h1>
-<p class="page-description">Управление платформой: пользователи, роли, области доступа, аудит. Пользователи заводятся локально в Admin. Роли назначаются администратором портала.</p>
+<p class="page-description">Управление платформой: пользователи, роли, области доступа, аудит. Read-only режим — данные загружены из backend API.</p>
+
+{% if not backend_available %}
+<div class="error-banner">
+  <span class="error-banner-icon">⚠️</span>
+  <span class="error-banner-text">Backend API недоступен. Данные могут быть неактуальны. Повторите попытку позже.</span>
+</div>
+{% endif %}
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- Summary Cards -->
@@ -9,208 +16,188 @@
 <div class="cards">
   <div class="card">
     <div class="card-title">Пользователи</div>
-    <div class="card-value">{{ users|length if demo and users else "—" }}</div>
+    <div class="card-value">{{ users_count if backend_available else "—" }}</div>
     <div class="card-hint">Всего учётных записей</div>
   </div>
   <div class="card">
     <div class="card-title">Активные</div>
-    <div class="card-value">{{ users|selectattr('status', 'equalto', 'active')|list|length if demo and users else "—" }}</div>
+    <div class="card-value">{{ users | selectattr('is_active', 'equalto', true) | list | length if backend_available else "—" }}</div>
     <div class="card-hint">Активных пользователей</div>
   </div>
   <div class="card">
     <div class="card-title">Заблокированные</div>
-    <div class="card-value">{{ users|selectattr('status', 'equalto', 'blocked')|list|length if demo and users else "—" }}</div>
+    <div class="card-value">{{ users | selectattr('is_locked', 'equalto', true) | list | length if backend_available else "—" }}</div>
     <div class="card-hint">Заблокированные учётные записи</div>
   </div>
   <div class="card">
     <div class="card-title">Роли</div>
-    <div class="card-value">8</div>
+    <div class="card-value">{{ roles_count if backend_available else "8" }}</div>
     <div class="card-hint">Доступных ролей</div>
   </div>
   <div class="card">
-    <div class="card-title">Требуют MFA</div>
-    <div class="card-value">—</div>
-    <div class="card-hint">Критичные роли без MFA</div>
+    <div class="card-title">Разрешений</div>
+    <div class="card-value">{{ permissions | length if backend_available else "47" }}</div>
+    <div class="card-hint">Всего permissions</div>
   </div>
   <div class="card">
-    <div class="card-title">Изменения доступа</div>
-    <div class="card-value">—</div>
-    <div class="card-hint">За 30 дней</div>
+    <div class="card-title">Событий аудита</div>
+    <div class="card-value">{{ audit_events | length if backend_available else "—" }}</div>
+    <div class="card-hint">Последние записи</div>
   </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- Users Table -->
+<!-- Users Table (read-only from backend API) -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <div class="requirements-box">
-  <div class="requirements-title">Пользователи портала</div>
+  <div class="requirements-title">Пользователи портала (backend API, read-only)</div>
+  {% if backend_available and users %}
   <div class="table-container" style="margin-top:12px">
   <table class="data-table">
     <thead>
       <tr>
         <th>Пользователь</th><th>Логин</th><th>Роли</th><th>Статус</th>
-        <th>Область доступа</th><th>MFA</th><th>Последний вход</th><th>Действия</th>
+        <th>Активен</th><th>MFA</th><th>Провайдер</th><th>Действия</th>
       </tr>
     </thead>
     <tbody>
-    {% if demo and users %}
     {% for u in users %}
       <tr>
-        <td>{{ u.display_name }}</td>
-        <td>{{ u.login }}</td>
-        <td>{{ u.roles }}</td>
-        <td><span class="badge badge-{{ 'ready' if u.status == 'active' else 'hold' if u.status == 'blocked' else 'archived' }}"></span> {{ u.status_label }}</td>
-        <td>{{ u.rls_scopes }}</td>
-        <td>{{ u.mfa }}</td>
-        <td>{{ u.last_login }}</td>
+        <td>{{ u.display_name or u.username }}</td>
+        <td>{{ u.username }}</td>
+        <td>{{ u.roles | join(', ') if u.roles else '—' }}</td>
+        <td>
+          {% if u.is_archived %}
+          <span class="badge badge-archived"></span> Архив
+          {% elif u.is_locked %}
+          <span class="badge badge-hold"></span> Заблокирован
+          {% elif u.is_active %}
+          <span class="badge badge-online"></span> Активен
+          {% else %}
+          <span class="badge badge-unknown"></span> Неактивен
+          {% endif %}
+        </td>
+        <td>{{ '✅' if u.is_active else '❌' }}</td>
+        <td>{{ '✅' if u.mfa_enabled else '❌' }}</td>
+        <td>{{ u.auth_provider or 'local' }}</td>
         <td><span class="action-link">—</span></td>
       </tr>
     {% endfor %}
-    {% else %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="table-container" style="margin-top:12px">
+  <table class="data-table">
+    <thead>
+      <tr><th>Пользователь</th><th>Логин</th><th>Роли</th><th>Статус</th><th>Активен</th><th>MFA</th><th>Провайдер</th><th>Действия</th></tr>
+    </thead>
+    <tbody>
       <tr class="empty-row">
         <td colspan="8">
           <div class="table-empty-state">
             <div class="table-empty-icon">👤</div>
-            <div class="table-empty-title">Пока нет пользователей</div>
-            <div class="table-empty-text">Пользователи заводятся в Admin администратором портала. Доступна локальная авторизация с безопасным хешированием паролей.</div>
+            <div class="table-empty-title">{{ "Backend недоступен" if not backend_available else "Нет данных" }}</div>
+            <div class="table-empty-text">{{ "Backend API временно недоступен. Данные пользователей не загружены." if not backend_available else "Пользователи будут отображены после загрузки из backend API." }}</div>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+  <div class="export-action">
+    <button class="btn-disabled" disabled aria-disabled="true">➕ Создать пользователя (disabled — read-only)</button>
+    <button class="btn-disabled" disabled aria-disabled="true" style="margin-left:8px">🔒 Заблокировать (disabled — read-only)</button>
+    <button class="btn-disabled" disabled aria-disabled="true" style="margin-left:8px">📦 Архивировать (disabled — read-only)</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- Roles (read-only from backend API) -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="requirements-box">
+  <div class="requirements-title">Роли (backend API, read-only)</div>
+  {% if backend_available and roles %}
+  <div class="requirements-grid" style="margin-top:12px">
+    {% for r in roles %}
+    <div class="requirements-item">
+      <span class="requirements-label">{{ r.code }}</span>
+      <span class="requirements-value">{{ r.name }}{% if r.is_system %} (системная){% endif %}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="requirements-grid" style="margin-top:12px">
+    <div class="requirements-item">
+      <span class="requirements-label">system_admin</span><span class="requirements-value requirements-forbidden">Требует MFA</span>
+    </div>
+    <div class="requirements-item">
+      <span class="requirements-label">security_admin</span><span class="requirements-value requirements-forbidden">Требует MFA</span>
+    </div>
+    <div class="requirements-item"><span class="requirements-label">ad_manager</span><span class="requirements-value">Менеджер рекламы</span></div>
+    <div class="requirements-item"><span class="requirements-label">approver</span><span class="requirements-value">Согласующий</span></div>
+    <div class="requirements-item"><span class="requirements-label">analyst</span><span class="requirements-value">Аналитик</span></div>
+    <div class="requirements-item"><span class="requirements-label">advertiser</span><span class="requirements-value">Рекламодатель</span></div>
+    <div class="requirements-item"><span class="requirements-label">operations</span><span class="requirements-value">Оператор</span></div>
+    <div class="requirements-item"><span class="requirements-label">device_service</span><span class="requirements-value">Сервис КСО</span></div>
+  </div>
+  {% endif %}
+  <div class="export-action">
+    <button class="btn-disabled" disabled aria-disabled="true">✅ Назначить роль (disabled — read-only)</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- RLS Scopes (static reference) -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="requirements-box">
+  <div class="requirements-title">Области доступа / RLS</div>
+  <div class="requirements-grid" style="margin-top:12px">
+    <div class="requirements-item"><span class="requirements-label">advertiser_scope</span><span class="requirements-value">По рекламодателю — только свои кампании</span></div>
+    <div class="requirements-item"><span class="requirements-label">branch_scope</span><span class="requirements-value">По филиалу — только магазины своего филиала</span></div>
+    <div class="requirements-item"><span class="requirements-label">store_scope</span><span class="requirements-value">По магазину — только свои КСО и показы</span></div>
+    <div class="requirements-item"><span class="requirements-label">campaign_scope</span><span class="requirements-value">По кампании — только свои кампании</span></div>
+    <div class="requirements-item"><span class="requirements-label">device_scope</span><span class="requirements-value">По устройству — только свои КСО</span></div>
+    <div class="requirements-item"><span class="requirements-label">approval_scope</span><span class="requirements-value">По согласованию — свои объекты</span></div>
+    <div class="requirements-item"><span class="requirements-label">report_scope</span><span class="requirements-value">По отчётам — агрегаты по своим scope</span></div>
+  </div>
+  <div class="export-action">
+    <button class="btn-disabled" disabled aria-disabled="true">✅ Назначить область (disabled — read-only)</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- Admin Audit (read-only from backend API) -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="requirements-box">
+  <div class="requirements-title">Аудит администрирования (backend API, read-only)</div>
+  <div class="table-container" style="margin-top:12px">
+  <table class="data-table">
+    <thead>
+      <tr><th>Дата</th><th>Действие</th><th>Тип объекта</th><th>Объект</th></tr>
+    </thead>
+    <tbody>
+    {% if backend_available and audit_events %}
+    {% for e in audit_events %}
+      <tr>
+        <td>{{ e.occurred_at[:19] if e.occurred_at else '—' }}</td>
+        <td>{{ e.action }}</td>
+        <td>{{ e.target_type or '—' }}</td>
+        <td>{{ e.target_ref or '—' }}</td>
+      </tr>
+    {% endfor %}
+    {% else %}
+      <tr class="empty-row">
+        <td colspan="4">
+          <div class="table-empty-state">
+            <div class="table-empty-icon">📋</div>
+            <div class="table-empty-title">{{ "Backend недоступен" if not backend_available else "Нет записей аудита" }}</div>
+            <div class="table-empty-text">{{ "Backend API временно недоступен. Данные аудита не загружены." if not backend_available else "События аудита появятся здесь после выполнения действий администрирования." }}</div>
           </div>
         </td>
       </tr>
     {% endif %}
-    </tbody>
-  </table>
-  </div>
-  <div class="export-action">
-    <button class="btn-disabled" disabled aria-disabled="true">➕ Создать пользователя</button>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- Role Assignment -->
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<div class="requirements-box">
-  <div class="requirements-title">Назначение ролей</div>
-  <div class="filter-toolbar" style="margin-bottom:0; box-shadow:none">
-    <div class="filter-group">
-      <label class="filter-label">Роль</label>
-      <select class="filter-select" disabled><option>Выберите роль</option></select>
-    </div>
-    <div class="filter-group">
-      <label class="filter-label">Пользователь</label>
-      <select class="filter-select" disabled><option>Выберите пользователя</option></select>
-    </div>
-  </div>
-  <div class="requirements-grid" style="margin-top:12px">
-    <div class="requirements-item">
-      <span class="requirements-label">system_admin</span>
-      <span class="requirements-value requirements-forbidden">Требует MFA</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">security_admin</span>
-      <span class="requirements-value requirements-forbidden">Требует MFA</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">ad_manager</span>
-      <span class="requirements-value">Менеджер рекламы</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">approver</span>
-      <span class="requirements-value">Согласующий</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">analyst</span>
-      <span class="requirements-value">Аналитик</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">advertiser</span>
-      <span class="requirements-value">Рекламодатель</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">operations</span>
-      <span class="requirements-value">Оператор</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">device_service</span>
-      <span class="requirements-value">Сервис КСО</span>
-    </div>
-  </div>
-  <div class="export-action">
-    <button class="btn-disabled" disabled aria-disabled="true">✅ Назначить роль</button>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- RLS Assignment -->
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<div class="requirements-box">
-  <div class="requirements-title">Области доступа / RLS</div>
-  <div class="filter-toolbar" style="margin-bottom:0; box-shadow:none">
-    <div class="filter-group">
-      <label class="filter-label">Пользователь</label>
-      <select class="filter-select" disabled><option>Выберите пользователя</option></select>
-    </div>
-    <div class="filter-group">
-      <label class="filter-label">Область</label>
-      <select class="filter-select" disabled><option>Выберите область</option></select>
-    </div>
-  </div>
-  <div class="requirements-grid" style="margin-top:12px">
-    <div class="requirements-item">
-      <span class="requirements-label">advertiser_scope</span>
-      <span class="requirements-value">По рекламодателю — только свои кампании</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">branch_scope</span>
-      <span class="requirements-value">По филиалу — только магазины своего филиала</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">store_scope</span>
-      <span class="requirements-value">По магазину — только свои КСО и показы</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">campaign_scope</span>
-      <span class="requirements-value">По кампании — только свои кампании</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">device_scope</span>
-      <span class="requirements-value">По устройству — только свои КСО</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">approval_scope</span>
-      <span class="requirements-value">По согласованию — свои объекты</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">report_scope</span>
-      <span class="requirements-value">По отчётам — агрегаты по своим scope</span>
-    </div>
-  </div>
-  <div class="export-action">
-    <button class="btn-disabled" disabled aria-disabled="true">✅ Назначить область</button>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- Admin Audit -->
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<div class="requirements-box">
-  <div class="requirements-title">Аудит администрирования</div>
-  <div class="table-container" style="margin-top:12px">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Дата</th><th>Администратор</th><th>Действие</th><th>Объект</th><th>Детали</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr class="empty-row">
-        <td colspan="5">
-          <div class="table-empty-state">
-            <div class="table-empty-icon">📋</div>
-            <div class="table-empty-title">Аудит появится здесь</div>
-            <div class="table-empty-text">Все действия администраторов — создание, блокировка, назначение ролей и RLS — будут записаны в журнал аудита.</div>
-          </div>
-        </td>
-      </tr>
     </tbody>
   </table>
   </div>
@@ -222,206 +209,23 @@
 <div class="requirements-box">
   <div class="requirements-title">Правила администрирования</div>
   <div class="requirements-grid">
-    <div class="requirements-item">
-      <span class="requirements-label">Создание пользователей</span>
-      <span class="requirements-value">Пользователь создаётся в Admin администратором</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Назначение ролей</span>
-      <span class="requirements-value">Роли назначаются администратором портала</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">MFA для критичных ролей</span>
-      <span class="requirements-value requirements-forbidden">system_admin, security_admin требуют MFA</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Аудит изменений</span>
-      <span class="requirements-value">Все изменения доступа аудируются</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Удаление пользователей</span>
-      <span class="requirements-value">Логическое (archive), не физическое удаление</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">RLS enforcement</span>
-      <span class="requirements-value">RLS применяется на backend/DB/API уровне</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Excel и BI</span>
-      <span class="requirements-value">Excel export и BI reports учитывают RLS пользователя</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Хранение паролей</span>
-      <span class="requirements-value requirements-forbidden">Только безопасный hash (bcrypt/argon2)</span>
-    </div>
+    <div class="requirements-item"><span class="requirements-label">Создание пользователей</span><span class="requirements-value">Пользователь создаётся в Admin администратором</span></div>
+    <div class="requirements-item"><span class="requirements-label">Назначение ролей</span><span class="requirements-value">Роли назначаются администратором портала</span></div>
+    <div class="requirements-item"><span class="requirements-label">MFA для критичных ролей</span><span class="requirements-value requirements-forbidden">system_admin, security_admin требуют MFA</span></div>
+    <div class="requirements-item"><span class="requirements-label">Аудит изменений</span><span class="requirements-value">Все изменения доступа аудируются</span></div>
+    <div class="requirements-item"><span class="requirements-label">Удаление пользователей</span><span class="requirements-value">Логическое (archive), не физическое удаление</span></div>
+    <div class="requirements-item"><span class="requirements-label">RLS enforcement</span><span class="requirements-value">RLS применяется на backend/DB/API уровне</span></div>
+    <div class="requirements-item"><span class="requirements-label">Хранение паролей</span><span class="requirements-value requirements-forbidden">Только безопасный hash (bcrypt/argon2)</span></div>
   </div>
 </div>
 
-<!-- Note -->
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Локальные пользователи заводятся в Admin. Роли назначаются администратором. SSO/AD может быть подключён дополнительно. Пароли никогда не отображаются в UI и не передаются в открытом виде. Все изменения пользователей/ролей/RLS аудируются. RLS enforced на backend/DB/API.</span>
+  <span class="note-text">Read-only режим. Действия create/block/archive/assign будут доступны после реализации Admin API integration (шаг 36.8+). Пароли никогда не отображаются в UI. Все изменения пользователей/ролей/RLS аудируются. RLS enforced на backend/DB/API.</span>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- Role-Based Portal Views -->
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<div class="requirements-box">
-  <div class="requirements-title">Представления портала по ролям</div>
-  <div class="table-container" style="margin-top:12px">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Роль</th><th>Основной экран</th><th>Доступные разделы</th><th>RLS</th><th>MFA</th><th>Аудит</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Системный администратор</strong></td>
-        <td>Dashboard</td>
-        <td>Все разделы, Admin</td>
-        <td>Без RLS</td>
-        <td>✅</td>
-        <td>✅</td>
-      </tr>
-      <tr>
-        <td><strong>Администратор безопасности</strong></td>
-        <td>Admin</td>
-        <td>Dashboard, Admin</td>
-        <td>Без RLS</td>
-        <td>✅</td>
-        <td>✅</td>
-      </tr>
-      <tr>
-        <td><strong>Менеджер рекламы</strong></td>
-        <td>Кампании</td>
-        <td>Все, кроме Admin</td>
-        <td>Филиалы, магазины, кампании, КСО</td>
-        <td>—</td>
-        <td>✅</td>
-      </tr>
-      <tr>
-        <td><strong>Согласующий</strong></td>
-        <td>Согласования</td>
-        <td>Кампании, креативы, расписание, согласования</td>
-        <td>Кампании, approval scope</td>
-        <td>—</td>
-        <td>✅</td>
-      </tr>
-      <tr>
-        <td><strong>Аналитик</strong></td>
-        <td>Отчёты</td>
-        <td>Всё для анализа, кроме Admin/Deployment</td>
-        <td>Филиалы, кампании, КСО</td>
-        <td>—</td>
-        <td>✅</td>
-      </tr>
-      <tr>
-        <td><strong>Рекламодатель</strong></td>
-        <td>Кампании</td>
-        <td>Только свои кампании, креативы, отчёты</td>
-        <td>advertiser_scope, кампании</td>
-        <td>—</td>
-        <td>✅</td>
-      </tr>
-      <tr>
-        <td><strong>Оператор</strong></td>
-        <td>КСО</td>
-        <td>Магазины, КСО, развёртывание</td>
-        <td>Филиалы, магазины, КСО</td>
-        <td>—</td>
-        <td>✅</td>
-      </tr>
-      <tr>
-        <td><strong>Сервис КСО</strong> <span class="requirements-value requirements-forbidden">machine-only</span></td>
-        <td>— (machine-only)</td>
-        <td>Нет human UI-доступа</td>
-        <td>Магазины, КСО</td>
-        <td>—</td>
-        <td>—</td>
-      </tr>
-    </tbody>
-  </table>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- RLS Matrix -->
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<div class="requirements-box">
-  <div class="requirements-title">RLS-матрица: роль → страницы → области данных → BI/Excel</div>
-  <div class="table-container" style="margin-top:12px">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Роль</th><th>Страницы</th><th>Области данных</th><th>BI/Excel</th><th>Критичные действия</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>system_admin</td>
-        <td>Все 12 страниц</td>
-        <td>Без ограничений</td>
-        <td>Полный доступ</td>
-        <td>Управление пользователями, ролями, аудит</td>
-      </tr>
-      <tr>
-        <td>security_admin</td>
-        <td>Dashboard, Admin</td>
-        <td>Без ограничений</td>
-        <td>Нет доступа</td>
-        <td>Управление пользователями, ролями, аудит</td>
-      </tr>
-      <tr>
-        <td>ad_manager</td>
-        <td>Все, кроме Admin</td>
-        <td>Свои филиалы/кампании</td>
-        <td>Excel export в RLS</td>
-        <td>Публикация manifest, согласование</td>
-      </tr>
-      <tr>
-        <td>approver</td>
-        <td>Кампании, креативы, согласования, отчёты</td>
-        <td>Свои кампании</td>
-        <td>Только просмотр BI</td>
-        <td>Согласование объектов</td>
-      </tr>
-      <tr>
-        <td>analyst</td>
-        <td>Всё, кроме Admin/Deployment</td>
-        <td>Свои филиалы/кампании</td>
-        <td>Excel export в RLS</td>
-        <td>Выгрузка отчётов в Excel</td>
-      </tr>
-      <tr>
-        <td>advertiser</td>
-        <td>Свои кампании, креативы, отчёты</td>
-        <td>advertiser_scope</td>
-        <td>Только просмотр BI</td>
-        <td>Нет критичных действий</td>
-      </tr>
-      <tr>
-        <td>operations</td>
-        <td>Магазины, КСО, развёртывание</td>
-        <td>Свои филиалы/КСО</td>
-        <td>Нет доступа</td>
-        <td>Управление КСО</td>
-      </tr>
-      <tr>
-        <td>device_service</td>
-        <td>Нет (machine-only, API-only)</td>
-        <td>Свои КСО</td>
-        <td>Нет доступа</td>
-        <td>Нет (machine-only)</td>
-      </tr>
-    </tbody>
-  </table>
-  </div>
-</div>
-
-<!-- Note: device_service machine-only -->
 <div class="note-box">
   <span class="note-icon">🤖</span>
-  <span class="note-text"><strong>device_service</strong> — техническая роль для сервисного взаимодействия (Device Gateway, Sidecar, Player, Service API). Вход в пользовательский web-портал для этой роли запрещён. Роль не имеет human UI-сессии и не аутентифицируется через страницу входа портала. В Admin и RLS-документации отображается только для governance и аудита.</span>
+  <span class="note-text"><strong>device_service</strong> — техническая роль для сервисного взаимодействия. Вход в пользовательский web-портал запрещён. Отображается только для governance.</span>
 </div>
 {% endblock %}

@@ -120,6 +120,36 @@ class BackendClient:
             json_data={"refresh_token": refresh_token},
         )
 
+    # ── Admin read-only methods ───────────────────────────────────────
+
+    async def list_users(self, access_token: str) -> dict:
+        """GET /api/users → {ok, data: [{id, username, display_name, roles, ...}]}"""
+        return await self._request(
+            "GET", "/api/users",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def list_roles(self, access_token: str) -> dict:
+        """GET /api/roles → {ok, data: [{id, code, name, description, ...}]}"""
+        return await self._request(
+            "GET", "/api/roles",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def list_permissions(self, access_token: str) -> dict:
+        """GET /api/permissions → {ok, data: [{id, code, name, resource, action, ...}]}"""
+        return await self._request(
+            "GET", "/api/permissions",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def list_admin_audit(self, access_token: str, limit: int = 10) -> dict:
+        """GET /api/admin/audit → {ok, data: [{id, action, target_type, ...}]}"""
+        return await self._request(
+            "GET", f"/api/admin/audit?limit={limit}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 
