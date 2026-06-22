@@ -1,7 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Администрирование</h1>
-<p class="page-description">Управление платформой: пользователи, роли, области доступа, аудит. Read-only режим — данные загружены из backend API.</p>
+<p class="page-description">Управление платформой: пользователи, роли, области доступа, аудит. Данные загружены из backend API. Создание пользователей доступно.</p>
+
+{% if flash_type == "success" %}
+<div class="success-banner">
+  <span class="success-banner-icon">✅</span>
+  <span class="success-banner-text">{{ flash_msg }}</span>
+</div>
+{% elif flash_type == "error" %}
+<div class="error-banner">
+  <span class="error-banner-icon">⚠️</span>
+  <span class="error-banner-text">{{ flash_msg }}</span>
+</div>
+{% endif %}
 
 {% if not backend_available %}
 <div class="error-banner">
@@ -107,7 +119,33 @@
   </div>
   {% endif %}
   <div class="export-action">
-    <button class="btn-disabled" disabled aria-disabled="true">➕ Создать пользователя (disabled — read-only)</button>
+    <!-- Create User Form (server-side POST) -->
+    <details style="margin-bottom:12px">
+      <summary style="cursor:pointer; font-weight:600; font-size:14px; color:var(--color-primary)">➕ Создать пользователя</summary>
+      <form method="POST" action="/admin/users/create" class="login-form" style="margin-top:12px">
+        <div class="form-group">
+          <label class="form-label">Имя пользователя (логин)</label>
+          <input type="text" name="username" class="form-input" required
+                 minlength="1" maxlength="100" autocomplete="off"
+                 placeholder="user_login">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Отображаемое имя</label>
+          <input type="text" name="display_name" class="form-input"
+                 maxlength="255" autocomplete="off"
+                 placeholder="Иван Петров">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Временный пароль</label>
+          <input type="password" name="password" class="form-input" required
+                 minlength="8" maxlength="128" autocomplete="new-password"
+                 placeholder="Минимум 8 символов">
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">✅ Создать</button>
+        </div>
+      </form>
+    </details>
     <button class="btn-disabled" disabled aria-disabled="true" style="margin-left:8px">🔒 Заблокировать (disabled — read-only)</button>
     <button class="btn-disabled" disabled aria-disabled="true" style="margin-left:8px">📦 Архивировать (disabled — read-only)</button>
   </div>

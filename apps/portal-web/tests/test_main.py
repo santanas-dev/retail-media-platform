@@ -2301,6 +2301,139 @@ class TestHTMLNeverExposesTokens(unittest.TestCase):
         _store.delete(sid)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Admin Create User Tests (Step 36.8)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestAdminCreateUserForm(unittest.TestCase):
+    """Admin page has create user form (server-side POST)."""
+
+    def setUp(self):
+        from main import app
+        from starlette.testclient import TestClient
+        self.client = TestClient(app)
+
+    def test_admin_page_has_create_user_form(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Создать пользователя", resp.text)
+        self.assertIn('action="/admin/users/create"', resp.text)
+        self.assertIn('method="post"', resp.text.lower())
+
+    def test_create_user_form_has_username_field(self):
+        resp = self.client.get("/admin")
+        self.assertIn('name="username"', resp.text)
+
+    def test_create_user_form_has_password_field(self):
+        resp = self.client.get("/admin")
+        self.assertIn('type="password"', resp.text)
+        self.assertIn('name="password"', resp.text)
+
+    def test_create_user_form_has_display_name_field(self):
+        resp = self.client.get("/admin")
+        self.assertIn('name="display_name"', resp.text)
+
+    def test_create_user_form_excludes_email(self):
+        """Email field must NOT be in the create user form (not in v1)."""
+        resp = self.client.get("/admin")
+        # Check there's no email input
+        self.assertNotIn('name="email"', resp.text.lower())
+        self.assertNotIn('type="email"', resp.text.lower())
+
+    def test_create_user_form_excludes_phone(self):
+        resp = self.client.get("/admin")
+        self.assertNotIn('name="phone"', resp.text.lower())
+
+    def test_create_user_form_excludes_device_service_role(self):
+        """device_service must NOT be in create user form or HUMAN_ROLES.
+        It IS present in the reference role listing for governance — that's OK."""
+        from main import HUMAN_ROLES
+        self.assertNotIn("device_service", HUMAN_ROLES)
+        # Verify the reference section still documents device_service
+        resp = self.client.get("/admin")
+        self.assertIn("Сервис КСО", resp.text)  # present in reference only
+
+    def test_create_user_form_is_server_side_post(self):
+        """No JavaScript fetch/axios — standard form POST."""
+        resp = self.client.get("/admin")
+        lower = resp.text.lower()
+        self.assertNotIn("fetch(", lower)
+        self.assertNotIn("axios", lower)
+
+    def test_block_button_still_disabled(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Заблокировать", resp.text)
+        self.assertIn("btn-disabled", resp.text)
+
+    def test_archive_button_still_disabled(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Архивировать", resp.text)
+
+    def test_assign_role_button_still_disabled(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Назначить роль", resp.text)
+
+
+class TestAdminCreateUserRBAC(unittest.TestCase):
+    """Create user requires users.create permission."""
+
+    def test_backend_client_create_user_method_exists(self):
+        from backend_client import BackendClient
+        self.assertTrue(hasattr(BackendClient, "create_user"))
+        self.assertTrue(callable(BackendClient.create_user))
+
+    def test_HUMAN_ROLES_excludes_device_service(self):
+        from main import HUMAN_ROLES
+        self.assertNotIn("device_service", HUMAN_ROLES)
+        # All other roles are present
+        for role in ("system_admin", "security_admin", "ad_manager",
+                      "approver", "analyst", "advertiser", "operations"):
+            self.assertIn(role, HUMAN_ROLES)
+
+    def test_password_not_rendered_in_admin_html(self):
+        """Admin page must never contain password values or hashes."""
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        for fb in ("password_hash", "token_hash", "access_token",
+                    "refresh_token", "bearer ", "authorization:"):
+            self.assertNotIn(fb, lower,
+                             f"Admin HTML must NOT contain '{fb}'")
+
+    def test_backend_url_not_in_admin_html(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        self.assertNotIn("localhost:8001", lower)
+        self.assertNotIn("PORTAL_BACKEND", lower)
+
+
+class TestCreateUserNoLocalStorage(unittest.TestCase):
+    """No localStorage/sessionStorage usage in admin page."""
+
+    def test_admin_page_no_localstorage(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        self.assertNotIn("localstorage", lower)
+        self.assertNotIn("sessionstorage", lower)
+
+    def test_admin_page_no_external_cdn(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        for cdn in ("cdn.", "cloudflare", "googleapis", "jsdelivr",
+                     "unpkg", "fontawesome", "bootstrapcdn"):
+            self.assertNotIn(cdn, lower,
+                             f"Admin must NOT reference CDN '{cdn}'")
+
 
 if __name__ == "__main__":
     unittest.main()

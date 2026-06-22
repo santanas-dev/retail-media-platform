@@ -150,6 +150,18 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    async def create_user(self, access_token: str, payload: dict) -> dict:
+        """POST /api/users → {ok, data: {id, username, ...}} (201) or error.
+
+        Payload: {username, password, display_name?, role_codes?}
+        Password is NEVER logged or returned.
+        """
+        return await self._request(
+            "POST", "/api/users",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 

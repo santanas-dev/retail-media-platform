@@ -35,7 +35,7 @@ from portal_session import (
     clear_portal_session,
     get_portal_tokens,
 )
-from rbac import require_admin_access
+from rbac import require_admin_access, require_portal_permission
 
 APP_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = APP_DIR / "templates"
@@ -172,6 +172,17 @@ async def admin_page(request: Request):
     backend = BackendClient()
     admin_data = await _fetch_admin_data(backend, access_token)
 
+    # Consume flash messages (set by POST /admin/users/create)
+    flash_type = ""
+    flash_msg = ""
+    raw = request.session.pop("admin_flash", "")
+    if raw == "ok:user_created":
+        flash_type = "success"
+        flash_msg = f"Пользователь «{request.session.pop('admin_flash_user', '')}» успешно создан."
+    elif raw == "error":
+        flash_type = "error"
+        flash_msg = request.session.pop("admin_flash_msg", "Ошибка при создании пользователя.")
+
     return templates.TemplateResponse(request, "pages/admin.html", {
         "request": request,
         "title": "Администрирование",
@@ -185,6 +196,8 @@ async def admin_page(request: Request):
         "audit_events": admin_data.get("audit_events", []),
         "users_count": len(admin_data.get("users", [])),
         "roles_count": len(admin_data.get("roles", [])),
+        "flash_type": flash_type,
+        "flash_msg": flash_msg,
     })
 
 
@@ -260,6 +273,66 @@ def _safe_audit(data: list) -> list[dict]:
                 item[k] = v
         safe.append(item)
     return safe
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Admin Actions — Create User (Step 36.8)
+# ══════════════════════════════════════════════════════════════════════
+
+# Roles allowed for human portal users (excludes device_service).
+HUMAN_ROLES = frozenset({
+    "system_admin", "security_admin", "ad_manager",
+    "approver", "analyst", "advertiser", "operations",
+})
+
+
+@app.post("/admin/users/create", response_class=HTMLResponse)
+async def admin_create_user(
+    request: Request,
+    username: str = Form(..., min_length=1, max_length=100),
+    password: str = Form(..., min_length=8, max_length=128),
+    display_name: str = Form("", max_length=255),
+):
+    """Create a new local portal user via backend API.
+
+    Flow:
+    1. RBAC: require users.create permission
+    2. Build safe payload (no email, no device_service)
+    3. POST /api/users via backend client
+    4. Redirect to /admin with success/error via session flash
+    """
+    # RBAC guard
+    guard = await require_portal_permission(request, "users.create")
+    if guard is not None:
+        return guard
+
+    # Build payload — safe: no email, no phone, no device_service
+    payload = {
+        "username": username.strip(),
+        "password": password,
+    }
+    if display_name and display_name.strip():
+        payload["display_name"] = display_name.strip()
+
+    # Get access token from server-side store
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+
+    backend = BackendClient()
+    result = await backend.create_user(access_token, payload)
+
+    if result["ok"]:
+        request.session["admin_flash"] = "ok:user_created"
+        request.session["admin_flash_user"] = username
+    else:
+        error = result.get("error", "Не удалось создать пользователя")
+        # Safe truncation
+        if len(error) > 200:
+            error = error[:200]
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = error
+
+    return RedirectResponse(url="/admin", status_code=303)
 
 
 # ══════════════════════════════════════════════════════════════════════
