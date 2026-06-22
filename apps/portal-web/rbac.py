@@ -23,9 +23,12 @@ from backend_client import BackendClient
 
 __all__ = [
     "require_portal_permission",
+    "require_admin_access",
+    "require_auth_for_page",
     "get_current_user_permissions",
     "refresh_user_permissions",
     "ADMIN_REQUIRED_PERMISSIONS",
+    "PAGE_PERMISSION_MAP",
 ]
 
 # Permissions required to access /admin page (read-only)
@@ -119,6 +122,65 @@ async def require_admin_access(request: Request) -> Response | None:
 
     perms = await get_current_user_permissions(request)
     if not perms or not _has_admin_access(perms):
+        return _forbidden_response()
+
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Route-level RBAC — session-only, no backend call (Step 36.13)
+# ═══════════════════════════════════════════════════════════════════════
+
+from portal_session import get_current_portal_user as _get_user
+from portal_session import get_session_permissions as _get_perms
+
+# Mapping: route → required permission (from security_contract PAGE_ACCESS_MATRIX)
+PAGE_PERMISSION_MAP: dict[str, str] = {
+    "/": "view_dashboard",
+    "/dashboard": "view_dashboard",
+    "/campaigns": "view_campaigns",
+    "/creatives": "view_creatives",
+    "/schedule": "view_schedule",
+    "/publications": "view_publications",
+    "/stores": "view_stores",
+    "/devices": "view_devices",
+    "/proof-of-play": "view_proof_of_play",
+    "/reports": "view_reports",
+    "/deployment": "view_deployment",
+    "/approvals": "view_approvals",
+    "/admin": "view_admin",
+}
+
+# Public routes — no auth required
+PUBLIC_ROUTES: frozenset[str] = frozenset({
+    "/login", "/logout", "/health", "/static",
+})
+
+
+async def require_auth_for_page(request: Request, route: str) -> Response | None:
+    """Check session auth + route permission for page rendering.
+
+    Session-only check — NO backend API call.
+    Forbidden: redirects to /login (unauthenticated) or returns 403 (no perm).
+
+    Returns None if allowed.
+    """
+    # Public routes pass through
+    if route in PUBLIC_ROUTES or route.startswith("/static"):
+        return None
+
+    # Check session
+    user = _get_user(request)
+    if not user:
+        return _redirect_to_login(request)
+
+    # Check permission from session store (no backend call)
+    required = PAGE_PERMISSION_MAP.get(route)
+    if required is None:
+        return None  # Unknown route — allow (will 404 on its own)
+
+    perms = _get_perms(request)
+    if required not in perms:
         return _forbidden_response()
 
     return None

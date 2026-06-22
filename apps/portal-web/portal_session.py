@@ -166,6 +166,22 @@ def get_portal_tokens(request: Request) -> dict[str, str]:
     }
 
 
+def get_session_permissions(request: Request) -> frozenset[str]:
+    """Return user's backend permissions stored in session (no backend call).
+
+    Fast, session-only check for route-level RBAC guards.
+    Returns empty frozenset if not authenticated.
+    """
+    session_id = _get_session_id(request)
+    if not session_id:
+        return frozenset()
+    data = _store.get(session_id)
+    if not data:
+        return frozenset()
+    perms = data.get("permissions", [])
+    return frozenset(perms) if isinstance(perms, list) else frozenset()
+
+
 def create_portal_session(
     request: Request,
     access_token: str,
@@ -173,6 +189,7 @@ def create_portal_session(
     username: str,
     display_name: str,
     roles: list[str],
+    permissions: list[str] | None = None,
 ) -> str:
     """Create a new portal session.
 
@@ -186,6 +203,7 @@ def create_portal_session(
         username=username,
         display_name=display_name,
         roles=roles,
+        permissions=permissions or [],
     )
     # Store ONLY opaque session_id in signed cookie
     request.session[SESSION_COOKIE_NAME] = session_id

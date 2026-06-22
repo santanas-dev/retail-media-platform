@@ -35,7 +35,7 @@ from portal_session import (
     clear_portal_session,
     get_portal_tokens,
 )
-from rbac import require_admin_access, require_portal_permission
+from rbac import require_admin_access, require_portal_permission, require_auth_for_page
 
 APP_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = APP_DIR / "templates"
@@ -71,14 +71,20 @@ def _page(
     title: str,
     active: str,
     extra: dict | None = None,
-    auth_required: bool = False,
+    route: str | None = None,
 ):
-    """Return a route handler for a page with optional demo data.
+    """Return a route handler for a page with demo data + RBAC guard.
 
-    auth_required: if True, return 401 redirect to login when
-        unauthenticated (soft enforcement — TODO: enable after Step 36.6).
+    Route-level RBAC: checks session + permission from server-side store.
+    No backend API call — permissions cached from login /me.
+    Unauthenticated → redirect to /login. No permission → 403.
     """
     async def handler(request: Request):
+        # Route-level RBAC guard (session-only, no backend call)
+        guard = await require_auth_for_page(request, route or f"/{active}")
+        if guard is not None:
+            return guard
+
         current_user = get_current_portal_user(request)
         ctx = {
             "request": request,
@@ -89,11 +95,6 @@ def _page(
         }
         if extra:
             ctx.update(extra)
-
-        # Soft auth gate (disabled for now — contract documented)
-        if auth_required and current_user is None:
-            # TODO Step 36.7+: enable redirect to login with ?next= parameter
-            pass
 
         return templates.TemplateResponse(request, template, ctx)
     return handler
@@ -128,7 +129,8 @@ app.add_api_route("/devices", _page("pages/devices.html", "КСО Устройс
                                     {"devices": get_devices_data()}),
                   methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/proof-of-play", _page("pages/proof-of-play.html", "Proof of Play", "pop",
-                                          {"pop_events": get_pop_events_data()}),
+                                          {"pop_events": get_pop_events_data()},
+                                          route="/proof-of-play"),
                   methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/reports", _page("pages/reports.html", "Отчёты", "reports",
                                     {"report_kpi": get_report_kpi(),
@@ -742,11 +744,13 @@ async def login_handler(
     # Fetch safe user view from /api/auth/me
     me_result = await backend_me(data["access_token"])
     safe_roles: list[str] = []
+    safe_perms: list[str] = []
     safe_display_name = username
 
     if me_result["ok"]:
         me_data = me_result["data"]
         safe_roles = me_data.get("roles", [])
+        safe_perms = me_data.get("permissions", [])
         safe_display_name = me_data.get("display_name") or username
 
     # Create portal session — tokens go to server-side store,
@@ -758,6 +762,7 @@ async def login_handler(
         username=username,
         display_name=safe_display_name,
         roles=safe_roles,
+        permissions=safe_perms,
     )
 
     return RedirectResponse(url="/dashboard", status_code=303)

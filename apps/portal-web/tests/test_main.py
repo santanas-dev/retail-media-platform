@@ -25,6 +25,112 @@ FORBIDDEN = frozenset({
 })
 
 
+# ── Test helpers for mock auth session ──────────────────────────────────
+
+_MOCK_ALL_PERMISSIONS = frozenset({
+    "view_dashboard", "view_stores", "view_devices",
+    "view_creatives", "view_campaigns", "view_schedule",
+    "view_publications", "view_proof_of_play",
+    "view_approvals", "view_reports",
+    "view_deployment", "view_admin",
+    "users.read", "roles.read", "users.create", "users.manage",
+    "roles.manage", "audit.read",
+})
+
+# ── Global mock auth for existing page-content tests ────────────────────
+# Existing tests expect unauthenticated access to all pages.
+# The new route-level RBAC guard (Step 36.13) enforces auth.
+# Mock it globally so existing tests still pass — new auth-specific
+# tests in TestRouteAuth* classes test the actual guard behavior.
+
+import portal_session as _ps
+import rbac as _rbac_mod
+_ORIG_GET_USER = _rbac_mod._get_user
+_ORIG_GET_PERMS = _rbac_mod._get_perms
+
+_MOCK_SID = _ps._store.create(
+    access_token="mock-at-for-tests",
+    refresh_token="mock-rt-for-tests",
+    username="demo_admin",
+    display_name="Demo Admin",
+    roles=["system_admin"],
+    permissions=list(_MOCK_ALL_PERMISSIONS),
+)
+
+def _mock_get_user(request):
+    from portal_session import PortalUser
+    return PortalUser(
+        username="demo_admin", display_name="Demo Admin",
+        roles=["system_admin"],
+    )
+
+def _mock_get_perms(request):
+    return _MOCK_ALL_PERMISSIONS
+
+_rbac_mod._get_user = _mock_get_user
+_rbac_mod._get_perms = _mock_get_perms
+
+
+def _enable_real_auth():
+    """Restore real auth functions for auth-specific tests."""
+    _rbac_mod._get_user = _ORIG_GET_USER
+    _rbac_mod._get_perms = _ORIG_GET_PERMS
+
+
+def _disable_real_auth():
+    """Re-enable mock auth after auth-specific tests."""
+    _rbac_mod._get_user = _mock_get_user
+    _rbac_mod._get_perms = _mock_get_perms
+
+
+def _setup_mock_auth():
+    """Patch session store for test — all permissions, mock admin user."""
+    import portal_session
+    import rbac
+
+    # Store a mock session in the store
+    sid = portal_session._store.create(
+        access_token="mock-at-for-tests",
+        refresh_token="mock-rt-for-tests",
+        username="demo_admin",
+        display_name="Demo Admin",
+        roles=["system_admin"],
+        permissions=list(_MOCK_ALL_PERMISSIONS),
+    )
+
+    # Patch get_current_portal_user to return mock admin
+    original_get_user = rbac._get_user
+
+    def mock_get_user(request):
+        from portal_session import PortalUser
+        return PortalUser(
+            username="demo_admin",
+            display_name="Demo Admin",
+            roles=["system_admin"],
+        )
+
+    rbac._get_user = mock_get_user
+
+    # Patch get_session_permissions to return all permissions
+    original_get_perms = rbac._get_perms
+
+    def mock_get_perms(request):
+        return _MOCK_ALL_PERMISSIONS
+
+    rbac._get_perms = mock_get_perms
+
+    return sid, original_get_user, original_get_perms
+
+
+def _teardown_mock_auth(sid, original_get_user, original_get_perms):
+    """Restore original session functions."""
+    import portal_session
+    import rbac
+    portal_session._store.delete(sid)
+    rbac._get_user = original_get_user
+    rbac._get_perms = original_get_perms
+
+
 def _assert_safe(test, text: str):
     lower = text.lower()
     for fb in FORBIDDEN:
@@ -2982,6 +3088,150 @@ class TestArchiveUserNoLocalStorage(unittest.TestCase):
                      "unpkg", "fontawesome", "bootstrapcdn"):
             self.assertNotIn(cdn, lower,
                              f"Admin must NOT reference CDN '{cdn}'")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Route-Level RBAC Guard Tests (Step 36.13)
+# ══════════════════════════════════════════════════════════════════════
+# These tests disable the global mock and test real route auth behavior.
+
+class TestRouteAuthUnauthenticated(unittest.TestCase):
+    """Unauthenticated requests redirect to /login."""
+
+    @classmethod
+    def setUpClass(cls):
+        _enable_real_auth()
+
+    @classmethod
+    def tearDownClass(cls):
+        _disable_real_auth()
+
+    def setUp(self):
+        from main import app
+        from starlette.testclient import TestClient
+        self.client = TestClient(app)
+
+    def _assert_redirects_to_login(self, route: str):
+        resp = self.client.get(route, follow_redirects=False)
+        self.assertIn(resp.status_code, (303, 302),
+                      f"{route}: expected redirect, got {resp.status_code}")
+        self.assertIn("/login", resp.headers.get("location", "").lower())
+
+    def test_unauthenticated_dashboard_redirects(self):
+        self._assert_redirects_to_login("/")
+
+    def test_unauthenticated_campaigns_redirects(self):
+        self._assert_redirects_to_login("/campaigns")
+
+    def test_unauthenticated_creatives_redirects(self):
+        self._assert_redirects_to_login("/creatives")
+
+    def test_unauthenticated_schedule_redirects(self):
+        self._assert_redirects_to_login("/schedule")
+
+    def test_unauthenticated_publications_redirects(self):
+        self._assert_redirects_to_login("/publications")
+
+    def test_unauthenticated_stores_redirects(self):
+        self._assert_redirects_to_login("/stores")
+
+    def test_unauthenticated_devices_redirects(self):
+        self._assert_redirects_to_login("/devices")
+
+    def test_unauthenticated_proof_of_play_redirects(self):
+        self._assert_redirects_to_login("/proof-of-play")
+
+    def test_unauthenticated_reports_redirects(self):
+        self._assert_redirects_to_login("/reports")
+
+    def test_unauthenticated_deployment_redirects(self):
+        self._assert_redirects_to_login("/deployment")
+
+    def test_unauthenticated_approvals_redirects(self):
+        self._assert_redirects_to_login("/approvals")
+
+    def test_unauthenticated_admin_redirects(self):
+        self._assert_redirects_to_login("/admin")
+
+    def test_login_page_remains_public(self):
+        resp = self.client.get("/login")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_logout_page_remains_public(self):
+        resp = self.client.get("/logout")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_health_remains_public(self):
+        resp = self.client.get("/health")
+        self.assertEqual(resp.status_code, 200)
+
+
+class TestRouteAuthForbidden(unittest.TestCase):
+    """Authenticated user without permission gets 403."""
+
+    @classmethod
+    def setUpClass(cls):
+        _enable_real_auth()
+        # Set up a limited-permission user (analyst — no admin/deployment)
+        import rbac as _r
+        _ORIG_GET_USER2 = _r._get_user
+        _ORIG_GET_PERMS2 = _r._get_perms
+
+        from portal_session import PortalUser
+        def _limited_user(req):
+            return PortalUser(username="demo_analyst", display_name="Analyst",
+                              roles=["analyst"])
+
+        _LIMITED_PERMS = frozenset({
+            "view_dashboard", "view_stores", "view_devices",
+            "view_creatives", "view_campaigns", "view_schedule",
+            "view_publications", "view_proof_of_play",
+            "view_reports",
+        })
+
+        def _limited_perms_fn(req):
+            return _LIMITED_PERMS
+
+        _r._get_user = _limited_user
+        _r._get_perms = _limited_perms_fn
+
+        cls._orig_user = _ORIG_GET_USER2
+        cls._orig_perms = _ORIG_GET_PERMS2
+
+    @classmethod
+    def tearDownClass(cls):
+        _disable_real_auth()
+        import rbac as _r
+        _r._get_user = cls._orig_user
+        _r._get_perms = cls._orig_perms
+
+    def setUp(self):
+        from main import app
+        from starlette.testclient import TestClient
+        self.client = TestClient(app)
+
+    def test_no_approvals_gets_403(self):
+        resp = self.client.get("/approvals", follow_redirects=False)
+        self.assertEqual(resp.status_code, 403)
+        self.assertIn("Доступ запрещён", resp.text)
+        self.assertNotIn("view_approvals", resp.text.lower())
+
+    def test_no_deployment_gets_403(self):
+        resp = self.client.get("/deployment", follow_redirects=False)
+        self.assertEqual(resp.status_code, 403)
+
+    def test_no_admin_gets_403(self):
+        resp = self.client.get("/admin", follow_redirects=False)
+        self.assertIn(resp.status_code, (403, 302))
+
+    def test_403_does_not_expose_permission_names(self):
+        resp = self.client.get("/approvals", follow_redirects=False)
+        lower = resp.text.lower()
+        for fb in ("access_token", "refresh_token", "bearer ",
+                    "authorization:", "backend_url", "localhost:8001",
+                    "password_hash", "token_hash"):
+            self.assertNotIn(fb, lower,
+                             f"403 page must NOT contain '{fb}'")
 
 
 if __name__ == "__main__":
