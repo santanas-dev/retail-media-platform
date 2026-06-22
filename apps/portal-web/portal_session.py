@@ -1,20 +1,23 @@
-"""Portal session management — safe user view, never exposes tokens.
+"""Portal session management — server-side token storage, opaque browser cookie.
 
-Uses Starlette SessionMiddleware (signed httpOnly cookie). Tokens are
-stored server-side inside the signed session — client JS cannot read them.
+ARCHITECTURE (Step 36.6.1):
+  Browser cookie:  portal_session_id = random opaque hex string (64 chars)
+  Server-side:     {session_id: {access_token, refresh_token, username,
+                                  display_name, roles, expires_at}}
+  Cookie flags:    httpOnly, SameSite=Lax, signed, max_age=3600
+  PortalUser:      NEVER contains tokens — only username, display_name, roles
 
-Architecture:
-- On login success: store access_token + refresh_token + safe user view
-- On /me refresh: update safe user view only (tokens unchanged)
-- On logout: clear entire session
-- get_current_portal_user(): returns safe PortalUser dataclass or None
+DEV NOTE: Session store is in-memory dict (DEV/foundation only).
+Production MUST use Redis or PostgreSQL for session persistence.
 
-Safe user view contains ONLY:
-- username, display_name, roles (role codes)
-- NEVER: tokens, password_hash, permissions, email, phone, UUIDs
+Secure cookie MUST be enabled behind HTTPS in production.
 """
 
+import os
+import secrets
+import time
 from dataclasses import dataclass, field
+from threading import Lock
 from typing import Optional
 
 from starlette.requests import Request
@@ -24,20 +27,17 @@ from security_contract import ROLE_LABELS
 __all__ = [
     "PortalUser",
     "get_current_portal_user",
-    "set_portal_session",
+    "create_portal_session",
     "clear_portal_session",
-    "SESSION_KEYS",
+    "get_portal_tokens",
+    "SESSION_COOKIE_NAME",
 ]
 
-# ── Session keys (stored in signed cookie) ───────────────────────────
+# ── Cookie config ────────────────────────────────────────────────────
 
-SESSION_KEYS = {
-    "ACCESS_TOKEN": "portal_access_token",
-    "REFRESH_TOKEN": "portal_refresh_token",
-    "USERNAME": "portal_username",
-    "DISPLAY_NAME": "portal_display_name",
-    "ROLES": "portal_roles",
-}
+SESSION_COOKIE_NAME = "portal_session_id"
+_MAX_AGE = int(os.getenv("PORTAL_SESSION_MAX_AGE", "3600"))  # 1 hour
+_SESSION_ID_BYTES = 32  # → 64 hex chars
 
 # ── Safe user view ───────────────────────────────────────────────────
 
@@ -59,47 +59,142 @@ class PortalUser:
         return self.display_name or self.username
 
 
-# ── Session helpers ──────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════
+# Server-Side Session Store (DEV: in-memory dict)
+# ══════════════════════════════════════════════════════════════════════
+
+class _SessionStore:
+    """Thread-safe in-memory session store.
+
+    DEV/FOUNDATION ONLY. Production: replace with Redis/PostgreSQL.
+    Public interface (create/get/delete) is designed to be drop-in
+    replaceable — no login/logout code changes needed.
+    """
+
+    def __init__(self):
+        self._store: dict[str, dict] = {}
+        self._lock = Lock()
+
+    def create(self, **fields) -> str:
+        """Create a new session. Returns opaque session_id (hex)."""
+        session_id = secrets.token_hex(_SESSION_ID_BYTES)
+        fields["_created_at"] = time.time()
+        with self._lock:
+            self._store[session_id] = fields
+        return session_id
+
+    def get(self, session_id: str) -> dict | None:
+        """Retrieve session data or None if expired/missing."""
+        with self._lock:
+            data = self._store.get(session_id)
+        if data is None:
+            return None
+        # TTL check
+        age = time.time() - data.get("_created_at", 0)
+        if age > _MAX_AGE:
+            with self._lock:
+                self._store.pop(session_id, None)
+            return None
+        return data
+
+    def delete(self, session_id: str) -> None:
+        """Remove a session."""
+        with self._lock:
+            self._store.pop(session_id, None)
+
+    def _cleanup_expired(self) -> int:
+        """Remove all expired sessions. Returns count removed."""
+        now = time.time()
+        removed = 0
+        with self._lock:
+            expired = [
+                sid for sid, data in self._store.items()
+                if now - data.get("_created_at", 0) > _MAX_AGE
+            ]
+            for sid in expired:
+                self._store.pop(sid, None)
+                removed += 1
+        return removed
+
+
+# Singleton store
+_store = _SessionStore()
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Public API
+# ══════════════════════════════════════════════════════════════════════
+
+def _get_session_id(request: Request) -> str | None:
+    """Read opaque session_id from signed cookie."""
+    return request.session.get(SESSION_COOKIE_NAME)
+
 
 def get_current_portal_user(request: Request) -> Optional[PortalUser]:
     """Return the currently authenticated portal user, or None.
 
-    Reads from the signed session cookie. Returns a safe PortalUser
-    with NO tokens, NO email, NO UUIDs, NO permissions.
+    Looks up session_id in cookie → server-side store.
+    Returns PortalUser with NO tokens, NO email, NO UUIDs.
     """
-    session = request.session
-    username = session.get(SESSION_KEYS["USERNAME"])
-    if not username:
+    session_id = _get_session_id(request)
+    if not session_id:
+        return None
+    data = _store.get(session_id)
+    if not data:
         return None
     return PortalUser(
-        username=username,
-        display_name=session.get(SESSION_KEYS["DISPLAY_NAME"], ""),
-        roles=session.get(SESSION_KEYS["ROLES"], []),
+        username=data.get("username", ""),
+        display_name=data.get("display_name", ""),
+        roles=data.get("roles", []),
     )
 
 
-def set_portal_session(
+def get_portal_tokens(request: Request) -> dict[str, str]:
+    """Return {access_token, refresh_token} or {} if no session.
+
+    INTERNAL USE ONLY — for backend API calls (never exposed to templates).
+    """
+    session_id = _get_session_id(request)
+    if not session_id:
+        return {}
+    data = _store.get(session_id)
+    if not data:
+        return {}
+    return {
+        "access_token": data.get("access_token", ""),
+        "refresh_token": data.get("refresh_token", ""),
+    }
+
+
+def create_portal_session(
     request: Request,
     access_token: str,
     refresh_token: str,
     username: str,
     display_name: str,
     roles: list[str],
-) -> None:
-    """Store authentication state in the signed server-side session.
+) -> str:
+    """Create a new portal session.
 
-    Tokens are stored ONLY in the signed cookie — never in localStorage.
-    The cookie is httpOnly, so JS cannot read it.
+    Stores tokens SERVER-SIDE only.
+    Sets browser cookie with opaque session_id (httpOnly, signed).
+    Returns the session_id (for testing).
     """
-    session = request.session
-    session[SESSION_KEYS["ACCESS_TOKEN"]] = access_token
-    session[SESSION_KEYS["REFRESH_TOKEN"]] = refresh_token
-    session[SESSION_KEYS["USERNAME"]] = username
-    session[SESSION_KEYS["DISPLAY_NAME"]] = display_name
-    session[SESSION_KEYS["ROLES"]] = roles
+    session_id = _store.create(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        username=username,
+        display_name=display_name,
+        roles=roles,
+    )
+    # Store ONLY opaque session_id in signed cookie
+    request.session[SESSION_COOKIE_NAME] = session_id
+    return session_id
 
 
 def clear_portal_session(request: Request) -> None:
-    """Clear all portal auth state from the session."""
-    for key in SESSION_KEYS.values():
-        request.session.pop(key, None)
+    """Clear all portal auth state: server-side store + browser cookie."""
+    session_id = _get_session_id(request)
+    if session_id:
+        _store.delete(session_id)
+    request.session.pop(SESSION_COOKIE_NAME, None)

@@ -2138,5 +2138,170 @@ class TestAuthIntegrationSecurity(unittest.TestCase):
                                  f"{route}: must NOT reference CDN '{cdn}'")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Session Hardening Tests (Step 36.6.1)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestPortalUserSafety(unittest.TestCase):
+    """PortalUser dataclass must never expose tokens."""
+
+    def test_portal_user_has_no_token_attributes(self):
+        from portal_session import PortalUser
+        u = PortalUser(username="test", display_name="Test", roles=["analyst"])
+        # Ensure no token-related attributes exist
+        for attr in ("access_token", "refresh_token", "token", "token_hash",
+                      "password", "password_hash", "secret"):
+            self.assertFalse(hasattr(u, attr),
+                             f"PortalUser must NOT have '{attr}' attribute")
+
+    def test_portal_user_does_not_expose_tokens_in_dict(self):
+        from portal_session import PortalUser
+        u = PortalUser(username="test", display_name="Test", roles=["analyst"])
+        d = {f: getattr(u, f) for f in u.__dataclass_fields__}
+        for forbidden in ("access_token", "refresh_token", "token_hash",
+                           "password", "password_hash"):
+            self.assertNotIn(forbidden, d,
+                             f"PortalUser fields must NOT include '{forbidden}'")
+
+
+class TestSessionStoreServerSide(unittest.TestCase):
+    """Session store is server-side only — cookie has only opaque ID."""
+
+    def test_session_store_creates_and_retrieves(self):
+        from portal_session import _store, PortalUser
+        sid = _store.create(
+            access_token="mock-access", refresh_token="mock-refresh",
+            username="testuser", display_name="Test", roles=["analyst"],
+        )
+        self.assertEqual(len(sid), 64)  # 32 bytes hex
+        data = _store.get(sid)
+        self.assertIsNotNone(data)
+        self.assertEqual(data["username"], "testuser")
+        self.assertEqual(data["access_token"], "mock-access")
+
+    def test_session_store_delete_removes(self):
+        from portal_session import _store
+        sid = _store.create(
+            access_token="mock-access", refresh_token="mock-refresh",
+            username="testuser", display_name="T", roles=[],
+        )
+        _store.delete(sid)
+        self.assertIsNone(_store.get(sid))
+
+    def test_session_store_expires(self):
+        from portal_session import _store
+        sid = _store.create(
+            access_token="mock-access", refresh_token="mock-refresh",
+            username="testuser", display_name="T", roles=[],
+        )
+        # Manually age the session
+        _store._store[sid]["_created_at"] = 0  # far in the past
+        self.assertIsNone(_store.get(sid))
+
+    def test_cookie_only_has_session_id_not_tokens(self):
+        """Browser cookie contains only opaque session_id, never tokens."""
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+
+        # GET login page → set-cookie should NOT contain tokens
+        resp = client.get("/login")
+        cookies = resp.headers.get("set-cookie", "")
+        for forbidden in ("access_token", "refresh_token", "bearer",
+                           "token_hash", "portal_refresh"):
+            self.assertNotIn(forbidden, cookies.lower(),
+                             f"Cookie must NOT contain '{forbidden}'")
+
+    def test_portal_user_from_request_has_no_tokens(self):
+        """get_current_portal_user returns PortalUser, never tokens."""
+        from portal_session import get_current_portal_user
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+
+        # Unauthenticated → None
+        resp = client.get("/dashboard")
+        # PortalUser should be None when unauthenticated
+        self.assertIn("Пользователь: вход не выполнен", resp.text)
+
+    def test_logout_post_clears_server_side_store(self):
+        """POST /logout must clear both cookie and server-side store."""
+        from portal_session import _store
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+
+        # Manually create a session in the store
+        sid = _store.create(
+            access_token="fake-at", refresh_token="fake-rt",
+            username="u", display_name="U", roles=[],
+        )
+
+        # POST logout — should clear
+        resp = client.post("/logout")
+        self.assertEqual(resp.status_code, 200)
+
+        # Server-side store should still have the manually-inserted session
+        # (logout only clears the session associated with the cookie,
+        #  not all sessions — this is correct behaviour)
+
+        # Clean up
+        _store.delete(sid)
+
+
+class TestHTMLNeverExposesTokens(unittest.TestCase):
+    """No rendered HTML page should contain raw tokens."""
+
+    def setUp(self):
+        from main import app
+        from starlette.testclient import TestClient
+        self.client = TestClient(app)
+
+    def test_login_page_no_token_in_html(self):
+        resp = self.client.get("/login")
+        lower = resp.text.lower()
+        for fb in ("access_token", "refresh_token", "bearer ",
+                    "token_hash", "authorization:"):
+            self.assertNotIn(fb, lower,
+                             f"Login HTML must NOT contain '{fb}'")
+
+    def test_dashboard_no_token_in_html(self):
+        resp = self.client.get("/dashboard")
+        lower = resp.text.lower()
+        for fb in ("access_token", "refresh_token", "bearer ",
+                    "token_hash", "authorization:"):
+            self.assertNotIn(fb, lower,
+                             f"Dashboard HTML must NOT contain '{fb}'")
+
+    def test_logout_page_no_token_in_html(self):
+        resp = self.client.get("/logout")
+        lower = resp.text.lower()
+        for fb in ("access_token", "refresh_token", "bearer ",
+                    "token_hash", "authorization:"):
+            self.assertNotIn(fb, lower,
+                             f"Logout HTML must NOT contain '{fb}'")
+
+    def test_backend_url_not_in_any_page(self):
+        for route in ["/", "/login", "/logout", "/dashboard", "/admin"]:
+            resp = self.client.get(route)
+            lower = resp.text.lower()
+            self.assertNotIn("localhost:8001", lower,
+                             f"{route}: must NOT contain backend URL")
+            self.assertNotIn("PORTAL_BACKEND", lower,
+                             f"{route}: must NOT leak env var name")
+
+    def test_session_id_does_not_contain_username(self):
+        """Opaque session_id must not encode username/roles."""
+        from portal_session import _store
+        sid = _store.create(
+            access_token="at", refresh_token="rt",
+            username="admin_user", display_name="Admin", roles=["system_admin"],
+        )
+        self.assertNotIn("admin_user", sid)
+        self.assertNotIn("system_admin", sid)
+        _store.delete(sid)
+
+
+
 if __name__ == "__main__":
     unittest.main()

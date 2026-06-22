@@ -31,8 +31,9 @@ from backend_client import backend_login, backend_me, backend_logout
 from portal_session import (
     PortalUser,
     get_current_portal_user,
-    set_portal_session,
+    create_portal_session,
     clear_portal_session,
+    get_portal_tokens,
 )
 
 APP_DIR = Path(__file__).resolve().parent
@@ -206,8 +207,9 @@ async def login_handler(
         safe_roles = me_data.get("roles", [])
         safe_display_name = me_data.get("display_name") or username
 
-    # Create portal session (signed httpOnly cookie)
-    set_portal_session(
+    # Create portal session — tokens go to server-side store,
+    # browser gets only opaque session_id in signed httpOnly cookie.
+    create_portal_session(
         request,
         access_token=data["access_token"],
         refresh_token=data["refresh_token"],
@@ -239,10 +241,10 @@ async def logout_handler(request: Request):
     current_user = get_current_portal_user(request)
 
     if current_user is not None:
-        # Try to revoke the refresh token on backend
-        refresh_token = request.session.get("portal_refresh_token")
-        if refresh_token:
-            await backend_logout(refresh_token)
+        # Get refresh token from server-side store (never from cookie)
+        tokens = get_portal_tokens(request)
+        if tokens.get("refresh_token"):
+            await backend_logout(tokens["refresh_token"])
 
     # Clear all auth state
     clear_portal_session(request)

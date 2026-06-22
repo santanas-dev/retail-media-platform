@@ -767,3 +767,56 @@ mfa_secret
 - `apps/portal-web/security_contract.py` — portal security contract (reference)
 - `docs/audit/full-system-audit-tz-v2-5.md` — full system audit
 - `docs/audit/one-kso-pilot-readiness-plan.md` — pilot readiness plan
+
+---
+
+## 18. Portal Session Token Storage (Step 36.6.1)
+
+### 18.1 Architecture
+
+Portal-web must NOT store raw access/refresh tokens in client-side cookies.
+Starlette SessionMiddleware signed cookies are not encrypted — they are
+base64-encoded and signed, meaning tokens in the cookie payload are visible
+to the client (even if httpOnly).
+
+**Hardened model (implemented 2026-07):**
+
+| Layer | What's stored | Format |
+|---|---|---|
+| Browser cookie | `portal_session_id` | Opaque random hex (64 chars) |
+| Server-side store | `{access_token, refresh_token, username, display_name, roles, expires_at}` | In-memory dict (DEV) |
+
+**Cookie properties:**
+- Name: `portal_session_id`
+- httpOnly: true
+- SameSite: Lax
+- Max-Age: 3600 (configurable via `PORTAL_SESSION_MAX_AGE`)
+- Signed: yes (SessionMiddleware)
+- Contains: only opaque random ID — no tokens, no usernames, no roles
+
+### 18.2 Server-Side Session Store
+
+DEV/FOUNDATION: In-memory `_SessionStore` (thread-safe dict with TTL expiry).
+
+**Production requirements:**
+- Replace with Redis or PostgreSQL session store
+- Interface: `create(**fields) → session_id`, `get(session_id) → dict|None`, `delete(session_id) → None`
+- Login/logout code does NOT change when swapping the store backend
+- Redis recommended for multi-process deployments (gunicorn/uvicorn workers)
+
+### 18.3 PortalUser Contract
+
+`PortalUser` dataclass contains ONLY:
+- `username`, `display_name`, `roles`
+- NEVER: `access_token`, `refresh_token`, `password_hash`, `email`, `UUID`, `permissions`
+
+Tokens are accessed exclusively via `get_portal_tokens(request)` —
+an internal helper used ONLY for backend API calls, never in templates.
+
+### 18.4 Secure Cookie in Production
+
+```
+Secure=true required for production behind HTTPS.
+In local dev (localhost), Secure=false is acceptable.
+Set via environment: PORTAL_SESSION_SECURE=true
+```
