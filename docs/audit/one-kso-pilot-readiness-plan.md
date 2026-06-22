@@ -41,7 +41,7 @@
 | 19 | Player показывает креатив | DONE (tests) | kso_player | Display cycle, playlist, render plan | Реальный Chromium + manifest + media | ❌ |
 | 20 | Player создаёт PoP | DONE (tests) | kso_player | PoP writer, JSONL events | Реальный playback | ❌ |
 | 21 | Sidecar отправляет PoP | DONE (tests) | kso_sidecar_agent | PoP pickup, batch, send, rotation | Реальный backend URL | ❌ |
-| 22 | Backend принимает PoP | PARTIAL | backend/device_gateway | PoP ingest domain, batch ingest | Real E2E: sidecar→backend | ❌ |
+|| 22 | Backend принимает PoP | ✅ DONE (37.10) | backend/proof_of_play | PoP ingest + safe correlation chain | Portal reports (37.11) | ❌ |
 | 23 | Portal показывает отчёт | DEMO_ONLY | portal-web + backend | Reports page placeholder, campaign_reports domain | Portal→backend API + real aggregation | ✅ P0 |
 | 24 | Excel export готовит выгрузку | MISSING | portal-web + backend | Export block disabled, RLS note | Real Excel generation + RLS filters | ❌ |
 
@@ -49,8 +49,8 @@
 
 | Статус | Шагов |
 |---|---|
-| ✅ DONE (в тестах) | 7 (6, 7, 8, 9, 18, 19, 20, 21) |
-| 🟡 PARTIAL | 2 (16, 22) |
+| ✅ DONE (в тестах) | 8 (6, 7, 8, 9, 18, 19, 20, 21, 22) |
+| 🟡 PARTIAL | 1 (16) |
 | 🟠 DEMO_ONLY | 12 |
 | 🔴 MISSING | 2 (10, 24) |
 | 🚫 BLOCKER (P0) | 5 (1, 2, 3, 10, 23) |
@@ -71,7 +71,7 @@
 | CP4 | Creative upload (UI + storage) | ❌ MISSING | Backend + Portal |
 | CP5 | Campaign create workflow | ❌ MISSING | Backend + Portal |
 | CP6 | Manifest generation trigger | 🟡 PARTIAL | Backend |
-| CP7 | PoP ingest → portal reports | ❌ MISSING | Backend + Portal |
+| CP7 | PoP ingest → portal reports | 🟡 IN PROGRESS (37.10 done) | Backend + Portal |
 | CP8 | KSO runtime deployed on real HW | 🟡 READY (docs) | Infra |
 
 ### Nice-to-Have (for pilot)
@@ -462,3 +462,31 @@
 - Миграция: 024 (clusters.code, stores.format/status, kso_devices)
 
 **Следующий шаг:** Подключение portal-web к hierarchy API.
+
+### Шаг 37.9 — Sidecar Fetch Published Manifest + Player Local Smoke (2026-06-22)
+
+✅ **Цепочка доставки подтверждена без изменения production кода.**
+
+### Шаг 37.10 — PoP Ingest Minimal for Test KSO Technical Validation (2026-06-22)
+
+✅ **Minimal TEST_ONLY PoP ingest готов:**
+
+- **Домен:** `backend/app/domains/proof_of_play/` — модели, схемы, сервис, роутер
+- **Модель:** `KsoProofOfPlayEvent` — bridge-таблица с safe-code корреляцией (device_code, placement_code, campaign_code, creative_code, manifest_code, media_ref)
+- **Эндпоинт:** `POST /api/device-gateway/kso/{device_code}/pop` — **TEST_ONLY** без аутентификации
+- **Корреляция:** `device_code → latest published GeneratedManifest → placement_code → KsoPlacement → campaign_code → creative_code`
+- **Проверки:** manifest_version_id/hash (опциональные), media_ref в manifest items
+- **Дубликаты:** idempotent accepted (тот же event_code → возвращается existing)
+- **Миграция:** 030
+
+**Что НЕ менялось:**
+- Enterprise PoP (`proof_of_play_events`, `proof_of_play_batches`, `/api/device-gateway/pop/events*`) — не тронут
+- KSO runtime (player, sidecar, state-adapter) — не менялся
+- Portal — не менялся (отчёты будет шаг 37.11)
+- Production auth — намеренно не реализован (TEST_ONLY)
+
+**Forbidden fields:** receipt, payment, fiscal, customer, phone, email, card, pan, sha256, storage_ref, file_path, tokens, secrets — не принимаются и не сохраняются.
+
+**Тесты:** backend 28 тестов (модели, схемы, хелперы, сервис с моками, sidecar-совместимость).
+
+**Следующий шаг:** Portal reporting (37.11).
