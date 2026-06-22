@@ -14,9 +14,18 @@ No real users, emails, phones, passwords, or tokens.
 """
 
 import asyncio
+import os
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+# ── Test-only SECRET_KEY for JWT token creation in unit tests ──
+# The Settings validator rejects empty SECRET_KEY — provide a fixed
+# test key so JWT config tests can create/decode tokens.
+os.environ.setdefault(
+    "SECRET_KEY",
+    "test-secret-key-for-jwt-unit-tests-do-not-use-in-production-64chars!!",
+)
 
 _BACKEND = Path(__file__).resolve().parent.parent
 import sys

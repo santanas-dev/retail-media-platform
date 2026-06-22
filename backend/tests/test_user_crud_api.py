@@ -162,7 +162,7 @@ async def _init_test_db():
     from app.domains.identity import models as m
 
     import sqlalchemy as _patch_sa
-    for table in m.Base.metadata.sorted_tables:
+    for table in m.Base.metadata.tables.values():
         for col in table.columns:
             tname = str(col.type).upper()
             if 'UUID' in tname:
