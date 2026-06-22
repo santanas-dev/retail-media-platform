@@ -156,18 +156,29 @@ def _install_uuid_defaults(models_module):
         event.listen(cls, "before_insert", _make_set_id(name))
 
 
+_db_initialized = False
+
+
 async def _init_test_db():
+    global _db_initialized
     from app.core.security import hash_password
     from app.domains.identity.seed import PERMISSIONS, ROLES, ROLE_PERMISSIONS
     from app.domains.identity import models as m
 
     import sqlalchemy as _patch_sa
+    # Patch ALL UUID columns across ALL tables to String(36) for SQLite.
+    # Must run every setUpClass call because SQLAlchemy may re-cache type
+    # processors after other test modules (e.g. proof_of_play) run.
     for table in m.Base.metadata.tables.values():
         for col in table.columns:
             tname = str(col.type).upper()
             if 'UUID' in tname:
                 col.type = _patch_sa.String(36)
     from app.domains.identity import models as m
+
+    if _db_initialized:
+        return
+    _db_initialized = True
 
     _install_uuid_defaults(m)
 

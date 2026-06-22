@@ -4,9 +4,6 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
-# Import User to satisfy GeneratedManifest's relationship("User") mapper dep
-from app.domains.identity.models import User  # noqa: F401
-
 
 # ══════════════════════════════════════════════════════════════════════
 # Model tests (no DB needed — just column introspection)
@@ -169,6 +166,13 @@ def _make_mock_row(**kwargs):
 
 class TestKsoPoPServiceMock(unittest.TestCase):
     """Test ingest_kso_pop with mocked database session."""
+
+    @classmethod
+    def setUpClass(cls):
+        # Lazy import User to satisfy GeneratedManifest mapper dep
+        # when KsoProofOfPlayEvent is instantiated.
+        # Not at module level to avoid cross-test SQLAlchemy pollution.
+        from app.domains.identity.models import User  # noqa: F401
 
     def setUp(self):
         self.now = datetime(2026, 6, 16, 12, 0, 0, tzinfo=timezone.utc)
