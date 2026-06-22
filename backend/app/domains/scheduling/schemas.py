@@ -1,96 +1,50 @@
-"""Scheduling Core: Pydantic schemas."""
+"""Scheduling domain: Pydantic schemas (Step 37.5)."""
 
-from datetime import date, datetime, time
-from typing import Optional
-from uuid import UUID
+from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  Schedule Run
-# ═══════════════════════════════════════════════════════════════════════
+PLACEMENT_CODE_PATTERN = r"^[a-z0-9_-]+$"
 
 
-class ScheduleRunCreate(BaseModel):
-    """Create a new schedule run for a confirmed booking."""
+class KsoPlacementCreate(BaseModel):
+    """Minimal placement input for test KSO technical validation.
 
-    booking_id: UUID
-    comment: Optional[str] = None
+    Links campaign_code → creative_code → device_code in a time window.
+    """
+    placement_code: str = Field(
+        min_length=3, max_length=64, pattern=PLACEMENT_CODE_PATTERN,
+    )
+    campaign_code: str = Field(min_length=1, max_length=64)
+    creative_code: str = Field(min_length=1, max_length=64)
+    device_code: str = Field(min_length=1, max_length=64)
+    starts_at: datetime
+    ends_at: datetime
+    slot_order: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_time_window(self) -> "KsoPlacementCreate":
+        if self.starts_at >= self.ends_at:
+            raise ValueError("starts_at must be before ends_at")
+        return self
 
 
-class ScheduleRunResponse(BaseModel):
-    id: UUID
-    booking_id: UUID
-    campaign_id: UUID
+class KsoPlacementResponse(BaseModel):
+    """Safe read-only view of a KsoPlacement.
+
+    Never exposes: id, created_by, campaign_id, creative_id, device_id,
+    store_id, file_path, sha256, storage_ref, minio, backend_url, tokens.
+    """
+    placement_code: str
+    campaign_code: str
+    creative_code: str
+    device_code: str
     status: str
-    created_by: UUID
-    generated_by: Optional[UUID] = None
-    generated_at: Optional[datetime] = None
-    approved_by: Optional[UUID] = None
-    approved_at: Optional[datetime] = None
-    comment: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
+    starts_at: datetime
+    ends_at: datetime
+    slot_order: int
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
-
-
-# ═══════════════════════════════════════════════════════════════════════
-#  Schedule Item
-# ═══════════════════════════════════════════════════════════════════════
-
-
-class ScheduleItemResponse(BaseModel):
-    id: UUID
-    schedule_run_id: UUID
-    booking_item_id: UUID
-    inventory_unit_id: UUID
-    campaign_id: UUID
-    campaign_rendition_id: UUID
-    rendition_id: UUID
-    date: date
-    time_from: time
-    time_to: time
-    loop_position: int
-    spot_position: int
-    spot_duration_seconds: int
-    priority: int = 0
-    weight: int = 1
-    status: str = "active"
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-# ═══════════════════════════════════════════════════════════════════════
-#  Schedule Conflict
-# ═══════════════════════════════════════════════════════════════════════
-
-
-class ScheduleConflictResponse(BaseModel):
-    id: UUID
-    schedule_run_id: UUID
-    inventory_unit_id: Optional[UUID] = None
-    booking_item_id: Optional[UUID] = None
-    conflict_type: str
-    severity: str
-    message: str
-    details_json: dict = Field(default_factory=dict)
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-# ═══════════════════════════════════════════════════════════════════════
-#  Availability / Query params
-# ═══════════════════════════════════════════════════════════════════════
-
-
-class ScheduleItemFilter(BaseModel):
-    """Filters for listing schedule items."""
-
-    date_from: Optional[date] = None
-    date_to: Optional[date] = None
-    inventory_unit_id: Optional[UUID] = None
-    campaign_id: Optional[UUID] = None

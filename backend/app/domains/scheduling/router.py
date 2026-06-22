@@ -1,151 +1,67 @@
-"""Scheduling Core: FastAPI router — 9 endpoints."""
+"""Scheduling domain: FastAPI router (Step 37.5).
 
-from datetime import date
-from typing import Optional
-from uuid import UUID
+Test KSO vertical slice — minimal placement/schedule endpoints.
+Safe projection: NO raw UUIDs, commercial fields, or secrets.
+"""
 
 from fastapi import APIRouter, Depends, Query
-from fastapi import status as http_status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_db, require_permission
-from app.domains.identity.models import User
+from app.core.deps import get_db, require_permission
+from app.domains.identity import models as identity_models
 from app.domains.scheduling import schemas, service
 
-router = APIRouter(prefix="/api", tags=["scheduling"])
+router = APIRouter(prefix="/api/schedule", tags=["scheduling"])
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Schedule Runs
-# ═══════════════════════════════════════════════════════════════════
+@router.get(
+    "/test-kso",
+    response_model=list[schemas.KsoPlacementResponse],
+)
+async def list_placements(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("scheduling.read")),
+):
+    """List placements for test KSO vertical slice (safe projection).
+
+    Response: placement_code, campaign_code, creative_code, device_code,
+    status, starts_at, ends_at, slot_order, created_at, updated_at.
+    NO raw UUIDs, file_path, sha256, storage_ref, minio, backend_url, tokens.
+    """
+    return await service.list_placements(db, skip, limit)
 
 
 @router.post(
-    "/schedule-runs",
-    response_model=schemas.ScheduleRunResponse,
-    status_code=http_status.HTTP_201_CREATED,
+    "/test-kso",
+    response_model=schemas.KsoPlacementResponse,
+    status_code=201,
 )
-async def create_schedule_run(
-    data: schemas.ScheduleRunCreate,
-    db=Depends(get_db),
-    current_user: User = Depends(require_permission("scheduling.manage")),
+async def create_placement(
+    data: schemas.KsoPlacementCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(
+        require_permission("scheduling.manage")
+    ),
 ):
-    return await service.create_schedule_run(db, data, current_user.id)
+    """Create a placement for test KSO technical validation.
+
+    Links campaign_code → creative_code → device_code in a time window.
+    Validates: campaign exists, creative linked to campaign, device exists,
+    no overlapping placements on same device.  Returns safe fields only.
+    """
+    return await service.create_placement(db, data, current_user.id)
 
 
 @router.get(
-    "/schedule-runs",
-    response_model=list[schemas.ScheduleRunResponse],
+    "/test-kso/{placement_code}",
+    response_model=schemas.KsoPlacementResponse,
 )
-async def list_schedule_runs(
-    booking_id: Optional[UUID] = Query(None),
-    campaign_id: Optional[UUID] = Query(None),
-    status: Optional[str] = Query(None),
-    db=Depends(get_db),
-    current_user: User = Depends(require_permission("scheduling.read")),
+async def get_placement(
+    placement_code: str,
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("scheduling.read")),
 ):
-    return await service.list_schedule_runs(db, booking_id, campaign_id, status)
-
-
-@router.get(
-    "/schedule-runs/{run_id}",
-    response_model=schemas.ScheduleRunResponse,
-)
-async def get_schedule_run(
-    run_id: UUID,
-    db=Depends(get_db),
-    current_user: User = Depends(require_permission("scheduling.read")),
-):
-    return await service.get_schedule_run(db, run_id)
-
-
-@router.post(
-    "/schedule-runs/{run_id}/generate",
-    response_model=schemas.ScheduleRunResponse,
-)
-async def generate_schedule_run(
-    run_id: UUID,
-    db=Depends(get_db),
-    current_user: User = Depends(require_permission("scheduling.manage")),
-):
-    return await service.generate_schedule(db, run_id, current_user.id)
-
-
-@router.post(
-    "/schedule-runs/{run_id}/approve",
-    response_model=schemas.ScheduleRunResponse,
-)
-async def approve_schedule_run(
-    run_id: UUID,
-    db=Depends(get_db),
-    current_user: User = Depends(require_permission("scheduling.approve")),
-):
-    return await service.approve_schedule_run(db, run_id, current_user.id)
-
-
-@router.post(
-    "/schedule-runs/{run_id}/cancel",
-    response_model=schemas.ScheduleRunResponse,
-)
-async def cancel_schedule_run(
-    run_id: UUID,
-    db=Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Cancel a schedule run. Approved runs require scheduling.approve."""
-    user_perms = set(current_user.permissions)
-    return await service.cancel_schedule_run(db, run_id, current_user.id, user_perms)
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Schedule Items
-# ═══════════════════════════════════════════════════════════════════
-
-
-@router.get(
-    "/schedule-runs/{run_id}/items",
-    response_model=list[schemas.ScheduleItemResponse],
-)
-async def list_schedule_run_items(
-    run_id: UUID,
-    db=Depends(get_db),
-    current_user: User = Depends(require_permission("scheduling.read")),
-):
-    return await service.list_schedule_items(db, run_id=run_id)
-
-
-@router.get(
-    "/schedule-items",
-    response_model=list[schemas.ScheduleItemResponse],
-)
-async def list_schedule_items(
-    date_from: Optional[date] = Query(None),
-    date_to: Optional[date] = Query(None),
-    inventory_unit_id: Optional[UUID] = Query(None),
-    campaign_id: Optional[UUID] = Query(None),
-    db=Depends(get_db),
-    current_user: User = Depends(require_permission("scheduling.read")),
-):
-    return await service.list_schedule_items(
-        db,
-        date_from=date_from,
-        date_to=date_to,
-        inventory_unit_id=inventory_unit_id,
-        campaign_id=campaign_id,
-    )
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Schedule Conflicts
-# ═══════════════════════════════════════════════════════════════════
-
-
-@router.get(
-    "/schedule-runs/{run_id}/conflicts",
-    response_model=list[schemas.ScheduleConflictResponse],
-)
-async def list_schedule_conflicts(
-    run_id: UUID,
-    db=Depends(get_db),
-    current_user: User = Depends(require_permission("scheduling.read")),
-):
-    return await service.list_schedule_conflicts(db, run_id)
+    """Get a single placement by code (safe projection)."""
+    return await service.get_placement(db, placement_code)

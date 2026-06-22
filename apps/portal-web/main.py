@@ -110,9 +110,6 @@ app.add_api_route("/", _page("pages/dashboard.html", "Dashboard", "dashboard",
 app.add_api_route("/dashboard", _page("pages/dashboard.html", "Dashboard", "dashboard",
                                       get_dashboard_data()),
                   methods=["GET"], response_class=HTMLResponse)
-app.add_api_route("/schedule", _page("pages/schedule.html", "Расписание", "schedule",
-                                     {"schedules": get_schedules_data()}),
-                  methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/publications", _page("pages/publications.html", "Публикации", "publications",
                                          {"publications": get_publications_data()}),
                   methods=["GET"], response_class=HTMLResponse)
@@ -482,6 +479,126 @@ def _campaigns_fallback(request: Request, current_user) -> HTMLResponse:
         "demo": False,
         "current_user": current_user,
         "campaigns": [],
+        "backend_unavailable": True,
+        "backend_message": "Данные временно недоступны. Попробуйте позже.",
+    })
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Schedule — Backend API Integration (Step 37.5)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/schedule", response_class=HTMLResponse)
+async def schedule_page(request: Request):
+    """Schedule page: list placements from backend + create form (Step 37.5)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/schedule")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    if not access_token:
+        return _schedule_fallback(request, current_user)
+
+    result = await backend.list_placements(access_token)
+    if not result["ok"]:
+        return _schedule_fallback(request, current_user)
+
+    placements = result.get("data", [])
+    safe_rows = []
+    for p in placements:
+        safe_rows.append({
+            "placement_code": p.get("placement_code", ""),
+            "campaign_code": p.get("campaign_code", ""),
+            "creative_code": p.get("creative_code", ""),
+            "device_code": p.get("device_code", ""),
+            "status": p.get("status", "—"),
+            "starts_at": _fmt_dt(p.get("starts_at")),
+            "ends_at": _fmt_dt(p.get("ends_at")),
+            "slot_order": p.get("slot_order", 0),
+            "created_at": _fmt_dt(p.get("created_at")),
+        })
+
+    flash_type = ""
+    flash_msg = ""
+    raw = request.session.pop("schedule_flash", "")
+    if raw == "ok:created":
+        flash_type = "success"
+        flash_msg = "Размещение успешно создано."
+    elif raw == "error":
+        flash_type = "error"
+        flash_msg = request.session.pop("schedule_flash_msg", "Ошибка создания размещения.")
+
+    return templates.TemplateResponse(request, "pages/schedule.html", {
+        "request": request,
+        "title": "Расписание",
+        "active": "schedule",
+        "demo": False,
+        "current_user": current_user,
+        "placements": safe_rows,
+        "flash_type": flash_type,
+        "flash_msg": flash_msg,
+    })
+
+
+@app.post("/schedule/create", response_class=HTMLResponse)
+async def schedule_create(
+    request: Request,
+    placement_code: str = Form(..., min_length=3, max_length=64),
+    campaign_code: str = Form(..., min_length=1, max_length=64),
+    creative_code: str = Form(..., min_length=1, max_length=64),
+    device_code: str = Form(..., min_length=1, max_length=64),
+    starts_at: str = Form(..., min_length=10, max_length=25),
+    ends_at: str = Form(..., min_length=10, max_length=25),
+    slot_order: str = Form("0"),
+):
+    """Handle placement create — POST /schedule/create → backend (Step 37.5)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/schedule")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+
+    if not access_token:
+        request.session["schedule_flash"] = "error"
+        request.session["schedule_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/schedule", status_code=303)
+
+    payload = {
+        "placement_code": placement_code.strip(),
+        "campaign_code": campaign_code.strip(),
+        "creative_code": creative_code.strip(),
+        "device_code": device_code.strip(),
+        "starts_at": starts_at.strip(),
+        "ends_at": ends_at.strip(),
+        "slot_order": int(slot_order.strip() or "0"),
+    }
+
+    backend = BackendClient()
+    result = await backend.create_placement(access_token, payload)
+
+    if result["ok"]:
+        request.session["schedule_flash"] = "ok:created"
+    else:
+        request.session["schedule_flash"] = "error"
+        request.session["schedule_flash_msg"] = result.get("error", "Ошибка создания")[:200]
+
+    return RedirectResponse(url="/schedule", status_code=303)
+
+
+def _schedule_fallback(request: Request, current_user) -> HTMLResponse:
+    return templates.TemplateResponse(request, "pages/schedule.html", {
+        "request": request,
+        "title": "Расписание",
+        "active": "schedule",
+        "demo": False,
+        "current_user": current_user,
+        "placements": [],
         "backend_unavailable": True,
         "backend_message": "Данные временно недоступны. Попробуйте позже.",
     })

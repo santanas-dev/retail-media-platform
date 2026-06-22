@@ -355,6 +355,23 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Schedule Placement (Step 37.5) ─────────────────────────────────
+
+    async def list_placements(self, access_token: str) -> dict:
+        """GET /api/schedule/test-kso → {ok, data: [{placement_code, ...}]}"""
+        return await self._request(
+            "GET", "/api/schedule/test-kso",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def create_placement(self, access_token: str, payload: dict) -> dict:
+        """POST /api/schedule/test-kso → {ok, data: {placement_code, ...}}"""
+        return await self._request(
+            "POST", "/api/schedule/test-kso",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 

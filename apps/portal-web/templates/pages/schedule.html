@@ -1,134 +1,115 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Расписание</h1>
-<p class="page-description">Планирование эфирного времени КСО — периоды, слоты, проверка конфликтов и подготовка публикации manifest.</p>
+<p class="page-description">Размещение кампаний на КСО — назначение креатива на устройство с временным окном. Test KSO technical validation.</p>
 
-<!-- Summary Cards -->
-<div class="cards">
-  <div class="card">
-    <div class="card-title">Запланировано кампаний</div>
-    <div class="card-value">{{ schedules|length if demo else "—" }}</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Активных периодов</div>
-    <div class="card-value">2</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Занято эфирного времени</div>
-    <div class="card-value">75%</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Свободно эфирного времени</div>
-    <div class="card-value">25%</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Конфликты расписания</div>
-    <div class="card-value">0</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Готово к публикации</div>
-    <div class="card-value">1</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
+<!-- Flash Messages -->
+{% if flash_msg %}
+<div class="flash-message flash-{{ flash_type }}">{{ flash_msg }}</div>
+{% endif %}
+
+<!-- Create Placement Form -->
+<div class="form-section">
+  <div class="form-title">Создать размещение</div>
+  <form method="post" action="/schedule/create" class="create-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="placement_code">Код размещения*</label>
+        <input type="text" id="placement_code" name="placement_code"
+               placeholder="demo_placement_001" minlength="3" maxlength="64"
+               pattern="[a-z0-9_-]+" required>
+        <span class="form-hint">Строчные латинские буквы, цифры, дефис, подчёркивание. 3–64.</span>
+      </div>
+      <div class="form-group">
+        <label for="campaign_code">Код кампании*</label>
+        <input type="text" id="campaign_code" name="campaign_code"
+               placeholder="demo_campaign_001" minlength="1" maxlength="64" required>
+        <span class="form-hint">campaign_code существующей кампании.</span>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="creative_code">Код креатива*</label>
+        <input type="text" id="creative_code" name="creative_code"
+               placeholder="demo_creative_001" minlength="1" maxlength="64" required>
+        <span class="form-hint">creative_code креатива, привязанного к кампании.</span>
+      </div>
+      <div class="form-group">
+        <label for="device_code">Код КСО*</label>
+        <input type="text" id="device_code" name="device_code"
+               placeholder="demo_kso_001" minlength="1" maxlength="64" required>
+        <span class="form-hint">device_code существующего КСО устройства.</span>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="starts_at">Начало*</label>
+        <input type="text" id="starts_at" name="starts_at"
+               placeholder="2026-01-01T09:00:00Z" minlength="10" maxlength="25" required>
+        <span class="form-hint">ISO 8601: YYYY-MM-DDTHH:MM:SSZ</span>
+      </div>
+      <div class="form-group">
+        <label for="ends_at">Окончание*</label>
+        <input type="text" id="ends_at" name="ends_at"
+               placeholder="2026-01-01T21:00:00Z" minlength="10" maxlength="25" required>
+        <span class="form-hint">ISO 8601: YYYY-MM-DDTHH:MM:SSZ. Должно быть строго после начала.</span>
+      </div>
+      <div class="form-group">
+        <label for="slot_order">Порядок слота</label>
+        <input type="number" id="slot_order" name="slot_order"
+               value="0" min="0" max="99">
+      </div>
+    </div>
+    <button type="submit" class="btn-primary">Создать размещение</button>
+  </form>
 </div>
 
-<!-- Planning / Capacity Block -->
-<div class="requirements-box">
-  <div class="requirements-title">Планирование эфирного времени</div>
-  <div class="requirements-grid">
-    <div class="requirements-item">
-      <span class="requirements-label">Период кампании</span>
-      <span class="requirements-value">Дата начала — дата окончания</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Слот показа</span>
-      <span class="requirements-value">Временной интервал в рамках периода</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Длительность креатива</span>
-      <span class="requirements-value">Секунды / циклы показа</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Магазины / КСО</span>
-      <span class="requirements-value">Список целевых точек размещения</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Проверка конфликтов</span>
-      <span class="requirements-value">Пересечение слотов и занятость</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Публикация</span>
-      <span class="requirements-value">Подготовка и отправка manifest</span>
-    </div>
-  </div>
+<!-- Backend Unavailable -->
+{% if backend_unavailable %}
+<div class="note-box warning">
+  <span class="note-icon">⚠️</span>
+  <span class="note-text">{{ backend_message }}</span>
 </div>
+{% endif %}
 
-<!-- Filters Toolbar -->
-<div class="filter-toolbar">
-  <div class="filter-group">
-    <label class="filter-label">Период</label>
-    <select class="filter-select" disabled><option>Все периоды</option><option>Текущие</option><option>Будущие</option><option>Прошедшие</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Кампания</label>
-    <select class="filter-select" disabled><option>Все кампании</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Филиал / магазин</label>
-    <select class="filter-select" disabled><option>Все магазины</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">КСО</label>
-    <select class="filter-select" disabled><option>Все КСО</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Статус публикации</label>
-    <select class="filter-select" disabled><option>Все статусы</option><option>Запланировано</option><option>Готово</option><option>Опубликовано</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Занятость эфирного времени</label>
-    <select class="filter-select" disabled><option>Все</option><option>Свободно</option><option>Частично занято</option><option>Полностью занято</option><option>Конфликт</option></select>
-  </div>
-</div>
-
-<!-- Schedule Table -->
+<!-- Placements Table — Safe Fields Only -->
 <div class="table-container">
 <table class="data-table">
   <thead>
     <tr>
-      <th>Период</th><th>Кампания</th><th>Креативы</th><th>Магазины / КСО</th>
-      <th>Слот</th><th>Длительность</th><th>Занятость</th>
-      <th>Публикация</th><th>Конфликты</th><th>Действия</th>
+      <th>Код</th>
+      <th>Кампания</th>
+      <th>Креатив</th>
+      <th>КСО</th>
+      <th>Статус</th>
+      <th>Начало</th>
+      <th>Окончание</th>
+      <th>Слот</th>
+      <th>Создано</th>
     </tr>
   </thead>
   <tbody>
-  {% if demo and schedules %}
-  {% for s in schedules %}
+  {% if placements %}
+  {% for p in placements %}
     <tr>
-      <td>{{ s.period }}</td>
-      <td>{{ s.campaign }}</td>
-      <td>{{ s.creatives }}</td>
-      <td>{{ s.stores }}</td>
-      <td>{{ s.slot }}</td>
-      <td>{{ s.duration }}</td>
-      <td>{{ s.occupancy }}</td>
-      <td><span class="badge badge-{{ 'published' if s.publication == 'Опубликовано' else 'ready' if s.publication == 'Готово' else 'draft' }}"></span> {{ s.publication }}</td>
-      <td>{{ s.conflicts }}</td>
-      <td><span class="action-link">—</span></td>
+      <td><code>{{ p.placement_code }}</code></td>
+      <td>{{ p.campaign_code }}</td>
+      <td>{{ p.creative_code }}</td>
+      <td>{{ p.device_code }}</td>
+      <td><span class="badge badge-{{ 'draft' if p.status == 'draft' else 'ready' if p.status == 'ready' else '' }}"></span> {{ p.status }}</td>
+      <td>{{ p.starts_at }}</td>
+      <td>{{ p.ends_at }}</td>
+      <td>{{ p.slot_order }}</td>
+      <td>{{ p.created_at }}</td>
     </tr>
   {% endfor %}
   {% else %}
     <tr class="empty-row">
-      <td colspan="10">
+      <td colspan="9">
         <div class="table-empty-state">
           <div class="table-empty-icon">🗓</div>
-          <div class="table-empty-title">Пока нет расписания</div>
-          <div class="table-empty-text">После создания кампаний здесь появятся периоды размещения, слоты и готовность публикации на КСО.</div>
+          <div class="table-empty-title">Пока нет размещений</div>
+          <div class="table-empty-text">Создайте размещение через форму выше, чтобы назначить кампанию и креатив на КСО устройство.</div>
         </div>
       </td>
     </tr>
@@ -137,27 +118,13 @@
 </table>
 </div>
 
-<!-- Status Legend -->
-<div class="legend">
-  <span class="legend-title">Статус:</span>
-  <span class="legend-item"><span class="badge badge-scheduled"></span> Запланировано</span>
-  <span class="legend-item"><span class="badge badge-ready"></span> Готово</span>
-  <span class="legend-item"><span class="badge badge-published"></span> Опубликовано</span>
-  <span class="legend-item"><span class="badge badge-conflict"></span> Конфликт</span>
-  <span class="legend-item"><span class="badge badge-error"></span> Ошибка</span>
-</div>
-
-<!-- Notes -->
+<!-- Safe Projection Notes -->
 <div class="note-box">
-  <span class="note-icon">ℹ️</span>
-  <span class="note-text">Расписание связывает <strong>кампанию</strong>, <strong>креативы</strong>, <strong>магазины/КСО</strong> и будущую публикацию <strong>manifest</strong>.</span>
+  <span class="note-icon">🔒</span>
+  <span class="note-text">Безопасная проекция: отображаются только placement_code, campaign_code, creative_code, device_code, статус, временное окно, slot_order и даты. Внутренние идентификаторы, коммерческие поля и пути к файлам не отображаются.</span>
 </div>
 <div class="note-box">
-  <span class="note-icon">📊</span>
-  <span class="note-text">Расчёт занятости эфирного времени и проверка конфликтов будет выполняться backend-логикой в следующих шагах. План/факт и детализация — в BI-отчётах с выгрузкой в Excel.</span>
-</div>
-<div class="note-box">
-  <span class="note-icon">✅</span>
-  <span class="note-text">Публикация расписания на КСО требует прохождения <strong>согласования</strong>. Статус согласования доступен в разделе «Согласования».</span>
+  <span class="note-icon">🧪</span>
+  <span class="note-text">Test KSO technical validation: временный test-kso endpoint для размещения кампания→креатив→КСО. Согласование, публикация и manifest — в следующих шагах.</span>
 </div>
 {% endblock %}
