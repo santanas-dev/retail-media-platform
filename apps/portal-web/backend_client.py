@@ -201,6 +201,24 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    async def assign_user_rls_scopes(
+        self, access_token: str, username: str, scopes: list[dict],
+    ) -> dict:
+        """Assign RLS scopes to a user via backend API.
+
+        PATCH /api/users/{username}/rls-scopes
+        Payload: {"scopes": [{"scope_type": "...", "scope_value": "...",
+                                "is_active": true, "reason": "..."}]}
+
+        Replaces ALL existing scopes for the user.
+        Returns {ok, data: {username, ...}} or error.
+        """
+        return await self._request(
+            "PATCH", f"/api/users/{username}/rls-scopes",
+            json_data={"scopes": scopes},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 

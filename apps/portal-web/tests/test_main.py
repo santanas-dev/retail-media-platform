@@ -2602,5 +2602,145 @@ class TestAssignRolesNoLocalStorage(unittest.TestCase):
                              f"Admin must NOT reference CDN '{cdn}'")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Admin Assign RLS Scopes Tests (Step 36.10)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestAdminAssignRlsScopesForm(unittest.TestCase):
+    """Admin page has assign RLS scopes form (server-side POST)."""
+
+    def setUp(self):
+        from main import app
+        from starlette.testclient import TestClient
+        self.client = TestClient(app)
+
+    def test_admin_page_has_assign_rls_form(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Назначить область", resp.text)
+        self.assertIn('action="/admin/users/assign-rls-scopes"', resp.text)
+        self.assertIn('method="post"', resp.text.lower())
+
+    def test_assign_rls_form_has_username_field(self):
+        resp = self.client.get("/admin")
+        self.assertIn('name="username"', resp.text)
+
+    def test_assign_rls_form_has_textarea(self):
+        resp = self.client.get("/admin")
+        self.assertIn('name="rls_scopes_text"', resp.text)
+        self.assertIn("<textarea", resp.text.lower())
+
+    def test_assign_rls_form_lists_7_allowed_scope_types(self):
+        resp = self.client.get("/admin")
+        for scope in ("advertiser_scope", "branch_scope", "store_scope",
+                       "campaign_scope", "device_scope",
+                       "approval_scope", "report_scope"):
+            self.assertIn(scope, resp.text,
+                          f"RLS form must list '{scope}'")
+
+    def test_assign_rls_form_warns_about_replace(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Заменяет", resp.text)
+
+    def test_assign_rls_form_excludes_email_phone(self):
+        resp = self.client.get("/admin")
+        self.assertNotIn('name="email"', resp.text.lower())
+        self.assertNotIn('name="phone"', resp.text.lower())
+
+    def test_assign_rls_form_is_server_side_post(self):
+        resp = self.client.get("/admin")
+        lower = resp.text.lower()
+        self.assertNotIn("fetch(", lower)
+        self.assertNotIn("axios", lower)
+
+    def test_block_button_still_disabled(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Заблокировать", resp.text)
+        self.assertIn("btn-disabled", resp.text)
+
+    def test_archive_button_still_disabled(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Архивировать", resp.text)
+
+    def test_create_user_remains_active(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Создать пользователя", resp.text)
+        self.assertIn('action="/admin/users/create"', resp.text)
+
+    def test_assign_roles_remains_active(self):
+        resp = self.client.get("/admin")
+        self.assertIn('action="/admin/users/assign-roles"', resp.text)
+
+
+class TestAdminAssignRlsScopesRBAC(unittest.TestCase):
+    """Assign RLS scopes requires roles.manage."""
+
+    def test_backend_client_has_assign_user_rls_scopes(self):
+        from backend_client import BackendClient
+        self.assertTrue(hasattr(BackendClient, "assign_user_rls_scopes"))
+        self.assertTrue(callable(BackendClient.assign_user_rls_scopes))
+
+    def test_assign_rls_route_requires_auth(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.post("/admin/users/assign-rls-scopes", data={
+            "username": "testuser",
+            "rls_scopes_text": "branch_scope:test",
+        }, follow_redirects=False)
+        self.assertIn(resp.status_code, (303, 403, 401))
+
+    def test_password_not_rendered_in_admin_html(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        for fb in ("password_hash", "token_hash", "access_token",
+                    "refresh_token", "bearer ", "authorization:"):
+            self.assertNotIn(fb, lower,
+                             f"Admin HTML must NOT contain '{fb}'")
+
+    def test_backend_url_not_in_admin_html(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        self.assertNotIn("localhost:8001", lower)
+        self.assertNotIn("PORTAL_BACKEND", lower)
+
+    def test_allowed_rls_scope_types_count(self):
+        from main import ALLOWED_RLS_SCOPE_TYPES
+        self.assertEqual(len(ALLOWED_RLS_SCOPE_TYPES), 7)
+        for scope in ("advertiser_scope", "branch_scope", "store_scope",
+                       "campaign_scope", "device_scope",
+                       "approval_scope", "report_scope"):
+            self.assertIn(scope, ALLOWED_RLS_SCOPE_TYPES)
+
+
+class TestAssignRlsScopesNoLocalStorage(unittest.TestCase):
+    """No localStorage/sessionStorage, no external CDN."""
+
+    def test_admin_page_no_localstorage(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        self.assertNotIn("localstorage", lower)
+        self.assertNotIn("sessionstorage", lower)
+
+    def test_admin_page_no_external_cdn(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        for cdn in ("cdn.", "cloudflare", "googleapis", "jsdelivr",
+                     "unpkg", "fontawesome", "bootstrapcdn"):
+            self.assertNotIn(cdn, lower,
+                             f"Admin must NOT reference CDN '{cdn}'")
+
+
 if __name__ == "__main__":
     unittest.main()

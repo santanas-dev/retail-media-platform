@@ -182,6 +182,9 @@ async def admin_page(request: Request):
     elif raw == "ok:roles_assigned":
         flash_type = "success"
         flash_msg = "Роли пользователя обновлены."
+    elif raw == "ok:rls_scopes_assigned":
+        flash_type = "success"
+        flash_msg = "Области доступа пользователя обновлены."
     elif raw == "error":
         flash_type = "error"
         flash_msg = request.session.pop("admin_flash_msg", "Ошибка при создании пользователя.")
@@ -411,6 +414,162 @@ async def admin_assign_roles(
         request.session["admin_flash"] = "ok:roles_assigned"
     else:
         error = result.get("error", "Не удалось обновить роли пользователя.")
+        if len(error) > 200:
+            error = error[:200]
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = error
+
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Admin Actions — Assign RLS Scopes (Step 36.10)
+# ══════════════════════════════════════════════════════════════════════
+
+# Allowed RLS scope types (mirrors backend ALLOWED_RLS_SCOPE_TYPES).
+ALLOWED_RLS_SCOPE_TYPES = frozenset({
+    "advertiser_scope", "branch_scope", "store_scope",
+    "campaign_scope", "device_scope", "approval_scope", "report_scope",
+})
+
+# Safe characters for scope_value: letters, digits, underscore, dash, colon, dot.
+import re as _re
+_SCOPE_VALUE_RE = _re.compile(r"^[a-zA-Z0-9_\-.:]+$")
+
+# Patterns that look like email or phone — reject.
+_SCOPE_VALUE_BAD_RE = _re.compile(r"@|\+?\d{7,}")
+
+
+@app.post("/admin/users/assign-rls-scopes", response_class=HTMLResponse)
+async def admin_assign_rls_scopes(
+    request: Request,
+    username: str = Form(..., min_length=1, max_length=100),
+    rls_scopes_text: str = Form("", max_length=5000),
+):
+    """Assign RLS scopes to a user via backend API.
+
+    Flow:
+    1. RBAC: require roles.manage permission
+    2. Validate username
+    3. Parse textarea lines (scope_type:scope_value)
+    4. Validate scope_type against ALLOWED_RLS_SCOPE_TYPES
+    5. Validate scope_value (safe chars, no email/phone patterns)
+    6. Call BackendClient.assign_user_rls_scopes()
+    7. Redirect to /admin with success/error via session flash
+
+    Format: one scope per line, "scope_type:scope_value"
+    Example: branch_scope:demo_branch_north
+    """
+    # RBAC guard
+    guard = await require_portal_permission(request, "roles.manage")
+    if guard is not None:
+        return guard
+
+    # Validate username
+    username = username.strip()
+    if not username:
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = "Имя пользователя не указано."
+        return RedirectResponse(url="/admin", status_code=303)
+
+    # Parse textarea lines
+    raw_lines = rls_scopes_text.strip()
+    if not raw_lines:
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = "Не указаны области доступа."
+        return RedirectResponse(url="/admin", status_code=303)
+
+    scopes: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+
+    for line_num, raw_line in enumerate(raw_lines.splitlines(), 1):
+        line = raw_line.strip()
+        if not line:
+            continue  # skip empty lines
+
+        # Parse scope_type:scope_value
+        if ":" not in line:
+            request.session["admin_flash"] = "error"
+            request.session["admin_flash_msg"] = (
+                f"Строка {line_num}: неверный формат. "
+                f"Ожидается scope_type:scope_value."
+            )
+            return RedirectResponse(url="/admin", status_code=303)
+
+        scope_type, _, scope_value = line.partition(":")
+        scope_type = scope_type.strip()
+        scope_value = scope_value.strip()
+
+        # Validate scope_type
+        if scope_type not in ALLOWED_RLS_SCOPE_TYPES:
+            request.session["admin_flash"] = "error"
+            request.session["admin_flash_msg"] = (
+                f"Строка {line_num}: недопустимый тип области «{scope_type}». "
+                f"Допустимые: {', '.join(sorted(ALLOWED_RLS_SCOPE_TYPES))}."
+            )
+            return RedirectResponse(url="/admin", status_code=303)
+
+        # Validate scope_value
+        if not scope_value:
+            request.session["admin_flash"] = "error"
+            request.session["admin_flash_msg"] = (
+                f"Строка {line_num}: значение области не указано."
+            )
+            return RedirectResponse(url="/admin", status_code=303)
+
+        if len(scope_value) < 1 or len(scope_value) > 128:
+            request.session["admin_flash"] = "error"
+            request.session["admin_flash_msg"] = (
+                f"Строка {line_num}: значение области должно быть 1–128 символов."
+            )
+            return RedirectResponse(url="/admin", status_code=303)
+
+        if not _SCOPE_VALUE_RE.match(scope_value):
+            request.session["admin_flash"] = "error"
+            request.session["admin_flash_msg"] = (
+                f"Строка {line_num}: значение содержит недопустимые символы. "
+                f"Разрешены: буквы, цифры, _, -, :, точка."
+            )
+            return RedirectResponse(url="/admin", status_code=303)
+
+        if _SCOPE_VALUE_BAD_RE.search(scope_value):
+            request.session["admin_flash"] = "error"
+            request.session["admin_flash_msg"] = (
+                f"Строка {line_num}: значение не должно содержать @ или "
+                f"телефонные номера."
+            )
+            return RedirectResponse(url="/admin", status_code=303)
+
+        # Deduplicate
+        dedup_key = (scope_type, scope_value)
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+
+        scopes.append({
+            "scope_type": scope_type,
+            "scope_value": scope_value,
+            "is_active": True,
+        })
+
+    if not scopes:
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = (
+            "Не удалось разобрать ни одной области доступа."
+        )
+        return RedirectResponse(url="/admin", status_code=303)
+
+    # Get access token from server-side store
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+
+    backend = BackendClient()
+    result = await backend.assign_user_rls_scopes(access_token, username, scopes)
+
+    if result["ok"]:
+        request.session["admin_flash"] = "ok:rls_scopes_assigned"
+    else:
+        error = result.get("error", "Не удалось обновить области доступа пользователя.")
         if len(error) > 200:
             error = error[:200]
         request.session["admin_flash"] = "error"
