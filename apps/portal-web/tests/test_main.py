@@ -659,84 +659,37 @@ class TestSchedulePage(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class TestApprovalsPage(unittest.TestCase):
-    """KSO Approval Workflow page — cards, workflow, filters, table, rules, legend."""
+    """KSO Approvals page — forms + safe table (Step 37.6 backend-driven)."""
 
     def setUp(self):
         self.client = TestClient(app)
         resp = self.client.get("/approvals")
         self.html = resp.text
 
-    def test_renders_summary_cards(self):
-        for card in ("На согласовании", "Ожидают моего решения",
-                      "Возвращены на доработку", "Просрочены по SLA",
-                      "Готовы к публикации", "Заблокированы"):
-            self.assertIn(card, self.html,
-                          f"Approvals page must render summary card '{card}'")
+    def test_has_request_form(self):
+        self.assertIn("Запросить согласование", self.html)
+        self.assertIn('action="/approvals/request"', self.html)
+        self.assertIn('<form method="post"', self.html)
 
-    def test_has_workflow_block(self):
-        for step in ("Черновик", "Отправлено на согласование", "На проверке",
-                      "Согласовано", "Готово к публикации",
-                      "Возвращено на доработку"):
-            self.assertIn(step, self.html,
-                          f"Workflow must contain step '{step}'")
+    def test_has_decide_form(self):
+        self.assertIn("Принять решение", self.html)
+        self.assertIn('action="/approvals/decide"', self.html)
 
-    def test_workflow_has_terminal_states(self):
-        for state in ("Отклонено", "Просрочено", "Экстренная остановка",
-                       "Заблокировано ИБ"):
-            self.assertIn(state, self.html,
-                          f"Workflow terminals must contain '{state}'")
+    def test_form_fields_present(self):
+        for field in ("object_type", "object_code", "approval_code", "decision"):
+            self.assertIn(f'id="{field}"', self.html,
+                          f"Form must have field '{field}'")
 
-    def test_has_filters_block(self):
-        for flt in ("Тип объекта", "Статус согласования", "Согласующий",
-                     "Инициатор", "SLA", "Период кампании"):
-            self.assertIn(flt, self.html,
-                          f"Approvals page must have filter '{flt}'")
+    def test_has_safe_notes(self):
+        self.assertIn("Maker-checker", self.html)
+        self.assertIn("Test KSO technical validation", self.html)
 
-    def test_filters_disabled(self):
-        self.assertIn("disabled", self.html)
+    def test_backend_unavailable_fallback(self):
+        self.assertIn("временно недоступны", self.html.lower())
 
-    def test_has_table_structure(self):
-        for col in ("Объект", "Тип", "Статус", "Инициатор",
-                     "Согласующий", "SLA", "Последнее решение",
-                     "Комментарий", "Следующий шаг", "Действия"):
-            self.assertIn(col, self.html,
-                          f"Approvals table must have column '{col}'")
-
-    def test_table_shows_demo_data(self):
-        self.assertIn("Менеджер А", self.html)
-        self.assertIn("Руководитель Б", self.html)
-        self.assertIn("Согласовано", self.html)
-
-    def test_has_approval_rules(self):
-        for rule in ("Нельзя использовать в кампании без согласования",
-                      "Нельзя отправить в публикацию без согласования",
-                      "Нельзя публиковать без согласования",
-                      "Нельзя публиковать на КСО без финального approval",
-                      "Требует причины и попадает в аудит",
-                      "Требует комментария",
-                      "Каждое решение сохраняется в истории"):
-            self.assertIn(rule, self.html,
-                          f"Rules must contain '{rule[:60]}'")
-
-    def test_mentions_covered_objects(self):
-        for obj in ("креативы", "кампании", "расписание", "manifest"):
-            self.assertIn(obj, self.html.lower(),
-                          f"Approvals page must mention '{obj}'")
-
-    def test_mentions_final_approval_required(self):
-        self.assertIn("финального approval", self.html)
-        self.assertIn("невозможна", self.html.lower())
-
-    def test_mentions_bi_reporting(self):
-        self.assertIn("BI-отчётах", self.html)
-        self.assertIn("Excel", self.html)
-
-    def test_has_status_legend(self):
-        for badge in ("На согласовании", "Согласовано", "На доработке",
-                       "Отклонено", "Просрочено", "Заблокировано",
-                       "Нет данных"):
-            self.assertIn(badge, self.html,
-                          f"Legend must contain status '{badge}'")
+    def test_no_js_in_form(self):
+        self.assertNotIn("<script", self.html.lower())
+        self.assertNotIn("onclick", self.html.lower())
 
     def test_no_forbidden_content(self):
         _assert_safe(self, self.html)
@@ -750,23 +703,15 @@ class TestApprovalsPage(unittest.TestCase):
     def test_no_raw_ids_secrets_hashes(self):
         lower = self.html.lower()
         for forbidden in ("device_secret", "access_token", "manifest_hash",
-                           "campaign_id", "creative_id", "backend_url",
+                           "campaign_id", "creative_id",
                            "rendition_id", "store_id", "device_id",
                            "schedule_item_id", "manifest_item_id",
                            "booking_id", "approval_id", "user_id",
                            "storage_key", "minio", "sha256",
                            "file_path", "filename", "email",
-                           "http://", "https://backend"):
-            self.assertNotIn(forbidden, lower,
+                           "http://", "https://backend", "localhost:8001"):
+            self.assertNotIn(forbidden.lower(), lower,
                              f"Approvals page must NOT contain '{forbidden}'")
-
-    def test_status_badge_classes_in_css(self):
-        css = (_PORTAL_DIR / "static" / "styles.css").read_text()
-        for cls_name in (".badge-rejected", ".badge-overdue",
-                          ".badge-blocked", ".badge-review",
-                          ".badge-ready", ".badge-error", ".badge-unknown"):
-            self.assertIn(cls_name, css,
-                          f"CSS must define '{cls_name}'")
 
     def test_approvals_route_returns_200(self):
         resp = self.client.get("/approvals")
@@ -1304,9 +1249,10 @@ class TestDemoData(unittest.TestCase):
         self.assertIn("Подтверждено", resp.text)
 
     def test_approvals_has_demo_data(self):
+        """Approvals page is now backend-driven — forms + safe table, no demo."""
         resp = self.client.get("/approvals")
-        self.assertIn("Менеджер А", resp.text)
-        self.assertIn("Руководитель Б", resp.text)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Запросить согласование", resp.text)
 
     def test_reports_has_demo_kpi(self):
         resp = self.client.get("/reports")
@@ -3214,6 +3160,35 @@ class _FakeBackendClient:
             "updated_at": None,
         }}
 
+    async def list_approvals(self, access_token: str) -> dict:
+        return {"ok": True, "data": []}
+
+    async def request_approval(self, access_token: str, payload: dict) -> dict:
+        return {"ok": True, "data": {
+            "approval_code": f"appr_{payload.get('object_type','x')}_{payload.get('object_code','x')}",
+            "object_type": payload.get("object_type", ""),
+            "object_code": payload.get("object_code", ""),
+            "status": "pending",
+            "decision": None,
+            "comment": payload.get("comment"),
+            "requested_at": "2026-06-22T12:00:00Z",
+            "decided_at": None,
+        }}
+
+    async def decide_approval(
+        self, access_token: str, approval_code: str, payload: dict,
+    ) -> dict:
+        return {"ok": True, "data": {
+            "approval_code": approval_code,
+            "object_type": "placement",
+            "object_code": "test",
+            "status": "approved",
+            "decision": payload.get("decision", "approve"),
+            "comment": payload.get("comment"),
+            "requested_at": "2026-06-22T12:00:00Z",
+            "decided_at": "2026-06-22T13:00:00Z",
+        }}
+
 
 class _FakeBackendClientDown:
     """Fake BackendClient that simulates backend being down."""
@@ -3243,6 +3218,17 @@ class _FakeBackendClientDown:
         return {"ok": False, "error": "Backend unreachable"}
 
     async def create_placement(self, access_token: str, payload: dict) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def list_approvals(self, access_token: str) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def request_approval(self, access_token: str, payload: dict) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def decide_approval(
+        self, access_token: str, approval_code: str, payload: dict,
+    ) -> dict:
         return {"ok": False, "error": "Backend unreachable"}
 
 

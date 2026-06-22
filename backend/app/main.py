@@ -24,6 +24,7 @@ from app.domains.device_gateway.router import admin_router as device_gateway_adm
 from app.domains.device_operations.router import router as device_operations_router
 from app.domains.campaign_reports.router import router as campaign_reports_router
 from app.domains.hierarchy.router import router as hierarchy_router
+from app.domains.approvals.router import router as approvals_router
 
 
 @asynccontextmanager
@@ -64,6 +65,7 @@ app.include_router(device_gateway_device_router)
 app.include_router(device_operations_router)
 app.include_router(campaign_reports_router)
 app.include_router(hierarchy_router)
+app.include_router(approvals_router)
 
 
 @app.get("/health")

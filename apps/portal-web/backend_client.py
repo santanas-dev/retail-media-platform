@@ -372,6 +372,33 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Approval (Step 37.6) ───────────────────────────────────────────
+
+    async def list_approvals(self, access_token: str) -> dict:
+        """GET /api/approvals/test-kso → {ok, data: [{approval_code, ...}]}"""
+        return await self._request(
+            "GET", "/api/approvals/test-kso",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def request_approval(self, access_token: str, payload: dict) -> dict:
+        """POST /api/approvals/test-kso/request → {ok, data: {approval_code, ...}}"""
+        return await self._request(
+            "POST", "/api/approvals/test-kso/request",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def decide_approval(
+        self, access_token: str, approval_code: str, payload: dict,
+    ) -> dict:
+        """POST /api/approvals/test-kso/{code}/decide → {ok, data}"""
+        return await self._request(
+            "POST", f"/api/approvals/test-kso/{approval_code}/decide",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 

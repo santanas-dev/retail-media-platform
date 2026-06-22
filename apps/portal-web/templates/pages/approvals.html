@@ -1,137 +1,117 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Согласования</h1>
-<p class="page-description">Система согласований КСО — креативы, кампании, расписание, публикация manifest. Без финального approval публикация на КСО запрещена.</p>
+<p class="page-description">Минимальный approval gate для test KSO vertical slice. Запрос и принятие решений по кампаниям и размещениям.</p>
 
-<!-- Summary Cards -->
-<div class="cards">
-  <div class="card">
-    <div class="card-title">На согласовании</div>
-    <div class="card-value">{{ approvals|selectattr('status', 'equalto', 'На согласовании')|list|length if demo else "—" }}</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Ожидают моего решения</div>
-    <div class="card-value">—</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Возвращены на доработку</div>
-    <div class="card-value">0</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Просрочены по SLA</div>
-    <div class="card-value">0</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Готовы к публикации</div>
-    <div class="card-value">1</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Заблокированы</div>
-    <div class="card-value">0</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
+<!-- Flash Messages -->
+{% if flash_msg %}
+<div class="flash-message flash-{{ flash_type }}">{{ flash_msg }}</div>
+{% endif %}
+
+<!-- Request Approval Form -->
+<div class="form-section">
+  <div class="form-title">Запросить согласование</div>
+  <form method="post" action="/approvals/request" class="create-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="object_type">Тип объекта*</label>
+        <select id="object_type" name="object_type" required>
+          <option value="campaign">Кампания</option>
+          <option value="placement">Размещение</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="object_code">Код объекта*</label>
+        <input type="text" id="object_code" name="object_code"
+               placeholder="demo_campaign_001" minlength="1" maxlength="64" required>
+        <span class="form-hint">campaign_code или placement_code.</span>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="req_comment">Комментарий</label>
+        <input type="text" id="req_comment" name="comment"
+               placeholder="Ready for technical validation" maxlength="500">
+      </div>
+    </div>
+    <button type="submit" class="btn-primary">Отправить на согласование</button>
+  </form>
 </div>
 
-<!-- Approval Workflow -->
-<div class="requirements-box">
-  <div class="requirements-title">Процесс согласования</div>
-  <div class="lifecycle-flow">
-    <span class="lifecycle-step lifecycle-draft">Черновик</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-review">Отправлено на согласование</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-review">На проверке</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-ready">Согласовано</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-live">Готово к публикации</span>
-  </div>
-  <div class="lifecycle-flow" style="margin-top:8px">
-    <span class="lifecycle-step lifecycle-review">Возвращено на доработку</span>
-    <span class="lifecycle-arrow">↩</span>
-    <span class="lifecycle-step lifecycle-draft">На доработке</span>
-  </div>
-  <div class="lifecycle-terminals">
-    <span class="lifecycle-step lifecycle-error">Отклонено</span>
-    <span class="lifecycle-step lifecycle-stopped">Просрочено</span>
-    <span class="lifecycle-step lifecycle-archived">Экстренная остановка</span>
-    <span class="lifecycle-step lifecycle-archived">Заблокировано ИБ</span>
-  </div>
+<!-- Decide Approval Form -->
+<div class="form-section">
+  <div class="form-title">Принять решение</div>
+  <form method="post" action="/approvals/decide" class="create-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="approval_code">Код согласования*</label>
+        <input type="text" id="approval_code" name="approval_code"
+               placeholder="appr_campaign_demo_campaign_001" minlength="1" maxlength="64" required>
+        <span class="form-hint">approval_code из списка ниже.</span>
+      </div>
+      <div class="form-group">
+        <label for="decision">Решение*</label>
+        <select id="decision" name="decision" required>
+          <option value="approve">Одобрить</option>
+          <option value="reject">Отклонить</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="dec_comment">Комментарий</label>
+        <input type="text" id="dec_comment" name="comment"
+               placeholder="Approved for test KSO" maxlength="500">
+      </div>
+    </div>
+    <button type="submit" class="btn-primary">Принять решение</button>
+  </form>
 </div>
 
-<!-- Filters Toolbar -->
-<div class="filter-toolbar">
-  <div class="filter-group">
-    <label class="filter-label">Тип объекта</label>
-    <select class="filter-select" disabled>
-      <option>Все типы</option><option>Креатив</option><option>Кампания</option><option>Расписание</option><option>Публикация manifest</option>
-    </select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Статус согласования</label>
-    <select class="filter-select" disabled>
-      <option>Все статусы</option><option>На согласовании</option><option>На проверке</option>
-      <option>Согласовано</option><option>Возвращено</option><option>Отклонено</option><option>Просрочено</option>
-    </select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Согласующий</label>
-    <select class="filter-select" disabled><option>Все согласующие</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Инициатор</label>
-    <select class="filter-select" disabled><option>Все инициаторы</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">SLA / срок</label>
-    <select class="filter-select" disabled>
-      <option>Все</option><option>В срок</option><option>Приближается дедлайн</option><option>Просрочено</option>
-    </select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Период кампании</label>
-    <select class="filter-select" disabled><option>Все периоды</option></select>
-  </div>
+<!-- Backend Unavailable -->
+{% if backend_unavailable %}
+<div class="note-box warning">
+  <span class="note-icon">⚠️</span>
+  <span class="note-text">{{ backend_message }}</span>
 </div>
+{% endif %}
 
-<!-- Approval Queue Table -->
+<!-- Safe Fields Only -->
 <div class="table-container">
 <table class="data-table">
   <thead>
     <tr>
-      <th>Объект</th><th>Тип</th><th>Статус</th><th>Инициатор</th>
-      <th>Согласующий</th><th>SLA</th><th>Последнее решение</th>
-      <th>Комментарий</th><th>Следующий шаг</th><th>Действия</th>
+      <th>Код</th>
+      <th>Тип</th>
+      <th>Объект</th>
+      <th>Статус</th>
+      <th>Решение</th>
+      <th>Комментарий</th>
+      <th>Запрошен</th>
+      <th>Решён</th>
     </tr>
   </thead>
   <tbody>
-  {% if demo and approvals %}
+  {% if approvals %}
   {% for a in approvals %}
     <tr>
-      <td>{{ a.obj }}</td>
-      <td>{{ a.atype }}</td>
-      <td><span class="badge badge-{{ 'ready' if a.status == 'Согласовано' else 'review' if a.status == 'На согласовании' or a.status == 'На проверке' else 'rejected' }}"></span> {{ a.status }}</td>
-      <td>{{ a.initiator }}</td>
-      <td>{{ a.approver }}</td>
-      <td>{{ a.sla }}</td>
-      <td>{{ a.last_decision }}</td>
+      <td><code>{{ a.approval_code }}</code></td>
+      <td>{{ a.object_type }}</td>
+      <td>{{ a.object_code }}</td>
+      <td><span class="badge badge-{{ 'draft' if a.status == 'pending' else 'ready' if a.status == 'approved' else 'rejected' }}"></span> {{ a.status }}</td>
+      <td>{{ a.decision }}</td>
       <td>{{ a.comment }}</td>
-      <td>{{ a.next_step }}</td>
-      <td><span class="action-link">—</span></td>
+      <td>{{ a.requested_at }}</td>
+      <td>{{ a.decided_at }}</td>
     </tr>
   {% endfor %}
   {% else %}
     <tr class="empty-row">
-      <td colspan="10">
+      <td colspan="8">
         <div class="table-empty-state">
           <div class="table-empty-icon">📝</div>
-          <div class="table-empty-title">Пока нет объектов на согласовании</div>
-          <div class="table-empty-text">После отправки креативов, кампаний, расписаний или публикаций здесь появится очередь решений.</div>
+          <div class="table-empty-title">Пока нет согласований</div>
+          <div class="table-empty-text">Отправьте объект на согласование через форму выше.</div>
         </div>
       </td>
     </tr>
@@ -140,63 +120,17 @@
 </table>
 </div>
 
-<!-- Approval Rules -->
-<div class="requirements-box">
-  <div class="requirements-title">Правила согласования</div>
-  <div class="requirements-grid">
-    <div class="requirements-item">
-      <span class="requirements-label">Креативы</span>
-      <span class="requirements-value">Нельзя использовать в кампании без согласования</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Кампании</span>
-      <span class="requirements-value">Нельзя отправить в публикацию без согласования</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Расписание</span>
-      <span class="requirements-value">Нельзя публиковать без согласования</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Manifest</span>
-      <span class="requirements-value">Нельзя публиковать на КСО без финального approval</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Экстренная остановка</span>
-      <span class="requirements-value">Требует причины и попадает в аудит</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Возврат на доработку</span>
-      <span class="requirements-value">Требует комментария</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">История решений</span>
-      <span class="requirements-value">Каждое решение сохраняется в истории</span>
-    </div>
-  </div>
-</div>
-
-<!-- Status Legend -->
-<div class="legend">
-  <span class="legend-title">Статус:</span>
-  <span class="legend-item"><span class="badge badge-review"></span> На согласовании</span>
-  <span class="legend-item"><span class="badge badge-ready"></span> Согласовано</span>
-  <span class="legend-item"><span class="badge badge-draft"></span> На доработке</span>
-  <span class="legend-item"><span class="badge badge-rejected"></span> Отклонено</span>
-  <span class="legend-item"><span class="badge badge-overdue"></span> Просрочено</span>
-  <span class="legend-item"><span class="badge badge-blocked"></span> Заблокировано</span>
-</div>
-
-<!-- Notes -->
+<!-- Safe Projection Notes -->
 <div class="note-box">
-  <span class="note-icon">ℹ️</span>
-  <span class="note-text">Система согласований покрывает <strong>креативы</strong>, <strong>кампании</strong>, <strong>расписание</strong>, публикацию <strong>manifest</strong> и экстренную остановку кампании.</span>
+  <span class="note-icon">🔒</span>
+  <span class="note-text">Безопасная проекция: отображаются только approval_code, object_type, object_code, status, decision, comment и даты. Идентификаторы пользователей и системные поля не отображаются.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Публикация на КСО <strong>невозможна без финального approval</strong>. Все решения сохраняются в истории. Статусы согласований будут доступны в BI-отчётах и выгрузках Excel как отдельный фильтр/срез.</span>
+  <span class="note-text">Maker-checker: пользователь не может принять решение по собственному запросу. Публикация на КСО — следующий шаг после approval.</span>
 </div>
 <div class="note-box">
-  <span class="note-icon">🔍</span>
-  <span class="note-text">Согласующий видит только задачи <strong>своего маршрута и scope</strong>. RLS применяется до отображения очереди согласования — пользователь не видит объекты вне своего approval_scope и campaign_scope. Maker-checker: пользователь не может согласовать собственный объект.</span>
+  <span class="note-icon">🧪</span>
+  <span class="note-text">Test KSO technical validation: минимальный approval gate. Маршруты, SLA, уведомления — в следующих итерациях.</span>
 </div>
 {% endblock %}

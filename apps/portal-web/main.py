@@ -126,9 +126,6 @@ app.add_api_route("/deployment", _page("pages/deployment.html", "Развёрт�
 app.add_api_route("/admin", _page("pages/admin.html", "Администрирование", "admin",
                                 {"users": get_users_data()}),
                   methods=["GET"], response_class=HTMLResponse)
-app.add_api_route("/approvals", _page("pages/approvals.html", "Согласования", "approvals",
-                                      {"approvals": get_approvals_data()}),
-                  methods=["GET"], response_class=HTMLResponse)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -599,6 +596,156 @@ def _schedule_fallback(request: Request, current_user) -> HTMLResponse:
         "demo": False,
         "current_user": current_user,
         "placements": [],
+        "backend_unavailable": True,
+        "backend_message": "Данные временно недоступны. Попробуйте позже.",
+    })
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Approvals — Backend API Integration (Step 37.6)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/approvals", response_class=HTMLResponse)
+async def approvals_page(request: Request):
+    """Approvals page: list from backend + request/decide forms (Step 37.6)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/approvals")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    if not access_token:
+        return _approvals_fallback(request, current_user)
+
+    result = await backend.list_approvals(access_token)
+    if not result["ok"]:
+        return _approvals_fallback(request, current_user)
+
+    approvals = result.get("data", [])
+    safe_rows = []
+    for a in approvals:
+        safe_rows.append({
+            "approval_code": a.get("approval_code", ""),
+            "object_type": a.get("object_type", ""),
+            "object_code": a.get("object_code", ""),
+            "status": a.get("status", "—"),
+            "decision": a.get("decision") or "—",
+            "comment": a.get("comment") or "—",
+            "requested_at": _fmt_dt(a.get("requested_at")),
+            "decided_at": _fmt_dt(a.get("decided_at")),
+        })
+
+    flash_type = ""
+    flash_msg = ""
+    raw = request.session.pop("approval_flash", "")
+    if raw == "ok:requested":
+        flash_type = "success"
+        flash_msg = "Запрос на согласование отправлен."
+    elif raw == "ok:decided":
+        flash_type = "success"
+        flash_msg = "Решение по согласованию принято."
+    elif raw == "error":
+        flash_type = "error"
+        flash_msg = request.session.pop("approval_flash_msg", "Ошибка.")
+
+    return templates.TemplateResponse(request, "pages/approvals.html", {
+        "request": request,
+        "title": "Согласования",
+        "active": "approvals",
+        "demo": False,
+        "current_user": current_user,
+        "approvals": safe_rows,
+        "flash_type": flash_type,
+        "flash_msg": flash_msg,
+    })
+
+
+@app.post("/approvals/request", response_class=HTMLResponse)
+async def approvals_request(
+    request: Request,
+    object_type: str = Form(..., min_length=1, max_length=20),
+    object_code: str = Form(..., min_length=1, max_length=64),
+    comment: str = Form("", max_length=500),
+):
+    """Request approval — POST /approvals/request → backend."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/approvals")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["approval_flash"] = "error"
+        request.session["approval_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/approvals", status_code=303)
+
+    payload = {
+        "object_type": object_type.strip(),
+        "object_code": object_code.strip(),
+        "comment": comment.strip() if comment.strip() else None,
+    }
+
+    backend = BackendClient()
+    result = await backend.request_approval(access_token, payload)
+
+    if result["ok"]:
+        request.session["approval_flash"] = "ok:requested"
+    else:
+        request.session["approval_flash"] = "error"
+        request.session["approval_flash_msg"] = result.get("error", "Ошибка")[:200]
+
+    return RedirectResponse(url="/approvals", status_code=303)
+
+
+@app.post("/approvals/decide", response_class=HTMLResponse)
+async def approvals_decide(
+    request: Request,
+    approval_code: str = Form(..., min_length=1, max_length=64),
+    decision: str = Form(..., min_length=1, max_length=20),
+    comment: str = Form("", max_length=500),
+):
+    """Decide approval — POST /approvals/decide → backend."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/approvals")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["approval_flash"] = "error"
+        request.session["approval_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/approvals", status_code=303)
+
+    payload = {
+        "decision": decision.strip(),
+        "comment": comment.strip() if comment.strip() else None,
+    }
+
+    backend = BackendClient()
+    result = await backend.decide_approval(access_token, approval_code.strip(), payload)
+
+    if result["ok"]:
+        request.session["approval_flash"] = "ok:decided"
+    else:
+        request.session["approval_flash"] = "error"
+        request.session["approval_flash_msg"] = result.get("error", "Ошибка")[:200]
+
+    return RedirectResponse(url="/approvals", status_code=303)
+
+
+def _approvals_fallback(request: Request, current_user) -> HTMLResponse:
+    return templates.TemplateResponse(request, "pages/approvals.html", {
+        "request": request,
+        "title": "Согласования",
+        "active": "approvals",
+        "demo": False,
+        "current_user": current_user,
+        "approvals": [],
         "backend_unavailable": True,
         "backend_message": "Данные временно недоступны. Попробуйте позже.",
     })
