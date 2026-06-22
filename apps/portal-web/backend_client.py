@@ -338,6 +338,24 @@ class BackendClient:
         return {"ok": False, "error": detail, "status": resp.status_code}
 
 
+    # ── Campaign Test KSO (Step 37.4) ──────────────────────────────────
+
+    async def list_campaigns(self, access_token: str) -> dict:
+        """GET /api/campaigns/test-kso → {ok, data: [{campaign_code, name, ...}]}"""
+        return await self._request(
+            "GET", "/api/campaigns/test-kso",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def create_campaign(self, access_token: str, payload: dict) -> dict:
+        """POST /api/campaigns/test-kso → {ok, data: {campaign_code, name, ...}}"""
+        return await self._request(
+            "POST", "/api/campaigns/test-kso",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+
 # ── Module-level convenience functions ───────────────────────────────
 
 _client: Optional[BackendClient] = None

@@ -7,9 +7,10 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.domains.campaigns import models, schemas
-from app.domains.advertisers.models import Order, Brand
+from app.domains.advertisers.models import Order, Brand, Advertiser
 from app.domains.media.models import Rendition, CreativeVersion, Creative
 from app.domains.channels.models import Channel, LogicalCarrier, DisplaySurface
 from app.domains.organization.models import Branch, Cluster, Store
@@ -541,3 +542,219 @@ async def set_campaign_renditions(
     db.add_all(new_renditions)
     await db.commit()
     return new_renditions
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Test KSO Vertical Slice — Safe Campaign Create + List (Step 37.4)
+# ═══════════════════════════════════════════════════════════════════════════
+# These are TEMPORARY safe wrappers for the one-KSO technical validation.
+# They create standard Campaigns (no separate business model) using
+# synthetic dev technical context (demo_advertiser_technical, etc.).
+# The test-kso endpoints will be superseded by the full campaign workflow
+# in Phase 5.
+
+# Synthetic technical context codes — only for dev/test FK satisfaction.
+_TECH_ADVERTISER_CODE = "demo_advertiser_technical"
+_TECH_BRAND_CODE = "demo_brand_technical"
+_TECH_ORDER_NUMBER = "demo_order_technical"
+
+# Technical draft window — satisfies Campaign.planned_start_date/end_date
+# constraints but is NOT a real schedule/placement.
+_TECH_DRAFT_START = date(2026, 1, 1)
+_TECH_DRAFT_END = date(2099, 12, 31)
+
+
+async def _ensure_technical_advertiser(db: AsyncSession) -> UUID:
+    """Idempotent: create synthetic advertiser if missing. Returns UUID."""
+    result = await db.execute(
+        select(Advertiser.id).where(Advertiser.name == _TECH_ADVERTISER_CODE)
+    )
+    aid = result.scalar_one_or_none()
+    if aid:
+        return aid
+
+    adv = Advertiser(
+        name=_TECH_ADVERTISER_CODE,
+        legal_name="Technical Advertiser (dev only)",
+        status="active",
+        contacts_json={},
+    )
+    db.add(adv)
+    await db.flush()
+    return adv.id
+
+
+async def _ensure_technical_brand(db: AsyncSession, advertiser_id: UUID) -> UUID:
+    """Idempotent: create synthetic brand. Returns UUID."""
+    result = await db.execute(
+        select(Brand.id).where(
+            Brand.advertiser_id == advertiser_id,
+            Brand.name == _TECH_BRAND_CODE,
+        )
+    )
+    bid = result.scalar_one_or_none()
+    if bid:
+        return bid
+
+    brand = Brand(
+        advertiser_id=advertiser_id,
+        name=_TECH_BRAND_CODE,
+        category="technical",
+        status="active",
+    )
+    db.add(brand)
+    await db.flush()
+    return brand.id
+
+
+async def _ensure_technical_order(
+    db: AsyncSession, advertiser_id: UUID, brand_id: UUID,
+) -> UUID:
+    """Idempotent: create synthetic order. Returns UUID."""
+    result = await db.execute(
+        select(Order.id).where(
+            Order.advertiser_id == advertiser_id,
+            Order.number == _TECH_ORDER_NUMBER,
+        )
+    )
+    oid = result.scalar_one_or_none()
+    if oid:
+        return oid
+
+    order = Order(
+        advertiser_id=advertiser_id,
+        brand_id=brand_id,
+        number=_TECH_ORDER_NUMBER,
+        name="Technical Order (dev only)",
+        status="active",
+        planned_start_date=_TECH_DRAFT_START,
+        planned_end_date=_TECH_DRAFT_END,
+    )
+    db.add(order)
+    await db.flush()
+    return order.id
+
+
+async def _ensure_technical_context(db: AsyncSession) -> tuple[UUID, UUID, UUID]:
+    """Idempotent: return (advertiser_id, brand_id, order_id) for test KSO.
+
+    Creates synthetic dev-only entities if they don't exist.
+    Never uses real advertiser/store/device data.
+    """
+    adv_id = await _ensure_technical_advertiser(db)
+    brand_id = await _ensure_technical_brand(db, adv_id)
+    order_id = await _ensure_technical_order(db, adv_id, brand_id)
+    return adv_id, brand_id, order_id
+
+
+async def create_test_kso_campaign(
+    db: AsyncSession,
+    data: schemas.CampaignTestKsoCreate,
+    user_id: UUID,
+) -> models.Campaign:
+    """Create a standard Campaign for test KSO technical validation.
+
+    Uses synthetic technical context internally — caller never sees
+    advertiser_id, order_id, brand_id UUIDs.  Links creatives by
+    stable creative_code (not raw UUID).
+    """
+    # 1. Ensure technical context
+    adv_id, brand_id, order_id = await _ensure_technical_context(db)
+
+    # 2. Check campaign_code uniqueness
+    existing = await db.execute(
+        select(models.Campaign.id).where(
+            models.Campaign.campaign_code == data.campaign_code,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Campaign code '{data.campaign_code}' already exists",
+        )
+
+    # 3. Validate creative_codes exist
+    creative_result = await db.execute(
+        select(Creative.creative_code).where(
+            Creative.creative_code.in_(data.creative_codes),
+        )
+    )
+    existing_codes = {r[0] for r in creative_result}
+    missing = set(data.creative_codes) - existing_codes
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Creatives not found: {', '.join(sorted(missing))}",
+        )
+
+    # 4. Create standard Campaign
+    campaign = models.Campaign(
+        order_id=order_id,
+        advertiser_id=adv_id,
+        brand_id=brand_id,
+        campaign_code=data.campaign_code,
+        name=data.name,
+        comment=data.description,
+        status="draft",
+        planned_start_date=_TECH_DRAFT_START,
+        planned_end_date=_TECH_DRAFT_END,
+        priority=0,
+        budget=0,
+        currency="RUB",
+        created_by=user_id,
+    )
+    db.add(campaign)
+    await db.flush()
+
+    # 5. Link creatives
+    for idx, cc in enumerate(data.creative_codes):
+        link = models.CampaignCreative(
+            campaign_id=campaign.id,
+            creative_code=cc,
+            slot_order=idx,
+        )
+        db.add(link)
+
+    await db.commit()
+    await db.refresh(campaign)
+    return campaign
+
+
+async def list_test_kso_campaigns(
+    db: AsyncSession,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[dict]:
+    """List campaigns with safe projection — no raw UUIDs.
+
+    Returns list of CampaignSafeResponse-compatible dicts.
+    Only campaigns that have a campaign_code are included (test KSO context).
+    """
+    stmt = (
+        select(models.Campaign)
+        .where(models.Campaign.campaign_code.isnot(None))
+        .options(
+            selectinload(models.Campaign.creatives),
+        )
+        .order_by(models.Campaign.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    campaigns = result.scalars().all()
+
+    safe_list = []
+    for c in campaigns:
+        creative_codes = sorted([
+            cc.creative_code for cc in (c.creatives or [])
+        ])
+        safe_list.append({
+            "campaign_code": c.campaign_code,
+            "name": c.name,
+            "status": c.status,
+            "description": c.comment,
+            "creative_codes": creative_codes,
+            "created_at": c.created_at,
+            "updated_at": c.updated_at,
+        })
+    return safe_list

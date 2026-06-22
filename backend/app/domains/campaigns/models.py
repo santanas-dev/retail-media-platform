@@ -46,6 +46,9 @@ class Campaign(Base):
         ForeignKey("brands.id", ondelete="RESTRICT"),
         nullable=True,
     )
+    campaign_code = Column(
+        String(64), unique=True, nullable=True, index=True,
+    )
     name = Column(String(255), nullable=False)
     objective = Column(String(100))
     status = Column(
@@ -90,6 +93,10 @@ class Campaign(Base):
     )
     renditions = relationship(
         "CampaignRendition", back_populates="campaign", lazy="selectin",
+        cascade="all, delete-orphan",
+    )
+    creatives = relationship(
+        "CampaignCreative", back_populates="campaign", lazy="selectin",
         cascade="all, delete-orphan",
     )
 
@@ -202,3 +209,39 @@ class CampaignRendition(Base):
     )
 
     campaign = relationship("Campaign", back_populates="renditions")
+
+
+class CampaignCreative(Base):
+    """CampaignCreative — link Campaign to Creative via creative_code.
+
+    Test KSO vertical slice: direct campaign→creative link without
+    the full rendition/channel workflow.  Uses creative_code (unique,
+    stable) instead of raw creative UUID for safe API responses.
+    """
+
+    __tablename__ = "campaign_creatives"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    campaign_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("campaigns.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    creative_code = Column(
+        String(64),
+        ForeignKey("creatives.creative_code", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    slot_order = Column(Integer, nullable=False, server_default="0")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("campaign_id", "creative_code", name="uq_campaign_creative"),
+    )
+
+    campaign = relationship("Campaign", back_populates="creatives")

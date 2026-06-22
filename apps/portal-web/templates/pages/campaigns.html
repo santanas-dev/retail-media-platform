@@ -1,131 +1,91 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Кампании</h1>
-<p class="page-description">Управление рекламными кампаниями КСО — от создания до публикации. План/факт по показам и Proof of Play.</p>
+<p class="page-description">Управление рекламными кампаниями — создание и просмотр. Связь с загруженными креативами для test KSO technical validation.</p>
 
-<!-- Summary Cards -->
-<div class="cards">
-  <div class="card">
-    <div class="card-title">Всего кампаний</div>
-    <div class="card-value">{{ campaigns|length if demo else "—" }}</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Активные</div>
-    <div class="card-value">{{ campaigns|selectattr('status', 'equalto', 'В эфире')|list|length if demo else "—" }}</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Черновики</div>
-    <div class="card-value">{{ campaigns|selectattr('status', 'equalto', 'Черновик')|list|length if demo else "—" }}</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">На согласовании</div>
-    <div class="card-value">{{ campaigns|selectattr('status', 'equalto', 'На согласовании')|list|length if demo else "—" }}</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Опубликованы</div>
-    <div class="card-value">—</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Требуют внимания</div>
-    <div class="card-value">—</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
+<!-- Flash Messages -->
+{% if flash_msg %}
+<div class="flash-message flash-{{ flash_type }}">{{ flash_msg }}</div>
+{% endif %}
+
+<!-- Create Campaign Form -->
+<div class="form-section">
+  <div class="form-title">Создать кампанию</div>
+  <form method="post" action="/campaigns/create" class="create-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="campaign_code">Код кампании*</label>
+        <input type="text" id="campaign_code" name="campaign_code"
+               placeholder="demo_campaign_001" minlength="3" maxlength="64"
+               pattern="[a-z0-9_-]+" required>
+        <span class="form-hint">Строчные латинские буквы, цифры, дефис, подчёркивание. 3–64 символа.</span>
+      </div>
+      <div class="form-group">
+        <label for="name">Название*</label>
+        <input type="text" id="name" name="name"
+               placeholder="Demo KSO Campaign" minlength="1" maxlength="255" required>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="description">Описание</label>
+        <input type="text" id="description" name="description"
+               placeholder="Synthetic technical validation campaign" maxlength="500">
+      </div>
+      <div class="form-group">
+        <label for="creative_code">Код креатива*</label>
+        <input type="text" id="creative_code" name="creative_code"
+               placeholder="demo_creative_001" minlength="1" maxlength="64"
+               pattern="[a-z0-9_-]+" required>
+        <span class="form-hint">creative_code ранее загруженного креатива.</span>
+      </div>
+    </div>
+    <button type="submit" class="btn-primary">Создать кампанию</button>
+  </form>
 </div>
 
-<!-- Campaign Lifecycle -->
-<div class="requirements-box">
-  <div class="requirements-title">Жизненный цикл кампании</div>
-  <div class="lifecycle-flow">
-    <span class="lifecycle-step lifecycle-draft">Черновик</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-review">На согласовании</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-ready">Готова к публикации</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-published">Опубликована</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-live">В эфире</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-completed">Завершена</span>
-  </div>
-  <div class="lifecycle-terminals">
-    <span class="lifecycle-step lifecycle-error">Ошибка публикации</span>
-    <span class="lifecycle-step lifecycle-stopped">Остановлена</span>
-    <span class="lifecycle-step lifecycle-archived">Архив</span>
-  </div>
+<!-- Backend Unavailable -->
+{% if backend_unavailable %}
+<div class="note-box warning">
+  <span class="note-icon">⚠️</span>
+  <span class="note-text">{{ backend_message }}</span>
 </div>
+{% endif %}
 
-<!-- Filters Toolbar -->
-<div class="filter-toolbar">
-  <div class="filter-group">
-    <label class="filter-label">Статус кампании</label>
-    <select class="filter-select" disabled>
-      <option>Все статусы</option><option>Черновик</option><option>На согласовании</option>
-      <option>Готова</option><option>Опубликована</option><option>В эфире</option><option>Завершена</option>
-    </select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Период</label>
-    <select class="filter-select" disabled>
-      <option>Все периоды</option><option>Текущие</option><option>Прошедшие</option><option>Планируемые</option>
-    </select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Креатив</label>
-    <select class="filter-select" disabled><option>Все креативы</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Филиал / магазин</label>
-    <select class="filter-select" disabled><option>Все магазины</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Готовность публикации</label>
-    <select class="filter-select" disabled><option>Все</option><option>Готова</option><option>Не готова</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">План / факт</label>
-    <select class="filter-select" disabled><option>Все</option><option>Выполняется</option><option>Отстаёт</option><option>Перевыполняет</option></select>
-  </div>
-</div>
-
-<!-- Campaigns Table -->
+<!-- Safe Fields Only — no raw UUIDs, no order_id, no advertiser_id, no budget -->
 <div class="table-container">
 <table class="data-table">
   <thead>
     <tr>
-      <th>Кампания</th><th>Статус</th><th>Период</th><th>Креативы</th>
-      <th>Магазины / КСО</th><th>Публикация</th><th>Показы план</th>
-      <th>Показы факт</th><th>PoP</th><th>Действия</th>
+      <th>Код</th>
+      <th>Название</th>
+      <th>Статус</th>
+      <th>Описание</th>
+      <th>Креативы</th>
+      <th>Создана</th>
+      <th>Обновлена</th>
     </tr>
   </thead>
   <tbody>
-  {% if demo and campaigns %}
+  {% if campaigns %}
   {% for c in campaigns %}
     <tr>
+      <td><code>{{ c.campaign_code }}</code></td>
       <td>{{ c.name }}</td>
-      <td><span class="badge badge-{{ 'live' if c.status == 'В эфире' else 'draft' if c.status == 'Черновик' else 'review' }}"></span> {{ c.status }}</td>
-      <td>{{ c.period }}</td>
-      <td>{{ c.creatives }}</td>
-      <td>{{ c.stores }}</td>
-      <td>{{ c.publication }}</td>
-      <td>{{ c.shows_plan }}</td>
-      <td>{{ c.shows_fact }}</td>
-      <td>{{ c.pop }}</td>
-      <td><span class="action-link">—</span></td>
+      <td><span class="badge badge-{{ 'draft' if c.status == 'draft' else 'review' if c.status == 'in_review' else 'ready' if c.status == 'approved' else '' }}"></span> {{ c.status }}</td>
+      <td>{{ c.description }}</td>
+      <td>{{ c.creative_codes }}</td>
+      <td>{{ c.created_at }}</td>
+      <td>{{ c.updated_at }}</td>
     </tr>
   {% endfor %}
   {% else %}
     <tr class="empty-row">
-      <td colspan="10">
+      <td colspan="7">
         <div class="table-empty-state">
           <div class="table-empty-icon">📢</div>
           <div class="table-empty-title">Пока нет рекламных кампаний</div>
-          <div class="table-empty-text">После создания кампаний здесь появится их статус, публикация и выполнение по Proof of Play.</div>
+          <div class="table-empty-text">Создайте кампанию через форму выше, чтобы связать её с загруженным креативом.</div>
         </div>
       </td>
     </tr>
@@ -134,29 +94,13 @@
 </table>
 </div>
 
-<!-- Status Legend -->
-<div class="legend">
-  <span class="legend-title">Статус:</span>
-  <span class="legend-item"><span class="badge badge-draft"></span> Черновик</span>
-  <span class="legend-item"><span class="badge badge-review"></span> На согласовании</span>
-  <span class="legend-item"><span class="badge badge-ready"></span> Готова</span>
-  <span class="legend-item"><span class="badge badge-live"></span> В эфире</span>
-  <span class="legend-item"><span class="badge badge-completed"></span> Завершена</span>
-  <span class="legend-item"><span class="badge badge-error"></span> Ошибка</span>
-  <span class="legend-item"><span class="badge badge-archived"></span> Архив</span>
-</div>
-
-<!-- Notes -->
+<!-- Safe Projection Notes -->
 <div class="note-box">
-  <span class="note-icon">ℹ️</span>
-  <span class="note-text">Кампания связывает <strong>креативы</strong>, <strong>магазины/КСО</strong>, <strong>расписание</strong> публикации и будущий отчёт план/факт.</span>
+  <span class="note-icon">🔒</span>
+  <span class="note-text">Безопасная проекция: отображаются только код кампании, название, статус, описание, связанные креативы и даты. Внутренние идентификаторы, коммерческие поля и пути к файлам не отображаются.</span>
 </div>
 <div class="note-box">
-  <span class="note-icon">📊</span>
-  <span class="note-text">Детальная BI-отчётность в стиле Power BI — интерактивные дашборды, фильтры, срезы, drill-down и выгрузка в Excel — будет реализована в отдельном модуле <strong>Reports</strong>.</span>
-</div>
-<div class="note-box">
-  <span class="note-icon">✅</span>
-  <span class="note-text">Публикация кампании на КСО требует прохождения <strong>согласования</strong>. Статус и история согласований доступны в разделе «Согласования».</span>
+  <span class="note-icon">🧪</span>
+  <span class="note-text">Test KSO technical validation: используется временный test-kso endpoint для создания стандартных Campaign через synthetic dev technical context. Расписание, согласование, публикация и manifest — в следующих шагах.</span>
 </div>
 {% endblock %}

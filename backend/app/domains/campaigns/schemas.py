@@ -167,3 +167,46 @@ class CampaignRenditionResponse(BaseModel):
 
 class RejectRequest(BaseModel):
     rejection_reason: str = Field(min_length=1)
+
+
+# ── Test KSO Vertical Slice (Step 37.4) ───────────────────────────────────
+# These are TEMPORARY safe wrappers for the one-KSO technical validation.
+# They create a standard Campaign (no separate business model) but hide
+# raw UUIDs and commercial fields (order_id, advertiser_id, budget, etc.)
+# from API responses.  The test-kso endpoints will be superseded by the
+# full campaign workflow in Phase 5.
+
+CAMPAIGN_CODE_PATTERN = r"^[a-z0-9_-]+$"
+
+
+class CampaignTestKsoCreate(BaseModel):
+    """Minimal input for test KSO technical validation campaign.
+
+    Backend resolves synthetic dev technical context
+    (demo_advertiser_technical, demo_brand_technical, demo_order_technical)
+    internally — caller never sees UUIDs or commercial fields.
+    """
+    campaign_code: str = Field(
+        min_length=3, max_length=64, pattern=CAMPAIGN_CODE_PATTERN,
+    )
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(None, max_length=500)
+    creative_codes: list[str] = Field(min_length=1, max_length=20)
+
+
+class CampaignSafeResponse(BaseModel):
+    """Safe read-only view of a Campaign for test KSO vertical slice.
+
+    Never exposes: id, order_id, advertiser_id, brand_id, created_by,
+    approved_by, budget, currency, file_path, sha256, storage_ref,
+    minio, backend_url, tokens.
+    """
+    campaign_code: str
+    name: str
+    status: str
+    description: str | None = None
+    creative_codes: list[str] = []
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = {"from_attributes": True}

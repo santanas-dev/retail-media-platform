@@ -194,3 +194,69 @@ async def set_campaign_renditions(
     _: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
     return await service.set_campaign_renditions(db, campaign_id, data)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Test KSO Vertical Slice — Safe Campaign Create + List (Step 37.4)
+# ═══════════════════════════════════════════════════════════════════════════
+# TEMPORARY safe wrappers for the one-KSO technical validation.
+# These endpoints create standard Campaigns using synthetic dev technical
+# context — NOT a separate business model.  Will be superseded by the
+# full campaign workflow in Phase 5.
+
+
+@router.get(
+    "/campaigns/test-kso",
+    response_model=list[schemas.CampaignSafeResponse],
+)
+async def list_test_kso_campaigns(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("campaigns.read")),
+):
+    """List campaigns for test KSO vertical slice (safe projection).
+
+    Only campaigns with a campaign_code are returned.
+    Response: campaign_code, name, status, description, creative_codes,
+    created_at, updated_at.  NO raw UUIDs, order_id, advertiser_id,
+    brand_id, budget, currency, file_path, sha256, storage_ref,
+    minio, backend_url, tokens.
+    """
+    return await service.list_test_kso_campaigns(db, skip, limit)
+
+
+@router.post(
+    "/campaigns/test-kso",
+    response_model=schemas.CampaignSafeResponse,
+    status_code=201,
+)
+async def create_test_kso_campaign(
+    data: schemas.CampaignTestKsoCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(
+        require_permission("campaigns.create")
+    ),
+):
+    """Create a standard Campaign for test KSO technical validation.
+
+    Uses synthetic dev technical context internally (demo_advertiser_technical,
+    demo_brand_technical, demo_order_technical).  Links creatives by stable
+    creative_code.  Returns safe fields only — NO raw UUIDs, commercial fields,
+    or secrets.
+    """
+    campaign = await service.create_test_kso_campaign(
+        db, data, current_user.id,
+    )
+    creative_codes = sorted([
+        cc.creative_code for cc in (campaign.creatives or [])
+    ])
+    return schemas.CampaignSafeResponse(
+        campaign_code=campaign.campaign_code,
+        name=campaign.name,
+        status=campaign.status,
+        description=campaign.comment,
+        creative_codes=creative_codes,
+        created_at=campaign.created_at,
+        updated_at=campaign.updated_at,
+    )

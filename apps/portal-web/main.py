@@ -110,9 +110,6 @@ app.add_api_route("/", _page("pages/dashboard.html", "Dashboard", "dashboard",
 app.add_api_route("/dashboard", _page("pages/dashboard.html", "Dashboard", "dashboard",
                                       get_dashboard_data()),
                   methods=["GET"], response_class=HTMLResponse)
-app.add_api_route("/campaigns", _page("pages/campaigns.html", "Кампании", "campaigns",
-                                      {"campaigns": get_campaigns_data()}),
-                  methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/schedule", _page("pages/schedule.html", "Расписание", "schedule",
                                      {"schedules": get_schedules_data()}),
                   methods=["GET"], response_class=HTMLResponse)
@@ -375,6 +372,119 @@ def _fmt_dt(val) -> str:
         if len(s) > 16:
             s = s[:16]
     return s
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Campaigns — Backend API Integration (Step 37.4)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/campaigns", response_class=HTMLResponse)
+async def campaigns_page(request: Request):
+    """Campaigns page: list from backend + create form (Step 37.4)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    if not access_token:
+        return _campaigns_fallback(request, current_user)
+
+    result = await backend.list_campaigns(access_token)
+    if not result["ok"]:
+        return _campaigns_fallback(request, current_user)
+
+    campaigns = result.get("data", [])
+    safe_rows = []
+    for c in campaigns:
+        safe_rows.append({
+            "campaign_code": c.get("campaign_code", ""),
+            "name": c.get("name", ""),
+            "status": c.get("status", "—"),
+            "description": c.get("description") or "—",
+            "creative_codes": ", ".join(c.get("creative_codes", [])),
+            "created_at": _fmt_dt(c.get("created_at")),
+            "updated_at": _fmt_dt(c.get("updated_at")),
+        })
+
+    # Consume flash messages
+    flash_type = ""
+    flash_msg = ""
+    raw = request.session.pop("campaign_flash", "")
+    if raw == "ok:created":
+        flash_type = "success"
+        flash_msg = "Кампания успешно создана."
+    elif raw == "error":
+        flash_type = "error"
+        flash_msg = request.session.pop("campaign_flash_msg", "Ошибка создания кампании.")
+
+    return templates.TemplateResponse(request, "pages/campaigns.html", {
+        "request": request,
+        "title": "Кампании",
+        "active": "campaigns",
+        "demo": False,
+        "current_user": current_user,
+        "campaigns": safe_rows,
+        "flash_type": flash_type,
+        "flash_msg": flash_msg,
+    })
+
+
+@app.post("/campaigns/create", response_class=HTMLResponse)
+async def campaigns_create(
+    request: Request,
+    campaign_code: str = Form(..., min_length=3, max_length=64),
+    name: str = Form(..., min_length=1, max_length=255),
+    description: str = Form("", max_length=500),
+    creative_code: str = Form(..., min_length=1, max_length=64),
+):
+    """Handle campaign create — POST /campaigns/create → backend (Step 37.4)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+
+    if not access_token:
+        request.session["campaign_flash"] = "error"
+        request.session["campaign_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/campaigns", status_code=303)
+
+    payload = {
+        "campaign_code": campaign_code.strip(),
+        "name": name.strip(),
+        "description": description.strip() if description.strip() else None,
+        "creative_codes": [creative_code.strip()],
+    }
+
+    backend = BackendClient()
+    result = await backend.create_campaign(access_token, payload)
+
+    if result["ok"]:
+        request.session["campaign_flash"] = "ok:created"
+    else:
+        request.session["campaign_flash"] = "error"
+        request.session["campaign_flash_msg"] = result.get("error", "Ошибка создания")[:200]
+
+    return RedirectResponse(url="/campaigns", status_code=303)
+
+
+def _campaigns_fallback(request: Request, current_user) -> HTMLResponse:
+    return templates.TemplateResponse(request, "pages/campaigns.html", {
+        "request": request,
+        "title": "Кампании",
+        "active": "campaigns",
+        "demo": False,
+        "current_user": current_user,
+        "campaigns": [],
+        "backend_unavailable": True,
+        "backend_message": "Данные временно недоступны. Попробуйте позже.",
+    })
 
 
 # ══════════════════════════════════════════════════════════════════════
