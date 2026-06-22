@@ -130,6 +130,11 @@ async def manifest_by_id(
 
 # ═══════════════════════════════════════════════════════════════════
 #  KSO Test: Manifest from GeneratedManifest (Step 37.8)
+#
+#  ⚠️  TEST_ONLY — NO AUTH — NOT PRODUCTION SECURITY MODEL  ⚠️
+#  This endpoint is TEMPORARY for test KSO technical validation.
+#  Production MUST use /manifest/current with JWT device auth.
+#  Remove or harden before any production deployment.
 # ═══════════════════════════════════════════════════════════════════
 
 @device_router.get("/kso/{device_code}/manifest")
