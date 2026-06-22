@@ -40,17 +40,20 @@ class BranchResponse(BaseModel):
 
 class ClusterCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
+    code: str | None = Field(None, min_length=1, max_length=50, pattern=CODE_PATTERN)
     branch_id: UUID
 
 
 class ClusterUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
+    code: str | None = Field(None, min_length=1, max_length=50, pattern=CODE_PATTERN)
     is_active: bool | None = None
 
 
 class ClusterResponse(BaseModel):
     id: UUID
     name: str
+    code: str | None
     branch_id: UUID
     is_active: bool
     created_at: datetime
@@ -66,12 +69,16 @@ class StoreCreate(BaseModel):
     code: str = Field(min_length=1, max_length=50, pattern=CODE_PATTERN)
     cluster_id: UUID
     address: str | None = None
+    format: str | None = Field(None, max_length=50)
+    status: str = Field(default="active", max_length=20)
     timezone: str = Field(default="Europe/Moscow", max_length=50)
 
 
 class StoreUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     address: str | None = None
+    format: str | None = Field(None, max_length=50)
+    status: str | None = Field(None, max_length=20)
     timezone: str | None = Field(None, max_length=50)
     is_active: bool | None = None
 
@@ -82,6 +89,8 @@ class StoreResponse(BaseModel):
     code: str
     cluster_id: UUID
     address: str | None
+    format: str | None
+    status: str
     timezone: str | None
     is_active: bool
     created_at: datetime

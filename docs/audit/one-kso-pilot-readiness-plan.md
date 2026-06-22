@@ -434,3 +434,24 @@
 - `docs/audit/full-system-audit-tz-v2-5.md` — полный аудит системы
 - `infra/kso-linux/README.md` — KSO Linux deployment
 - `docs/kso/linux-kso-pilot-first-start-runbook.md` — pilot runbook
+
+## Обновления
+
+### Шаг 37.1 — Hierarchy & KSO Device Registry Foundation (2026-06-22)
+
+✅ **Foundation для one-KSO pilot готова:**
+
+- **Branch**: `demo_branch_north` — читается/создаётся через `/api/branches`
+- **Cluster**: `demo_cluster_001` — с полем `code`, unique(branch_id, code)
+- **Store**: `demo_store_001` — с полями `format` (supermarket), `status` (active)
+- **KsoDevice**: `demo_kso_001` — 1920×1080, ad zone 1440×1080, channel=kso
+
+**Что закрыто:**
+- 1 филиал + 1 кластер + 1 магазин + 1 КСО в backend
+- KSO device registry с device_code, статусами, версиями, геометрией экрана
+- Idempotent synthetic seed
+- API: GET/POST/PUT `/api/devices/kso`
+- Permissions: `devices.read`, `devices.manage`
+- Миграция: 024 (clusters.code, stores.format/status, kso_devices)
+
+**Следующий шаг:** Подключение portal-web к hierarchy API.
