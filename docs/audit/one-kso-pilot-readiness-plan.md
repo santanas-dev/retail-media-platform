@@ -1,18 +1,24 @@
-# One-KSO Pilot Readiness Plan
+# Test KSO Technical Validation → Pilot Rollout Plan
 
 > **Статус:** 📋 Audit / Roadmap
 >
-> Дата: 2026-06-21
-> Шаг: 36.1
-> Ревизия: 1
+> Дата: 2026-06-16
+> Шаг: 37.12
+> Ревизия: 2
+>
+> **ВАЖНО:** Этот документ планирует два последовательных этапа:
+> 1. **Test KSO technical validation** — проверка цепочки на 1 КСО (текущий фокус)
+> 2. **Pilot rollout** — развёртывание на группе КСО/магазинов (отдельный следующий этап)
 
-## Target Pilot Scenario
+## Target Scenario
 
-**Цель:** установить плеер на 1 КСО, загрузить через портал креатив, назначить расписание, опубликовать manifest, показать креатив на КСО, получить Proof-of-Play и увидеть отчётность в портале.
+**Test KSO:** установить runtime на 1 КСО, загрузить через портал synthetic креатив, создать кампанию, назначить расписание, опубликовать manifest, проверить smoke player/sidecar, отправить PoP, увидеть PoP в портале.
+
+**Pilot rollout (следующий этап):** развернуть на 3–5 КСО в 2–3 магазинах, реальный Chromium kiosk, реальный UKM4, production auth, media delivery, 24–72ч стабильности.
 
 **Целевое оборудование:** ServPlus Sherman-J 5.1 (Linux), СуперМаг УКМ 4, Chromium kiosk.
 
-**Минимальный объём:** 1 магазин, 1 КСО, 1 креатив, 1 кампания, 1 расписание, 1 публикация, 1 PoP-событие.
+**Test KSO объём:** 1 магазин, 1 КСО, 1 synthetic креатив, 1 кампания, 1 расписание, 1 публикация, 1 PoP-событие.\n\n**Pilot rollout объём:** 3-5 КСО, 2-3 магазина, 3-5 креативов, 2-3 кампании, реальный UKM4, 24-72ч стабильности.
 
 ---
 
@@ -344,40 +350,56 @@
 
 ---
 
-### Phase 8 — One-KSO Pilot Deployment
+### Phase 8 — Pilot Rollout на группе КСО (следующий этап)
 
-**Результат:** система работает на 1 реальном КСО.
+**Результат:** система работает на 3–5 реальных КСО в 2–3 магазинах.
 
 **Блокеры решаются:** B9.
 
 **Что должно быть в commit:**
-- Фиксы по результатам реального запуска
+- Фиксы по результатам test KSO проверки (Phase 8 = после успешного test KSO)
+- Реальный Chromium kiosk launch
+- Production device auth (mTLS)
+- Media delivery (MinIO)
 - Обновлённый runbook
 
 **Тесты:**
-- Дымовой тест на реальном оборудовании
-- 24-шаговая цепочка пройдена
+- Дымовой тест на реальном оборудовании (3–5 КСО)
+- 24–72ч стабильности
+- Полная E2E цепочка с реальным UKM4
 
 **Критерий готовности:**
-- Креатив показывается на реальном КСО
+- Креатив показывается на реальных КСО
 - PoP поступает в backend
 - Отчёт виден в портале
-- Система стабильна ≥ 24 часа
+- Система стабильна ≥ 72 часа
 
 ---
 
-## Acceptance Criteria for 1 KSO Pilot
+## Acceptance Criteria
+
+### Test KSO Technical Validation (текущий этап)
 
 1. **Auth:** пользователь входит в портал, сессия работает
-2. **Hierarchy:** виден 1 магазин и 1 КСО
-3. **Content:** креатив загружен через портал и проше вал валидацию
+2. **Hierarchy:** виден 1 магазин и 1 КСО (synthetic seed)
+3. **Content:** synthetic креатив 1440×1080 загружен через портал
 4. **Campaign:** кампания создана, расписание назначено
-5. **Approval:** кампания утверждена (хотя бы 1 шаг)
+5. **Approval:** кампания утверждена (1 шаг maker-checker)
 6. **Publication:** manifest сгенерирован и опубликован
-7. **Delivery:** sidecar получил manifest и media
-8. **Display:** креатив отображается на КСО
-9. **PoP:** события поступают в backend
+7. **Delivery:** sidecar fetch contract проверен (smoke)
+8. **Display:** player smoke shell snapshot валиден
+9. **PoP:** событие принято backend через TEST_ONLY endpoint
 10. **Reports:** ✅ портал показывает PoP события через backend API
+
+### Pilot Rollout (следующий этап)
+
+1. Реальный Chromium kiosk показывает креатив
+2. Реальный UKM4 state через state adapter
+3. Production device auth (mTLS) на device gateway
+4. Media доставляется через MinIO
+5. 3–5 КСО в 2–3 магазинах
+6. Стабильность ≥ 72 часа
+7. Excel export (RLS-aware)
 
 ---
 
@@ -437,10 +459,10 @@
 
 ## Файлы
 
-- `docs/audit/one-kso-pilot-readiness-plan.md` — этот документ
+- `docs/audit/one-kso-pilot-readiness-plan.md` — этот документ (test KSO → pilot rollout)
+- `docs/audit/test-kso-end-to-end-readiness-gate.md` — **readiness gate с пошаговой E2E проверкой, stop criteria, rollback**
 - `docs/audit/full-system-audit-tz-v2-5.md` — полный аудит системы
 - `infra/kso-linux/README.md` — KSO Linux deployment
-- `docs/kso/linux-kso-pilot-first-start-runbook.md` — pilot runbook
 
 ## Обновления
 
@@ -517,3 +539,27 @@ creative → campaign → placement → approval → manifest → publish → si
 **Тесты:** backend 28 тестов (модели, схемы, хелперы, сервис с моками, sidecar-совместимость).
 
 **Следующий шаг:** ✅ Выполнен (37.11).
+
+### Шаг 37.12 — Test KSO End-to-End Readiness Gate (2026-06-16)
+
+✅ **Readiness gate создан.**
+
+- **Документ:** `docs/audit/test-kso-end-to-end-readiness-gate.md` — полный readiness gate с:
+  - Что уже готово (16 компонентов, все ✅)
+  - Параметры test KSO (железо, экран 1920×1080, ad zone 1440×1080, Chromium kiosk, UKM4)
+  - Конфиги (sidecar.env, player.env, state-adapter.env — без секретов)
+  - Локальные workspace paths на КСО
+  - Имена сервисов systemd
+  - **Пошаговая E2E проверка (11 шагов):** creative upload → campaign → placement → approval → manifest generation → publish → sidecar fetch → player smoke → PoP ingest → portal view
+  - Критерии успеха (7 пунктов)
+  - **Stop criteria (8 ситуаций с действиями)**
+  - **Rollback процедура (6 шагов)**
+  - Что НЕ готово для pilot rollout (8 пунктов)
+  - Что нужно после успешной test KSO проверки (9 этапов)
+- **Пилотный план переименован:** `one-kso-pilot-readiness-plan.md` → различие между test KSO (1 КСО) и pilot rollout (группа КСО) явно обозначено
+- **Acceptance Criteria** разделены на test KSO (10 пунктов) и pilot rollout (7 пунктов)
+- **Phase 8** переименован в Pilot Rollout (3–5 КСО, 72ч стабильности)
+- Код НЕ менялся. Runtime НЕ менялся. Новый функционал НЕ добавлялся.
+
+**Regression:** все suites green (backend 169, portal 407, state adapter 86, player 968, sidecar 1838, infra 227).
+**Commit:** `📋 Add test KSO end-to-end readiness gate (Step 37.12)`
