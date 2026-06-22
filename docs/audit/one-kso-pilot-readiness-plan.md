@@ -462,6 +462,8 @@
 - `docs/audit/one-kso-pilot-readiness-plan.md` — этот документ (test KSO → pilot rollout)
 - `docs/audit/test-kso-end-to-end-readiness-gate.md` — **readiness gate с пошаговой E2E проверкой, stop criteria, rollback**
 - `docs/audit/test-kso-deployment-dry-run.md` — **deployment dry run checklist (37.13)**
+- `docs/audit/technical-debt-register.md` — **technical debt register (37.14, 36 пунктов)**
+- `docs/audit/technical-debt-next-actions.md` — **next actions plan (37.14)**
 - `docs/audit/full-system-audit-tz-v2-5.md` — полный аудит системы
 - `infra/kso-linux/README.md` — KSO Linux deployment
 
@@ -582,3 +584,22 @@ creative → campaign → placement → approval → manifest → publish → si
 
 **Regression:** все suites green.
 **Commit:** `📋 Add test KSO deployment dry run checklist (Step 37.13)`
+
+### Шаг 37.14 — Technical Debt Register & Pilot Hardening Backlog (2026-06-16)
+
+✅ **Реестр технического долга создан.**
+
+- **Документы:**
+  - `docs/audit/technical-debt-register.md` — полный реестр (36 debt items)
+  - `docs/audit/technical-debt-next-actions.md` — краткий план действий
+- **Выявлено debt items: 36** (P0=3, P1=9, P2=11, P3=13)
+- **P0 блокирует physical test KSO:**
+  - P0-1: TEST_ONLY unauthenticated manifest endpoint
+  - P0-2: TEST_ONLY unauthenticated PoP endpoint
+  - P0-3: In-memory portal session store
+- **P1 блокирует pilot rollout:** 9 пунктов (MFA/SSO, RLS, synthetic context, creative lifecycle, media delivery, device credentials, test-kso wrappers, portal DEMO pages, observability)
+- **Рекомендуемый порядок:** сейчас ничего не менять → после test KSO закрыть P0 → после успешной проверки закрыть P1 → после pilot закрыть P2/P3
+- Код НЕ менялся. Runtime НЕ менялся. Новый функционал НЕ добавлялся.
+
+**Regression:** все suites green.
+**Commit:** `📋 Add technical debt register and pilot hardening backlog (Step 37.14)`
