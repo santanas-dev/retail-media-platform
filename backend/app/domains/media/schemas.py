@@ -9,8 +9,9 @@ from pydantic import BaseModel, Field
 # ── Creative ──────────────────────────────────────────────────────────────
 
 class CreativeCreate(BaseModel):
-    advertiser_id: UUID
+    advertiser_id: UUID | None = None  # Nullable for one-KSO pilot
     brand_id: UUID | None = None
+    creative_code: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9_-]+$")
     name: str = Field(min_length=1, max_length=255)
     comment: str | None = None
 
@@ -25,8 +26,9 @@ class CreativeUpdate(BaseModel):
 
 class CreativeResponse(BaseModel):
     id: UUID
-    advertiser_id: UUID
+    advertiser_id: UUID | None
     brand_id: UUID | None
+    creative_code: str
     name: str
     status: str
     comment: str | None
@@ -35,6 +37,38 @@ class CreativeResponse(BaseModel):
     updated_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class CreativeSafeResponse(BaseModel):
+    """Safe creative response for portal — no internal IDs, no file_path, no sha256."""
+    creative_code: str
+    name: str
+    status: str
+    content_type: str | None = None
+    width: int | None = None
+    height: int | None = None
+    duration_ms: int | None = None
+    file_size_bytes: int | None = None
+    created_at: datetime | None = None
+
+
+class CreativeUploadRequest(BaseModel):
+    """Combined creative create + upload request (Step 37.3)."""
+    creative_code: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9_-]+$")
+    name: str = Field(min_length=1, max_length=255)
+
+
+class CreativeUploadResponse(BaseModel):
+    """Response after successful creative upload — no file_path, no sha256."""
+    creative_code: str
+    name: str
+    status: str
+    content_type: str
+    width: int | None = None
+    height: int | None = None
+    duration_ms: int | None = None
+    file_size_bytes: int
+    version: int
 
 
 # ── CreativeVersion ───────────────────────────────────────────────────────

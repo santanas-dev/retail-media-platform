@@ -31,7 +31,7 @@ class Creative(Base):
     advertiser_id = Column(
         UUID(as_uuid=True),
         ForeignKey("advertisers.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,  # nullable for one-KSO pilot (Step 37.3)
         index=True,
     )
     brand_id = Column(
@@ -39,6 +39,9 @@ class Creative(Base):
         ForeignKey("brands.id", ondelete="RESTRICT"),
         nullable=True,
         index=True,
+    )
+    creative_code = Column(
+        String(64), unique=True, nullable=False,
     )
     name = Column(String(255), nullable=False)
     status = Column(

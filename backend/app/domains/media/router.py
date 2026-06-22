@@ -19,7 +19,7 @@ from typing import Callable
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user, require_permission
@@ -198,3 +198,35 @@ async def list_validations(
     _: identity_models.User = Depends(require_permission("media.read")),
 ):
     return await service.list_validations(db, rendition_id)
+
+
+# ── Combined Creative Upload (Step 37.3) ──────────────────────────────────
+
+@router.post(
+    "/creatives/upload",
+    response_model=schemas.CreativeUploadResponse,
+    status_code=201,
+)
+async def upload_creative(
+    creative_code: str = Form(...),
+    name: str = Form(...),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(
+        require_permission("media.manage"),
+    ),
+):
+    """Combined creative create + upload for one-KSO pilot (Step 37.3).
+
+    Accepts multipart/form-data: creative_code, name, file.
+    Validates: MIME type (png/jpeg/mp4), image dimensions (1440×1080),
+    max 50 MB, audio forbidden.
+
+    Stores in MinIO via existing storage abstraction.
+    Response NEVER contains file_path, sha256, or storage_ref.
+    """
+    data = schemas.CreativeUploadRequest(
+        creative_code=creative_code,
+        name=name,
+    )
+    return await service.upload_creative_combined(db, data, file, current_user.id)

@@ -456,3 +456,117 @@ async def list_validations(
         .order_by(models.RenditionValidation.checked_at)
     )
     return list(result.scalars().all())
+
+
+# ── Combined Creative Upload (Step 37.3) ─────────────────────────────────
+
+# KSO-specific constraints
+KSO_MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+KSO_REQUIRED_WIDTH = 1440
+KSO_REQUIRED_HEIGHT = 1080
+
+
+async def upload_creative_combined(
+    db: AsyncSession,
+    data: schemas.CreativeUploadRequest,
+    file: UploadFile,
+    user_id: UUID,
+) -> schemas.CreativeUploadResponse:
+    """Create a creative + upload its first version in one call (Step 37.3).
+
+    Validation:
+    - MIME type: image/png, image/jpeg, video/mp4 only
+    - Image dimensions: must be 1440×1080 for image/* types
+    - Audio: rejected (video/mp4 accepted, audio/ is forbidden)
+    - Max size: 50 MB
+    - creative_code: unique, ^[a-z0-9_-]+$
+
+    Does NOT expose file_path, sha256, or storage_ref in response.
+    """
+    # 1. Validate MIME type
+    content_type = file.content_type or ""
+    if content_type not in ("image/png", "image/jpeg", "video/mp4"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported content type: {content_type}. "
+                   f"Allowed: image/png, image/jpeg, video/mp4",
+        )
+
+    # 2. Read file content with size limit
+    content = await file.read()
+    if len(content) > KSO_MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large: {len(content)} bytes (max {KSO_MAX_FILE_SIZE})",
+        )
+
+    # 3. Image dimension validation
+    width, height = None, None
+    if content_type.startswith("image/"):
+        try:
+            img = Image.open(BytesIO(content))
+            width, height = img.size
+            if width != KSO_REQUIRED_WIDTH or height != KSO_REQUIRED_HEIGHT:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Image dimensions must be {KSO_REQUIRED_WIDTH}×{KSO_REQUIRED_HEIGHT}, "
+                           f"got {width}×{height}",
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot read image: {str(e)[:100]}",
+            )
+
+    # 4. Create Creative record
+    creative = models.Creative(
+        creative_code=data.creative_code,
+        name=data.name,
+        created_by=user_id,
+    )
+    db.add(creative)
+    await db.flush()  # Get ID without committing
+
+    # 5. Upload to MinIO
+    try:
+        metadata = await storage.upload_to_minio(
+            content, file.filename or "untitled",
+            str(creative.id), 1,
+        )
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e),
+        )
+
+    # 6. Create CreativeVersion record
+    ver = models.CreativeVersion(
+        creative_id=creative.id,
+        version=1,
+        original_filename=file.filename or "untitled",
+        file_path=metadata["file_path"],
+        mime_type=metadata["mime_type"],
+        file_size=metadata["file_size"],
+        sha256=metadata["sha256"],
+        width=width,
+        height=height,
+        uploaded_by=user_id,
+    )
+    db.add(ver)
+    await db.commit()
+    await db.refresh(creative)
+    await db.refresh(ver)
+
+    return schemas.CreativeUploadResponse(
+        creative_code=creative.creative_code,
+        name=creative.name,
+        status=creative.status,
+        content_type=ver.mime_type,
+        width=ver.width,
+        height=ver.height,
+        duration_ms=None,
+        file_size_bytes=ver.file_size,
+        version=ver.version,
+    )

@@ -287,6 +287,56 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Creative Upload (Step 37.3) ────────────────────────────────────
+
+    async def list_creatives(self, access_token: str) -> dict:
+        """GET /api/creatives → {ok, data: [{creative_code, name, status, ...}]}"""
+        return await self._request(
+            "GET", "/api/creatives",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def upload_creative(
+        self, access_token: str, creative_code: str, name: str,
+        file_content: bytes, filename: str, content_type: str,
+    ) -> dict:
+        """POST /api/creatives/upload (multipart/form-data).
+
+        Sends multipart form with creative_code, name, and file.
+        Returns {ok, data: {creative_code, name, status, content_type,
+                             width, height, file_size_bytes, version}}
+        or {ok: False, error: ...}.
+        """
+        import io
+        files = {
+            "file": (filename, io.BytesIO(file_content), content_type),
+        }
+        data = {
+            "creative_code": creative_code,
+            "name": name,
+        }
+        try:
+            resp = await self._client.post(
+                "/api/creatives/upload",
+                data=data,
+                files=files,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+        except Exception as exc:
+            return {"ok": False, "error": f"Upload failed: {str(exc)[:200]}", "status": 502}
+
+        try:
+            body = resp.json() if resp.content else {}
+        except Exception:
+            body = {}
+
+        if resp.is_success:
+            return {"ok": True, "data": body, "status": resp.status_code}
+        detail = body.get("detail", "Upload error")
+        if isinstance(detail, str):
+            detail = detail[:200]
+        return {"ok": False, "error": detail, "status": resp.status_code}
+
 
 # ── Module-level convenience functions ───────────────────────────────
 

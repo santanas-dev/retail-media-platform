@@ -5,7 +5,7 @@ No external CDN. Auth integration with backend API.
 """
 
 import os
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -112,9 +112,6 @@ app.add_api_route("/dashboard", _page("pages/dashboard.html", "Dashboard", "dash
                   methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/campaigns", _page("pages/campaigns.html", "Кампании", "campaigns",
                                       {"campaigns": get_campaigns_data()}),
-                  methods=["GET"], response_class=HTMLResponse)
-app.add_api_route("/creatives", _page("pages/creatives.html", "Креативы", "creatives",
-                                      {"creatives": get_creatives_data()}),
                   methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/schedule", _page("pages/schedule.html", "Расписание", "schedule",
                                      {"schedules": get_schedules_data()}),
@@ -256,6 +253,128 @@ def _devices_fallback(request: Request, current_user, reason: str = "") -> HTMLR
         "backend_unavailable": True,
         "backend_message": "Данные временно недоступны. Попробуйте позже.",
     })
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Creatives — Backend API Integration (Step 37.3)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/creatives", response_class=HTMLResponse)
+async def creatives_page(request: Request):
+    """Creatives page: list from backend + upload form (Step 37.3)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/creatives")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    if not access_token:
+        return _creatives_fallback(request, current_user)
+
+    result = await backend.list_creatives(access_token)
+    if not result["ok"]:
+        return _creatives_fallback(request, current_user)
+
+    creatives = result.get("data", [])
+    # Build safe rows for template
+    safe_rows = []
+    for c in creatives:
+        safe_rows.append({
+            "creative_code": c.get("creative_code", ""),
+            "name": c.get("name", ""),
+            "status": c.get("status", "—"),
+            "content_type": c.get("content_type") or "—",
+            "width": c.get("width"),
+            "height": c.get("height"),
+            "file_size_bytes": c.get("file_size_bytes"),
+            "created_at": _fmt_dt(c.get("created_at")),
+        })
+
+    # Consume flash messages
+    flash_type = ""
+    flash_msg = ""
+    raw = request.session.pop("creative_flash", "")
+    if raw == "ok:uploaded":
+        flash_type = "success"
+        flash_msg = "Креатив успешно загружен."
+    elif raw == "error":
+        flash_type = "error"
+        flash_msg = request.session.pop("creative_flash_msg", "Ошибка загрузки.")
+
+    return templates.TemplateResponse(request, "pages/creatives.html", {
+        "request": request,
+        "title": "Креативы",
+        "active": "creatives",
+        "demo": False,
+        "current_user": current_user,
+        "creatives": safe_rows,
+        "flash_type": flash_type,
+        "flash_msg": flash_msg,
+    })
+
+
+@app.post("/creatives/upload", response_class=HTMLResponse)
+async def creatives_upload(
+    request: Request,
+    creative_code: str = Form(...),
+    name: str = Form(...),
+    file: UploadFile = File(...),
+):
+    """Handle creative upload — POST /creatives/upload → backend (Step 37.3)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/creatives")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+
+    if not access_token:
+        request.session["creative_flash"] = "error"
+        request.session["creative_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/creatives", status_code=303)
+
+    content = await file.read()
+    backend = BackendClient()
+    result = await backend.upload_creative(
+        access_token, creative_code.strip(), name.strip(),
+        content, file.filename or "upload", file.content_type or "application/octet-stream",
+    )
+
+    if result["ok"]:
+        request.session["creative_flash"] = "ok:uploaded"
+    else:
+        request.session["creative_flash"] = "error"
+        request.session["creative_flash_msg"] = result.get("error", "Ошибка загрузки")[:200]
+
+    return RedirectResponse(url="/creatives", status_code=303)
+
+
+def _creatives_fallback(request: Request, current_user) -> HTMLResponse:
+    return templates.TemplateResponse(request, "pages/creatives.html", {
+        "request": request,
+        "title": "Креативы",
+        "active": "creatives",
+        "demo": False,
+        "current_user": current_user,
+        "creatives": [],
+        "backend_unavailable": True,
+        "backend_message": "Данные временно недоступны. Попробуйте позже.",
+    })
+
+
+def _fmt_dt(val) -> str:
+    if not val:
+        return "—"
+    s = str(val)
+    if "T" in s:
+        s = s.replace("T", " ").split("+")[0].split("Z")[0]
+        if len(s) > 16:
+            s = s[:16]
+    return s
 
 
 # ══════════════════════════════════════════════════════════════════════
