@@ -3,10 +3,13 @@
 > **Статус:** ✅ Dry Run Verified (37.13)
 >
 > Дата: 2026-06-16
-> Ревизия: 1
+> Ревизия: 2 (37.15 — isolated test KSO risk acceptance)
 >
 > **Назначение:** Проверить готовность проекта к установке на реальную test KSO перед выездом.
 > **НЕ:** установка на железо, pilot rollout, изменение кода.
+>
+> **Risk acceptance (37.15):** Physical test KSO в изолированном контуре.
+> TEST_ONLY endpoint'ы без аутентификации временно приняты. Device auth добавляется перед pilot rollout.
 
 ---
 

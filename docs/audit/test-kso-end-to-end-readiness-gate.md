@@ -3,10 +3,14 @@
 > **Статус:** 📋 Technical Validation Gate (37.12)
 >
 > Дата: 2026-06-16
-> Ревизия: 1
+> Ревизия: 2 (37.15 — isolated test KSO risk acceptance)
 >
 > **Назначение:** Проверить полную цепочку на одном test KSO перед pilot rollout на группу КСО.
 > **НЕ:** пилотный запуск, production, multi-store rollout.
+>
+> **Risk acceptance (37.15):** Physical test KSO проводится в изолированном тестовом контуре.
+> TEST_ONLY endpoint'ы без аутентификации временно приняты как controlled risk.
+> Перед pilot rollout device auth должен быть добавлен.
 
 ---
 

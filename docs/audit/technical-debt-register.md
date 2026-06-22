@@ -3,7 +3,7 @@
 > **Статус:** 📋 Audit (37.14)
 >
 > Дата: 2026-06-16
-> Ревизия: 1
+> Ревизия: 2 (37.15 — isolated test KSO risk acceptance)
 >
 > **Назначение:** Управляемый backlog технического долга. Не план немедленного закрытия — реестр для приоритизации.
 >
@@ -13,18 +13,30 @@
 
 ## 1. Executive Summary
 
-Проект прошёл 37 шагов foundation и technical validation. Цепочка `creative → campaign → placement → approval → manifest → publish → sidecar/player smoke → PoP ingest → portal view` замкнута на уровне ~3700 тестов. Проект готов к **physical test KSO** при условии, что P0-блокеры (device auth на TEST_ONLY эндпоинтах) будут закрыты до или сразу после получения доступа к железу.
+Проект прошёл 37 шагов foundation и technical validation. Цепочка `creative → campaign → placement → approval → manifest → publish → sidecar/player smoke → PoP ingest → portal view` замкнута на уровне ~3700 тестов.
+
+**Physical test KSO будет проводиться в изолированном тестовом контуре:**
+- Нет internet exposure
+- Firewall allowlist
+- Только synthetic данные
+- Нет receipt/payment/fiscal/customer/phone/email/card data
+- Ограниченное тестовое окно
+- Документированный rollback
+- TEST_ONLY endpoint'ы осознанно приняты как controlled risk
+
+**При этих условиях P0-блокеры временно принимаются как controlled risk для physical test KSO.**
+Для pilot rollout — P0 должен быть закрыт production-grade механизмами.
 
 **Выявлено debt items: 36.**
 
 | Приоритет | Количество | Блокирует |
 |---|---|---|
-| P0 | 3 | Physical test KSO |
+| P0 | 3 | Pilot rollout (временно принят для isolated test KSO) |
 | P1 | 9 | Pilot rollout (3–5 КСО) |
 | P2 | 11 | Production rollout |
 | P3 | 13 | Улучшения / polish |
 
-**Ключевой вывод:** P0-блокеров всего 3, и все они — временные TEST_ONLY endpoint'ы, которые созданы осознанно для technical validation. Их закрытие требует ~1–2 дня работы после появления test KSO.
+**Ключевой вывод:** P0-блокеров всего 3. Для изолированного test KSO они временно принимаются как controlled risk. Для pilot rollout — должны быть закрыты (~1 день работы).
 
 ---
 
@@ -56,6 +68,50 @@
 
 ---
 
+## 2a. Temporary Risk Acceptance for Isolated Test KSO
+
+> **Статус:** Controlled risk — accepted for isolated test KSO only.
+> **НЕ является разрешением для pilot rollout или production.**
+
+### Условия временного допуска
+
+Для physical test KSO в изолированном тестовом контуре следующие P0-блокеры временно принимаются как controlled risk при соблюдении ВСЕХ условий:
+
+| # | Условие | Подтверждение |
+|---|---|---|
+| 1 | Изолированный тестовый контур | Нет internet exposure |
+| 2 | Firewall allowlist | Только разрешённые IP/hosts |
+| 3 | Только synthetic данные | Нет реальных receipt/payment/fiscal/customer/phone/email/card |
+| 4 | Ограниченное тестовое окно | Часы, не дни |
+| 5 | Документированный rollback | `docs/audit/test-kso-end-to-end-readiness-gate.md` |
+| 6 | TEST_ONLY маркировка в коде | Все endpoint'ы явно помечены |
+| 7 | Никакие реальные данные не передаются | Только synthetic creative/campaign/PoP |
+
+### P0 items с risk acceptance
+
+| ID | Название | Risk acceptance for isolated test KSO |
+|---|---|---|
+| P0-1 | Unauthenticated manifest endpoint | **Allowed** — при условиях выше |
+| P0-2 | Unauthenticated PoP endpoint | **Allowed** — при условиях выше |
+| P0-3 | In-memory session store | **Allowed** — при условиях выше (один сервер, нет масштабирования) |
+
+### Что НЕ разрешено
+
+- ❌ Pilot rollout с неприкрытыми P0
+- ❌ Production с неприкрытыми P0
+- ❌ Internet-facing deployment
+- ❌ Передача реальных данных через TEST_ONLY endpoint'ы
+- ❌ Использование in-memory session store в multi-instance окружении
+
+### Когда закрывать P0
+
+P0 должен быть закрыт production-grade механизмами **перед pilot rollout**:
+- Device auth / gateway credentials / mTLS для manifest endpoint
+- Device auth / gateway credentials / mTLS для PoP ingest
+- Production session store вместо in-memory portal session
+
+---
+
 ## 3. Технический долг P0 — блокирует physical test KSO
 
 ### P0-1: TEST_ONLY unauthenticated device manifest endpoint
@@ -68,6 +124,7 @@
 | **Где проявляется** | `backend/app/domains/device_gateway/router.py:134-181` |
 | **Риск** | Любой знающий device_code может получить manifest. На physical test KSO — низкий (изолированная сеть). На production — критический. |
 | **Влияние на test KSO** | Блокирует безопасную установку |
+| **Risk acceptance (isolated)** | **Allowed** при условиях секции 2a |
 | **Приоритет** | **P0** |
 | **Рекомендуемое решение** | Добавить `authenticate_device` перед отдачей manifest (как enterprise-эндпоинты) |
 | **Когда закрывать** | До или сразу после получения test KSO |
@@ -84,6 +141,7 @@
 | **Где проявляется** | `backend/app/domains/proof_of_play/router.py:26-52` |
 | **Риск** | Любой может отправить фальшивые PoP события. |
 | **Влияние на test KSO** | Блокирует безопасную установку |
+| **Risk acceptance (isolated)** | **Allowed** при условиях секции 2a |
 | **Приоритет** | **P0** |
 | **Рекомендуемое решение** | Добавить `authenticate_device` перед приёмом PoP (как enterprise `/pop/events`) |
 | **Когда закрывать** | До или сразу после получения test KSO |
@@ -100,6 +158,7 @@
 | **Где проявляется** | `apps/portal-web/portal_session.py:63-121` |
 | **Риск** | После перезапуска portal все пользователи разлогинены. Для test KSO допустимо, для pilot — нет. |
 | **Влияние на test KSO** | Приемлемо (один сервер) |
+| **Risk acceptance (isolated)** | **Allowed** при условиях секции 2a (один сервер, нет масштабирования) |
 | **Приоритет** | **P0** (закрыть до pilot rollout) |
 | **Рекомендуемое решение** | Redis или SQLite-backed session store |
 | **Когда закрывать** | До pilot rollout |

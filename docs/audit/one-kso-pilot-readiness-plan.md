@@ -603,3 +603,17 @@ creative → campaign → placement → approval → manifest → publish → si
 
 **Regression:** все suites green.
 **Commit:** `📋 Add technical debt register and pilot hardening backlog (Step 37.14)`
+
+### Шаг 37.15 — Isolated Test KSO Risk Acceptance Update (2026-06-16)
+
+✅ **Risk acceptance задокументирован.**
+
+- **Physical test KSO в изолированном контуре:** P0-1, P0-2, P0-3 временно приняты как controlled risk
+- **Условия допуска (7 пунктов):** изолированный контур, firewall, synthetic данные, нет реальных данных, ограниченное окно, документированный rollback, TEST_ONLY маркировка
+- **Что НЕ разрешено:** pilot rollout, production, internet-facing, реальные данные
+- **P0 закрывается перед pilot rollout** production-grade механизмами (device auth, mTLS, persistent session)
+- **Документы обновлены (4):** technical-debt-register.md (секция 2a + поля Risk acceptance), next-actions.md, readiness-gate.md, deployment-dry-run.md
+- Код НЕ менялся. Runtime НЕ менялся.
+
+**Regression:** все suites green.
+**Commit:** `📋 Document isolated test KSO risk acceptance (Step 37.15)`
