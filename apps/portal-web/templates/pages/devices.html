@@ -1,97 +1,86 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">КСО Устройства</h1>
-<p class="page-description">Управление устройствами КСО — статус компонентов, heartbeat, версия manifest, Proof of Play.</p>
+<p class="page-description">Реестр КСО-устройств — статус, версии компонентов, геометрия экрана.</p>
 
 <!-- Summary Cards -->
 <div class="cards">
   <div class="card">
     <div class="card-title">Всего КСО</div>
-    <div class="card-value">{{ devices|length if demo else "—" }}</div>
+    <div class="card-value">{{ devices|length }}</div>
     <div class="card-hint">Зарегистрировано</div>
   </div>
   <div class="card">
-    <div class="card-title">Онлайн</div>
-    <div class="card-value">{{ devices|selectattr('state_adapter', 'equalto', 'OK')|list|length if demo else "—" }}</div>
-    <div class="card-hint">State adapter OK</div>
+    <div class="card-title">Активно</div>
+    <div class="card-value">{{ devices|selectattr('status', 'equalto', 'active')|list|length }}</div>
+    <div class="card-hint">Статус active</div>
   </div>
   <div class="card">
-    <div class="card-title">В hold</div>
-    <div class="card-value">{{ devices|selectattr('runtime', 'equalto', 'hold')|list|length if demo else "—" }}</div>
-    <div class="card-hint">Runtime hold</div>
+    <div class="card-title">Неактивно</div>
+    <div class="card-value">{{ devices|selectattr('status', 'equalto', 'inactive')|list|length }}</div>
+    <div class="card-hint">Статус inactive</div>
   </div>
   <div class="card">
-    <div class="card-title">Ошибки</div>
-    <div class="card-value">{{ devices|selectattr('runtime', 'equalto', 'error')|list|length if demo else "—" }}</div>
-    <div class="card-hint">Runtime error</div>
+    <div class="card-title">На обслуживании</div>
+    <div class="card-value">{{ devices|selectattr('status', 'equalto', 'maintenance')|list|length }}</div>
+    <div class="card-hint">Статус maintenance</div>
   </div>
   <div class="card">
-    <div class="card-title">Без heartbeat</div>
-    <div class="card-value">0</div>
-    <div class="card-hint">> 5 мин</div>
+    <div class="card-title">Заблокировано</div>
+    <div class="card-value">{{ devices|selectattr('status', 'equalto', 'blocked')|list|length }}</div>
+    <div class="card-hint">Статус blocked</div>
   </div>
   <div class="card">
-    <div class="card-title">Требуют обновления</div>
-    <div class="card-value">{{ devices|selectattr('manifest', 'equalto', '—')|list|length if demo else "—" }}</div>
-    <div class="card-hint">Manifest не получен</div>
+    <div class="card-title">Потеряно</div>
+    <div class="card-value">{{ devices|selectattr('status', 'equalto', 'lost')|list|length }}</div>
+    <div class="card-hint">Статус lost</div>
   </div>
 </div>
 
-<!-- Filters Toolbar -->
-<div class="filter-toolbar">
-  <div class="filter-group">
-    <label class="filter-label">Филиал</label>
-    <select class="filter-select" disabled><option>Все филиалы</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Магазин</label>
-    <select class="filter-select" disabled><option>Все магазины</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Статус</label>
-    <select class="filter-select" disabled>
-      <option>Все статусы</option><option>Онлайн</option><option>В hold</option><option>Ошибка</option><option>Офлайн</option>
-    </select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Версия KSO</label>
-    <select class="filter-select" disabled><option>Все версии</option></select>
-  </div>
+{% if backend_unavailable %}
+<div class="note-box" style="border-color:#f59e0b;">
+  <span class="note-icon">⚠️</span>
+  <span class="note-text">{{ backend_message }}</span>
 </div>
+{% endif %}
 
 <!-- Devices Table -->
 <div class="table-container">
 <table class="data-table">
   <thead>
     <tr>
-      <th>Магазин</th><th>КСО</th><th>State Adapter</th><th>Sidecar</th>
-      <th>Player</th><th>Runtime</th><th>Heartbeat</th>
-      <th>Manifest</th><th>PoP</th><th>Действия</th>
+      <th>device_code</th><th>Название</th><th>Магазин</th><th>Статус</th>
+      <th>Runtime</th><th>Player</th><th>Sidecar</th><th>State Adapter</th>
+      <th>Manifest</th><th>Экран</th><th>Ad Zone</th>
+      <th>last_seen</th><th>Действия</th>
     </tr>
   </thead>
   <tbody>
-  {% if demo and devices %}
+  {% if devices %}
   {% for d in devices %}
     <tr>
-      <td>{{ d.store }}</td>
-      <td>{{ d.name }}</td>
-      <td><span class="badge badge-{{ 'online' if d.state_adapter == 'OK' else 'error' }}"></span> {{ d.state_adapter }}</td>
-      <td><span class="badge badge-{{ 'online' if d.sidecar == 'OK' else 'error' }}"></span> {{ d.sidecar }}</td>
-      <td><span class="badge badge-{{ 'online' if d.player == 'OK' else 'hold' }}"></span> {{ d.player }}</td>
-      <td>{{ d.runtime }}</td>
-      <td>{{ d.heartbeat }}</td>
-      <td>{{ d.manifest }}</td>
-      <td>{{ d.pop }}</td>
+      <td><code>{{ d.device_code }}</code></td>
+      <td>{{ d.display_name }}</td>
+      <td>{{ d.store_name }}</td>
+      <td><span class="badge badge-{{ 'online' if d.status == 'active' else 'hold' if d.status == 'maintenance' else 'error' if d.status in ('blocked', 'lost') else 'offline' }}"></span> {{ d.status }}</td>
+      <td>{{ d.runtime_version }}</td>
+      <td>{{ d.player_version }}</td>
+      <td>{{ d.sidecar_version }}</td>
+      <td>{{ d.state_adapter_version }}</td>
+      <td>{{ d.manifest_version }}</td>
+      <td>{{ d.screen_width }}×{{ d.screen_height }}</td>
+      <td>{{ d.ad_zone_width }}×{{ d.ad_zone_height }}</td>
+      <td>{{ d.last_seen_at }}</td>
       <td><span class="action-link">—</span></td>
     </tr>
   {% endfor %}
   {% else %}
     <tr class="empty-row">
-      <td colspan="10">
+      <td colspan="13">
         <div class="table-empty-state">
           <div class="table-empty-icon">🖥️</div>
           <div class="table-empty-title">Пока нет подключённых КСО</div>
-          <div class="table-empty-text">После подключения устройств здесь появится статус player, sidecar и state-adapter.</div>
+          <div class="table-empty-text">После добавления устройств через backend здесь появится реестр КСО с геометрией экрана и версиями компонентов.</div>
         </div>
       </td>
     </tr>
@@ -103,24 +92,19 @@
 <!-- Status Legend -->
 <div class="legend">
   <span class="legend-title">Статус:</span>
-  <span class="legend-item"><span class="badge badge-online"></span> OK / Онлайн</span>
-  <span class="legend-item"><span class="badge badge-hold"></span> Hold</span>
-  <span class="legend-item"><span class="badge badge-error"></span> Ошибка</span>
-  <span class="legend-item"><span class="badge badge-offline"></span> Офлайн</span>
-  <span class="legend-item"><span class="badge badge-unknown"></span> Нет данных</span>
+  <span class="legend-item"><span class="badge badge-online"></span> active</span>
+  <span class="legend-item"><span class="badge badge-hold"></span> maintenance</span>
+  <span class="legend-item"><span class="badge badge-error"></span> blocked / lost</span>
+  <span class="legend-item"><span class="badge badge-offline"></span> inactive</span>
 </div>
 
-<!-- Notes -->
+<!-- RLS Note -->
 <div class="note-box">
-  <span class="note-icon">ℹ️</span>
-  <span class="note-text">КСО устройства отображают статус трёх компонентов: <strong>state adapter</strong> (источник состояния), <strong>sidecar</strong> (доставка manifest/media), <strong>player</strong> (показ рекламы).</span>
+  <span class="note-icon">🔐</span>
+  <span class="note-text">Данные проходят route-level RBAC. Business RLS по <strong>store_scope</strong> и <strong>device_scope</strong> будет включён на backend query-level в следующем этапе. Сейчас отображаются все КСО, доступные по праву <code>devices.read</code>.</span>
 </div>
 <div class="note-box">
-  <span class="note-icon">📊</span>
-  <span class="note-text">PoP-счётчик показывает накопительное количество подтверждённых показов с устройства. Детальная аналитика доступна в разделе <strong>Отчёты</strong>.</span>
-</div>
-<div class="note-box">
-  <span class="note-icon">🔍</span>
-  <span class="note-text">Операционные пользователи (operations, device_service) видят только КСО в <strong>своём филиале/магазине/scope</strong>. RLS ограничивает видимость устройств по store_scope и device_scope. Коммерческие данные (кампании, креативы, цены) не отображаются для операционных ролей.</span>
+  <span class="note-icon">📐</span>
+  <span class="note-text">Геометрия экрана: KSO-ограничения — 1920×1080 экран, ad zone 1440×1080 (канал <strong>kso</strong>).</span>
 </div>
 {% endblock %}

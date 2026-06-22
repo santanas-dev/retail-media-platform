@@ -1,109 +1,83 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Магазины</h1>
-<p class="page-description">Иерархия магазинов и КСО — филиалы, связка с устройствами, готовность к показу.</p>
+<p class="page-description">Иерархия: филиалы → кластеры → магазины → КСО. Данные из backend hierarchy API.</p>
 
 <!-- Summary Cards -->
 <div class="cards">
   <div class="card">
     <div class="card-title">Всего магазинов</div>
-    <div class="card-value">{{ stores|length if demo else "—" }}</div>
+    <div class="card-value">{{ store_count if store_count is defined else stores|length }}</div>
     <div class="card-hint">В сети</div>
   </div>
   <div class="card">
     <div class="card-title">Магазинов с КСО</div>
-    <div class="card-value">{{ stores|selectattr('has_kso', 'equalto', true)|list|length if demo else "—" }}</div>
+    <div class="card-value">{{ stores|selectattr('kso_count', 'gt', 0)|list|length }}</div>
     <div class="card-hint">Оснащены КСО</div>
   </div>
   <div class="card">
-    <div class="card-title">КСО подключено</div>
-    <div class="card-value">{{ stores|selectattr('state_adapter', 'equalto', 'OK')|list|length if demo else "—" }}</div>
-    <div class="card-hint">State adapter OK</div>
+    <div class="card-title">КСО всего</div>
+    <div class="card-value">{{ kso_total if kso_total is defined else stores|sum(attribute='kso_count') }}</div>
+    <div class="card-hint">Зарегистрировано устройств</div>
   </div>
   <div class="card">
-    <div class="card-title">Готовы к показу</div>
-    <div class="card-value">{{ stores|selectattr('readiness', 'equalto', 'Готов')|list|length if demo else "—" }}</div>
-    <div class="card-hint">Player OK</div>
+    <div class="card-title">Активно</div>
+    <div class="card-value">{{ stores|selectattr('status', 'equalto', 'active')|list|length }}</div>
+    <div class="card-hint">Статус active</div>
   </div>
   <div class="card">
-    <div class="card-title">В hold</div>
-    <div class="card-value">{{ stores|selectattr('readiness', 'equalto', 'Hold')|list|length if demo else "—" }}</div>
-    <div class="card-hint">КСО в hold</div>
+    <div class="card-title">Неактивно</div>
+    <div class="card-value">{{ stores|selectattr('status', 'equalto', 'inactive')|list|length }}</div>
+    <div class="card-hint">Статус inactive</div>
   </div>
   <div class="card">
     <div class="card-title">Требуют внимания</div>
-    <div class="card-value">{{ stores|selectattr('readiness', 'in', ['Ошибка', 'Нет КСО'])|list|length if demo else "—" }}</div>
-    <div class="card-hint">Ошибки и без КСО</div>
+    <div class="card-value">{{ stores|selectattr('status', 'in', ['blocked', 'maintenance'])|list|length }}</div>
+    <div class="card-hint">blocked / maintenance</div>
   </div>
 </div>
 
-<!-- Filters Toolbar -->
-<div class="filter-toolbar">
-  <div class="filter-group">
-    <label class="filter-label">Филиал</label>
-    <select class="filter-select" disabled><option>Все филиалы</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Регион</label>
-    <select class="filter-select" disabled><option>Все регионы</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Формат</label>
-    <select class="filter-select" disabled><option>Все форматы</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Статус КСО</label>
-    <select class="filter-select" disabled><option>Все статусы</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Готовность</label>
-    <select class="filter-select" disabled>
-      <option>Все</option><option>Готов</option><option>В hold</option><option>Ошибка</option><option>Нет связи</option>
-    </select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Версия KSO</label>
-    <select class="filter-select" disabled><option>Все версии</option></select>
-  </div>
+{% if backend_unavailable %}
+<div class="note-box" style="border-color:#f59e0b;">
+  <span class="note-icon">⚠️</span>
+  <span class="note-text">{{ backend_message }}</span>
 </div>
+{% endif %}
 
 <!-- Stores Table -->
 <div class="table-container">
 <table class="data-table">
   <thead>
     <tr>
-      <th>Филиал</th><th>Магазин</th><th>Формат</th><th>КСО</th>
-      <th>State Adapter</th><th>Sidecar</th><th>Player</th>
-      <th>Готовность</th><th>Heartbeat</th><th>Действия</th>
+      <th>Филиал</th><th>Кластер</th><th>Магазин</th><th>Код</th>
+      <th>Формат</th><th>Статус</th><th>КСО</th><th>Действия</th>
     </tr>
   </thead>
   <tbody>
-  {% if demo and stores %}
+  {% if stores %}
   {% for s in stores %}
     <tr>
-      <td>{{ s.branch }}</td>
+      <td>{{ s.branch_name }}</td>
+      <td>{{ s.cluster_name }}</td>
       <td>{{ s.name }}</td>
-      <td>{{ s.fmt }}</td>
-      <td>{% if s.has_kso %}
-        <span class="badge badge-ready"></span> Да
+      <td><code>{{ s.code }}</code></td>
+      <td>{{ s.format }}</td>
+      <td><span class="badge badge-{{ 'online' if s.status == 'active' else 'offline' }}"></span> {{ s.status }}</td>
+      <td>{% if s.kso_count > 0 %}
+        <span class="badge badge-ready"></span> {{ s.kso_count }}
       {% else %}
-        <span class="badge badge-unknown"></span> Нет
+        <span class="badge badge-unknown"></span> 0
       {% endif %}</td>
-      <td>{{ s.state_adapter }}</td>
-      <td>{{ s.sidecar }}</td>
-      <td>{{ s.player }}</td>
-      <td><span class="badge badge-{{ 'ready' if s.readiness == 'Готов' else 'hold' if s.readiness == 'Hold' else 'error' if s.readiness == 'Ошибка' else 'unknown' }}"></span> {{ s.readiness }}</td>
-      <td>{{ s.heartbeat }}</td>
       <td><span class="action-link">—</span></td>
     </tr>
   {% endfor %}
   {% else %}
     <tr class="empty-row">
-      <td colspan="10">
+      <td colspan="8">
         <div class="table-empty-state">
           <div class="table-empty-icon">🏪</div>
           <div class="table-empty-title">Пока нет данных по магазинам</div>
-          <div class="table-empty-text">После подключения КСО здесь появится готовность магазинов к показу рекламы.</div>
+          <div class="table-empty-text">После добавления филиалов, кластеров и магазинов через backend здесь появится иерархия сети.</div>
         </div>
       </td>
     </tr>
@@ -114,17 +88,21 @@
 
 <!-- Status Legend -->
 <div class="legend">
-  <span class="legend-title">Готовность:</span>
-  <span class="legend-item"><span class="badge badge-ready"></span> Готов</span>
-  <span class="legend-item"><span class="badge badge-hold"></span> Hold</span>
-  <span class="legend-item"><span class="badge badge-error"></span> Ошибка</span>
-  <span class="legend-item"><span class="badge badge-no-connection"></span> Нет связи</span>
+  <span class="legend-title">Статус:</span>
+  <span class="legend-item"><span class="badge badge-online"></span> active</span>
+  <span class="legend-item"><span class="badge badge-offline"></span> inactive</span>
+  <span class="legend-item"><span class="badge badge-hold"></span> maintenance</span>
+  <span class="legend-item"><span class="badge badge-error"></span> blocked</span>
   <span class="legend-item"><span class="badge badge-unknown"></span> Нет КСО</span>
 </div>
 
-<!-- Note -->
+<!-- RLS Note -->
+<div class="note-box">
+  <span class="note-icon">🔐</span>
+  <span class="note-text">Данные проходят route-level RBAC. Business RLS по <strong>branch_scope</strong> и <strong>store_scope</strong> будет включён на backend query-level в следующем этапе. Сейчас отображаются все магазины, доступные по праву <code>organization.read</code>.</span>
+</div>
 <div class="note-box">
   <span class="note-icon">ℹ️</span>
-  <span class="note-text">Магазины и КСО связаны с <strong>кампаниями</strong>, <strong>расписанием</strong> и <strong>публикациями</strong>. Готовность магазина определяется статусом player, sidecar и state-adapter.</span>
+  <span class="note-text">Иерархия: Филиал → Кластер → Магазин → КСО. Данные загружаются из backend hierarchy API. Количество КСО рассчитывается из реестра устройств.</span>
 </div>
 {% endblock %}

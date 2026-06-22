@@ -250,6 +250,43 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Hierarchy & KSO Device Registry (Step 37.2) ────────────────────
+
+    async def list_branches(self, access_token: str) -> dict:
+        """GET /api/branches → {ok, data: [{id, name, code, timezone, is_active}]}"""
+        return await self._request(
+            "GET", "/api/branches",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def list_clusters(self, access_token: str, branch_id: str | None = None) -> dict:
+        """GET /api/clusters[?branch_id=...] → {ok, data: [{id, name, code, branch_id}]}"""
+        path = "/api/clusters"
+        if branch_id:
+            path += f"?branch_id={branch_id}"
+        return await self._request(
+            "GET", path,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def list_stores(self, access_token: str) -> dict:
+        """GET /api/stores → {ok, data: [{id, name, code, cluster_id, format, status, ...}]}"""
+        return await self._request(
+            "GET", "/api/stores",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def list_kso_devices(self, access_token: str) -> dict:
+        """GET /api/devices/kso → {ok, data: [{id, store_id, device_code,
+        display_name, status, channel, runtime_version, player_version,
+        sidecar_version, state_adapter_version, manifest_version,
+        screen_width, screen_height, ad_zone_width, ad_zone_height,
+        last_seen_at, ...}]}"""
+        return await self._request(
+            "GET", "/api/devices/kso",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 

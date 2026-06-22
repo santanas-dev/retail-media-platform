@@ -122,12 +122,6 @@ app.add_api_route("/schedule", _page("pages/schedule.html", "Расписани�
 app.add_api_route("/publications", _page("pages/publications.html", "Публикации", "publications",
                                          {"publications": get_publications_data()}),
                   methods=["GET"], response_class=HTMLResponse)
-app.add_api_route("/stores", _page("pages/stores.html", "Магазины", "stores",
-                                   {"stores": get_stores_data()}),
-                  methods=["GET"], response_class=HTMLResponse)
-app.add_api_route("/devices", _page("pages/devices.html", "КСО Устройства", "devices",
-                                    {"devices": get_devices_data()}),
-                  methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/proof-of-play", _page("pages/proof-of-play.html", "Proof of Play", "pop",
                                           {"pop_events": get_pop_events_data()},
                                           route="/proof-of-play"),
@@ -144,6 +138,124 @@ app.add_api_route("/admin", _page("pages/admin.html", "Администриро�
 app.add_api_route("/approvals", _page("pages/approvals.html", "Согласования", "approvals",
                                       {"approvals": get_approvals_data()}),
                   methods=["GET"], response_class=HTMLResponse)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Hierarchy & KSO Devices — Backend API Integration (Step 37.2)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/stores", response_class=HTMLResponse)
+async def stores_page(request: Request):
+    """Stores page: read-only backend hierarchy API.
+
+    Fetches branches, clusters, stores, and KSO devices from backend.
+    Builds safe projection: branch_name, cluster_name, store name/code/format/status,
+    kso_count. Never exposes backend URL, tokens, UUIDs, or secrets.
+    """
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/stores")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    if not access_token:
+        return _stores_fallback(request, current_user, "No access token")
+
+    # Fetch hierarchy in parallel-ish
+    branches_r = await backend.list_branches(access_token)
+    clusters_r = await backend.list_clusters(access_token)
+    stores_r = await backend.list_stores(access_token)
+    kso_r = await backend.list_kso_devices(access_token)
+
+    if not all([branches_r["ok"], clusters_r["ok"], stores_r["ok"], kso_r["ok"]]):
+        return _stores_fallback(request, current_user, "Backend unavailable")
+
+    from hierarchy_projection import build_store_rows
+    stores = build_store_rows(
+        stores_r["data"], clusters_r["data"],
+        branches_r["data"], kso_r["data"],
+    )
+
+    return templates.TemplateResponse(request, "pages/stores.html", {
+        "request": request,
+        "title": "Магазины",
+        "active": "stores",
+        "demo": False,
+        "current_user": current_user,
+        "stores": stores,
+        "store_count": len(stores),
+        "kso_total": sum(s.get("kso_count", 0) for s in stores),
+    })
+
+
+@app.get("/devices", response_class=HTMLResponse)
+async def devices_page(request: Request):
+    """Devices page: read-only backend KSO device API.
+
+    Fetches KSO devices and stores from backend.
+    Builds safe projection: device_code, display_name, store_name, status,
+    versions, screen geometry. Never exposes backend URL, tokens, UUIDs, or secrets.
+    """
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/devices")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    if not access_token:
+        return _devices_fallback(request, current_user, "No access token")
+
+    stores_r = await backend.list_stores(access_token)
+    kso_r = await backend.list_kso_devices(access_token)
+
+    if not all([stores_r["ok"], kso_r["ok"]]):
+        return _devices_fallback(request, current_user, "Backend unavailable")
+
+    from hierarchy_projection import build_device_rows
+    devices = build_device_rows(kso_r["data"], stores_r["data"])
+
+    return templates.TemplateResponse(request, "pages/devices.html", {
+        "request": request,
+        "title": "КСО Устройства",
+        "active": "devices",
+        "demo": False,
+        "current_user": current_user,
+        "devices": devices,
+    })
+
+
+def _stores_fallback(request: Request, current_user, reason: str = "") -> HTMLResponse:
+    """Safe fallback when backend is unreachable."""
+    return templates.TemplateResponse(request, "pages/stores.html", {
+        "request": request,
+        "title": "Магазины",
+        "active": "stores",
+        "demo": False,
+        "current_user": current_user,
+        "stores": [],
+        "backend_unavailable": True,
+        "backend_message": "Данные временно недоступны. Попробуйте позже.",
+    })
+
+
+def _devices_fallback(request: Request, current_user, reason: str = "") -> HTMLResponse:
+    """Safe fallback when backend is unreachable."""
+    return templates.TemplateResponse(request, "pages/devices.html", {
+        "request": request,
+        "title": "КСО Устройства",
+        "active": "devices",
+        "demo": False,
+        "current_user": current_user,
+        "devices": [],
+        "backend_unavailable": True,
+        "backend_message": "Данные временно недоступны. Попробуйте позже.",
+    })
 
 
 # ══════════════════════════════════════════════════════════════════════
