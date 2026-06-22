@@ -179,6 +179,9 @@ async def admin_page(request: Request):
     if raw == "ok:user_created":
         flash_type = "success"
         flash_msg = f"Пользователь «{request.session.pop('admin_flash_user', '')}» успешно создан."
+    elif raw == "ok:roles_assigned":
+        flash_type = "success"
+        flash_msg = "Роли пользователя обновлены."
     elif raw == "error":
         flash_type = "error"
         flash_msg = request.session.pop("admin_flash_msg", "Ошибка при создании пользователя.")
@@ -327,6 +330,87 @@ async def admin_create_user(
     else:
         error = result.get("error", "Не удалось создать пользователя")
         # Safe truncation
+        if len(error) > 200:
+            error = error[:200]
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = error
+
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Admin Actions — Assign Roles (Step 36.9)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.post("/admin/users/assign-roles", response_class=HTMLResponse)
+async def admin_assign_roles(
+    request: Request,
+    username: str = Form(..., min_length=1, max_length=100),
+    roles: list[str] = Form([], max_length=20),
+):
+    """Assign roles to a user via backend API.
+
+    Flow:
+    1. RBAC: require roles.manage permission
+    2. Validate username and roles
+    3. Reject device_service from portal human assignment
+    4. Call BackendClient.assign_user_roles()
+    5. Redirect to /admin with success/error via session flash
+    """
+    # RBAC guard
+    guard = await require_portal_permission(request, "roles.manage")
+    if guard is not None:
+        return guard
+
+    # Validate username
+    username = username.strip()
+    if not username:
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = "Имя пользователя не указано."
+        return RedirectResponse(url="/admin", status_code=303)
+
+    # Validate: deduplicate and strip roles
+    seen = set()
+    clean_roles: list[str] = []
+    for r in roles:
+        r = r.strip()
+        if r and r not in seen:
+            seen.add(r)
+            clean_roles.append(r)
+
+    if not clean_roles:
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = "Не выбраны роли для назначения."
+        return RedirectResponse(url="/admin", status_code=303)
+
+    # Reject device_service from portal human assignment
+    if "device_service" in clean_roles:
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = (
+            "Роль device_service не может быть назначена через портал."
+        )
+        return RedirectResponse(url="/admin", status_code=303)
+
+    # Reject roles not in HUMAN_ROLES (extra safety net)
+    unknown = set(clean_roles) - HUMAN_ROLES
+    if unknown:
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = (
+            f"Недопустимые роли: {', '.join(sorted(unknown))}."
+        )
+        return RedirectResponse(url="/admin", status_code=303)
+
+    # Get access token from server-side store
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+
+    backend = BackendClient()
+    result = await backend.assign_user_roles(access_token, username, clean_roles)
+
+    if result["ok"]:
+        request.session["admin_flash"] = "ok:roles_assigned"
+    else:
+        error = result.get("error", "Не удалось обновить роли пользователя.")
         if len(error) > 200:
             error = error[:200]
         request.session["admin_flash"] = "error"

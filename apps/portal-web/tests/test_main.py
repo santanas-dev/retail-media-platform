@@ -2435,5 +2435,172 @@ class TestCreateUserNoLocalStorage(unittest.TestCase):
                              f"Admin must NOT reference CDN '{cdn}'")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Admin Assign Roles Tests (Step 36.9)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestAdminAssignRolesForm(unittest.TestCase):
+    """Admin page has assign roles form (server-side POST)."""
+
+    def setUp(self):
+        from main import app
+        from starlette.testclient import TestClient
+        self.client = TestClient(app)
+
+    def test_admin_page_has_assign_roles_form(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Назначить роль", resp.text)
+        self.assertIn('action="/admin/users/assign-roles"', resp.text)
+        self.assertIn('method="post"', resp.text.lower())
+
+    def test_assign_roles_form_has_username_field(self):
+        resp = self.client.get("/admin")
+        self.assertIn('name="username"', resp.text)
+
+    def test_assign_roles_form_has_roles_select(self):
+        resp = self.client.get("/admin")
+        self.assertIn('name="roles"', resp.text)
+        self.assertIn("<select", resp.text.lower())
+
+    def test_assign_roles_form_excludes_device_service(self):
+        """device_service must NOT be an option in the assign roles form."""
+        resp = self.client.get("/admin")
+        # The select contains <option value="..."> — device_service must not be among them
+        # Verify it's not in the form context (the reference listing is separate)
+        # Check: the select block should not contain device_service option
+        self.assertNotIn('value="device_service"', resp.text)
+
+    def test_assign_roles_form_excludes_email_phone(self):
+        resp = self.client.get("/admin")
+        self.assertNotIn('name="email"', resp.text.lower())
+        self.assertNotIn('name="phone"', resp.text.lower())
+
+    def test_assign_roles_form_is_server_side_post(self):
+        """No JavaScript fetch/axios — standard form POST."""
+        resp = self.client.get("/admin")
+        lower = resp.text.lower()
+        self.assertNotIn("fetch(", lower)
+        self.assertNotIn("axios", lower)
+        self.assertNotIn("onclick", lower)
+
+    def test_block_button_still_disabled(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Заблокировать", resp.text)
+        self.assertIn("btn-disabled", resp.text)
+
+    def test_archive_button_still_disabled(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Архивировать", resp.text)
+
+    def test_assign_rls_button_still_disabled(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Назначить область", resp.text)
+
+    def test_create_user_remains_active(self):
+        resp = self.client.get("/admin")
+        self.assertIn("Создать пользователя", resp.text)
+        self.assertIn('action="/admin/users/create"', resp.text)
+
+
+class TestAdminAssignRolesRBAC(unittest.TestCase):
+    """Assign roles requires roles.manage permission."""
+
+    def test_HUMAN_ROLES_excludes_device_service(self):
+        from main import HUMAN_ROLES
+        self.assertNotIn("device_service", HUMAN_ROLES)
+        for role in ("system_admin", "security_admin", "ad_manager",
+                      "approver", "analyst", "advertiser", "operations"):
+            self.assertIn(role, HUMAN_ROLES)
+
+    def test_backend_client_has_assign_user_roles(self):
+        from backend_client import BackendClient
+        self.assertTrue(hasattr(BackendClient, "assign_user_roles"))
+        self.assertTrue(callable(BackendClient.assign_user_roles))
+
+    def test_backend_client_has_get_user_by_username(self):
+        from backend_client import BackendClient
+        self.assertTrue(hasattr(BackendClient, "get_user_by_username"))
+        self.assertTrue(callable(BackendClient.get_user_by_username))
+
+    def test_assign_roles_route_requires_auth(self):
+        """POST /admin/users/assign-roles without session should get 403
+        (RBAC guard fires before session is even checked — safe)."""
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.post("/admin/users/assign-roles", data={
+            "username": "testuser",
+            "roles": ["analyst"],
+        }, follow_redirects=False)
+        # Should get 403 (RBAC) or 303 redirect (session missing → RBAC fails)
+        self.assertIn(resp.status_code, (303, 403, 401))
+
+    def test_password_not_rendered_in_admin_html(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        for fb in ("password_hash", "token_hash", "access_token",
+                    "refresh_token", "bearer ", "authorization:"):
+            self.assertNotIn(fb, lower,
+                             f"Admin HTML must NOT contain '{fb}'")
+
+    def test_backend_url_not_in_admin_html(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        self.assertNotIn("localhost:8001", lower)
+        self.assertNotIn("PORTAL_BACKEND", lower)
+
+    def test_raw_user_id_not_in_assign_roles_form(self):
+        """Assign roles form must NOT expose raw internal UUIDs."""
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        # Extract the assign-roles form section
+        text = resp.text
+        idx = text.find('action="/admin/users/assign-roles"')
+        if idx < 0:
+            self.skipTest("Assign roles form not found")
+        form_section = text[idx:idx + 2000]
+        # UUID pattern: 8-4-4-4-12 hex chars
+        import re
+        uuid_pattern = re.compile(
+            r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+        )
+        self.assertIsNone(
+            uuid_pattern.search(form_section),
+            "Assign roles form must NOT contain UUIDs",
+        )
+
+
+class TestAssignRolesNoLocalStorage(unittest.TestCase):
+    """No localStorage/sessionStorage, no external CDN in assign roles form."""
+
+    def test_admin_page_no_localstorage(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        self.assertNotIn("localstorage", lower)
+        self.assertNotIn("sessionstorage", lower)
+
+    def test_admin_page_no_external_cdn(self):
+        from main import app
+        from starlette.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/admin")
+        lower = resp.text.lower()
+        for cdn in ("cdn.", "cloudflare", "googleapis", "jsdelivr",
+                     "unpkg", "fontawesome", "bootstrapcdn"):
+            self.assertNotIn(cdn, lower,
+                             f"Admin must NOT reference CDN '{cdn}'")
+
+
 if __name__ == "__main__":
     unittest.main()

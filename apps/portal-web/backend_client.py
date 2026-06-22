@@ -162,6 +162,45 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    async def get_user_by_username(self, access_token: str, username: str) -> dict:
+        """GET /api/users/{username} → {ok, data: {id, username, roles, ...}}.
+
+        Returns the user's UUID (id) which is needed for role assignment.
+        UUID is returned to the caller but NEVER exposed in UI/logs.
+        """
+        return await self._request(
+            "GET", f"/api/users/{username}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def assign_user_roles(
+        self, access_token: str, username: str, role_codes: list[str],
+    ) -> dict:
+        """Assign roles to a user via backend API.
+
+        Flow (two-step, no backend changes needed):
+        1. GET /api/users/{username} → fetch user UUID
+        2. PUT /api/users/{user_id}/roles → assign roles
+
+        UUID is resolved internally — never exposed to UI.
+        Returns {ok, data: {username, roles, ...}} or error.
+        """
+        # Step 1: resolve username → user_id
+        lookup = await self.get_user_by_username(access_token, username)
+        if not lookup["ok"]:
+            return lookup  # propagate error (404, etc.)
+
+        user_id = lookup["data"].get("id")
+        if not user_id:
+            return {"ok": False, "error": "User not found", "status": 404}
+
+        # Step 2: assign roles
+        return await self._request(
+            "PUT", f"/api/users/{user_id}/roles",
+            json_data={"role_codes": role_codes},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 
