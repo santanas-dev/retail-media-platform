@@ -461,6 +461,7 @@
 
 - `docs/audit/one-kso-pilot-readiness-plan.md` — этот документ (test KSO → pilot rollout)
 - `docs/audit/test-kso-end-to-end-readiness-gate.md` — **readiness gate с пошаговой E2E проверкой, stop criteria, rollback**
+- `docs/audit/test-kso-deployment-dry-run.md` — **deployment dry run checklist (37.13)**
 - `docs/audit/full-system-audit-tz-v2-5.md` — полный аудит системы
 - `infra/kso-linux/README.md` — KSO Linux deployment
 
@@ -563,3 +564,21 @@ creative → campaign → placement → approval → manifest → publish → si
 
 **Regression:** все suites green (backend 169, portal 407, state adapter 86, player 968, sidecar 1838, infra 227).
 **Commit:** `📋 Add test KSO end-to-end readiness gate (Step 37.12)`
+
+### Шаг 37.13 — Test KSO Deployment Dry Run (2026-06-16)
+
+✅ **Deployment dry run проверен — блокеров нет.**
+
+- **Документ:** `docs/audit/test-kso-deployment-dry-run.md`
+- **Bootstrap installer:** ✅ 23/23 тестов, dry-run по умолчанию
+- **Preflight validator:** ✅ 29/29 тестов, read-only
+- **Systemd units × 3:** ✅ 73/73 тестов, env examples без секретов
+- **Release package builder:** ✅ 28/28 тестов, dry-run по умолчанию
+- **Пути:** `/opt/verny/kso`, `/etc/verny/kso`, `/var/lib/verny/kso`, `/run/verny/kso`, `/var/log/verny/kso` — совпадают с readiness gate
+- **Геометрия:** 1920×1080 экран, 1440×1080 ad zone — совпадает
+- **Команды dry-run:** bootstrap, preflight, release builder, UKM4 discovery — все без реальных изменений
+- **Checklists:** dev-машина (8 пунктов), test KSO на месте (14 пунктов)
+- Код НЕ менялся. Runtime НЕ менялся. Новый функционал НЕ добавлялся.
+
+**Regression:** все suites green.
+**Commit:** `📋 Add test KSO deployment dry run checklist (Step 37.13)`
