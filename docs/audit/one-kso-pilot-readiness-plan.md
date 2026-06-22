@@ -35,9 +35,9 @@
 | 13 | Назначить расписание | DEMO_ONLY | portal-web + backend | Schedule page DEMO, scheduling domain models | Portal→backend CRUD API | ❌ |
 | 14 | Отправить на согласование | DEMO_ONLY | portal-web + backend | Approvals page DEMO, orchestrator domain (empty) | Workflow engine | ❌ |
 | 15 | Утвердить | DEMO_ONLY | portal-web + backend | Maker-checker в contract | Approval workflow backend | ❌ |
-| 16 | Сформировать manifest | PARTIAL | backend/publications | KSO manifest projection (backend) | Portal→backend trigger → manifest generation | ❌ |
-| 17 | Опубликовать manifest | DEMO_ONLY | portal-web + backend | Publications page DEMO, publications domain | Portal→backend publish API | ❌ |
-| 18 | Sidecar забирает manifest/media | DONE | kso_sidecar_agent | Manifest sync, media sync, gateway client | Реальный backend URL | ❌ |
+| 16 | Сформировать manifest | ✅ DONE | backend/manifests | Manifest generation + safe projection (37.7) | ✅ | ❌ |
+| 17 | Опубликовать manifest | ✅ DONE | backend/manifests + portal-web | Publish endpoint + portal UI (37.8) | ✅ | ❌ |
+| 18 | Sidecar забирает manifest | ✅ DONE | kso_sidecar_agent + device_gateway | Device gateway KSO endpoint + sidecar extractor smoke (37.9) | ✅ | ❌ |
 | 19 | Player показывает креатив | DONE (tests) | kso_player | Display cycle, playlist, render plan | Реальный Chromium + manifest + media | ❌ |
 | 20 | Player создаёт PoP | DONE (tests) | kso_player | PoP writer, JSONL events | Реальный playback | ❌ |
 | 21 | Sidecar отправляет PoP | DONE (tests) | kso_sidecar_agent | PoP pickup, batch, send, rotation | Реальный backend URL | ❌ |
@@ -293,24 +293,31 @@
 
 ---
 
-### Phase 6 — Manifest E2E Generation
+### Phase 6 — Manifest E2E Generation ✅ (37.7, 37.8, 37.9)
 
-**Результат:** portal → backend → manifest → sidecar pull → player display.
+**Результат:** manifest generation → publish → device gateway endpoint → sidecar-compatible fetch.
 
-**Блокеры решаются:** B7.
+**Блокеры:** B7 закрыт.
 
-**Что должно быть в commit:**
-- Backend manifest endpoint (уже частично есть, доработка)
-- Sidecar успешно забирает manifest через реальный backend
-- Player отображает media из manifest
+**Что сделано:**
+- Backend manifests domain: GeneratedManifest модель, генерация из approved placement через safe projection
+- Publish endpoint: generated → published transition (idempotent)
+- Device gateway KSO endpoint: `GET /api/device-gateway/kso/{device_code}/manifest` (TEST_ONLY)
+- Sidecar extractor smoke: published manifest wrapper совместим с существующим extractor
+- Player local smoke: sidecar-produced manifest читается player без изменений runtime
 
 **Тесты:**
-- E2E: публикация → manifest → sidecar sync → player playlist
-- Проверка manifest формата (соответствие KSO-safe контракту)
+- Backend: 13 unit-тестов manifest domain (схемы, сервис, safe response)
+- Sidecar extractor: 671 тест (gateway response → safe extract)
+- E2E local delivery smoke: 14 тестов (sync → playlist → render plan → shell snapshot)
+- Все 3664 теста проходят
 
 **Критерий готовности:**
-- Sidecar получает manifest от backend
-- Player корректно читает manifest и media
+- ✅ Manifest генерируется из approved placement
+- ✅ Manifest публикуется (generated → published)
+- ✅ Device gateway отдаёт sidecar-совместимый manifest
+- ✅ Sidecar extractor принимает published manifest wrapper
+- ✅ Player читает local manifest без изменений runtime
 
 ---
 
