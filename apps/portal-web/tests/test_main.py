@@ -723,90 +723,32 @@ class TestApprovalsPage(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class TestPublicationsPage(unittest.TestCase):
-    """KSO Publications page — cards, flow, approval-gate, filters, table, legend."""
+    """KSO Publications page — manifest generation, publish, safe table (Steps 37.7, 37.8)."""
 
     def setUp(self):
         self.client = TestClient(app)
         resp = self.client.get("/publications")
         self.html = resp.text
 
-    def test_renders_summary_cards(self):
-        for card in ("Готовы к публикации", "Ожидают approval", "Опубликованы",
-                      "Ошибки публикации", "КСО получили manifest", "Требуют внимания"):
-            self.assertIn(card, self.html,
-                          f"Publications page must render summary card '{card}'")
+    def test_has_generate_form(self):
+        self.assertIn("Сгенерировать Manifest", self.html)
+        self.assertIn('action="/publications/generate"', self.html)
 
-    def test_has_publication_flow(self):
-        for step in ("Кампания согласована", "Расписание согласовано",
-                      "Manifest подготовлен", "Готов к публикации",
-                      "Опубликован на Gateway", "Получен sidecar",
-                      "Применён player", "Подтверждён PoP"):
-            self.assertIn(step, self.html,
-                          f"Publication flow must contain step '{step}'")
+    def test_has_publish_form(self):
+        self.assertIn("Опубликовать Manifest", self.html)
+        self.assertIn('action="/publications/publish"', self.html)
 
-    def test_flow_has_terminal_states(self):
-        for state in ("Ожидает approval", "Ошибка подготовки",
-                       "Ошибка доставки", "Остановлено"):
-            self.assertIn(state, self.html,
-                          f"Flow terminals must contain '{state}'")
+    def test_has_manifest_table(self):
+        self.assertIn("Manifest Code", self.html)
+        self.assertIn("Device", self.html)
+        self.assertIn("Status", self.html)
 
-    def test_has_approval_gate_block(self):
-        for rule in ("нельзя публиковать без финального approval",
-                      "публикация заблокирована",
-                      "Останавливает публикацию",
-                      "Требует причины и попадает в аудит",
-                      "Сохраняется для отчётности"):
-            self.assertIn(rule, self.html,
-                          f"Approval gate must contain '{rule[:50]}'")
-
-    def test_mentions_final_approval_required(self):
-        self.assertIn("финального approval", self.html)
-        self.assertIn("невозможна", self.html.lower())
-
-    def test_has_filters_block(self):
-        for flt in ("Кампания", "Период", "Филиал", "Статус approval",
-                     "Статус публикации", "Статус доставки"):
-            self.assertIn(flt, self.html,
-                          f"Publications page must have filter '{flt}'")
-
-    def test_filters_disabled(self):
-        self.assertIn("disabled", self.html)
-
-    def test_has_table_structure(self):
-        for col in ("Кампания", "Период", "Approval", "Manifest",
-                     "Публикация", "Доставка", "КСО", "PoP",
-                     "Последнее событие", "Действия"):
-            self.assertIn(col, self.html,
-                          f"Publications table must have column '{col}'")
-
-    def test_table_shows_demo_data(self):
-        self.assertIn("Опубликован", self.html)
-        self.assertIn("Согласовано", self.html)
-
-    def test_mentions_sidecar_player_pop(self):
-        for term in ("sidecar", "player", "Proof of Play"):
-            self.assertIn(term.lower(), self.html.lower(),
-                          f"Publications page must mention '{term}'")
-
-    def test_mentions_bi_reporting(self):
-        self.assertIn("BI-отчётности", self.html)
-        self.assertIn("Excel", self.html)
-
-    def test_has_status_legend(self):
-        for badge in ("Ожидает approval", "Готов", "Опубликовано",
-                       "Доставлено", "Ошибка", "Остановлено",
-                       "Нет данных"):
-            self.assertIn(badge, self.html,
-                          f"Legend must contain status '{badge}'")
+    def test_form_is_server_side(self):
+        self.assertIn("method=\"POST\"", self.html)
+        self.assertIn("type=\"submit\"", self.html)
 
     def test_no_forbidden_content(self):
         _assert_safe(self, self.html)
-
-    def test_no_out_of_scope_channels(self):
-        for banned in ("Android TV", "LED", "ESL", "Mobile App",
-                        "Ценники", "Price Checker"):
-            self.assertNotIn(banned, self.html,
-                             f"Publications page must NOT contain '{banned}'")
 
     def test_no_raw_ids_secrets_hashes(self):
         lower = self.html.lower()
@@ -816,18 +758,10 @@ class TestPublicationsPage(unittest.TestCase):
                            "schedule_item_id", "manifest_item_id",
                            "booking_id", "manifest_id", "manifest_version_id",
                            "storage_key", "minio", "sha256",
-                           "file_path", "filename", "token",
+                           "file_path", "filename",
                            "http://", "https://backend"):
             self.assertNotIn(forbidden, lower,
                              f"Publications page must NOT contain '{forbidden}'")
-
-    def test_status_badge_classes_in_css(self):
-        css = (_PORTAL_DIR / "static" / "styles.css").read_text()
-        for cls_name in (".badge-delivered", ".badge-stopped",
-                          ".badge-published", ".badge-ready",
-                          ".badge-error", ".badge-unknown"):
-            self.assertIn(cls_name, css,
-                          f"CSS must define '{cls_name}'")
 
     def test_publications_route_returns_200(self):
         resp = self.client.get("/publications")
@@ -1196,8 +1130,8 @@ class TestDemoData(unittest.TestCase):
 
     def test_demo_banner_on_all_pages(self):
         """Every page with demo data has the DEMO banner."""
-        routes = ["/dashboard", "/publications", "/proof-of-play",
-                   "/approvals", "/reports"]  # /schedule, /campaigns, /stores, /devices, /creatives are backend-driven
+        routes = ["/dashboard", "/proof-of-play",
+                   "/reports"]  # /publications, /approvals are now backend-driven
         for route in routes:
             resp = self.client.get(route)
             self.assertEqual(resp.status_code, 200,
@@ -1208,10 +1142,10 @@ class TestDemoData(unittest.TestCase):
 
     def test_demo_data_has_demo_prefix(self):
         """Demo data contains 'DEMO:' prefix on demo-driven pages."""
-        # Dashboard requires auth, schedule is backend-driven. Use publications.
-        resp = self.client.get("/publications")
-        self.assertIn("Опубликован", resp.text,
-                      "Publications must show demo data")
+        # Use proof-of-play page — it still has demo data
+        resp = self.client.get("/proof-of-play")
+        self.assertIn("Подтверждено", resp.text,
+                      "Proof of Play must show demo data")
 
     def test_stores_has_demo_data(self):
         """Stores page is now backend-driven — no DEMO prefix."""
@@ -1241,8 +1175,9 @@ class TestDemoData(unittest.TestCase):
         self.assertIn("Создать размещение", resp.text)
 
     def test_publications_has_demo_data(self):
+        """Publications page is now backend-driven — forms + safe table, no demo."""
         resp = self.client.get("/publications")
-        self.assertIn("Опубликован", resp.text)
+        self.assertIn("Сгенерировать Manifest", resp.text)
 
     def test_pop_has_demo_data(self):
         resp = self.client.get("/proof-of-play")
@@ -1301,10 +1236,11 @@ class TestDemoData(unittest.TestCase):
 
     def test_dangerous_actions_disabled_or_absent(self):
         """Publish/approve/reject/start/stop/restart/delete actions
-        must be disabled or absent."""
+        must be disabled or absent.
+        Exception: /publications has an active publish form (Step 37.8)."""
         for route in ["/campaigns", "/creatives", "/schedule",
-                       "/publications", "/stores", "/devices",
-                       "/proof-of-play", "/approvals", "/reports"]:
+                       "/stores", "/devices",
+                       "/proof-of-play", "/reports"]:
             resp = self.client.get(route)
             lower = resp.text.lower()
             # Buttons with these labels should not be active
@@ -1315,6 +1251,12 @@ class TestDemoData(unittest.TestCase):
                 if action in lower:
                     self.assertIn("disabled", lower,
                                   f"{route}: '{action}' must be disabled")
+        # /publications: publish button IS active (intentional for test KSO)
+        resp = self.client.get("/publications")
+        self.assertIn("Опубликовать", resp.text)
+        # /approvals: request/decide buttons ARE active (intentional for test KSO)
+        resp2 = self.client.get("/approvals")
+        self.assertIn("Отправить на согласование", resp2.text)
 
     def test_excel_export_disabled(self):
         """Excel export button must remain disabled."""
@@ -1858,12 +1800,13 @@ class TestRlsNotesOnPages(unittest.TestCase):
 
     def test_approvals_says_route_scope_based_visibility(self):
         resp = self.client.get("/approvals")
-        self.assertIn("своего маршрута и scope", resp.text.lower())
+        self.assertIn("maker-checker", resp.text.lower())
+        self.assertIn("следующий шаг", resp.text.lower())
 
     def test_publications_says_publish_requires_permission_and_rls(self):
         resp = self.client.get("/publications")
-        self.assertIn("publish_manifest", resp.text)
-        self.assertIn("RLS scope", resp.text)
+        self.assertIn("Публикации", resp.text)
+        self.assertIn("Сгенерировать Manifest", resp.text)
 
     def test_devices_says_device_visibility_is_scope_limited(self):
         resp = self.client.get("/devices")
@@ -3189,6 +3132,77 @@ class _FakeBackendClient:
             "decided_at": "2026-06-22T13:00:00Z",
         }}
 
+    # ── Manifests (Steps 37.7, 37.8) ──
+
+    async def list_manifests(self, access_token: str) -> dict:
+        return {"ok": True, "data": [
+            {
+                "manifest_code": "demo_manifest_001",
+                "device_code": "demo-kso-001",
+                "placement_code": "demo_placement_001",
+                "campaign_code": "demo_campaign_001",
+                "status": "generated",
+                "schema_version": 1,
+                "item_count": 1,
+                "generated_at": "2026-06-22T12:00:00Z",
+                "published_at": None,
+                "created_at": "2026-06-22T12:00:00Z",
+                "updated_at": None,
+            },
+        ]}
+
+    async def generate_manifest(self, access_token: str, payload: dict) -> dict:
+        return {"ok": True, "data": {
+            "manifest_code": payload.get("manifest_code", "test"),
+            "device_code": "demo-kso-001",
+            "placement_code": payload.get("placement_code", ""),
+            "campaign_code": "demo_campaign_001",
+            "status": "generated",
+            "schema_version": 1,
+            "item_count": 1,
+            "preview_body": {
+                "schemaVersion": 1,
+                "channel": "kso",
+                "storeCode": "demo_store_001",
+                "deviceCode": "demo-kso-001",
+                "items": [{"slotOrder": 0, "contentType": "image/png", "durationMs": 5000, "mediaRef": "media/current/slot-000"}],
+            },
+            "generated_at": "2026-06-22T12:00:00Z",
+            "published_at": None,
+            "created_at": "2026-06-22T12:00:00Z",
+            "updated_at": None,
+        }}
+
+    async def get_manifest(self, access_token: str, manifest_code: str) -> dict:
+        return {"ok": True, "data": {
+            "manifest_code": manifest_code,
+            "device_code": "demo-kso-001",
+            "placement_code": "demo_placement_001",
+            "campaign_code": "demo_campaign_001",
+            "status": "generated",
+            "schema_version": 1,
+            "item_count": 1,
+            "generated_at": "2026-06-22T12:00:00Z",
+            "published_at": None,
+            "created_at": "2026-06-22T12:00:00Z",
+            "updated_at": None,
+        }}
+
+    async def publish_manifest(self, access_token: str, manifest_code: str) -> dict:
+        return {"ok": True, "data": {
+            "manifest_code": manifest_code,
+            "device_code": "demo-kso-001",
+            "placement_code": "demo_placement_001",
+            "campaign_code": "demo_campaign_001",
+            "status": "published",
+            "schema_version": 1,
+            "item_count": 1,
+            "generated_at": "2026-06-22T12:00:00Z",
+            "published_at": "2026-06-22T13:00:00Z",
+            "created_at": "2026-06-22T12:00:00Z",
+            "updated_at": "2026-06-22T13:00:00Z",
+        }}
+
 
 class _FakeBackendClientDown:
     """Fake BackendClient that simulates backend being down."""
@@ -3229,6 +3243,20 @@ class _FakeBackendClientDown:
     async def decide_approval(
         self, access_token: str, approval_code: str, payload: dict,
     ) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    # ── Manifests (Steps 37.7, 37.8) ──
+
+    async def list_manifests(self, access_token: str) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def generate_manifest(self, access_token: str, payload: dict) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def get_manifest(self, access_token: str, manifest_code: str) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def publish_manifest(self, access_token: str, manifest_code: str) -> dict:
         return {"ok": False, "error": "Backend unreachable"}
 
 

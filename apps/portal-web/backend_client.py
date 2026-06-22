@@ -399,6 +399,37 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Manifest Generation & Publication (Steps 37.7, 37.8) ─────────
+
+    async def list_manifests(self, access_token: str) -> dict:
+        """GET /api/manifests/test-kso → {ok, data: [{manifest_code, ...}]}"""
+        return await self._request(
+            "GET", "/api/manifests/test-kso",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def generate_manifest(self, access_token: str, payload: dict) -> dict:
+        """POST /api/manifests/test-kso/generate → {ok, data: {manifest_code, ...}}"""
+        return await self._request(
+            "POST", "/api/manifests/test-kso/generate",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_manifest(self, access_token: str, manifest_code: str) -> dict:
+        """GET /api/manifests/test-kso/{code} → {ok, data}"""
+        return await self._request(
+            "GET", f"/api/manifests/test-kso/{manifest_code}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def publish_manifest(self, access_token: str, manifest_code: str) -> dict:
+        """POST /api/manifests/test-kso/{code}/publish → {ok, data}"""
+        return await self._request(
+            "POST", f"/api/manifests/test-kso/{manifest_code}/publish",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 

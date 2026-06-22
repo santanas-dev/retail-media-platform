@@ -110,9 +110,6 @@ app.add_api_route("/", _page("pages/dashboard.html", "Dashboard", "dashboard",
 app.add_api_route("/dashboard", _page("pages/dashboard.html", "Dashboard", "dashboard",
                                       get_dashboard_data()),
                   methods=["GET"], response_class=HTMLResponse)
-app.add_api_route("/publications", _page("pages/publications.html", "Публикации", "publications",
-                                         {"publications": get_publications_data()}),
-                  methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/proof-of-play", _page("pages/proof-of-play.html", "Proof of Play", "pop",
                                           {"pop_events": get_pop_events_data()},
                                           route="/proof-of-play"),
@@ -599,6 +596,118 @@ def _schedule_fallback(request: Request, current_user) -> HTMLResponse:
         "backend_unavailable": True,
         "backend_message": "Данные временно недоступны. Попробуйте позже.",
     })
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Publications — Backend API Integration (Steps 37.7, 37.8)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/publications", response_class=HTMLResponse)
+async def publications_page(request: Request):
+    """Publications page: list manifests from backend + generate/publish forms."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/publications")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+
+    manifests = []
+    backend_unavailable = False
+    backend_message = ""
+
+    if access_token:
+        backend = BackendClient()
+        result = await backend.list_manifests(access_token)
+        if result["ok"]:
+            manifests = result.get("data", [])
+        else:
+            backend_unavailable = True
+            backend_message = result.get("error", "Данные временно недоступны.")[:200]
+
+    # Flash messages
+    flash = request.session.pop("pub_flash", None)
+    flash_msg = request.session.pop("pub_flash_msg", "")
+
+    return templates.TemplateResponse(request, "pages/publications.html", {
+        "request": request,
+        "title": "Публикации",
+        "active": "publications",
+        "demo": False,
+        "current_user": current_user,
+        "manifests": manifests,
+        "backend_unavailable": backend_unavailable,
+        "backend_message": backend_message,
+        "pub_flash": flash,
+        "pub_flash_msg": flash_msg,
+    })
+
+
+@app.post("/publications/generate", response_class=HTMLResponse)
+async def publications_generate(
+    request: Request,
+    placement_code: str = Form(..., min_length=1, max_length=64),
+    manifest_code: str = Form(..., min_length=1, max_length=64),
+):
+    """Handle manifest generation — POST /publications/generate → backend."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/publications")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+
+    if not access_token:
+        request.session["pub_flash"] = "error"
+        request.session["pub_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/publications", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.generate_manifest(access_token, {
+        "placement_code": placement_code.strip(),
+        "manifest_code": manifest_code.strip(),
+    })
+
+    if result["ok"]:
+        request.session["pub_flash"] = "ok:generated"
+    else:
+        request.session["pub_flash"] = "error"
+        request.session["pub_flash_msg"] = result.get("error", "Ошибка генерации")[:200]
+
+    return RedirectResponse(url="/publications", status_code=303)
+
+
+@app.post("/publications/publish", response_class=HTMLResponse)
+async def publications_publish(
+    request: Request,
+    manifest_code: str = Form(..., min_length=1, max_length=64),
+):
+    """Handle manifest publish — POST /publications/publish → backend."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/publications")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+
+    if not access_token:
+        request.session["pub_flash"] = "error"
+        request.session["pub_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/publications", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.publish_manifest(access_token, manifest_code.strip())
+
+    if result["ok"]:
+        request.session["pub_flash"] = "ok:published"
+    else:
+        request.session["pub_flash"] = "error"
+        request.session["pub_flash_msg"] = result.get("error", "Ошибка публикации")[:200]
+
+    return RedirectResponse(url="/publications", status_code=303)
 
 
 # ══════════════════════════════════════════════════════════════════════

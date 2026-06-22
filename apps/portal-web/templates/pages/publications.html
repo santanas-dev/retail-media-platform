@@ -1,159 +1,89 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Публикации</h1>
-<p class="page-description">Публикация manifest на КСО — от подготовки до подтверждения доставки и Proof of Play. Публикация невозможна без финального approval.</p>
+<p class="page-description">Генерация и публикация manifest для test KSO — от approved placement до sidecar-compatible manifest.</p>
 
-<!-- Summary Cards -->
-<div class="cards">
-  <div class="card">
-    <div class="card-title">Готовы к публикации</div>
-    <div class="card-value">1</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Ожидают approval</div>
-    <div class="card-value">1</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Опубликованы</div>
-    <div class="card-value">1</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Ошибки публикации</div>
-    <div class="card-value">0</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">КСО получили manifest</div>
-    <div class="card-value">4</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Требуют внимания</div>
-    <div class="card-value">1</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
+<!-- Flash messages -->
+{% if pub_flash and pub_flash.startswith('ok:') %}
+<div class="flash-ok">
+  {% if pub_flash == 'ok:generated' %}✅ Manifest сгенерирован.{% elif pub_flash == 'ok:published' %}🚀 Manifest опубликован.{% else %}✅ Успешно.{% endif %}
+</div>
+{% elif pub_flash == 'error' %}
+<div class="flash-error">❌ Ошибка: {{ pub_flash_msg }}</div>
+{% endif %}
+
+<!-- Generate Manifest Form -->
+<div class="form-panel">
+  <h2>Сгенерировать Manifest</h2>
+  <form method="POST" action="/publications/generate">
+    <div class="form-row">
+      <label>Placement Code:</label>
+      <input type="text" name="placement_code" required minlength="1" maxlength="64"
+             placeholder="demo_placement_001">
+    </div>
+    <div class="form-row">
+      <label>Manifest Code:</label>
+      <input type="text" name="manifest_code" required minlength="1" maxlength="64"
+             placeholder="demo_manifest_001">
+    </div>
+    <button type="submit" class="btn-primary">Сгенерировать</button>
+  </form>
 </div>
 
-<!-- Publication Flow Block -->
-<div class="requirements-box">
-  <div class="requirements-title">Жизненный цикл публикации</div>
-  <div class="lifecycle-flow">
-    <span class="lifecycle-step lifecycle-ready">Кампания согласована</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-scheduled">Расписание согласовано</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-review">Manifest подготовлен</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-ready">Готов к публикации</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-published">Опубликован на Gateway</span>
-  </div>
-  <div class="lifecycle-flow" style="margin-top:8px">
-    <span class="lifecycle-step lifecycle-published">Получен sidecar</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-live">Применён player</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-completed">Подтверждён PoP</span>
-  </div>
-  <div class="lifecycle-terminals">
-    <span class="lifecycle-step lifecycle-review">Ожидает approval</span>
-    <span class="lifecycle-step lifecycle-error">Ошибка подготовки</span>
-    <span class="lifecycle-step lifecycle-error">Ошибка доставки</span>
-    <span class="lifecycle-step lifecycle-stopped">Остановлено</span>
-  </div>
+<!-- Publish Manifest Form -->
+<div class="form-panel">
+  <h2>Опубликовать Manifest</h2>
+  <form method="POST" action="/publications/publish">
+    <div class="form-row">
+      <label>Manifest Code:</label>
+      <input type="text" name="manifest_code" required minlength="1" maxlength="64"
+             placeholder="demo_manifest_001">
+    </div>
+    <button type="submit" class="btn-primary">Опубликовать</button>
+  </form>
 </div>
 
-<!-- Approval Gate Block -->
-<div class="requirements-box">
-  <div class="requirements-title">Правила публикации — Approval Gate</div>
-  <div class="requirements-grid">
-    <div class="requirements-item">
-      <span class="requirements-label">Финальный approval</span>
-      <span class="requirements-value requirements-forbidden">Manifest нельзя публиковать без финального approval</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Блокировка</span>
-      <span class="requirements-value">Если approval отсутствует — публикация заблокирована</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Возврат на доработку</span>
-      <span class="requirements-value">Останавливает публикацию</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Экстренная остановка</span>
-      <span class="requirements-value">Требует причины и попадает в аудит</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">История публикаций</span>
-      <span class="requirements-value">Сохраняется для отчётности</span>
-    </div>
-  </div>
-</div>
-
-<!-- Filters Toolbar -->
-<div class="filter-toolbar">
-  <div class="filter-group">
-    <label class="filter-label">Кампания</label>
-    <select class="filter-select" disabled><option>Все кампании</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Период</label>
-    <select class="filter-select" disabled><option>Все периоды</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Филиал / магазин</label>
-    <select class="filter-select" disabled><option>Все магазины</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Статус approval</label>
-    <select class="filter-select" disabled><option>Все статусы</option><option>Согласовано</option><option>Ожидает</option><option>Отклонено</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Статус публикации</label>
-    <select class="filter-select" disabled><option>Все статусы</option><option>Готов</option><option>Опубликован</option><option>Ошибка</option><option>Остановлен</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Статус доставки на КСО</label>
-    <select class="filter-select" disabled><option>Все</option><option>Доставлено</option><option>В процессе</option><option>Ошибка доставки</option></select>
-  </div>
-</div>
-
-<!-- Publications Table -->
+<!-- Manifests Table -->
 <div class="table-container">
 <table class="data-table">
   <thead>
     <tr>
-      <th>Кампания</th><th>Период</th><th>Approval</th><th>Manifest</th>
-      <th>Публикация</th><th>Доставка</th><th>КСО</th>
-      <th>PoP</th><th>Последнее событие</th><th>Действия</th>
+      <th>Manifest Code</th>
+      <th>Device</th>
+      <th>Placement</th>
+      <th>Campaign</th>
+      <th>Status</th>
+      <th>Items</th>
+      <th>Generated</th>
+      <th>Published</th>
     </tr>
   </thead>
   <tbody>
-  {% if demo and publications %}
-  {% for p in publications %}
+  {% if manifests %}
+  {% for m in manifests %}
     <tr>
-      <td>{{ p.campaign }}</td>
-      <td>{{ p.period }}</td>
-      <td>{{ p.approval }}</td>
-      <td>{{ p.manifest }}</td>
-      <td>{{ p.publication }}</td>
-      <td>{{ p.delivery }}</td>
-      <td>{{ p.kso }}</td>
-      <td>{{ p.pop }}</td>
-      <td>{{ p.last_event }}</td>
-      <td><span class="action-link">—</span></td>
+      <td><code>{{ m.manifest_code }}</code></td>
+      <td><code>{{ m.device_code }}</code></td>
+      <td><code>{{ m.placement_code }}</code></td>
+      <td><code>{{ m.campaign_code }}</code></td>
+      <td>
+        {% if m.status == 'published' %}<span class="badge badge-published">published</span>
+        {% elif m.status == 'generated' %}<span class="badge badge-ready">generated</span>
+        {% else %}<span class="badge">{{ m.status }}</span>
+        {% endif %}
+      </td>
+      <td>{{ m.item_count }}</td>
+      <td>{{ m.generated_at[:19] if m.generated_at else '—' }}</td>
+      <td>{{ m.published_at[:19] if m.published_at else '—' }}</td>
     </tr>
   {% endfor %}
   {% else %}
     <tr class="empty-row">
-      <td colspan="10">
+      <td colspan="8">
         <div class="table-empty-state">
           <div class="table-empty-icon">📋</div>
-          <div class="table-empty-title">Пока нет публикаций</div>
-          <div class="table-empty-text">После согласования кампаний и расписания здесь появится готовность manifest к публикации на КСО.</div>
+          <div class="table-empty-title">Пока нет манифестов</div>
+          <div class="table-empty-text">Сгенерируйте manifest из approved placement.</div>
         </div>
       </td>
     </tr>
@@ -162,28 +92,19 @@
 </table>
 </div>
 
-<!-- Status Legend -->
-<div class="legend">
-  <span class="legend-title">Статус:</span>
-  <span class="legend-item"><span class="badge badge-review"></span> Ожидает approval</span>
-  <span class="legend-item"><span class="badge badge-ready"></span> Готов</span>
-  <span class="legend-item"><span class="badge badge-published"></span> Опубликовано</span>
-  <span class="legend-item"><span class="badge badge-delivered"></span> Доставлено</span>
-  <span class="legend-item"><span class="badge badge-error"></span> Ошибка</span>
-  <span class="legend-item"><span class="badge badge-stopped"></span> Остановлено</span>
-</div>
-
 <!-- Notes -->
+{% if backend_unavailable %}
 <div class="note-box">
-  <span class="note-icon">✅</span>
-  <span class="note-text">Публикация manifest на КСО <strong>невозможна без финального approval</strong>. Статус согласования доступен в разделе «Согласования».</span>
+  <span class="note-icon">⚠️</span>
+  <span class="note-text">Бэкенд недоступен: {{ backend_message }}</span>
 </div>
+{% endif %}
 <div class="note-box">
-  <span class="note-icon">📊</span>
-  <span class="note-text">Публикация manifest использует согласованную кампанию и расписание. Факт доставки (sidecar) и подтверждение применения (player, Proof of Play) будут использоваться в BI-отчётности и выгрузке в Excel.</span>
+  <span class="note-icon">📦</span>
+  <span class="note-text">Manifest генерируется только из <strong>approved placement</strong> с approved campaign и active устройством. Публикация меняет статус generated → published и делает manifest доступным для sidecar.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Публикация доступна только при <strong>permission publish_manifest</strong> и совпадении <strong>RLS scope</strong>. Пользователь не может опубликовать manifest в филиал/магазин/КСО вне своего scope. Manifest publication требует финального approval — без approval публикация заблокирована.</span>
+  <span class="note-text">Все ответы safe: токены, backend URL, raw UUID не отображаются. Publication/delivery — минимальный gate для test KSO technical validation.</span>
 </div>
 {% endblock %}

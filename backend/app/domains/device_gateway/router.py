@@ -128,6 +128,54 @@ async def manifest_by_id(
     return response
 
 
+# ═══════════════════════════════════════════════════════════════════
+#  KSO Test: Manifest from GeneratedManifest (Step 37.8)
+# ═══════════════════════════════════════════════════════════════════
+
+@device_router.get("/kso/{device_code}/manifest")
+async def kso_manifest_by_device(
+    device_code: str,
+    db=Depends(get_db),
+):
+    """Return latest published KSO manifest for a device_code.
+
+    Reads from GeneratedManifest (test KSO pipeline), not the
+    enterprise PublicationBatch → ManifestVersion pipeline.
+    Returns sidecar-compatible body: {status, manifest, ...}
+    """
+    from app.domains.manifests.models import GeneratedManifest
+    from sqlalchemy import select as _select
+
+    result = await db.execute(
+        _select(GeneratedManifest)
+        .where(
+            GeneratedManifest.device_code == device_code,
+            GeneratedManifest.status == "published",
+        )
+        .order_by(GeneratedManifest.published_at.desc().nullslast())
+        .limit(1)
+    )
+    mf = result.scalar_one_or_none()
+
+    if not mf:
+        return {"status": "no_manifest"}
+
+    import hashlib
+    import json as _json
+
+    body = mf.manifest_body_json or {}
+    canonical = _json.dumps(body, sort_keys=True, separators=(",", ":"))
+    mhash = hashlib.sha256(canonical.encode()).hexdigest()
+
+    return {
+        "status": "served",
+        "manifest_version_id": str(mf.id),
+        "manifest_hash": mhash,
+        "published_at": mf.published_at.isoformat() if mf.published_at else None,
+        "manifest": body,
+    }
+
+
 # ── Admin: manifest requests ────────────────────────────────────────
 
 @admin_router.get(
