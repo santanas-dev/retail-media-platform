@@ -569,16 +569,21 @@ async def require_user_permission(
 # ── User detail ──────────────────────────────────────────────────────────
 
 async def get_user_by_username(db: AsyncSession, username: str) -> models.User:
-    """Get a single user by username with roles eager-loaded.
+    """Get a single user by username with roles and permissions eager-loaded.
+
+    Eager-loads the full chain: user_roles → role → role_permissions → permission.
+    This avoids lazy-loading MissingGreenlet errors in sync TestClient contexts
+    and eliminates N+1 queries when the caller needs get_user_permissions().
 
     Raises 404 if not found.
     """
     result = await db.execute(
         select(models.User)
         .options(
-            selectinload(models.User.user_roles).selectinload(
-                models.UserRole.role
-            )
+            selectinload(models.User.user_roles)
+            .selectinload(models.UserRole.role)
+            .selectinload(models.Role.role_permissions)
+            .selectinload(models.RolePermission.permission)
         )
         .where(models.User.username == username)
     )

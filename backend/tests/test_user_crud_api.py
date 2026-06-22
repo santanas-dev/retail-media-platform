@@ -129,19 +129,31 @@ ALL_IDENTITY_DDL = [
 ]
 
 # SQLAlchemy ORM uses server_default=gen_random_uuid() which doesn't work
-# on SQLite. Patch all identity model PKs to generate UUIDs client-side.
+# on SQLite. Patch all identity model PKs to generate UUIDs client-side
+# AND convert any UUID objects to hex strings (SQLite can't bind UUID objects).
 def _install_uuid_defaults(models_module):
-    """Install before_insert listeners for all identity model PK columns."""
+    """Install before_insert listeners for all identity model PK and FK columns."""
+
+    def _make_set_id(model_name: str):
+        def _set_id(mapper, connection, target):
+            # Generate PK if missing
+            if hasattr(target, 'id') and target.id is None:
+                target.id = uuid4().hex
+            # Convert any uuid.UUID objects on any column to hex strings
+            # (SQLite can't bind Python UUID objects)
+            for col in mapper.columns:
+                val = getattr(target, col.key, None)
+                if val is not None and isinstance(val, uuid4().__class__):
+                    setattr(target, col.key, val.hex)
+        return _set_id
+
     for name in ("User", "Role", "Permission", "UserRole", "RolePermission",
                   "RefreshToken", "UserRlsScope", "LoginAuditEvent",
                   "AdminAuditEvent", "MfaSettings"):
         cls = getattr(models_module, name, None)
         if cls is None:
             continue
-        @event.listens_for(cls, "before_insert")
-        def _set_id(mapper, connection, target, _name=name):
-            if hasattr(target, 'id') and target.id is None:
-                target.id = uuid4().hex
+        event.listen(cls, "before_insert", _make_set_id(name))
 
 
 async def _init_test_db():
@@ -236,7 +248,6 @@ class TestUserCRUDAPI(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         _assert_no_forbidden(self, resp.text)
 
-    @unittest.skip('Requires greenlet support for SQLAlchemy async ORM')
     def test_admin_can_get_user_by_username(self):
         resp = self.client.get(f"/api/users/{ADMIN_USERNAME}")
         self.assertEqual(resp.status_code, 200)
@@ -307,7 +318,6 @@ class TestRoleAssignmentAPI(unittest.TestCase):
         _run_async(_init_test_db())
         cls.client = TestClient(_setup_app())
 
-    @unittest.skip('Requires greenlet support for SQLAlchemy async ORM')
     def test_admin_can_assign_roles(self):
         self.client.post("/api/users", json={"username": "demo_role_test", "password": "RoleTestPass1!"})
         get_resp = self.client.get("/api/users/demo_role_test")
@@ -318,14 +328,12 @@ class TestRoleAssignmentAPI(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("analyst", resp.json()["roles"])
 
-    @unittest.skip('Requires greenlet support for SQLAlchemy async ORM')
     def test_cannot_assign_unknown_role(self):
         get_resp = self.client.get(f"/api/users/{ADMIN_USERNAME}")
         user_id = get_resp.json()["id"]
         resp = self.client.put(f"/api/users/{user_id}/roles", json={"role_codes": ["nonexistent_role_xyz"]})
         self.assertEqual(resp.status_code, 400)
 
-    @unittest.skip('Requires greenlet support for SQLAlchemy async ORM')
     def test_cannot_assign_device_service_via_user_api(self):
         get_resp = self.client.get(f"/api/users/{ADMIN_USERNAME}")
         user_id = get_resp.json()["id"]
@@ -340,7 +348,6 @@ class TestRlsScopesAPI(unittest.TestCase):
         _run_async(_init_test_db())
         cls.client = TestClient(_setup_app())
 
-    @unittest.skip('Requires greenlet support for SQLAlchemy async ORM')
     def test_admin_can_assign_rls_scopes(self):
         resp = self.client.patch(f"/api/users/{ADMIN_USERNAME}/rls-scopes", json={"scopes": [{"scope_type": "branch_scope", "scope_value": "central-hq", "reason": "Main branch"}]})
         self.assertEqual(resp.status_code, 200)
