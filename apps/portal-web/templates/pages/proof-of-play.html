@@ -1,131 +1,115 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Proof of Play</h1>
-<p class="page-description">Подтверждение фактических показов рекламы на КСО — от создания события до подтверждения backend. План/факт анализ и BI-отчётность.</p>
+<p class="page-description">Техническая валидация цепочки PoP: player → sidecar → backend → portal. Без BI-отчётности.</p>
 
-<!-- Summary Cards -->
+<!-- KPI Cards -->
 <div class="cards">
   <div class="card">
-    <div class="card-title">Подтверждённые показы</div>
-    <div class="card-value">1 247</div>
-    <div class="card-hint">Нет данных</div>
+    <div class="card-title">Всего событий</div>
+    <div class="card-value">{{ kpi_total }}</div>
+    <div class="card-hint">Принято backend</div>
   </div>
   <div class="card">
-    <div class="card-title">Ожидают отправки</div>
-    <div class="card-value">1</div>
-    <div class="card-hint">Нет данных</div>
+    <div class="card-title">Уникальных КСО</div>
+    <div class="card-value">{{ kpi_unique_devices }}</div>
+    <div class="card-hint">Устройств</div>
   </div>
   <div class="card">
-    <div class="card-title">Отправлены</div>
-    <div class="card-value">3</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Ошибки PoP</div>
-    <div class="card-value">1</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">КСО без подтверждений</div>
-    <div class="card-value">1</div>
-    <div class="card-hint">Нет данных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Кампании без факта</div>
-    <div class="card-value">2</div>
-    <div class="card-hint">Нет данных</div>
+    <div class="card-title">Уникальных кампаний</div>
+    <div class="card-value">{{ kpi_unique_campaigns }}</div>
+    <div class="card-hint">Кампаний</div>
   </div>
 </div>
 
-<!-- PoP Event Flow -->
-<div class="requirements-box">
-  <div class="requirements-title">Жизненный цикл PoP-события</div>
-  <div class="lifecycle-flow">
-    <span class="lifecycle-step lifecycle-live">Player показал креатив</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-scheduled">Создан PoP event</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-review">Sidecar забрал event</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-published">Сформирован batch</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-completed">Backend принял</span>
-    <span class="lifecycle-arrow">→</span>
-    <span class="lifecycle-step lifecycle-ready">Показ подтверждён</span>
-  </div>
-  <div class="lifecycle-terminals">
-    <span class="lifecycle-step lifecycle-draft">pending</span>
-    <span class="lifecycle-step lifecycle-review">sent</span>
-    <span class="lifecycle-step lifecycle-ready">confirmed</span>
-    <span class="lifecycle-step lifecycle-stopped">duplicate</span>
-    <span class="lifecycle-step lifecycle-error">failed</span>
-    <span class="lifecycle-step lifecycle-archived">unknown</span>
-  </div>
-</div>
-
-<!-- Filters Toolbar -->
+<!-- Filter Form (server-side GET, no JS) -->
 <div class="filter-toolbar">
-  <div class="filter-group">
-    <label class="filter-label">Период</label>
-    <select class="filter-select" disabled><option>Все периоды</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Кампания</label>
-    <select class="filter-select" disabled><option>Все кампании</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Креатив</label>
-    <select class="filter-select" disabled><option>Все креативы</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Филиал / магазин</label>
-    <select class="filter-select" disabled><option>Все магазины</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">КСО</label>
-    <select class="filter-select" disabled><option>Все КСО</option></select>
-  </div>
-  <div class="filter-group">
-    <label class="filter-label">Статус PoP</label>
-    <select class="filter-select" disabled>
-      <option>Все статусы</option><option>Pending</option><option>Sent</option><option>Confirmed</option><option>Duplicate</option><option>Failed</option>
-    </select>
-  </div>
+  <form method="get" action="/proof-of-play" class="filter-form">
+    <div class="filter-group">
+      <label class="filter-label" for="f_device_code">КСО</label>
+      <input type="text" id="f_device_code" name="device_code"
+             class="filter-select" placeholder="device_code"
+             value="{{ filters.get('device_code', '') }}">
+    </div>
+    <div class="filter-group">
+      <label class="filter-label" for="f_campaign_code">Кампания</label>
+      <input type="text" id="f_campaign_code" name="campaign_code"
+             class="filter-select" placeholder="campaign_code"
+             value="{{ filters.get('campaign_code', '') }}">
+    </div>
+    <div class="filter-group">
+      <label class="filter-label" for="f_creative_code">Креатив</label>
+      <input type="text" id="f_creative_code" name="creative_code"
+             class="filter-select" placeholder="creative_code"
+             value="{{ filters.get('creative_code', '') }}">
+    </div>
+    <div class="filter-group">
+      <label class="filter-label" for="f_placement_code">Размещение</label>
+      <input type="text" id="f_placement_code" name="placement_code"
+             class="filter-select" placeholder="placement_code"
+             value="{{ filters.get('placement_code', '') }}">
+    </div>
+    <div class="filter-group">
+      <label class="filter-label" for="f_date_from">С</label>
+      <input type="text" id="f_date_from" name="date_from"
+             class="filter-select" placeholder="YYYY-MM-DD"
+             value="{{ filters.get('date_from', '') }}">
+    </div>
+    <div class="filter-group">
+      <label class="filter-label" for="f_date_to">По</label>
+      <input type="text" id="f_date_to" name="date_to"
+             class="filter-select" placeholder="YYYY-MM-DD"
+             value="{{ filters.get('date_to', '') }}">
+    </div>
+    <div class="filter-group">
+      <button type="submit" class="btn btn-primary">Фильтр</button>
+      <a href="/proof-of-play" class="btn btn-secondary">Сброс</a>
+    </div>
+  </form>
 </div>
 
-<!-- PoP Table -->
+<!-- PoP Events Table -->
 <div class="table-container">
 <table class="data-table">
   <thead>
     <tr>
-      <th>Период</th><th>Кампания</th><th>Креатив</th><th>Магазин / КСО</th>
-      <th>Публикация</th><th>Статус PoP</th><th>Показы</th>
-      <th>Последнее событие</th><th>Ошибка</th><th>Действия</th>
+      <th>Событие</th>
+      <th>КСО</th>
+      <th>Размещение</th>
+      <th>Кампания</th>
+      <th>Креатив</th>
+      <th>media_ref</th>
+      <th>Тип</th>
+      <th>Статус</th>
+      <th>Время показа</th>
+      <th>Длит. (мс)</th>
+      <th>Принято</th>
     </tr>
   </thead>
   <tbody>
-  {% if demo and pop_events %}
+  {% if pop_events %}
   {% for e in pop_events %}
     <tr>
-      <td>{{ e.period }}</td>
-      <td>{{ e.campaign }}</td>
-      <td>{{ e.creative }}</td>
-      <td>{{ e.store_kso }}</td>
-      <td>{{ e.publication }}</td>
-      <td><span class="badge badge-{{ 'confirmed' if e.status == 'Подтверждено' else 'pending' if e.status == 'Ожидает' else 'error' }}"></span> {{ e.status }}</td>
-      <td>{{ e.shows }}</td>
-      <td>{{ e.last_event }}</td>
-      <td>{{ e.error }}</td>
-      <td><span class="action-link">—</span></td>
+      <td><code>{{ e.event_code }}</code></td>
+      <td><code>{{ e.device_code }}</code></td>
+      <td><code>{{ e.placement_code }}</code></td>
+      <td><code>{{ e.campaign_code }}</code></td>
+      <td><code>{{ e.creative_code }}</code></td>
+      <td><code>{{ e.media_ref }}</code></td>
+      <td>{{ e.event_type }}</td>
+      <td><span class="badge badge-{{ 'confirmed' if e.status == 'accepted' else 'pending' }}">{{ e.status }}</span></td>
+      <td>{{ e.played_at or '—' }}</td>
+      <td>{{ e.duration_ms if e.duration_ms is not none else '—' }}</td>
+      <td>{{ e.received_at }}</td>
     </tr>
   {% endfor %}
   {% else %}
     <tr class="empty-row">
-      <td colspan="10">
+      <td colspan="11">
         <div class="table-empty-state">
-          <div class="table-empty-icon">✅</div>
-          <div class="table-empty-title">Пока нет подтверждений показов</div>
-          <div class="table-empty-text">После публикации manifest и работы player здесь появятся агрегированные Proof of Play данные.</div>
+          <div class="table-empty-icon">📡</div>
+          <div class="table-empty-title">Нет PoP событий</div>
+          <div class="table-empty-text">После публикации manifest и приёма PoP событий backend здесь появятся данные. Отправьте PoP через <code>POST /api/device-gateway/kso/{device_code}/pop</code>.</div>
         </div>
       </td>
     </tr>
@@ -134,23 +118,13 @@
 </table>
 </div>
 
-<!-- Status Legend -->
-<div class="legend">
-  <span class="legend-title">Статус PoP:</span>
-  <span class="legend-item"><span class="badge badge-pending"></span> Ожидает отправки</span>
-  <span class="legend-item"><span class="badge badge-scheduled"></span> Отправлено</span>
-  <span class="legend-item"><span class="badge badge-confirmed"></span> Подтверждено</span>
-  <span class="legend-item"><span class="badge badge-duplicate"></span> Дубликат</span>
-  <span class="legend-item"><span class="badge badge-error"></span> Ошибка</span>
-</div>
-
 <!-- Notes -->
 <div class="note-box">
   <span class="note-icon">ℹ️</span>
-  <span class="note-text">Proof of Play подтверждает факт показа после публикации manifest. События проходят путь: <strong>player</strong> → <strong>sidecar</strong> → <strong>batch</strong> → <strong>backend</strong>. Каждое событие имеет статус: pending, sent, confirmed, duplicate или failed.</span>
+  <span class="note-text">Это технический отчёт для валидации цепочки PoP. Отображаются только безопасные поля: коды событий/устройств/кампаний/креативов, статусы и временные метки. Никакие внутренние идентификаторы, хэш-суммы, пути к файлам, ключи хранилища или токены не отображаются.</span>
 </div>
 <div class="note-box">
-  <span class="note-icon">📊</span>
-  <span class="note-text">Агрегированные данные PoP будут использоваться в <strong>BI-отчётности</strong>, план/факт анализе и выгрузке в Excel. Отчётность проектируется как Power BI-like: интерактивные фильтры, срезы, drill-down от кампании до отдельного КСО и креатива.</span>
+  <span class="note-icon">🔗</span>
+  <span class="note-text">Цепочка: <strong>creative</strong> → <strong>campaign</strong> → <strong>placement</strong> → <strong>approval</strong> → <strong>manifest</strong> → <strong>publish</strong> → <strong>sidecar/player smoke</strong> → <strong>PoP ingest</strong> → <strong>portal PoP view</strong>. Техническая валидация завершена на уровне видимости в портале.</span>
 </div>
 {% endblock %}

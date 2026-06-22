@@ -21,7 +21,6 @@ from demo_data import (
     get_creatives_data,
     get_schedules_data,
     get_publications_data,
-    get_pop_events_data,
     get_approvals_data,
     get_report_kpi,
     get_report_table,
@@ -110,10 +109,83 @@ app.add_api_route("/", _page("pages/dashboard.html", "Dashboard", "dashboard",
 app.add_api_route("/dashboard", _page("pages/dashboard.html", "Dashboard", "dashboard",
                                       get_dashboard_data()),
                   methods=["GET"], response_class=HTMLResponse)
-app.add_api_route("/proof-of-play", _page("pages/proof-of-play.html", "Proof of Play", "pop",
-                                          {"pop_events": get_pop_events_data()},
-                                          route="/proof-of-play"),
-                  methods=["GET"], response_class=HTMLResponse)
+
+# ══════════════════════════════════════════════════════════════════════
+# Proof of Play — Backend API Integration (Step 37.11)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/proof-of-play", response_class=HTMLResponse)
+async def proof_of_play_page(request: Request):
+    """Proof of Play page: backend-driven PoP event list + filters (Step 37.11).
+
+    Fetches PoP events from backend, builds safe KPI, renders filter form
+    and event table. Never exposes raw UUIDs, tokens, manifest internals,
+    file_paths, or secrets.
+    """
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/proof-of-play")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    if not access_token:
+        return _pop_fallback(request, current_user, "No access token")
+
+    # Collect filter values from query params (server-side GET form)
+    filters = {}
+    for key in ("device_code", "campaign_code", "creative_code",
+                "placement_code", "date_from", "date_to"):
+        val = request.query_params.get(key)
+        if val:
+            filters[key] = val
+
+    limit = 100
+    filters["limit"] = limit
+
+    result = await backend.list_pop_events(access_token, filters)
+    if not result["ok"]:
+        return _pop_fallback(request, current_user, "Backend unavailable")
+
+    events = result.get("data", [])
+
+    # Safe KPI computation (no raw IDs, no secrets)
+    kpi_total = len(events)
+    kpi_unique_devices = len(set(e.get("device_code", "") for e in events))
+    kpi_unique_campaigns = len(set(e.get("campaign_code", "") for e in events))
+
+    return templates.TemplateResponse(request, "pages/proof-of-play.html", {
+        "request": request,
+        "title": "Proof of Play",
+        "active": "pop",
+        "demo": False,
+        "current_user": current_user,
+        "pop_events": events,
+        "kpi_total": kpi_total,
+        "kpi_unique_devices": kpi_unique_devices,
+        "kpi_unique_campaigns": kpi_unique_campaigns,
+        "filters": filters,
+    })
+
+
+def _pop_fallback(request: Request, current_user, reason: str = "") -> HTMLResponse:
+    """Safe fallback when backend is unreachable."""
+    return templates.TemplateResponse(request, "pages/proof-of-play.html", {
+        "request": request,
+        "title": "Proof of Play",
+        "active": "pop",
+        "demo": False,
+        "current_user": current_user,
+        "pop_events": [],
+        "kpi_total": 0,
+        "kpi_unique_devices": 0,
+        "kpi_unique_campaigns": 0,
+        "filters": {},
+        "backend_unavailable": True,
+        "backend_message": "Данные временно недоступны. Попробуйте позже.",
+    })
 app.add_api_route("/reports", _page("pages/reports.html", "Отчёты", "reports",
                                     {"report_kpi": get_report_kpi(),
                                      "report_table": get_report_table()}),

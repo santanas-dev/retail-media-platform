@@ -41,8 +41,8 @@
 | 19 | Player показывает креатив | DONE (tests) | kso_player | Display cycle, playlist, render plan | Реальный Chromium + manifest + media | ❌ |
 | 20 | Player создаёт PoP | DONE (tests) | kso_player | PoP writer, JSONL events | Реальный playback | ❌ |
 | 21 | Sidecar отправляет PoP | DONE (tests) | kso_sidecar_agent | PoP pickup, batch, send, rotation | Реальный backend URL | ❌ |
-|| 22 | Backend принимает PoP | ✅ DONE (37.10) | backend/proof_of_play | PoP ingest + safe correlation chain | Portal reports (37.11) | ❌ |
-| 23 | Portal показывает отчёт | DEMO_ONLY | portal-web + backend | Reports page placeholder, campaign_reports domain | Portal→backend API + real aggregation | ✅ P0 |
+||| 22 | Backend принимает PoP | ✅ DONE (37.10) | backend/proof_of_play | PoP ingest + safe correlation chain | Portal reports ✅ DONE (37.11) | ❌ |
+|| 23 | Portal показывает отчёт | ✅ DONE (37.11) | portal-web + backend | Backend-driven PoP view + filters + safe KPI | — | ❌ |
 | 24 | Excel export готовит выгрузку | MISSING | portal-web + backend | Export block disabled, RLS note | Real Excel generation + RLS filters | ❌ |
 
 ### Сводка по цепочке
@@ -71,7 +71,7 @@
 | CP4 | Creative upload (UI + storage) | ❌ MISSING | Backend + Portal |
 | CP5 | Campaign create workflow | ❌ MISSING | Backend + Portal |
 | CP6 | Manifest generation trigger | 🟡 PARTIAL | Backend |
-| CP7 | PoP ingest → portal reports | 🟡 IN PROGRESS (37.10 done) | Backend + Portal |
+| CP7 | PoP ingest → portal reports | ✅ DONE (37.10 + 37.11) | Backend + Portal |
 | CP8 | KSO runtime deployed on real HW | 🟡 READY (docs) | Infra |
 
 ### Nice-to-Have (for pilot)
@@ -377,7 +377,7 @@
 7. **Delivery:** sidecar получил manifest и media
 8. **Display:** креатив отображается на КСО
 9. **PoP:** события поступают в backend
-10. **Reports:** портал показывает фактические показы
+10. **Reports:** ✅ портал показывает PoP события через backend API
 
 ---
 
@@ -469,6 +469,33 @@
 
 ### Шаг 37.10 — PoP Ingest Minimal for Test KSO Technical Validation (2026-06-22)
 
+
+### Шаг 37.11 — Portal PoP Report Minimal for Test KSO Technical Validation (2026-06-16)
+
+✅ **Portal PoP view готов — цепочка замкнута на уровне видимости в портале.**
+
+- **Backend endpoint:** `GET /api/proof-of-play/test-kso` — safe projection list с фильтрами (device_code, campaign_code, creative_code, placement_code, date_from, date_to, limit)
+- **Permission:** `reports.read` (уже в seed)
+- **Safe projection:** event_code, device_code, placement_code, campaign_code, creative_code, media_ref, event_type, status, played_at, duration_ms, received_at
+- **Portal page:** `/proof-of-play` — backend-driven (не DEMO), KPI-карточки (всего событий, уникальных КСО, уникальных кампаний), фильтр-форма (серверный GET, без JS), таблица safe-событий
+- **Portal BackendClient:** `list_pop_events(access_token, filters)` — httpx GET с urlencode
+
+**Что НЕ делалось:**
+- Power BI, Excel экспорт, drill-down, сложные графики — не делались
+- Billing/pricing, advertiser portal — не делались
+- SSO/AD/MFA — не делались
+- KSO player/sidecar/state-adapter runtime — не менялся
+- Реальные UKM4/receipt/payment/fiscal данные — не читались
+- Tokens/password_hash/backend URL/file_path/sha256/storage_ref/minio/raw IDs — не отображаются в HTML/logs/API
+
+**Forbidden fields в ответе и шаблоне:** id (raw UUID), manifest_version_id, manifest_hash, backend_url, tokens, file_path, sha256, storage_ref, minio, device_secret, client_secret, receipt, payment, fiscal, customer, phone, email, card, pan.
+
+**Техническая цепочка замкнута на уровне видимости в портале:**
+creative → campaign → placement → approval → manifest → publish → sidecar/player smoke → PoP ingest → **portal PoP view** ✅
+
+**Тесты:** backend 169/169, portal 407/407. Все regression suites green.
+**Commit:** `📊 Add test KSO proof of play portal report (Step 37.11)`
+
 ✅ **Minimal TEST_ONLY PoP ingest готов:**
 
 - **Домен:** `backend/app/domains/proof_of_play/` — модели, схемы, сервис, роутер
@@ -489,4 +516,4 @@
 
 **Тесты:** backend 28 тестов (модели, схемы, хелперы, сервис с моками, sidecar-совместимость).
 
-**Следующий шаг:** Portal reporting (37.11).
+**Следующий шаг:** ✅ Выполнен (37.11).

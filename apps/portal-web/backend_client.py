@@ -430,6 +430,33 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Proof of Play KSO List (Step 37.11) ───────────────────────────
+
+    async def list_pop_events(
+        self, access_token: str, filters: dict | None = None,
+    ) -> dict:
+        """GET /api/proof-of-play/test-kso → {ok, data: [{event_code, ...}]}
+
+        Filters (all optional): device_code, campaign_code, creative_code,
+        placement_code, date_from, date_to, limit, offset.
+        """
+        from urllib.parse import urlencode
+        params = {}
+        if filters:
+            for key in (
+                "device_code", "campaign_code", "creative_code",
+                "placement_code", "date_from", "date_to",
+                "limit", "offset",
+            ):
+                if key in filters and filters[key] is not None:
+                    params[key] = filters[key]
+
+        query = ("?" + urlencode(params)) if params else ""
+        return await self._request(
+            "GET", f"/api/proof-of-play/test-kso{query}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 

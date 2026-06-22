@@ -440,3 +440,107 @@ class TestSidecarPayloadCompat(unittest.TestCase):
                      "fiscal", "customer", "phone", "email",
                      "card", "pan"):
             self.assertNotIn(fb, fields)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# List endpoint tests (Step 37.11)
+# ══════════════════════════════════════════════════════════════════════
+
+
+class TestKsoPoPListSchema(unittest.TestCase):
+    """Verify KsoPoPListResponse safe projection."""
+
+    def test_list_schema_contains_safe_fields(self):
+        from app.domains.proof_of_play.schemas import KsoPoPListResponse
+        fields = KsoPoPListResponse.model_fields
+        for expected in ("event_code", "device_code", "placement_code",
+                          "campaign_code", "creative_code", "media_ref",
+                          "event_type", "status", "played_at",
+                          "duration_ms", "received_at"):
+            self.assertIn(expected, fields)
+
+    def test_list_schema_forbidden_fields(self):
+        from app.domains.proof_of_play.schemas import KsoPoPListResponse
+        fields = KsoPoPListResponse.model_fields
+        for fb in ("id", "manifest_version_id", "manifest_hash",
+                    "backend_url", "token", "file_path", "sha256",
+                    "storage_ref", "minio", "device_secret",
+                    "client_secret", "receipt_data", "payment",
+                    "fiscal", "customer", "phone", "email", "card", "pan"):
+            self.assertNotIn(fb, fields)
+
+    def test_list_response_serializes_safe(self):
+        from app.domains.proof_of_play.schemas import KsoPoPListResponse
+        from datetime import datetime, timezone
+        now = datetime(2026, 6, 16, 12, 0, tzinfo=timezone.utc)
+        resp = KsoPoPListResponse(
+            event_code="ev-001", device_code="a-05954",
+            placement_code="pl-001", campaign_code="c-001",
+            creative_code="cr-001", media_ref="media/current/slot-000",
+            event_type="impression", status="accepted",
+            played_at=now, duration_ms=5000, received_at=now,
+        )
+        data = resp.model_dump()
+        self.assertEqual(data["event_code"], "ev-001")
+        self.assertEqual(data["device_code"], "a-05954")
+        self.assertEqual(data["media_ref"], "media/current/slot-000")
+        self.assertEqual(data["duration_ms"], 5000)
+        for fb in ("id", "manifest_hash", "storage_ref", "sha256"):
+            self.assertNotIn(fb, data)
+
+
+class TestKsoPoPListService(unittest.TestCase):
+    """Verify list_kso_pop_events service function builds safe projection."""
+
+    def _make_row(self, **overrides):
+        class Row:
+            pass
+        r = Row()
+        r.event_code = "ev-001"
+        r.device_code = "a-05954"
+        r.placement_code = "pl-001"
+        r.campaign_code = "c-001"
+        r.creative_code = "cr-001"
+        r.media_ref = "media/current/slot-000"
+        r.event_type = "impression"
+        r.status = "accepted"
+        from datetime import datetime, timezone
+        r.played_at = datetime(2026, 6, 16, 12, 0, tzinfo=timezone.utc)
+        r.duration_ms = 5000
+        r.received_at = datetime(2026, 6, 16, 12, 0, tzinfo=timezone.utc)
+        for k, v in overrides.items():
+            setattr(r, k, v)
+        return r
+
+    def test_list_returns_safe_list_response(self):
+        from unittest.mock import AsyncMock, MagicMock
+        from app.domains.proof_of_play.service import list_kso_pop_events
+
+        db = AsyncMock()
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = [
+            self._make_row(), self._make_row(event_code="ev-002"),
+        ]
+        db.execute = AsyncMock(return_value=result)
+
+        rows = __import__("asyncio").run(list_kso_pop_events(db))
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0].event_code, "ev-001")
+        self.assertEqual(rows[1].event_code, "ev-002")
+        self.assertEqual(rows[0].media_ref, "media/current/slot-000")
+
+    def test_list_no_forbidden_fields_in_output(self):
+        from unittest.mock import AsyncMock, MagicMock
+        from app.domains.proof_of_play.service import list_kso_pop_events
+
+        db = AsyncMock()
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = [self._make_row()]
+        db.execute = AsyncMock(return_value=result)
+
+        rows = __import__("asyncio").run(list_kso_pop_events(db))
+        data = rows[0].model_dump()
+        for fb in ("id", "manifest_version_id", "manifest_hash",
+                    "backend_url", "token", "file_path", "sha256",
+                    "storage_ref", "minio", "device_secret"):
+            self.assertNotIn(fb, data)

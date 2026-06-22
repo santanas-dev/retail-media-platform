@@ -51,3 +51,28 @@ class KsoPoPIngestResponse(BaseModel):
     campaign_code: str
     creative_code: str
     received_at: datetime
+
+
+# ══════════════════════════════════════════════════════════════════════
+# List response (safe — no UUIDs, no secrets, no manifest internals)
+# ══════════════════════════════════════════════════════════════════════
+
+class KsoPoPListResponse(BaseModel):
+    """Safe PoP event for portal list view.
+
+    Deliberately OMITS: id (raw UUID), manifest_version_id, manifest_hash,
+    backend_url, tokens, file_path, sha256, storage_ref, minio,
+    device_secret, client_secret, receipt, payment, fiscal, customer.
+    """
+
+    event_code: str
+    device_code: str
+    placement_code: str
+    campaign_code: str
+    creative_code: str
+    media_ref: str
+    event_type: str
+    status: str
+    played_at: Optional[datetime] = None
+    duration_ms: Optional[int] = None
+    received_at: datetime

@@ -20,6 +20,7 @@ from app.domains.proof_of_play.models import KsoProofOfPlayEvent
 from app.domains.proof_of_play.schemas import (
     KsoPoPIngestRequest,
     KsoPoPIngestResponse,
+    KsoPoPListResponse,
 )
 from app.domains.manifests.models import GeneratedManifest
 from app.domains.scheduling.models import KsoPlacement
@@ -188,3 +189,65 @@ async def ingest_kso_pop(
         creative_code=event.creative_code,
         received_at=event.received_at,
     ), None
+
+
+# ══════════════════════════════════════════════════════════════════════
+# List (read-only, safe projection)
+# ══════════════════════════════════════════════════════════════════════
+
+async def list_kso_pop_events(
+    db: AsyncSession,
+    *,
+    device_code: Optional[str] = None,
+    campaign_code: Optional[str] = None,
+    creative_code: Optional[str] = None,
+    placement_code: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[KsoPoPListResponse]:
+    """List KSO PoP events with optional filters (safe projection).
+
+    Never returns: id (raw UUID), manifest_version_id, manifest_hash,
+    backend_url, tokens, file_path, sha256, storage_ref, minio,
+    device_secret, client_secret.
+    """
+
+    stmt = _select(KsoProofOfPlayEvent)
+
+    if device_code:
+        stmt = stmt.where(KsoProofOfPlayEvent.device_code == device_code)
+    if campaign_code:
+        stmt = stmt.where(KsoProofOfPlayEvent.campaign_code == campaign_code)
+    if creative_code:
+        stmt = stmt.where(KsoProofOfPlayEvent.creative_code == creative_code)
+    if placement_code:
+        stmt = stmt.where(KsoProofOfPlayEvent.placement_code == placement_code)
+    if date_from:
+        stmt = stmt.where(KsoProofOfPlayEvent.received_at >= date_from)
+    if date_to:
+        stmt = stmt.where(KsoProofOfPlayEvent.received_at <= date_to)
+
+    stmt = stmt.order_by(KsoProofOfPlayEvent.received_at.desc())
+    stmt = stmt.offset(offset).limit(min(limit, 500))
+
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+
+    return [
+        KsoPoPListResponse(
+            event_code=r.event_code,
+            device_code=r.device_code,
+            placement_code=r.placement_code,
+            campaign_code=r.campaign_code,
+            creative_code=r.creative_code,
+            media_ref=r.media_ref,
+            event_type=r.event_type,
+            status=r.status,
+            played_at=r.played_at,
+            duration_ms=r.duration_ms,
+            received_at=r.received_at,
+        )
+        for r in rows
+    ]

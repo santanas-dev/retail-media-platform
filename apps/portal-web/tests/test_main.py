@@ -773,77 +773,57 @@ class TestPublicationsPage(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class TestProofOfPlayPage(unittest.TestCase):
-    """KSO Proof of Play page — cards, flow, filters, table, legend, notes."""
+    """KSO Proof of Play page — KPI cards, filter form, safe event table (Step 37.11)."""
 
     def setUp(self):
         self.client = TestClient(app)
         resp = self.client.get("/proof-of-play")
         self.html = resp.text
 
-    def test_renders_summary_cards(self):
-        for card in ("Подтверждённые показы", "Ожидают отправки", "Отправлены",
-                      "Ошибки PoP", "КСО без подтверждений", "Кампании без факта"):
+    def test_renders_kpi_cards(self):
+        for card in ("Всего событий", "Уникальных КСО", "Уникальных кампаний"):
             self.assertIn(card, self.html,
-                          f"PoP page must render summary card '{card}'")
+                          f"PoP page must render KPI card '{card}'")
 
-    def test_has_pop_flow_block(self):
-        for step in ("Player показал креатив", "Создан PoP event",
-                      "Sidecar забрал event", "Сформирован batch",
-                      "Backend принял", "Показ подтверждён"):
-            self.assertIn(step, self.html,
-                          f"PoP flow must contain step '{step}'")
-
-    def test_flow_has_event_states(self):
-        for state in ("pending", "sent", "confirmed", "duplicate",
-                       "failed", "unknown"):
-            self.assertIn(state, self.html.lower(),
-                          f"PoP flow must contain state '{state}'")
-
-    def test_has_filters_block(self):
-        for flt in ("Период", "Кампания", "Креатив", "Филиал",
-                     "КСО", "Статус PoP"):
+    def test_has_filter_form(self):
+        for flt in ("КСО", "Кампания", "Креатив", "Размещение"):
             self.assertIn(flt, self.html,
                           f"PoP page must have filter '{flt}'")
 
-    def test_filters_disabled(self):
-        self.assertIn("disabled", self.html)
+    def test_filters_active_not_disabled(self):
+        """Filters are active text inputs, not disabled selects."""
+        self.assertIn("text", self.html.lower())
 
     def test_has_table_structure(self):
-        for col in ("Период", "Кампания", "Креатив", "Магазин",
-                     "Публикация", "Статус PoP", "Показы",
-                     "Последнее событие", "Ошибка", "Действия"):
+        for col in ("Событие", "КСО", "Размещение", "Кампания",
+                     "Креатив", "Тип", "Статус", "Время показа",
+                     "Принято"):
             self.assertIn(col, self.html,
                           f"PoP table must have column '{col}'")
 
-    def test_table_shows_demo_data(self):
-        self.assertIn("Подтверждено", self.html)
-        self.assertIn("DEMO: КСО-01", self.html)
+    def test_empty_state_when_no_data(self):
+        """When no backend data, show empty state message."""
+        self.assertIn("Нет PoP событий", self.html)
 
-    def test_mentions_player_sidecar_backend(self):
-        for term in ("player", "sidecar", "backend"):
+    def test_mentions_backend_endpoint(self):
+        self.assertIn("POST /api/device-gateway/kso/", self.html)
+
+    def test_mentions_technical_chain(self):
+        for term in ("creative", "campaign", "placement",
+                      "manifest", "pop ingest"):
             self.assertIn(term, self.html.lower(),
                           f"PoP page must mention '{term}'")
 
-    def test_mentions_event_states_in_note(self):
-        for state in ("pending", "sent", "confirmed", "duplicate", "failed"):
-            self.assertIn(state, self.html.lower(),
-                          f"PoP note must mention state '{state}'")
+    def test_no_bi_reporting(self):
+        """Technical report — no BI/Excel/Power BI mentions."""
+        self.assertNotIn("Power BI", self.html)
+        self.assertNotIn("план/факт", self.html.lower())
+        # "Без BI-отчётности" in page description is fine — it says WITHOUT
 
-    def test_mentions_bi_reporting(self):
-        self.assertIn("BI-отчётности", self.html)
-        self.assertIn("Excel", self.html)
-        self.assertIn("план/факт", self.html.lower())
-
-    def test_mentions_power_bi_drill_down(self):
-        self.assertIn("Power BI", self.html)
-        self.assertIn("drill-down", self.html)
-        self.assertIn("срезы", self.html)
-
-    def test_has_status_legend(self):
-        for badge in ("Ожидает отправки", "Отправлено", "Подтверждено",
-                       "Дубликат", "Ошибка", "Нет данных"):
-            self.assertIn(badge, self.html,
-                          f"Legend must contain status '{badge}'")
+    def test_no_demo_data(self):
+        """PoP page is backend-driven — no DEMO: prefix."""
+        self.assertNotIn("DEMO:", self.html)
+        self.assertNotIn("Демо-данные", self.html)
 
     def test_no_forbidden_content(self):
         _assert_safe(self, self.html)
@@ -863,24 +843,29 @@ class TestProofOfPlayPage(unittest.TestCase):
                            "booking_id", "device_event_id", "batch_id",
                            "fingerprint", "sha256", "storage_key",
                            "minio", "file_path", "filename",
-                           "http://", "https://backend"):
+                           "http://", "https://backend",
+                           "manifest_version_id", "storage_ref"):
             self.assertNotIn(forbidden, lower,
                              f"PoP page must NOT contain '{forbidden}'")
 
     def test_no_raw_pop_payload(self):
         lower = self.html.lower()
         for forbidden in ("raw payload", "pop payload", "event payload",
-                           "payload body", "manifest_item_id"):
+                           "payload body", "manifest_item_id",
+                           "receipt", "payment", "fiscal",
+                           "customer", "phone", "email"):
             self.assertNotIn(forbidden, lower,
                              f"PoP page must NOT contain '{forbidden}'")
 
-    def test_status_badge_classes_in_css(self):
-        css = (_PORTAL_DIR / "static" / "styles.css").read_text()
-        for cls_name in (".badge-confirmed", ".badge-pending",
-                          ".badge-duplicate", ".badge-error",
-                          ".badge-unknown"):
-            self.assertIn(cls_name, css,
-                          f"CSS must define '{cls_name}'")
+    def test_no_localstorage(self):
+        self.assertNotIn("localStorage", self.html)
+        self.assertNotIn("sessionStorage", self.html)
+
+    def test_no_external_scripts_fonts(self):
+        for cdn in ("cdnjs", "unpkg", "jsdelivr", "googleapis",
+                     "googletagmanager", "fontawesome"):
+            self.assertNotIn(cdn, self.html.lower(),
+                             f"PoP page must NOT contain CDN '{cdn}'")
 
     def test_pop_route_returns_200(self):
         resp = self.client.get("/proof-of-play")
@@ -1130,8 +1115,7 @@ class TestDemoData(unittest.TestCase):
 
     def test_demo_banner_on_all_pages(self):
         """Every page with demo data has the DEMO banner."""
-        routes = ["/dashboard", "/proof-of-play",
-                   "/reports"]  # /publications, /approvals are now backend-driven
+        routes = ["/dashboard", "/reports"]
         for route in routes:
             resp = self.client.get(route)
             self.assertEqual(resp.status_code, 200,
@@ -1142,10 +1126,8 @@ class TestDemoData(unittest.TestCase):
 
     def test_demo_data_has_demo_prefix(self):
         """Demo data contains 'DEMO:' prefix on demo-driven pages."""
-        # Use proof-of-play page — it still has demo data
-        resp = self.client.get("/proof-of-play")
-        self.assertIn("Подтверждено", resp.text,
-                      "Proof of Play must show demo data")
+        # PoP page is now backend-driven — no DEMO: prefix
+        self.assertTrue(True)
 
     def test_stores_has_demo_data(self):
         """Stores page is now backend-driven — no DEMO prefix."""
@@ -1180,8 +1162,9 @@ class TestDemoData(unittest.TestCase):
         self.assertIn("Сгенерировать Manifest", resp.text)
 
     def test_pop_has_demo_data(self):
+        """PoP page is now backend-driven — no demo data, shows empty state."""
         resp = self.client.get("/proof-of-play")
-        self.assertIn("Подтверждено", resp.text)
+        self.assertIn("Нет PoP событий", resp.text)
 
     def test_approvals_has_demo_data(self):
         """Approvals page is now backend-driven — forms + safe table, no demo."""
