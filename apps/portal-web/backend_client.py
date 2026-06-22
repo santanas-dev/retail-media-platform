@@ -234,6 +234,22 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    async def archive_user(self, access_token: str, username: str) -> dict:
+        """Archive a user via backend API (logical delete).
+
+        PATCH /api/users/{username}/status
+        Payload: {"status": "archived"}
+
+        Backend enforces: cannot archive self, cannot archive last system_admin.
+        Sets is_archived=True, is_active=False — logical, no hard delete.
+        Returns {ok, data: {username, is_archived: true, ...}} or error.
+        """
+        return await self._request(
+            "PATCH", f"/api/users/{username}/status",
+            json_data={"status": "archived"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 

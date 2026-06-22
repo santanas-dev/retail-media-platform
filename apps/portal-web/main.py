@@ -188,6 +188,9 @@ async def admin_page(request: Request):
     elif raw == "ok:user_blocked":
         flash_type = "success"
         flash_msg = "Пользователь заблокирован."
+    elif raw == "ok:user_archived":
+        flash_type = "success"
+        flash_msg = "Пользователь архивирован."
     elif raw == "error":
         flash_type = "error"
         flash_msg = request.session.pop("admin_flash_msg", "Ошибка при создании пользователя.")
@@ -623,6 +626,57 @@ async def admin_block_user(
         request.session["admin_flash"] = "ok:user_blocked"
     else:
         error = result.get("error", "Не удалось заблокировать пользователя.")
+        if len(error) > 200:
+            error = error[:200]
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = error
+
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Admin Actions — Archive User (Step 36.12)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.post("/admin/users/archive", response_class=HTMLResponse)
+async def admin_archive_user(
+    request: Request,
+    username: str = Form(..., min_length=1, max_length=100),
+):
+    """Archive a user via backend API (logical delete, not hard delete).
+
+    Flow:
+    1. RBAC: require users.manage permission
+    2. Validate username
+    3. Call BackendClient.archive_user()
+    4. Redirect to /admin with success/error via session flash
+
+    Backend enforces: cannot archive self, cannot archive last system_admin.
+    Archived users have is_archived=True, is_active=False — no physical delete.
+    """
+    # RBAC guard
+    guard = await require_portal_permission(request, "users.manage")
+    if guard is not None:
+        return guard
+
+    # Validate username
+    username = username.strip()
+    if not username:
+        request.session["admin_flash"] = "error"
+        request.session["admin_flash_msg"] = "Имя пользователя не указано."
+        return RedirectResponse(url="/admin", status_code=303)
+
+    # Get access token from server-side store
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+
+    backend = BackendClient()
+    result = await backend.archive_user(access_token, username)
+
+    if result["ok"]:
+        request.session["admin_flash"] = "ok:user_archived"
+    else:
+        error = result.get("error", "Не удалось архивировать пользователя.")
         if len(error) > 200:
             error = error[:200]
         request.session["admin_flash"] = "error"
