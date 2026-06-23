@@ -345,12 +345,14 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 - `PlayerProfile` frozen dataclass с geometry, state rules, forbidden zones
 - 71 тест: геометрия, forbidden zones, state rules, hide SLA, immutable constraints
 
-### 38.0.7 — Player Shell Support for Non-Fullscreen Overlay Profile
+### 38.0.7 — Player Shell Support for Non-Fullscreen Overlay Profile ✅
 
-- Адаптировать player shell: поддержка `profile=portrait_idle_overlay_768`
-- Overlay window geometry из профиля (не fullscreen)
-- X11 window hints: override-redirect, no focus, input transparent
-- Тесты: shell snapshot render для portrait overlay
+Реализовано:
+- `kso_player/shell_plan.py` — `ShellPlan` dataclass + `build_shell_plan(profile)`
+- Profile-driven geometry: window=overlay zone, creative=canvas offset
+- State-based visibility: idle→visible, all others→hidden
+- Non-fullscreen: `window_type=overlay`, `kiosk=false`, no `--kiosk` flag
+- 59 тестов: geometry, state visibility, transitions, chromium flags
 
 ### 38.0.8 — Local Kill-Switch
 
