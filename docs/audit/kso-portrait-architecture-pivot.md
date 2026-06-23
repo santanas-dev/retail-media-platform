@@ -3,15 +3,24 @@
 > **Статус:** 🔄 Architecture Pivot Decision (38.0.3-pivot)
 >
 > Дата: 2026-06-23
-> Ревизия: 2 (38.0.4 — safe zone mapping completed)
+> Ревизия: 3 (38.0.5 — portrait player profile design)
+>
+> **Portrait Player Design (38.0.5):** завершён. Profile `portrait_idle_overlay_768`.
+> Overlay zone y=400-640 (768×240), creative canvas 768×200 centered.
+> См. `docs/audit/portrait-player-profile-design.md`.
 
-...
+---
 
 **Safe Zone Mapping (38.0.4):** завершён. Рекомендована Zone C (Product Grid, y=400-640, 768×240).
-См. `docs/audit/ukm5-ui-safe-zone-mapping.md`.
->
+
+---
+
 > **Назначение:** Зафиксировать архитектурный разворот: v1 должен работать на реальных КСО сети — 768×1024 portrait с УКМ5 fullscreen kiosk.
 > **НЕ:** изменение кода, установка на КСО, перезапуск сервисов.
+>
+> **Документы цепочки:**
+> - Safe Zone Mapping: `docs/audit/ukm5-ui-safe-zone-mapping.md`
+> - Portrait Player Design: `docs/audit/portrait-player-profile-design.md`
 
 ---
 
@@ -210,11 +219,11 @@ ID:     P0-5 (новый)
   ├── Предложить 2–3 варианта рекламной зоны
   └── Рекомендована Zone C: Product Grid y=400-640, 768×240
 
-38.0.5 — Portrait Player Profile Design
+38.0.5 — Portrait Player Profile Design ✅ (done)
   ├── Выбрать механизм: overlay / idle-screensaver / widget
   ├── Спроектировать геометрию под 768×1024
   ├── Определить idle/busy detection без чековых данных
-  └── Задокументировать kill-switch и safety validation
+  └── Profile: portrait_idle_overlay_768, overlay y=400-640
 
 38.0.6+ — Portrait Player Implementation
   ├── Реализовать portrait player (новый модуль или профиль)
@@ -236,6 +245,11 @@ ID:     P0-5 (новый)
 - `docs/audit/one-kso-pilot-readiness-plan.md` — план (обновлён)
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.0.5
+
+Portrait player profile `portrait_idle_overlay_768` спроектирован. Overlay zone y=400-640, 768×240.
+См. `docs/audit/portrait-player-profile-design.md`.
 
 ### 2026-06-24 — Шаг 38.0.4
 

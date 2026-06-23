@@ -10,12 +10,9 @@
 > 1. **Test KSO technical validation** — проверка цепочки на 1 КСО (текущий фокус)
 > 2. **Pilot rollout** — развёртывание на группе КСО/магазинов (отдельный следующий этап)
 >
-> **Pivot 38.0.3-pivot:** Вся сеть — 768×1024 портрет, УКМ5 fullscreen kiosk.
-> Landscape player снят как v1 target. Новый v1 target: portrait player profile.
-> См. `docs/audit/kso-portrait-architecture-pivot.md`.
->
-> **Safe Zone Mapping (38.0.4):** завершён. Portrait player target zone: Product Grid y=400-640 (768×240).
-> См. `docs/audit/ukm5-ui-safe-zone-mapping.md`.
+> **Portrait Player Design (38.0.5):** Profile `portrait_idle_overlay_768`.
+> Overlay zone y=400-640 (768×240), creative canvas 768×200 centered.
+> См. `docs/audit/portrait-player-profile-design.md`.
 
 ## Target Scenario
 

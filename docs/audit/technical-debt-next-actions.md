@@ -13,17 +13,19 @@
 
 ---
 
-## Сейчас (до portrait player design)
+## Сейчас (portrait player design завершён — 38.0.6+ implementation)
 
 | # | Действие | Почему |
 |---|---|---|
-| 1 | **Ничего не менять в коде** | Не ломать regression baseline |
+| 1 | **Ничего не менять в коде (пока)** | Не ломать regression baseline |
 | 2 | **Поддерживать regression green** | ~3700 тестов — якорь качества |
-| 3 | **38.0.4 — Safe Zone Mapping** | VNC screenshot, критические зоны УКМ5, 2-3 варианта рекламной зоны |
-| 4 | **38.0.5 — Portrait player design** | Геометрия, idle/busy detection, kill-switch, overlay/widget механика |
-| 5 | **НЕ менять УКМ5, openbox, Chromium, systemd** | production кассовая система |
-| 6 | **НЕ ставить landscape player на КСО** | P0-4: fleet — портрет 768×1024 |
-| 7 | **DS API — secondary** | Изучить, если доступен, но не primary путь |
+| 3 | **38.0.6 — Contract & tests for portrait profile geometry** | Dataclass + geometry validation tests |
+| 4 | **38.0.7 — Player shell support for non-fullscreen overlay** | Адаптировать shell под portrait profile |
+| 5 | **38.0.8 — Local kill-switch** | File flag `/run/verny/kso/kill_switch` |
+| 6 | **38.0.9 — State observer stub** | Safe state contract, forbidden fields validation |
+| 7 | **38.0.10 — Local smoke on dev** | Xvfb/headless smoke |
+| 8 | **38.0.11 — Manual test on physical KSO** | Off-hours test |
+| 9 | **НЕ менять УКМ5, openbox, Chromium, systemd** | production кассовая система |
 
 ---
 

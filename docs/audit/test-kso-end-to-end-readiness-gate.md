@@ -3,7 +3,7 @@
 > **Статус:** 📋 Technical Validation Gate (37.12)
 >
 > Дата: 2026-06-16
-> Ревизия: 4 (38.0.3-pivot — portrait architecture pivot)
+> Ревизия: 5 (38.0.5 — portrait player profile design)
 >
 > **Назначение:** Проверить полную цепочку на одном test KSO перед pilot rollout на группу КСО.
 > **НЕ:** пилотный запуск, production, multi-store rollout.
@@ -14,8 +14,9 @@
 >
 > **Pivot 38.0.3-pivot:** Вся сеть использует КСО 768×1024 портрет с УКМ5 fullscreen kiosk.
 > Landscape player (1920×1080) снят как v1 target.
-> Новый v1 target: portrait 768×1024 UKM5-compatible player profile.
-> См. `docs/audit/kso-portrait-architecture-pivot.md`.
+>
+> **Portrait Player Design (38.0.5):** Profile `portrait_idle_overlay_768`, overlay y=400-640 (768×240).
+> См. `docs/audit/portrait-player-profile-design.md`.
 
 ---
 

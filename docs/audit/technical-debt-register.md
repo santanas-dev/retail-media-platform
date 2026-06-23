@@ -196,8 +196,8 @@ P0 должен быть закрыт production-grade механизмами **
 | **Приоритет** | **P0** |
 | **Рекомендуемое решение** | 38.0.4 Safe Zone Mapping (read-only visual) → 38.0.5 Portrait player profile design |
 | **Когда закрывать** | 38.0.5 |
-| **Документы** | `docs/audit/kso-portrait-architecture-pivot.md` §5, §6; `docs/audit/ukm5-ui-safe-zone-mapping.md` |
-| **Статус** | В процессе — Safe Zone Mapping (38.0.4) завершён. Рекомендована Zone C (Product Grid, y=400-640, 768×240) |
+| **Документы** | `docs/audit/kso-portrait-architecture-pivot.md` §5, §6; `docs/audit/ukm5-ui-safe-zone-mapping.md`; `docs/audit/portrait-player-profile-design.md` |
+| **Статус** | ✅ **Закрыт** — Portrait player profile `portrait_idle_overlay_768` спроектирован (38.0.5). Implementation: 38.0.6+ |
 
 ---
 
