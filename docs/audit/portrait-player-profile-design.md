@@ -337,19 +337,13 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 
 ## 9. Implementation Steps
 
-### 38.0.6 — Contract & Tests for Portrait Profile Geometry
+### 38.0.6 — Contract & Tests for Portrait Profile Geometry ✅
 
-- Создать `apps/kso_player/profiles/portrait_idle_overlay_768/`
-- Определить dataclass `PortraitOverlayGeometry`:
-  ```python
-  root_w, root_h = 768, 1024
-  overlay_x, overlay_y = 0, 400
-  overlay_w, overlay_h = 768, 240
-  canvas_x, canvas_y = 0, 420
-  canvas_w, canvas_h = 768, 200
-  ```
-- Написать тесты: геометрия не выходит за root screen, не перекрывает payment zone
-- Создать state contract dataclass + валидатор
+Реализовано:
+- `apps/kso_player/kso_player/profiles/` — profile registry
+- `portrait_idle_overlay_768.py` — profile constants + state contract validator
+- `PlayerProfile` frozen dataclass с geometry, state rules, forbidden zones
+- 71 тест: геометрия, forbidden zones, state rules, hide SLA, immutable constraints
 
 ### 38.0.7 — Player Shell Support for Non-Fullscreen Overlay Profile
 
@@ -410,6 +404,11 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 - `docs/audit/one-kso-pilot-readiness-plan.md` — план test KSO → pilot
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.0.6
+
+Profile contract реализован: `portrait_idle_overlay_768` profile + 71 тест ✅.
+См. `apps/kso_player/kso_player/profiles/`.
 
 ### 2026-06-24 — Шаг 38.0.5
 

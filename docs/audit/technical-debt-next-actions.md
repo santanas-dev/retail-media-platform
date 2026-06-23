@@ -19,7 +19,7 @@
 |---|---|---|
 | 1 | **Ничего не менять в коде (пока)** | Не ломать regression baseline |
 | 2 | **Поддерживать regression green** | ~3700 тестов — якорь качества |
-| 3 | **38.0.6 — Contract & tests for portrait profile geometry** | Dataclass + geometry validation tests |
+| 3 | **38.0.6 — Contract & tests ✅** | 71 тест: geometry, forbidden zones, state rules, SLA |
 | 4 | **38.0.7 — Player shell support for non-fullscreen overlay** | Адаптировать shell под portrait profile |
 | 5 | **38.0.8 — Local kill-switch** | File flag `/run/verny/kso/kill_switch` |
 | 6 | **38.0.9 — State observer stub** | Safe state contract, forbidden fields validation |

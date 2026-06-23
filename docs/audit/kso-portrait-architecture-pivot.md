@@ -3,7 +3,7 @@
 > **Статус:** 🔄 Architecture Pivot Decision (38.0.3-pivot)
 >
 > Дата: 2026-06-23
-> Ревизия: 3 (38.0.5 — portrait player profile design)
+> Ревизия: 4 (38.0.6 — profile contract implemented)
 >
 > **Portrait Player Design (38.0.5):** завершён. Profile `portrait_idle_overlay_768`.
 > Overlay zone y=400-640 (768×240), creative canvas 768×200 centered.
