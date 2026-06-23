@@ -3,7 +3,12 @@
 > **Статус:** 🔄 Architecture Pivot Decision (38.0.3-pivot)
 >
 > Дата: 2026-06-23
-> Ревизия: 1
+> Ревизия: 2 (38.0.4 — safe zone mapping completed)
+
+...
+
+**Safe Zone Mapping (38.0.4):** завершён. Рекомендована Zone C (Product Grid, y=400-640, 768×240).
+См. `docs/audit/ukm5-ui-safe-zone-mapping.md`.
 >
 > **Назначение:** Зафиксировать архитектурный разворот: v1 должен работать на реальных КСО сети — 768×1024 portrait с УКМ5 fullscreen kiosk.
 > **НЕ:** изменение кода, установка на КСО, перезапуск сервисов.
@@ -199,11 +204,11 @@ ID:     P0-5 (новый)
 38.0.3-pivot (текущий)
   └── Зафиксировать portrait architecture ✅
 
-38.0.4 — Safe Zone Mapping
+38.0.4 — Safe Zone Mapping ✅ (done)
   ├── VNC screenshot экрана УКМ5 (read-only)
   ├── Определить критические UI-зоны
   ├── Предложить 2–3 варианта рекламной зоны
-  └── Ничего не менять на КСО
+  └── Рекомендована Zone C: Product Grid y=400-640, 768×240
 
 38.0.5 — Portrait Player Profile Design
   ├── Выбрать механизм: overlay / idle-screensaver / widget
@@ -231,6 +236,10 @@ ID:     P0-5 (новый)
 - `docs/audit/one-kso-pilot-readiness-plan.md` — план (обновлён)
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.0.4
+
+Safe Zone Mapping завершён. Рекомендована Zone C (Product Grid 768×240). См. `docs/audit/ukm5-ui-safe-zone-mapping.md`.
 
 ### 2026-06-23 — Шаг 38.0.3-pivot
 

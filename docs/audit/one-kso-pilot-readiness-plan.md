@@ -4,7 +4,7 @@
 >
 > Дата: 2026-06-16
 > Шаг: 37.12
-> Ревизия: 4 (38.0.3-pivot — portrait architecture pivot)
+> Ревизия: 5 (38.0.4 — safe zone mapping)
 >
 > **ВАЖНО:** Этот документ планирует два последовательных этапа:
 > 1. **Test KSO technical validation** — проверка цепочки на 1 КСО (текущий фокус)
@@ -13,6 +13,9 @@
 > **Pivot 38.0.3-pivot:** Вся сеть — 768×1024 портрет, УКМ5 fullscreen kiosk.
 > Landscape player снят как v1 target. Новый v1 target: portrait player profile.
 > См. `docs/audit/kso-portrait-architecture-pivot.md`.
+>
+> **Safe Zone Mapping (38.0.4):** завершён. Portrait player target zone: Product Grid y=400-640 (768×240).
+> См. `docs/audit/ukm5-ui-safe-zone-mapping.md`.
 
 ## Target Scenario
 
