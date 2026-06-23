@@ -3,7 +3,7 @@
 > **Статус:** 📋 Technical Validation Gate (37.12)
 >
 > Дата: 2026-06-16
-> Ревизия: 2 (37.15 — isolated test KSO risk acceptance)
+> Ревизия: 3 (38.0.3 — UKM5 integration decision)
 >
 > **Назначение:** Проверить полную цепочку на одном test KSO перед pilot rollout на группу КСО.
 > **НЕ:** пилотный запуск, production, multi-store rollout.
@@ -11,6 +11,10 @@
 > **Risk acceptance (37.15):** Physical test KSO проводится в изолированном тестовом контуре.
 > TEST_ONLY endpoint'ы без аутентификации временно приняты как controlled risk.
 > Перед pilot rollout device auth должен быть добавлен.
+>
+> **Блокер 38.0.3:** Физический test KSO — 768×1024 портрет, УКМ5 занимает весь экран через Chromium kiosk.
+> Текущий KSO Player (1920×1080 ландшафт) неприменим. Принят путь UKM5/DS native integration.
+> См. `docs/audit/ukm5-test-kso-integration-decision.md`.
 
 ---
 
@@ -52,11 +56,12 @@ creative → campaign → placement → approval → manifest → publish → de
 |---|---|
 | Оборудование | ServPlus Sherman-J 5.1 или эквивалент |
 | ОС | Linux (systemd) |
-| Экран | 1920×1080 |
-| Ad zone | 1440×1080 |
-| Браузер | Chromium (kiosk-mode) |
-| Кассовая система | СуперМаг УКМ 4 |
-| Состояние КСО | UKM4 safe state через State Adapter |
+|| Экран | ~~1920×1080~~ → 768×1024 портрет (фактический, см. 38.0.3) |
+|| Ad zone | 1440×1080 — неприменимо к портрету 768×1024 |
+|| Браузер | Chromium (kiosk-mode) — уже занят УКМ5 |
+|| Кассовая система | СуперМаг УКМ **5** (фактически, не 4) |
+|| Состояние КСО | UKM5 safe state — требует адаптера под УКМ5 |
+|| **Блокер** | Геометрия не совпадает. Принят UKM5/DS integration path |
 | Сеть | Доступ к backend API |
 
 ### 2. Конфигурационные файлы на test KSO
@@ -298,7 +303,12 @@ VERNY_KSO_STATIC_STATE=test_kso_active
 
 ## Обновления
 
-### Шаг 37.12 — Test KSO End-to-End Readiness Gate (2026-06-16)
+### Шаг 38.0.3 — UKM5 Integration Decision (2026-06-23)
 
-Создан документ. Код не менялся. Regression baseline подтверждён.
-Уточнено различие: **test KSO technical validation** (1 КСО) vs **pilot rollout** (группа КСО/магазинов).
+Физический аудит test KSO выявил несоответствие геометрии:
+- Экран 768×1024 портрет (проект: 1920×1080 ландшафт)
+- УКМ5 занимает весь экран через Chromium kiosk
+- УКМ5 версии 5 (не 4)
+
+Добавлен blocker. Принято решение: UKM5/DS native integration path.
+Код не менялся. См. `docs/audit/ukm5-test-kso-integration-decision.md`.

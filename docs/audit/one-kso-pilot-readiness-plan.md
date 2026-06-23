@@ -4,11 +4,15 @@
 >
 > Дата: 2026-06-16
 > Шаг: 37.12
-> Ревизия: 2
+> Ревизия: 3 (38.0.3 — UKM5 integration decision)
 >
 > **ВАЖНО:** Этот документ планирует два последовательных этапа:
 > 1. **Test KSO technical validation** — проверка цепочки на 1 КСО (текущий фокус)
 > 2. **Pilot rollout** — развёртывание на группе КСО/магазинов (отдельный следующий этап)
+>
+> **Обновление 38.0.3:** Физический test KSO — 768×1024 портрет, УКМ5 (версия 5, не 4), Chromium kiosk.
+> KSO Player (1920×1080 ландшафт) неприменим. Принят UKM5/DS native integration path.
+> См. `docs/audit/ukm5-test-kso-integration-decision.md`.
 
 ## Target Scenario
 
@@ -16,9 +20,12 @@
 
 **Pilot rollout (следующий этап):** развернуть на 3–5 КСО в 2–3 магазинах, реальный Chromium kiosk, реальный UKM4, production auth, media delivery, 24–72ч стабильности.
 
-**Целевое оборудование:** ServPlus Sherman-J 5.1 (Linux), СуперМаг УКМ 4, Chromium kiosk.
+**Целевое оборудование:** ServPlus Sherman-J 5.1 (Linux), СуперМаг УКМ 5, Chromium kiosk.
 
-**Test KSO объём:** 1 магазин, 1 КСО, 1 synthetic креатив, 1 кампания, 1 расписание, 1 публикация, 1 PoP-событие.\n\n**Pilot rollout объём:** 3-5 КСО, 2-3 магазина, 3-5 креативов, 2-3 кампании, реальный UKM4, 24-72ч стабильности.
+**Фактический test KSO (38.0.2):** экран 768×1024 портрет, УКМ5 (версия 5), Chromium kiosk на весь экран.
+KSO Player несовместим с портретной геометрией. Принят UKM5/DS integration path.
+
+**Pilot rollout (будущее):** ландшафтные КСО 1920×1080, где KSO Player применим.
 
 ---
 

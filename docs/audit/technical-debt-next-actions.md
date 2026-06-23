@@ -3,39 +3,41 @@
 > **Статус:** 📋 Action Plan (37.14)
 >
 > Дата: 2026-06-16
-> Ревизия: 2 (37.15 — isolated test KSO risk acceptance)
+> Ревизия: 3 (38.0.3 — UKM5 integration decision)
 >
 > **Принцип:** Не закрывать весь долг сейчас. Закрывать только то, что блокирует следующий этап.
 >
-> **Обновление 37.15:** Physical test KSO в изолированном контуре — P0 временно принят как controlled risk. Pilot rollout всё ещё требует закрытия P0.
+> **Обновление 38.0.3:** Physical test KSO — 768×1024 портрет, УКМ5 монопольно владеет экраном.
+> KSO Player на этот КСО не устанавливается. Принят UKM5/DS integration path.
+> Приоритет: получить ответ поставщика УКМ5/DS (P0-4) перед любыми установками.
 
 ---
 
-## Сейчас (пока нет physical test KSO)
+## Сейчас (пока нет ответа поставщика УКМ5/DS)
 
 | # | Действие | Почему |
 |---|---|---|
 | 1 | **Ничего не менять в коде** | Не ломать regression baseline |
 | 2 | **Поддерживать regression green** | ~3700 тестов — якорь качества |
-| 3 | **Подготовить конфиги для test KSO** | `sidecar.env`, `player.env`, `state-adapter.env` — заполнить схемы, не реальные значения |
-| 4 | **Получить параметры от администратора** | Backend URL, device_code, device_secret, hostname test KSO, sudo-доступ |
-| 5 | **Проверить сетевую доступность** | `curl` до backend `/health`, manifest endpoint, PoP endpoint с test KSO |
-| 6 | **Подтвердить изолированный контур** | Нет internet exposure, firewall allowlist, только synthetic данные |
-| 7 | **Провести deployment dry run по checklist** | `docs/audit/test-kso-deployment-dry-run.md` |
+| 3 | **НЕ устанавливать KSO Player на test KSO** | P0-4: геометрия 768×1024 портрет, принят UKM5/DS path |
+| 4 | **НЕ разворачивать backend на КСО** | Недостаточно RAM, риск конфликта с УКМ5 |
+| 5 | **НЕ менять УКМ5, openbox, Chromium, systemd** | production кассовая система |
+| 6 | **Отправить вопросы поставщику УКМ5/DS** | `docs/audit/ukm5-test-kso-integration-decision.md` §4 |
+| 7 | **Изучить DS API документацию** | Если DS on-premise доступен |
 
 ---
 
-## Сразу после появления test KSO
+## Сразу после ответа поставщика УКМ5/DS
 
 | # | Действие | Debt ID | Оценка |
 |---|---|---|---|
-| 1 | Установить KSO runtime через bootstrap | — | ~1 час |
-| 2 | Заполнить реальные конфиги | — | ~30 мин |
-| 3 | Запустить сервисы, проверить health | — | ~30 мин |
-| 4 | Пройти 11 шагов E2E readiness gate | — | ~2 часа |
+| 1 | Спроектировать DS API integration adapter | P0-4 | ~2 дня |
+| 2 | Реализовать DS API client (content upload, schedule, PoP) | P0-4 | ~3 дня |
+| 3 | Протестировать на test KSO (read-only, без изменения УКМ5) | P0-4 | ~1 день |
+| 4 | Если DS API недоступен — спроектировать embedded widget/iframe | P0-4 | ~2 дня |
 
-**Примечание:** P0-1, P0-2, P0-3 временно приняты как controlled risk для isolated test KSO.
-Device auth НЕ добавляется до pilot rollout — это осознанное решение для ускорения physical test.
+**Примечание:** Установка KSO runtime на test KSO не производится до решения P0-4.
+Device auth (P0-1, P0-2) и persistent session (P0-3) закрываются параллельно.
 
 ---
 

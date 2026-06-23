@@ -3,13 +3,17 @@
 > **Статус:** ✅ Dry Run Verified (37.13)
 >
 > Дата: 2026-06-16
-> Ревизия: 2 (37.15 — isolated test KSO risk acceptance)
+> Ревизия: 3 (38.0.3 — UKM5 integration decision)
 >
 > **Назначение:** Проверить готовность проекта к установке на реальную test KSO перед выездом.
 > **НЕ:** установка на железо, pilot rollout, изменение кода.
 >
 > **Risk acceptance (37.15):** Physical test KSO в изолированном контуре.
 > TEST_ONLY endpoint'ы без аутентификации временно приняты. Device auth добавляется перед pilot rollout.
+>
+> **Блокер 38.0.3:** После физического аудита (38.0.1–38.0.2) выявлено: экран 768×1024 портрет (не 1920×1080).
+> KSO Player на test KSO не устанавливается. Принят UKM5/DS integration path.
+> Deployment артефакты не требуют изменений — пригодятся для pilot на ландшафтных КСО.
 
 ---
 
@@ -44,10 +48,13 @@
 
 ### Соответствие геометрии
 
-| Параметр | В player | В readiness gate |
-|---|---|---|
-| Экран | 1920×1080 | ✅ |
-| Ad zone (левая) | 1440×1080 | ✅ |
+| Параметр | В player | В readiness gate | Фактический (38.0.2) |
+|---|---|---|---|
+| Экран | 1920×1080 | ✅ | **768×1024 портрет** ❌ |
+| Ad zone (левая) | 1440×1080 | ✅ | **неприменимо** ❌ |
+
+**Блокер:** геометрия не совпадает. KSO Player не устанавливается на этот test KSO.
+Принят UKM5/DS integration path. См. `docs/audit/ukm5-test-kso-integration-decision.md`.
 
 ### Dry Run команды
 
@@ -292,15 +299,11 @@ nslookup <BACKEND_HOSTNAME>
 
 ## Обновления
 
-### Шаг 37.13 — Test KSO Deployment Dry Run (2026-06-16)
+### Шаг 38.0.3 — UKM5 Integration Decision (2026-06-23)
 
-Проверены все deployment артефакты:
-- Bootstrap installer — ✅ 23/23 тестов
-- Preflight validator — ✅ 29/29 тестов
-- Systemd units × 3 — ✅ 73/73 тестов
-- Release package builder — ✅ 28/28 тестов
-- Env examples × 3 — ✅ без секретов
-- Пути совпадают с readiness gate — ✅
-- Геометрия 1920×1080 / 1440×1080 — ✅
-- Dry run команды для всех компонентов — ✅
-- Блокеров не найдено.
+После физического аудита test KSO (38.0.1–38.0.2):
+- Геометрия обновлена: 1920×1080 → 768×1024 портрет ❌
+- KSO Player на этот test KSO не устанавливается
+- Принят UKM5/DS integration path
+- Deployment артефакты пригодятся для pilot на ландшафтных КСО
+- Код не менялся.
