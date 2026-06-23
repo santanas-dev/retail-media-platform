@@ -3,7 +3,7 @@
 > **Статус:** ✅ Dry Run Verified (37.13)
 >
 > Дата: 2026-06-16
-> Ревизия: 3 (38.0.3 — UKM5 integration decision)
+> Ревизия: 4 (38.0.3-pivot — portrait architecture pivot)
 >
 > **Назначение:** Проверить готовность проекта к установке на реальную test KSO перед выездом.
 > **НЕ:** установка на железо, pilot rollout, изменение кода.
@@ -11,9 +11,9 @@
 > **Risk acceptance (37.15):** Physical test KSO в изолированном контуре.
 > TEST_ONLY endpoint'ы без аутентификации временно приняты. Device auth добавляется перед pilot rollout.
 >
-> **Блокер 38.0.3:** После физического аудита (38.0.1–38.0.2) выявлено: экран 768×1024 портрет (не 1920×1080).
-> KSO Player на test KSO не устанавливается. Принят UKM5/DS integration path.
-> Deployment артефакты не требуют изменений — пригодятся для pilot на ландшафтных КСО.
+> **Pivot 38.0.3-pivot:** Вся сеть — 768×1024 портрет. Landscape player снят как v1 target.
+> Новый v1 target: portrait player profile. Deployment артефакты (кроме player unit) — без изменений.
+> Player unit будет обновлён под portrait профиль.
 
 ---
 
@@ -53,8 +53,9 @@
 | Экран | 1920×1080 | ✅ | **768×1024 портрет** ❌ |
 | Ad zone (левая) | 1440×1080 | ✅ | **неприменимо** ❌ |
 
-**Блокер:** геометрия не совпадает. KSO Player не устанавливается на этот test KSO.
-Принят UKM5/DS integration path. См. `docs/audit/ukm5-test-kso-integration-decision.md`.
+**Architecture pivot 38.0.3-pivot:** вся сеть — 768×1024 портрет. Landscape player снят как v1 target.
+Новый v1 target: **portrait 768×1024 UKM5-compatible player profile**.
+Player systemd unit будет обновлён под portrait профиль (38.0.5+).
 
 ### Dry Run команды
 
@@ -299,11 +300,12 @@ nslookup <BACKEND_HOSTNAME>
 
 ## Обновления
 
-### Шаг 38.0.3 — UKM5 Integration Decision (2026-06-23)
+### Шаг 38.0.3-pivot — Portrait Architecture Pivot (2026-06-23)
 
-После физического аудита test KSO (38.0.1–38.0.2):
-- Геометрия обновлена: 1920×1080 → 768×1024 портрет ❌
-- KSO Player на этот test KSO не устанавливается
-- Принят UKM5/DS integration path
-- Deployment артефакты пригодятся для pilot на ландшафтных КСО
+User clarification: вся сеть — 768×1024 портрет.
+
+- Геометрия обновлена: v1 target = portrait 768×1024
+- Landscape player снят как v1 target (сохранён для будущих ландшафтных КСО)
+- Player unit помечен как требующий обновления под portrait профиль
+- Остальные артефакты — без изменений
 - Код не менялся.

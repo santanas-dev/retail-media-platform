@@ -1,11 +1,12 @@
 # UKM5 Test KSO Integration Decision Record
 
-> **Статус:** 📋 Architecture Decision (38.0.3)
+> **Статус:** 📋 Architecture Decision (38.0.3) — **Secondary path (updated 38.0.3-pivot)**
 >
 > Дата: 2026-06-23
-> Ревизия: 1
+> Ревизия: 2 (38.0.3-pivot — portrait architecture pivot)
 >
-> **Назначение:** Зафиксировать решение об интеграции с УКМ5/DS вместо установки отдельного KSO Player после физического аудита test KSO.
+> **Назначение:** Зафиксировать решение об интеграции с УКМ5/DS. DS integration теперь secondary путь.
+> Primary путь: portrait 768×1024 UKM5-compatible player profile. См. `docs/audit/kso-portrait-architecture-pivot.md`.
 > **НЕ:** установка runtime, изменение УКМ5, изменение кода.
 
 ---
@@ -113,9 +114,13 @@
 
 ## 3. Принятое решение
 
-### Основной путь: **UKM5 / DS native integration**
+### Основной путь (38.0.3-pivot): **Portrait 768×1024 UKM5-compatible player profile**
 
-Не устанавливать отдельный KSO Player на test KSO. Вместо этого — интегрироваться через API СуперМаг DS или API УКМ5:
+См. `docs/audit/kso-portrait-architecture-pivot.md`.
+
+### Secondary путь: **UKM5 / DS native integration**
+
+Если portrait player невозможен или DS API предоставляет более безопасный путь.
 
 - **Загрузка контента:** через DS API (если доступен on-premise DS)
 - **Расписание:** через DS API / scheduler
@@ -253,6 +258,12 @@ ID:     P0-4
 - `docs/audit/one-kso-pilot-readiness-plan.md` — план test KSO → pilot (обновлён)
 
 ## Журнал
+
+### 2026-06-23 — Шаг 38.0.3-pivot
+
+User clarification: вся сеть — 768×1024 портрет, не только test KSO.
+DS integration понижен до secondary. Primary путь: portrait 768×1024 player profile.
+См. `docs/audit/kso-portrait-architecture-pivot.md`.
 
 ### 2026-06-23 — Шаг 38.0.3
 

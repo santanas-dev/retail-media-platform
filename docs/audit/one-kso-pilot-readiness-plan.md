@@ -4,15 +4,15 @@
 >
 > Дата: 2026-06-16
 > Шаг: 37.12
-> Ревизия: 3 (38.0.3 — UKM5 integration decision)
+> Ревизия: 4 (38.0.3-pivot — portrait architecture pivot)
 >
 > **ВАЖНО:** Этот документ планирует два последовательных этапа:
 > 1. **Test KSO technical validation** — проверка цепочки на 1 КСО (текущий фокус)
 > 2. **Pilot rollout** — развёртывание на группе КСО/магазинов (отдельный следующий этап)
 >
-> **Обновление 38.0.3:** Физический test KSO — 768×1024 портрет, УКМ5 (версия 5, не 4), Chromium kiosk.
-> KSO Player (1920×1080 ландшафт) неприменим. Принят UKM5/DS native integration path.
-> См. `docs/audit/ukm5-test-kso-integration-decision.md`.
+> **Pivot 38.0.3-pivot:** Вся сеть — 768×1024 портрет, УКМ5 fullscreen kiosk.
+> Landscape player снят как v1 target. Новый v1 target: portrait player profile.
+> См. `docs/audit/kso-portrait-architecture-pivot.md`.
 
 ## Target Scenario
 
@@ -22,10 +22,11 @@
 
 **Целевое оборудование:** ServPlus Sherman-J 5.1 (Linux), СуперМаг УКМ 5, Chromium kiosk.
 
-**Фактический test KSO (38.0.2):** экран 768×1024 портрет, УКМ5 (версия 5), Chromium kiosk на весь экран.
-KSO Player несовместим с портретной геометрией. Принят UKM5/DS integration path.
+**Фактический fleet (38.0.3-pivot):** вся сеть — 768×1024 портрет, УКМ5 fullscreen kiosk.
+KSO Player landscape (1920×1080) снят как v1 target. Новый v1 target: **portrait 768×1024 UKM5-compatible player profile**.
 
-**Pilot rollout (будущее):** ландшафтные КСО 1920×1080, где KSO Player применим.
+**Pilot rollout (будущее):** portrait player на 3–5 КСО, production auth, 24–72ч стабильности.
+Landscape player сохранён для будущих ландшафтных КСО (если появятся).
 
 ---
 

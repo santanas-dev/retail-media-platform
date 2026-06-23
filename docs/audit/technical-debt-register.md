@@ -3,7 +3,7 @@
 > **Статус:** 📋 Audit (37.14)
 >
 > Дата: 2026-06-16
-> Ревизия: 3 (38.0.3 — UKM5 integration decision, P0-4 added)
+> Ревизия: 4 (38.0.3-pivot — portrait architecture pivot, P0-4 updated, P0-5 added)
 >
 > **Назначение:** Управляемый backlog технического долга. Не план немедленного закрытия — реестр для приоритизации.
 >
@@ -27,16 +27,16 @@
 **При этих условиях P0-блокеры временно принимаются как controlled risk для physical test KSO.**
 Для pilot rollout — P0 должен быть закрыт production-grade механизмами.
 
-**Выявлено debt items: 37.**
+**Выявлено debt items: 38.**
 
 | Приоритет | Количество | Блокирует |
-|---|---|---|---|
-| P0 | 4 | Pilot rollout + установку KSO Player на 768×1024 test KSO |
+|---|---|---|
+| P0 | 5 | v1 portrait player delivery |
 | P1 | 9 | Pilot rollout (3–5 КСО) |
 | P2 | 11 | Production rollout |
 | P3 | 13 | Улучшения / polish |
 
-**Ключевой вывод:** P0-блокеров 4. P0-4 (геометрия) — архитектурный, требует UKM5/DS integration. Остальные P0 для isolated test KSO временно принимаются как controlled risk. Для pilot rollout — все P0 должны быть закрыты.
+**Ключевой вывод:** P0-блокеров 5. P0-4 (fleet geometry) и P0-5 (portrait player design) — архитектурные, требуют portrait player profile. Остальные P0 для isolated test KSO временно принимаются как controlled risk. Для pilot rollout — все P0 должны быть закрыты.
 
 ---
 
@@ -165,22 +165,39 @@ P0 должен быть закрыт production-grade механизмами **
 | **Файлы** | `portal_session.py` |
 | **Как проверить** | Перезапустить portal → сессия сохранена |
 
-### P0-4: UKM5 portrait fullscreen kiosk mismatch — архитектурное несоответствие
+### P0-4: Landscape player несовместим с fleet 768×1024 portrait
 
 | Поле | Значение |
 |---|---|
 | **ID** | P0-4 |
-| **Название** | UKM5 portrait fullscreen kiosk mismatch |
-| **Описание** | Физический test KSO — 768×1024 портрет, УКМ5 (версия 5) занимает весь экран через Chromium kiosk (`--kiosk`, `--window-size=768x1024`, локальный `~/mint/bin/www/index.html`). Текущая архитектура KSO Player (1920×1080 ландшафт, ad zone 1440×1080, sidebar 480×1080) неприменима. |
-| **Где проявляется** | `apps/kso_player/` (геометрия), `infra/kso-linux/` (systemd player unit), `backend/app/domains/media/` (creative resolution 1440×1080) |
-| **Риск** | KSO Player не может быть установлен без архитектурной переработки. Запуск второго Chromium невозможен (конфликт kiosk, GPU, RAM). Overlay рискован (кассовый UI). |
-| **Влияние на test KSO** | **Блокирует установку KSO Player** на данный test KSO |
-| **Risk acceptance** | **Не принимается** — это архитектурный блокер, не security trade-off |
+| **Название** | Landscape player несовместим с fleet 768×1024 portrait |
+| **Описание** | Вся сеть КСО использует 768×1024 портрет с УКМ5 fullscreen kiosk. Текущая архитектура KSO Player (1920×1080 ландшафт, ad zone 1440×1080, sidebar 480×1080) неприменима ко всей сети. |
+| **Где проявляется** | `apps/kso_player/` (геометрия), `infra/kso-linux/` (player unit), `backend/app/domains/media/` (creative resolution 1440×1080) |
+| **Риск** | Весь KSO Player неприменим к fleet. Требуется новый portrait player profile. |
+| **Влияние на v1** | **Блокирует v1 delivery** — landscape player не работает ни на одной КСО сети |
+| **Risk acceptance** | **Не принимается** — архитектурный блокер всего v1 |
 | **Приоритет** | **P0** |
-| **Рекомендуемое решение** | UKM5/DS native integration path (основной) или embedded widget/iframe внутри УКМ5 (fallback, после разрешения поставщика) |
-| **Когда закрывать** | До установки runtime на test KSO (требуется ответ поставщика УКМ5/DS) |
-| **Документы** | `docs/audit/ukm5-test-kso-integration-decision.md` |
-| **Статус** | Открыт — ожидается ответ поставщика |
+| **Рекомендуемое решение** | Portrait 768×1024 UKM5-compatible player profile (38.0.4 Safe Zone Mapping → 38.0.5+ design/impl) |
+| **Когда закрывать** | 38.0.5 — portrait player profile design |
+| **Документы** | `docs/audit/kso-portrait-architecture-pivot.md` |
+| **Статус** | Открыт — следующий шаг 38.0.4 Safe Zone Mapping |
+
+### P0-5: Portrait player profile не спроектирован
+
+| Поле | Значение |
+|---|---|
+| **ID** | P0-5 |
+| **Название** | Portrait player profile не спроектирован |
+| **Описание** | v1 target = portrait 768×1024 UKM5-compatible player. Требуется определить: безопасные зоны (где реклама), idle/busy detection (без чековых данных), kill-switch, механизм overlay/widget, геометрию и пропорции. |
+| **Где проявляется** | Новый модуль `apps/kso_player/` — portrait profile |
+| **Риск** | Без дизайна профиля невозможно начать реализацию portrait player |
+| **Влияние на v1** | **Блокирует реализацию portrait player** |
+| **Risk acceptance** | **Не принимается** — требует design-first подхода |
+| **Приоритет** | **P0** |
+| **Рекомендуемое решение** | 38.0.4 Safe Zone Mapping (read-only visual) → 38.0.5 Portrait player profile design |
+| **Когда закрывать** | 38.0.5 |
+| **Документы** | `docs/audit/kso-portrait-architecture-pivot.md` §5, §6 |
+| **Статус** | Открыт — следующий шаг 38.0.4 |
 
 ---
 
@@ -314,14 +331,15 @@ P0 должен быть закрыт production-grade механизмами **
 | S-1 | TEST_ONLY unauthenticated manifest endpoint | P0 |
 | S-2 | TEST_ONLY unauthenticated PoP endpoint | P0 |
 | S-3 | In-memory session store | P0 |
-| S-4 | UKM5 portrait kiosk mismatch — KSO Player geometry incompatible | P0 |
-| S-5 | Нет MFA/SSO/AD | P1 |
-| S-6 | Нет mTLS на device gateway | P1 |
-| S-7 | Device secret management dev-only | P1 |
-| S-8 | Нет rate limiting на auth endpoints | P2 |
-| S-9 | Нет audit trail на write-операциях | P2 |
-| S-10 | Нет secrets rotation механизма | P2 |
-| S-11 | CORS allow_origins=["*"] | P2 |
+| S-4 | Landscape player incompatible with fleet portrait 768×1024 | P0 |
+| S-5 | Portrait player profile not designed (P0-5) | P0 |
+| S-6 | Нет MFA/SSO/AD | P1 |
+| S-7 | Нет mTLS на device gateway | P1 |
+| S-8 | Device secret management dev-only | P1 |
+| S-9 | Нет rate limiting на auth endpoints | P2 |
+| S-10 | Нет audit trail на write-операциях | P2 |
+| S-11 | Нет secrets rotation механизма | P2 |
+| S-12 | CORS allow_origins=["*"] | P2 |
 
 ---
 
@@ -334,7 +352,8 @@ P0 должен быть закрыт production-grade механизмами **
 | A-3 | test-kso временные врапперы во всех доменах | P1 |
 | A-4 | Synthetic технический контекст (advertiser/brand/order) | P1 |
 | A-5 | Отсутствие event-driven архитектуры (всё синхронное) | P3 |
-| A-6 | KSO Player геометрия 1920×1080 не совместима с портретом 768×1024 | P0 |
+| A-6 | Landscape player (1920×1080) несовместим с fleet 768×1024 portrait | P0 |
+| A-7 | Portrait player profile не спроектирован (38.0.4+) | P0 |
 
 ---
 
@@ -373,17 +392,18 @@ P0 должен быть закрыт production-grade механизмами **
 
 ---
 
-## 12. Что нельзя исправлять до решения P0-4
+## 12. Что нельзя исправлять до решения P0-4/P0-5
 
 | Запрещено | Причина |
 |---|---|
 | Менять KSO runtime (player/sidecar/state-adapter) | Нарушит test baseline |
-| Добавлять новый функционал | Затянет physical test |
-| Закрывать P1/P2/P3 долг | Не блокирует physical test |
+| Добавлять новый функционал вне portrait pivot | Фокус на v1 target |
+| Закрывать P1/P2/P3 долг | Не блокирует v1 delivery |
 | Добавлять миграции | Риск поломать существующую схему |
 | Переписывать тесты | Нарушит regression baseline |
-| Устанавливать KSO Player на test KSO 768×1024 | P0-4: геометрия не совпадает, принят UKM5/DS path |
-| Менять УКМ5, openbox, Chromium, systemd на test KSO | production кассовая система |
+| Устанавливать landscape player на любую КСО | P0-4: fleet — портрет 768×1024 |
+| Менять УКМ5, openbox, Chromium, systemd | production кассовая система |
+| Проектировать portrait player без safe zone mapping | P0-5: нужен 38.0.4 сначала |
 
 ---
 
@@ -391,10 +411,10 @@ P0 должен быть закрыт production-grade механизмами **
 
 | # | Что | Приоритет |
 |---|---|---|
-| 1 | Device auth на TEST_ONLY endpoints (P0-1, P0-2) | P0 |
-| 2 | In-memory session → persistent store (P0-3) | P0 |
-| 3 | UKM5 portrait mismatch — integration path (P0-4) | P0 |
-| 4 | RLS на всех query-level путях (P1-2) | P1 |
+| 1 | Portrait player profile design (P0-4, P0-5) | P0 |
+| 2 | Portrait player implementation | P0 |
+| 3 | Device auth на TEST_ONLY endpoints (P0-1, P0-2) | P0 |
+| 4 | In-memory session → persistent store (P0-3) | P0 |
 | 4 | Реальный advertiser/brand/order контекст (P1-3) | P1 |
 | 5 | Creative approval lifecycle (P1-4) | P1 |
 | 6 | Media delivery через MinIO (P1-5) | P1 |
@@ -421,15 +441,16 @@ P0 должен быть закрыт production-grade механизмами **
 ## 15. Рекомендуемый порядок закрытия долга
 
 ```
-Сейчас (пока нет test KSO):
+Сейчас (пока нет portrait player design):
 ├── Ничего не менять в коде
 ├── Поддерживать regression green
-└── Готовить конфиги для physical test KSO
+├── 38.0.4: Safe Zone Mapping на test KSO (read-only)
+└── 38.0.5: Portrait player profile design
 
-Сразу после получения test KSO:
+После portrait player design (38.0.5):
+├── Реализовать portrait player (P0-4, P0-5)
 ├── P0-1, P0-2: добавить device auth на manifest + PoP endpoints
-├── P0-3: persistent session store
-└── P0-4: получить ответ поставщика УКМ5/DS, спроектировать integration adapter
+└── P0-3: persistent session store
 
 После успешной test KSO проверки (перед pilot rollout):
 ├── P1-1...P1-9: закрыть все P1

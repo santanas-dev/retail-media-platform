@@ -3,41 +3,41 @@
 > **Статус:** 📋 Action Plan (37.14)
 >
 > Дата: 2026-06-16
-> Ревизия: 3 (38.0.3 — UKM5 integration decision)
+> Ревизия: 4 (38.0.3-pivot — portrait architecture pivot)
 >
 > **Принцип:** Не закрывать весь долг сейчас. Закрывать только то, что блокирует следующий этап.
 >
-> **Обновление 38.0.3:** Physical test KSO — 768×1024 портрет, УКМ5 монопольно владеет экраном.
-> KSO Player на этот КСО не устанавливается. Принят UKM5/DS integration path.
-> Приоритет: получить ответ поставщика УКМ5/DS (P0-4) перед любыми установками.
+> **Обновление 38.0.3-pivot:** Вся сеть — 768×1024 портрет с УКМ5 fullscreen kiosk.
+> Landscape player снят как v1 target. Новый v1 target: portrait 768×1024 UKM5-compatible player profile.
+> Приоритет: 38.0.4 Safe Zone Mapping → 38.0.5 Portrait player design → реализация.
 
 ---
 
-## Сейчас (пока нет ответа поставщика УКМ5/DS)
+## Сейчас (до portrait player design)
 
 | # | Действие | Почему |
 |---|---|---|
 | 1 | **Ничего не менять в коде** | Не ломать regression baseline |
 | 2 | **Поддерживать regression green** | ~3700 тестов — якорь качества |
-| 3 | **НЕ устанавливать KSO Player на test KSO** | P0-4: геометрия 768×1024 портрет, принят UKM5/DS path |
-| 4 | **НЕ разворачивать backend на КСО** | Недостаточно RAM, риск конфликта с УКМ5 |
+| 3 | **38.0.4 — Safe Zone Mapping** | VNC screenshot, критические зоны УКМ5, 2-3 варианта рекламной зоны |
+| 4 | **38.0.5 — Portrait player design** | Геометрия, idle/busy detection, kill-switch, overlay/widget механика |
 | 5 | **НЕ менять УКМ5, openbox, Chromium, systemd** | production кассовая система |
-| 6 | **Отправить вопросы поставщику УКМ5/DS** | `docs/audit/ukm5-test-kso-integration-decision.md` §4 |
-| 7 | **Изучить DS API документацию** | Если DS on-premise доступен |
+| 6 | **НЕ ставить landscape player на КСО** | P0-4: fleet — портрет 768×1024 |
+| 7 | **DS API — secondary** | Изучить, если доступен, но не primary путь |
 
 ---
 
-## Сразу после ответа поставщика УКМ5/DS
+## Сразу после portrait player design (38.0.5)
 
 | # | Действие | Debt ID | Оценка |
 |---|---|---|---|
-| 1 | Спроектировать DS API integration adapter | P0-4 | ~2 дня |
-| 2 | Реализовать DS API client (content upload, schedule, PoP) | P0-4 | ~3 дня |
-| 3 | Протестировать на test KSO (read-only, без изменения УКМ5) | P0-4 | ~1 день |
-| 4 | Если DS API недоступен — спроектировать embedded widget/iframe | P0-4 | ~2 дня |
+| 1 | Реализовать portrait player (новый модуль/профиль) | P0-4, P0-5 | ~5 дней |
+| 2 | Интегрировать с sidecar/state-adapter | — | ~2 дня |
+| 3 | Протестировать на test KSO (read-only, без перекрытия УКМ5) | — | ~1 день |
+| 4 | Закрыть P0-1, P0-2 (device auth) параллельно | P0-1, P0-2 | ~1 день |
 
-**Примечание:** Установка KSO runtime на test KSO не производится до решения P0-4.
-Device auth (P0-1, P0-2) и persistent session (P0-3) закрываются параллельно.
+**Примечание:** Landscape player сохранён для будущих ландшафтных КСО, не удаляется.
+DS API integration — secondary, не блокирует portrait player development.
 
 ---
 

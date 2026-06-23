@@ -3,7 +3,7 @@
 > **Статус:** 📋 Technical Validation Gate (37.12)
 >
 > Дата: 2026-06-16
-> Ревизия: 3 (38.0.3 — UKM5 integration decision)
+> Ревизия: 4 (38.0.3-pivot — portrait architecture pivot)
 >
 > **Назначение:** Проверить полную цепочку на одном test KSO перед pilot rollout на группу КСО.
 > **НЕ:** пилотный запуск, production, multi-store rollout.
@@ -12,9 +12,10 @@
 > TEST_ONLY endpoint'ы без аутентификации временно приняты как controlled risk.
 > Перед pilot rollout device auth должен быть добавлен.
 >
-> **Блокер 38.0.3:** Физический test KSO — 768×1024 портрет, УКМ5 занимает весь экран через Chromium kiosk.
-> Текущий KSO Player (1920×1080 ландшафт) неприменим. Принят путь UKM5/DS native integration.
-> См. `docs/audit/ukm5-test-kso-integration-decision.md`.
+> **Pivot 38.0.3-pivot:** Вся сеть использует КСО 768×1024 портрет с УКМ5 fullscreen kiosk.
+> Landscape player (1920×1080) снят как v1 target.
+> Новый v1 target: portrait 768×1024 UKM5-compatible player profile.
+> См. `docs/audit/kso-portrait-architecture-pivot.md`.
 
 ---
 
@@ -56,12 +57,13 @@ creative → campaign → placement → approval → manifest → publish → de
 |---|---|
 | Оборудование | ServPlus Sherman-J 5.1 или эквивалент |
 | ОС | Linux (systemd) |
-|| Экран | ~~1920×1080~~ → 768×1024 портрет (фактический, см. 38.0.3) |
-|| Ad zone | 1440×1080 — неприменимо к портрету 768×1024 |
-|| Браузер | Chromium (kiosk-mode) — уже занят УКМ5 |
-|| Кассовая система | СуперМаг УКМ **5** (фактически, не 4) |
+|| Экран | 768×1024 портрет (реальность fleet, см. 38.0.3-pivot) |
+|| Ad zone | Portrait-safe зона (будет определена в 38.0.4 Safe Zone Mapping) |
+|| Браузер | Chromium (kiosk-mode) — УКМ5 занимает весь экран |
+|| Кассовая система | СуперМаг УКМ 5 |
 || Состояние КСО | UKM5 safe state — требует адаптера под УКМ5 |
-|| **Блокер** | Геометрия не совпадает. Принят UKM5/DS integration path |
+|| **v1 Player target** | Portrait 768×1024 UKM5-compatible profile (не landscape split) |
+|| **Старый landscape** | Снят как v1 target (сохранён для будущих ландшафтных КСО) |
 | Сеть | Доступ к backend API |
 
 ### 2. Конфигурационные файлы на test KSO
@@ -303,12 +305,13 @@ VERNY_KSO_STATIC_STATE=test_kso_active
 
 ## Обновления
 
-### Шаг 38.0.3 — UKM5 Integration Decision (2026-06-23)
+### Шаг 38.0.3-pivot — Portrait Architecture Pivot (2026-06-23)
 
-Физический аудит test KSO выявил несоответствие геометрии:
-- Экран 768×1024 портрет (проект: 1920×1080 ландшафт)
-- УКМ5 занимает весь экран через Chromium kiosk
-- УКМ5 версии 5 (не 4)
+User clarification: вся сеть использует КСО 768×1024 portrait + УКМ5 fullscreen kiosk.
 
-Добавлен blocker. Принято решение: UKM5/DS native integration path.
-Код не менялся. См. `docs/audit/ukm5-test-kso-integration-decision.md`.
+- Landscape player (1920×1080) снят как v1 target
+- Новый v1 target: portrait 768×1024 UKM5-compatible player profile
+- Backend, portal, sidecar, state adapter, manifest, PoP — без изменений
+- Меняется только исполнительный слой показа
+
+Код не менялся. См. `docs/audit/kso-portrait-architecture-pivot.md`.
