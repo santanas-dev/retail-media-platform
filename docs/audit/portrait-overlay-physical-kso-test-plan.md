@@ -556,21 +556,19 @@ rm -f /run/verny/kso/kill_switch
 
 **Regression:** пройдена (см. commit log)
 
-### 2026-06-24 — Шаг 38.1.2 (Phase 2 Overlay Render — Executed)
+### 2026-06-24 — Шаг 38.1.2 (Phase 2 Overlay Render — Attempted)
 
-**Phase 2 выполнен** один раз по разрешению Сергея Пащенко.
+**⚠️ VERIFICATION FAILED: visual overlay display is NOT confirmed.**
 
-- Длительность: ~44 сек
-- Chromium --app, окно (0,400) 768×240, без --kiosk/--fullscreen
-- Overlay PID 25714, жив на +13s и +29s
-- Stop criteria: **ни один не сработал**
-- CPU: 1.4% стабильно, RAM: 1.9G→1.8G→1.9G
-- Rollback: kill-switch + pkill по URL pattern — overlay убит ✅
-- UKM5 после: Chromium kiosk PID 1834 ✅, MintUKM PID 1189 ✅, mint.service active ✅
-- Openbox PID 1576 ✅ (не менялся)
-- Визуальное подтверждение невозможно (нет VNC/xdotool)
-- Краткий обрыв SSH при pkill (~8s) — некритично
-- Временные файлы удалены
-- УКМ5/Chromium/Openbox/systemd/.profile/xinitrc/index.html не менялись
-- Секреты/чеки/фискальные данные не сохранялись
+Phase 2 attempted по разрешению Сергея Пащенко (~44s). Chromium --app PID 25714 запущен, геометрия (0,400) 768×240, без запрещённых flags.
+
+НО:
+- `xdotool search --name "Phase 2"` — **окно НЕ найдено**
+- `scrot` скриншот не сделан (scrot установлен — упущение)
+- Пользователь **не увидел** overlay на экране КСО
+
+Root cause (наиболее вероятно): Openbox stacked --app окно ПОД fullscreen kiosk UKM5.
+
+**Статус:** Phase 2 attempted, **visual display NOT confirmed.**
+УКМ5/Chromium/Openbox/systemd не менялись. Временные файлы удалены.
 

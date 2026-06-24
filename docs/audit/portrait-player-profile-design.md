@@ -439,9 +439,9 @@ Phase 1 (dry smoke) одобрен. Phase 2 (overlay render) требует от
 **Phase 2 НЕ одобрен** — требуется отдельное manual approval Сергея Пащенко.
 УКМ5 не менялась. Chromium overlay не запускался. Временные файлы на КСО очищены.
 
-### 2026-06-24 — Шаг 38.1.2 (Phase 2 Executed)
+### 2026-06-24 — Шаг 38.1.2 (Phase 2 Attempted — visual NOT confirmed)
 
-Phase 2 выполнен 1 раз (~44s), Chromium --app (0,400) 768×240, stop criteria не сработали, rollback успешен, UKM5/Openbox не менялись.
+Phase 2 attempted (~44s), Chromium --app (0,400) 768×240. Процесс запущен, но xdotool НЕ НАШЁЛ окно. Пользователь НЕ увидел overlay. Visual display NOT confirmed.
 
 ### 2026-06-24 — Шаг 38.0.10
 

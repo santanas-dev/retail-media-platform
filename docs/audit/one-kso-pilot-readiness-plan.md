@@ -701,10 +701,12 @@ creative → campaign → placement → approval → manifest → publish → si
 - **Phase 2 требует отдельного explicit manual approval Сергея Пащенко**
 - Код не менялся (standalone скрипт — новый файл, не модуль kso_player).
 
-### Шаг 38.1.2 — Phase 2 Overlay Render Execution (2026-06-24)
+### Шаг 38.1.2 — Phase 2 Overlay Render Attempted (2026-06-24)
 
-✅ **Phase 2 выполнен** 1 раз по явному разрешению Сергея Пащенко.
-- Длительность: ~44 сек. Chromium --app (0,400) 768×240.
-- Stop criteria не сработали. Rollback успешен. UKM5/Openbox не менялись.
-- Визуальное подтверждение невозможно (нет VNC/xdotool). Рекомендуется установить xdotool.
-- Временные файлы удалены. Секреты/чеки не сохранялись.
+⚠️ **Phase 2 attempted, visual display NOT confirmed.**
+- Процесс Chromium --app запущен (~44s), (0,400) 768×240.
+- **xdotool search НЕ НАШЁЛ окно.** Пользователь НЕ увидел overlay.
+- Root cause: Openbox stacked --app окно под fullscreen kiosk (наиболее вероятно).
+- На КСО установлены xdotool, scrot, xwininfo — не были использованы (упущение).
+- Урок: process-alive ≠ window-visible. Для след. теста: scrot + xdotool + xwininfo.
+- Временные файлы удалены. Секреты не сохранялись.

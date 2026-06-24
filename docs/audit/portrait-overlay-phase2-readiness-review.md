@@ -503,11 +503,11 @@ Regression запускается в рамках этого шага (38.1.1). 
 - **Phase 2 НЕ одобрен.** Требуется 6 approval gates (включая explicit approval Сергея Пащенко)
 - КСО не менялась. Chromium overlay не запускался. УКМ5 не менялась.
 
-### 2026-06-24 — Шаг 38.1.2 (Phase 2 Overlay Render Execution)
+### 2026-06-24 — Шаг 38.1.2 (Phase 2 Overlay Render — Attempted)
 
-**Phase 2 выполнен** по явному разрешению Сергея Пащенко на 192.168.110.223.
+**⚠️ VERIFICATION: Phase 2 process executed, but visual overlay display is NOT confirmed.**
 
-**Длительность:** ~44 секунды.
+По явному разрешению Сергея Пащенко на 192.168.110.223:
 
 **Точная команда (без секретов):**
 ```
@@ -522,32 +522,59 @@ DISPLAY=:0 nohup chromium-browser \
     --disable-component-update --test-type \
     --user-data-dir=/tmp/kso_test/chromium-profile &
 ```
-Подтверждено: `--kiosk`, `--fullscreen`, `--start-fullscreen`, `--start-maximized` **отсутствуют**.
+✅ `--kiosk`, `--fullscreen`, `--start-fullscreen`, `--start-maximized` отсутствуют.
+✅ DISPLAY=:0 подтверждён (xdpyinfo OK).
+✅ Процесс PID 25714 запущен и жив на +13s и +29s.
 
-**Результаты:**
+**Результаты процесс-уровня:**
 
 | Параметр | Значение |
 |----------|----------|
-| Overlay PID | 25714 (жив на +13s, +29s) |
-| Видимость | ⚠️ визуально не подтверждена (нет VNC/xdotool) |
+| Overlay PID | 25714 (жив 29+ сек) |
 | Геометрия | (0,400) 768×240 — задана явно |
-| Перекрытие payment | ⚠️ визуально не подтверждено (gap 80px по геометрии) |
-| Перекрытие header | ⚠️ визуально не подтверждено (gap 340px по геометрии) |
-| Focus steal | ⚠️ невозможно подтвердить удалённо (UKM5 kiosk не перезапускался) |
-| Stop criteria | **НИ ОДИН не сработал** |
-| CPU | 1.4% (до и после) |
-| RAM | 1.9G → 1.8G → 1.9G (100 MB overlay overhead) |
-| Rollback | `pkill -f "chromium-browser.*overlay.html"` — overlay убит ✅ |
-| SSH | краткий обрыв при pkill (~8s), переподключение успешно |
-| UKM5 после | Chromium kiosk PID 1834 ✅, MintUKM PID 1189 ✅, mint.service active ✅ |
-| Openbox после | PID 1576 ✅ (не менялся) |
+| CPU | 1.4% стабильно |
+| RAM | 1.9G → 1.8G → 1.9G |
+| UKM5 | Chromium kiosk PID 1834 ✅, MintUKM PID 1189 ✅ |
+| Rollback | pkill overlay ✅, UKM5 не задет |
+| Stop criteria | не сработали |
 
-**Временные файлы:** созданы и удалены — state.json, overlay.html, overlay_stdout.log, chromium-profile/, kill_switch.
+**Результаты визуального уровня:**
 
-**Не менялись:** УКМ5, Chromium УКМ5, Openbox, systemd, .profile, xinitrc, index.html, MySQL, Redis.
+| Проверка | Результат |
+|----------|-----------|
+| xdotool search --name "Phase 2" | ❌ **ОКНО НЕ НАЙДЕНО** |
+| scrot screenshot | ❌ не сделан (scrot УСТАНОВЛЕН — упущение) |
+| xwininfo | ❌ не вызван (xwininfo УСТАНОВЛЕН — упущение) |
+| VNC observation | ❌ не настроен |
+| Пользователь видит overlay | ❌ **НЕТ** — пользователь подтвердил отсутствие |
 
-**Проблемы:**
-- Краткий обрыв SSH при pkill (~8 секунд) — некритично, переподключение успешно.
-- Визуальное подтверждение невозможно без VNC/xdotool на КСО — рекомендуется установить `xdotool` для будущих тестов.
+**Root cause analysis:**
 
-**Секреты/пароли/чеки/фискальные данные:** НЕ сохранялись, НЕ читались.
+Chromium `--app` процесс был запущен (PID 25714, использовал ~100 MB RAM), но xdotool НЕ НАШЁЛ окно с именем "Phase 2" на DISPLAY=:0. Возможные причины:
+
+1. **Openbox stacking (наиболее вероятно):** UKM5 Chromium kiosk (`--kiosk --window-size=768x1024`) занимает fullscreen. Openbox 3.6.1 помещает новое `--app` окно ПОД fullscreen kiosk. Пользователь видит только kiosk.
+2. **Chromium --app + file:// рендеринг:** `--app` mode с локальным file:// URL мог не отрендерить окно с ожидаемым заголовком "Phase 2" — заголовок окна мог быть "chromium-browser" или пустым.
+3. **DISPLAY=:0 окружение:** SSH-сессия не наследует пользовательское окружение X11 — хотя xdpyinfo подтвердил доступность дисплея.
+
+**Корректировка статуса:**
+
+| Было (ошибочно) | Стало (исправлено) |
+|-----------------|-------------------|
+| "Phase 2 выполнен" | "Phase 2 attempted — visual display NOT confirmed" |
+| "Видимость не подтверждена (нет VNC/xdotool)" | "xdotool search НЕ НАШЁЛ окно + пользователь НЕ увидел" |
+| "Рекомендуется установить xdotool" | "xdotool/scrot/xwininfo УСТАНОВЛЕНЫ, но не использованы" |
+
+**Что нужно для корректного визуального теста:**
+
+1. `DISPLAY=:0 scrot /tmp/kso_test/screenshot_before.png` — скриншот ДО
+2. Запустить overlay
+3. `DISPLAY=:0 xdotool search --name "Phase"` — найти window ID
+4. `DISPLAY=:0 xwininfo -id <WID>` — подтвердить геометрию
+5. `DISPLAY=:0 scrot /tmp/kso_test/screenshot_during.png` — скриншот ВО ВРЕМЯ
+6. Если окно не найдено — попробовать `xdotool search --class "Chromium"` и найти НОВОЕ окно
+7. Если за kiosk — `wmctrl` (нужно установить) для поднятия overlay
+8. Rollback
+
+**Главный урок:** process-alive ≠ window-visible. Без xdotool/xwininfo/scrot/VNC визуальное подтверждение невозможно.
+
+**Временные файлы:** удалены. КСО не менялась. Секреты/чеки не сохранялись.
