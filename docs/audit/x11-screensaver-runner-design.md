@@ -205,6 +205,7 @@ ScreensaverRunResult содержит ТОЛЬКО safe поля:
 
 | Дата | Событие |
 |---|---|
+| 2026-06-24 | 38.2 — Connect X11 screensaver runner to manifest creatives: ScreensaverCreativePayload, adapter, validator, visibility, PoP, +98 tests |
 | 2026-06-24 | 38.1.11.1 — Fix post-rollback UKM5 focus restore: +restore_focus(), +focus fields in result, +14 tests |
 | 2026-06-24 | 38.1.11 — HW Scanner E2E: inconclusive/postponed. Обнаружен дефект: _NET_ACTIVE_WINDOW сбрасывается в 0 после XDestroyWindow |
 | 2026-06-24 | 38.1.9 — Runner design + contract + 0 тестов |

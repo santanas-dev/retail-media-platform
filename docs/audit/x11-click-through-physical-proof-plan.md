@@ -250,3 +250,8 @@ Scanner/keyboard pass-through подтверждён на уровне X11 focus
 - Stop reasons: `focus_warning` (фокус не восстановлен), `focus_lost` (резерв)
 - +14 тестов: focus fields, safe dict, simulation modes, no barcode/secrets in output
 - Physical scanner test НЕ запускался. КСО permanent config не менялась.
+
+### 38.2 — Connect X11 Screensaver to Manifest Creatives (2026-06-24)
+
+- `screensaver_creative.py`: ScreensaverCreativePayload, adapter, validator, visibility, PoP
+- +98 тестов. КСО не менялась. Physical run/X11 не запускались.

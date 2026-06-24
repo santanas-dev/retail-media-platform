@@ -36,6 +36,7 @@
 | 18 | **38.1.10 — Physical Run Guarded Runner ✅** | SUCCESS + negative tests (kill-switch, state=payment, rollback). Commit `ad09c49` + `33a8526`. |
 | 19 | **38.1.11 — HW Scanner E2E ⚠️** | **INCONCLUSIVE** — scanner not available. Focus-loss defect found. Postponed until scanner arrives. |
 | 20 | **38.1.11.1 — Fix Post-Rollback Focus Restore ✅** | `restore_focus()` + focus fields + `focus_warning` stop reason + 14 tests. |
+| 21 | **38.2 — Connect X11 Runner to Manifest Creatives ✅** | `screensaver_creative.py`: ScreensaverCreativePayload, adapter, validator, visibility, PoP + 98 tests. |
 
 ---
 

@@ -745,3 +745,10 @@ creative → campaign → placement → approval → manifest → publish → si
 - Stop reasons: `focus_warning`, `focus_lost`
 - +14 тестов. Physical scanner test НЕ запускался.
 - КСО permanent config не менялась.
+
+### 38.2 — Connect X11 Screensaver to Manifest Creatives (2026-06-24)
+
+✅ **Safe creative bridge built.**
+- `screensaver_creative.py`: ScreensaverCreativePayload, adapter (PlayerPlaylistItem → creative), validator, visibility, PoP
+- +98 тестов: payload, adapter, validation (forbidden patterns), visibility, PoP safety
+- КСО не менялась. Physical run/X11/Chromium не запускались.
