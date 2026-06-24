@@ -422,7 +422,15 @@ Production-ready renderer для fullscreen idle screensaver: `x11_click_through
 
 ## Журнал
 
-### 2026-06-24 — Шаг 38.1.8 (Physical X11 Proof — SUCCESS)
+### 2026-06-24 — Шаг 38.1.9 (Guarded X11 Screensaver Runner)
+
+Создан state-driven guarded runner на базе X11 click-through:
+- `x11_screensaver_runner.py` — lifecycle, ScreensaverRunResult, ScreensaverRunPlan
+- Safety validators: forbidden commands, safe output, targeted rollback
+- 3 CLI modes, 124 теста
+- Runner test-only на шаге 38.1.9, physical run — шаг 38.1.10+
+
+### 2026-06-24 — Шаг 38.1.8 (Physical X11 Proof)
 
 Physical proof executed on KSO. X11 click-through confirmed:
 100% red fullscreen above UKM5, XFixes input EMPTY, focus NOT stolen.

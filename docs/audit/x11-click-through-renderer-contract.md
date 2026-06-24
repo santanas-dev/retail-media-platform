@@ -197,6 +197,15 @@ Runtime proof harness подготовлен, но **физический зап
 Physical proof на КСО 192.168.110.223: 100% red fullscreen, XFixes input EMPTY, focus NOT stolen.
 B-FS-1/B-FS-2 closed. HW scanner E2E — follow-up before pilot.
 
+### 2026-06-24 — Шаг 38.1.9 (Guarded X11 Screensaver Runner)
+
+Создан state-driven guarded runner:
+- `x11_screensaver_runner.py` — lifecycle, safe result model, safety validators
+- 3 CLI modes: --dry-run, --preflight-only, --run-once (требует approval token)
+- 124 теста: visibility rules, state-driven hide, forbidden fields, lockfile, rollback
+- Runner test-only на шаге 38.1.9, physical run — шаг 38.1.10+
+- Production/pilot запрещены до guarded runner validation + HW scanner E2E
+
 ### 2026-06-24 — Шаг 38.1.6
 
 Создан контракт X11 click-through renderer:

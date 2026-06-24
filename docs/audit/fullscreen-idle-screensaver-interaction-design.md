@@ -313,7 +313,15 @@ kill_switch > state_change > keydown/input > touch/pointer/mouse > click > wheel
 
 ## Журнал
 
-### 2026-06-24 — Шаг 38.1.8 (Physical X11 Proof — SUCCESS)
+### 2026-06-24 — Шаг 38.1.9 (Guarded X11 Screensaver Runner)
+
+Создан guard на уровне runner:
+- `x11_screensaver_runner.py` — жизненный цикл, ScreensaverRunResult, safety validators
+- Интегрирован с interaction_hide для X11 click-through input mode
+- 124 теста: visibility, hide rules, запрещённые поля, lockfile, rollback
+- Runner test-only; production/pilot — шаг 38.1.10+
+
+### 2026-06-24 — Шаг 38.1.8 (Physical X11 Click-through Proof)
 
 Physical proof: X11 click-through fullscreen confirmed. B-FS-1/B-FS-2 closed.
 HW scanner E2E validation — follow-up before pilot.

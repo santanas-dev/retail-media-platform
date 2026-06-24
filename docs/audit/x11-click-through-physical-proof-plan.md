@@ -196,3 +196,32 @@ Scanner/keyboard pass-through подтверждён на уровне X11 focus
 - 82 теста: plan construction, validation, command safety, safe output, immutability
 - Physical run НЕ выполнялся. X11 window НЕ создавался.
 - КСО не менялась. Chromium не запускался.
+
+### 38.1.8 — Physical Proof Result (2026-06-24)
+
+| Критерий | Результат |
+|---|---|
+| Visual display confirmed | ✅ yes |
+| Fullscreen overlay visible above UKM5 | ✅ yes |
+| Window ID | 52428801 |
+| Geometry | 768×1024 |
+| During screenshot | 100% red pixels |
+| XFixes input shape | EMPTY |
+| override_redirect | True |
+| Active window before/during/after | UKM5 (10485762) |
+| Focus stolen | no |
+| UKM5 Chromium PID unchanged | 1881 |
+| mint.service active | yes |
+| stop criteria triggered | none |
+| Scanner/keyboard pass-through | ✅ at X11 focus/input-path level |
+| Hardware scanner E2E | follow-up before pilot |
+
+### 38.1.9 — Guarded X11 Screensaver Runner (2026-06-24)
+
+- Создан `x11_screensaver_runner.py` — state-driven guarded runner
+- Lifecycle: build_plan → validate → lockfile → kill_switch → state → decide → show → periodic_check → hide → timeout → rollback → release → safe_output
+- 3 режима: --dry-run, --preflight-only, --run-once (требует USER_APPROVED_RUN_ONCE)
+- Safety: forbidden commands rejected, targeted rollback, safe output без PII/secrets
+- Runner test-only на шаге 38.1.9, physical run — шаг 38.1.10+
+- Production/pilot запрещены до guarded runner validation + HW scanner E2E
+- КСО не менялась. Chromium не запускался.
