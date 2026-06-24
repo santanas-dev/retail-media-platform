@@ -7,12 +7,14 @@ No real API integration. No systemd/Chromium/UKM 4.
 import sys as _sys
 import unittest
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 _PORTAL_DIR = Path(__file__).resolve().parent.parent
 if str(_PORTAL_DIR) not in _sys.path:
     _sys.path.insert(0, str(_PORTAL_DIR))
 
 from main import app
+from backend_client import backend_login as _real_backend_login
 from starlette.testclient import TestClient
 
 FORBIDDEN = frozenset({
@@ -1909,10 +1911,17 @@ class TestLoginForm(unittest.TestCase):
         """Error messages do not reveal which field is wrong.
         The word 'пароль' (password label) is OK — it's just the form label.
         The submitted password VALUE must never appear."""
-        resp = self.client.post("/login", data={
-            "username": "nonexistent",
-            "password": "WrongPass123!",
-        }, follow_redirects=False)
+        # Mock backend_login to return 401 (invalid credentials)
+        # Without backend running, the real call returns 502 (unreachable)
+        # and the error message becomes "Сервер авторизации временно недоступен"
+        async def _mock_login(username, password):
+            return {"ok": False, "error": "Invalid credentials", "status": 401}
+
+        with patch("main.backend_login", side_effect=_mock_login):
+            resp = self.client.post("/login", data={
+                "username": "nonexistent",
+                "password": "WrongPass123!",
+            }, follow_redirects=False)
         # Safe generic error
         self.assertIn("Неверное имя пользователя или пароль", resp.text)
         # Submitted password value must never be echoed back
