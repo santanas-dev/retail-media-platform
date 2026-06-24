@@ -404,9 +404,33 @@ def is_pilot_ready(input_mode: str) -> bool:
 - `apps/kso_player/kso_player/interaction_hide.py` — hide rules engine
 - `apps/kso_player/tests/test_profile_portrait_fullscreen_idle_screensaver_768.py` — тесты профиля
 
+## 10. X11 Click-through Renderer Contract (38.1.6)
+
+Production-ready renderer для fullscreen idle screensaver: `x11_click_through`.
+
+Ключевые отличия от Chromium wake-only:
+- X11 override-redirect + XFixes empty input shape
+- Нет потери сканера (нет keyboard grab)
+- Нет потери touch (pointer passthrough)
+- Не использует Chromium
+
+См. `docs/audit/x11-click-through-renderer-contract.md`.
+
+Код: `apps/kso_player/kso_player/x11_click_through_renderer.py` (79 тестов).
+
+---
+
 ## Журнал
 
-### 2026-06-24 — Шаг 38.1.5
+### 2026-06-24 — Шаг 38.1.6 (X11 Click-through Renderer Contract)
+
+Создан контракт production-ready X11 click-through renderer:
+- X11ClickThroughCapabilities, X11RendererPlan, X11RendererValidationResult
+- Production-ready: true только если все pass-through свойства enabled
+- Не использует Chromium; input passthrough гарантирован
+- 79 тестов
+
+### 2026-06-24 — Шаг 38.1.5 (Input Pass-through Design)
 
 Спроектирован механизм input pass-through для fullscreen idle screensaver:
 - Разобраны 5 вариантов: A (wake-only), B (focus return), C (override-redirect), D (XFixes input), E (state-based)

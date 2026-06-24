@@ -29,6 +29,7 @@
 | 11 | **38.1.2 — Phase 2 Overlay Attempted ⚠️** | Процесс запущен, xdotool окно НЕ нашёл, visual NOT confirmed |
 | 12 | **38.1.4 — Fullscreen Idle Screensaver Design ✅** | Profile contract + interaction hide rules + 141 тест |
 | 13 | **38.1.5 — X11 Input Pass-through Design ✅** | Decision matrix (A-E), input_mode contract, +26 тестов |
+| 14 | **38.1.6 — X11 Click-through Renderer Contract ✅** | Renderer dataclasses, validators, safe output, 79 тестов |
 
 ---
 

@@ -313,6 +313,13 @@ kill_switch > state_change > keydown/input > touch/pointer/mouse > click > wheel
 
 ## Журнал
 
+### 2026-06-24 — Шаг 38.1.6 (X11 Click-through Renderer Contract)
+
+Создан контракт production-ready X11 renderer: x11_click_through.
+X11ClickThroughCapabilities, X11RendererPlan, валидаторы, safe output.
+Не использует Chromium. Input passthrough гарантирован. 79 тестов.
+См. `docs/audit/x11-click-through-renderer-contract.md`.
+
 ### 2026-06-24 — Шаг 38.1.5 (Input Pass-through Design)
 
 Добавлены input modes и X11 pass-through design:

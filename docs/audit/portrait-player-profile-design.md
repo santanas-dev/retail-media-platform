@@ -445,6 +445,12 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 
 ## Журнал
 
+### 2026-06-24 — Шаг 38.1.6 (X11 Click-through Renderer Contract)
+
+Создан контракт X11 click-through renderer: x11_click_through.
+Не использует Chromium. Input passthrough гарантирован (scanner + touch). 79 тестов.
+Renderer готов к production при включённых pass-through свойствах.
+
 ### 2026-06-24 — Шаг 38.1.5 (Input Pass-through Design)
 
 Спроектирован механизм X11 input pass-through для fullscreen screensaver:
