@@ -238,6 +238,13 @@ ID:     P0-5 (новый)
     ├── Interaction hide rules: 9 triggers, priorities, scanner safety
     ├── Blockers: B-FS-1 (первый скан теряется), B-FS-2 (passthrough)
     └── 141 тест: profile contract + hide rules
+
+  38.1.5 — X11 Input Pass-through Design ✅ (done)
+    ├── 5 вариантов: A (wake-only) ❌, B (focus return) ❌, C ❌, D ✅, E ✅
+    ├── Decision matrix: рекомендован гибрид x11_click_through + state_only
+    ├── input_mode contract: wake_only | focus_return | x11_click_through | state_only
+    ├── is_production_ready() / is_pilot_ready() / is_test_only()
+    └── +26 тестов: input_mode + input_loss_risk
   ```
 
 ---
@@ -256,6 +263,12 @@ ID:     P0-5 (новый)
 ### 2026-06-24 — Шаг 38.0.11
 
 План ручной проверки создан: `docs/audit/portrait-overlay-physical-kso-test-plan.md` ✅.
+
+### 2026-06-24 — Шаг 38.1.5 (X11 Input Pass-through Design)
+
+Спроектирован механизм X11 input pass-through. Decision matrix: 5 вариантов, рекомендован гибрид.
+`input_mode` contract: wake_only → state_only → x11_click_through. +26 тестов.
+См. `docs/audit/fullscreen-screensaver-x11-input-passthrough-design.md`.
 
 ### 2026-06-24 — Шаг 38.1.4 (Fullscreen Idle Screensaver Interaction Design)
 

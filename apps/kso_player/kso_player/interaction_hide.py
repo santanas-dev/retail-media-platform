@@ -20,6 +20,7 @@ class HideDecision:
     target_ms: int       # hide target milliseconds
     passthrough: bool    # True if input should be forwarded to UKM5
     scanner_risk: bool   # True if a scanner (keyboard wedge) may have lost input
+    input_mode: str = "wake_only"  # Current profile input mode
 
     def __post_init__(self):
         """Validate hide decision fields."""
@@ -28,10 +29,15 @@ class HideDecision:
             "touchstart", "pointerdown", "mousedown", "click", "wheel",
             "none",  # "none" when hide=False
         })
+        valid_modes = frozenset({
+            "wake_only", "focus_return", "x11_click_through", "state_only",
+        })
         if self.reason not in valid_reasons:
             raise ValueError(f"invalid hide reason: {self.reason}")
         if self.target_ms < 0:
             raise ValueError(f"target_ms must be >= 0, got {self.target_ms}")
+        if self.input_mode not in valid_modes:
+            raise ValueError(f"invalid input_mode: {self.input_mode}")
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -116,6 +122,7 @@ def should_hide(
     dom_events: frozenset | None = None,
     state: str = "unknown",
     kill_switch_active: bool = False,
+    input_mode: str = "wake_only",
 ) -> HideDecision:
     """Determine if the screensaver should hide.
 
@@ -129,6 +136,7 @@ def should_hide(
                     Empty/None means no events.
         state: Current UKM5 state ("idle", "busy", "payment", etc.)
         kill_switch_active: Whether kill-switch file exists.
+        input_mode: Profile input mode ("wake_only", "state_only", etc.)
 
     Returns:
         HideDecision with hide=True/False and the triggering reason.
@@ -144,21 +152,19 @@ def should_hide(
             target_ms=HIDE_TARGET_MS["kill_switch"],
             passthrough=HIDE_TRIGGER_PASSTHROUGH["kill_switch"],
             scanner_risk=False,
+            input_mode=input_mode,
         )
 
     # 2. State-based hide (not idle → hide)
     state_str = str(state).strip().lower()
     if state_str != "idle":
-        reason = "state_change"
-        if state_str in HIDE_STATES:
-            reason = "state_change"
-        # unknown/stale — still state_change
         return HideDecision(
             hide=True,
-            reason=reason,
+            reason="state_change",
             target_ms=HIDE_TARGET_MS["state_change"],
             passthrough=HIDE_TRIGGER_PASSTHROUGH["state_change"],
             scanner_risk=False,
+            input_mode=input_mode,
         )
 
     # 3. DOM event-based hide
@@ -171,6 +177,7 @@ def should_hide(
             target_ms=HIDE_TARGET_MS[trigger],
             passthrough=HIDE_TRIGGER_PASSTHROUGH[trigger],
             scanner_risk=is_scanner,
+            input_mode=input_mode,
         )
 
     # No reason to hide
@@ -180,7 +187,29 @@ def should_hide(
         target_ms=0,
         passthrough=False,
         scanner_risk=False,
+        input_mode=input_mode,
     )
+
+
+def input_loss_risk(input_mode: str, trigger: str) -> bool:
+    """Check if there's a risk of losing the first input with this mode + trigger.
+
+    Returns True if the first input (scan/touch) may be lost.
+
+    Args:
+        input_mode: Profile input mode
+        trigger: The hide trigger that fired
+    """
+    # x11_click_through: no loss (input passes through)
+    if input_mode == "x11_click_through":
+        return False
+
+    # state_only: scanner safe (state observer catches it), touch may be lost
+    if input_mode == "state_only":
+        return trigger in {"touchstart", "pointerdown", "mousedown", "click", "wheel"}
+
+    # wake_only / focus_return: loses everything
+    return True
 
 
 def validate_interaction_log(log_entry: dict) -> dict:

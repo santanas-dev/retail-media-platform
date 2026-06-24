@@ -564,5 +564,86 @@ class TestHideStates(unittest.TestCase):
         self.assertNotIn("idle", HIDE_STATES)
 
 
+class TestInputMode(unittest.TestCase):
+    """Input mode parameter in should_hide and HideDecision."""
+
+    def test_default_input_mode_is_wake_only(self):
+        d = should_hide(state="idle")
+        self.assertEqual(d.input_mode, "wake_only")
+
+    def test_explicit_input_mode_passed_through(self):
+        d = should_hide(state="idle", input_mode="state_only")
+        self.assertEqual(d.input_mode, "state_only")
+
+    def test_x11_click_through_passed_through(self):
+        d = should_hide(state="idle", input_mode="x11_click_through")
+        self.assertEqual(d.input_mode, "x11_click_through")
+
+    def test_focus_return_passed_through(self):
+        d = should_hide(dom_events=frozenset({"touchstart"}), state="idle",
+                        input_mode="focus_return")
+        self.assertEqual(d.input_mode, "focus_return")
+
+    def test_invalid_mode_raises(self):
+        with self.assertRaises(ValueError):
+            HideDecision(
+                hide=True, reason="touchstart", target_ms=200,
+                passthrough=True, scanner_risk=False,
+                input_mode="invalid_mode",
+            )
+
+    def test_valid_modes_accepted(self):
+        for mode in ["wake_only", "focus_return", "x11_click_through", "state_only"]:
+            d = HideDecision(
+                hide=True, reason="touchstart", target_ms=200,
+                passthrough=True, scanner_risk=False,
+                input_mode=mode,
+            )
+            self.assertEqual(d.input_mode, mode)
+
+    def test_hide_decision_immutable_mode(self):
+        d = should_hide(input_mode="x11_click_through", state="idle")
+        with self.assertRaises(Exception):
+            d.input_mode = "wake_only"
+
+
+class TestInputLossRisk(unittest.TestCase):
+    """input_loss_risk() function."""
+
+    def test_x11_no_loss_for_any_trigger(self):
+        from kso_player.interaction_hide import input_loss_risk
+        for trigger in ["touchstart", "keydown", "input", "click", "wheel",
+                        "mousedown", "pointerdown"]:
+            self.assertFalse(input_loss_risk("x11_click_through", trigger),
+                             f"x11_click_through should not lose {trigger}")
+
+    def test_state_only_scanner_safe(self):
+        from kso_player.interaction_hide import input_loss_risk
+        self.assertFalse(input_loss_risk("state_only", "keydown"))
+        self.assertFalse(input_loss_risk("state_only", "input"))
+        # state_change is not a DOM event but state_only handles it safely
+        self.assertFalse(input_loss_risk("state_only", "state_change"))
+
+    def test_state_only_touch_loss_risk(self):
+        from kso_player.interaction_hide import input_loss_risk
+        self.assertTrue(input_loss_risk("state_only", "touchstart"))
+        self.assertTrue(input_loss_risk("state_only", "pointerdown"))
+        self.assertTrue(input_loss_risk("state_only", "mousedown"))
+        self.assertTrue(input_loss_risk("state_only", "click"))
+        self.assertTrue(input_loss_risk("state_only", "wheel"))
+
+    def test_wake_only_loses_everything(self):
+        from kso_player.interaction_hide import input_loss_risk
+        for trigger in ["touchstart", "keydown", "input", "click", "wheel"]:
+            self.assertTrue(input_loss_risk("wake_only", trigger),
+                            f"wake_only should lose {trigger}")
+
+    def test_focus_return_loses_everything(self):
+        from kso_player.interaction_hide import input_loss_risk
+        for trigger in ["touchstart", "keydown", "input", "click", "wheel"]:
+            self.assertTrue(input_loss_risk("focus_return", trigger),
+                            f"focus_return should lose {trigger}")
+
+
 if __name__ == "__main__":
     unittest.main()

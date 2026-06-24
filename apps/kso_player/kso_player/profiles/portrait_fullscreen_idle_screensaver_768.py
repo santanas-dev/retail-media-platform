@@ -115,6 +115,47 @@ HIDE_TRIGGER_PASSTHROUGH = {
 # Scanner-related triggers (keyboard wedge)
 SCANNER_TRIGGERS = frozenset({"keydown", "input"})
 
+# ── Input mode ───────────────────────────────────────────────────────
+# How this profile handles input pass-through.
+# Valid values:
+#   "wake_only"          — A: test only, loses first scan, NOT production-ready
+#   "focus_return"       — B: deprecated, loses first scan, NOT recommended
+#   "x11_click_through"  — D: X11 override-redirect + XFixes, production target
+#   "state_only"         — E: state-based hide, pilot-ready
+INPUT_MODE = "wake_only"  # Default: NOT production-ready (blocked by B-FS-1, B-FS-2)
+
+PRODUCTION_READY_MODES = frozenset({
+    "x11_click_through",
+})
+
+PILOT_READY_MODES = frozenset({
+    "state_only",
+    "x11_click_through",
+})
+
+TEST_ONLY_MODES = frozenset({
+    "wake_only",
+    "focus_return",
+})
+
+def is_production_ready(mode: str | None = None) -> bool:
+    """Check if the given input mode is safe for production use."""
+    if mode is None:
+        mode = INPUT_MODE
+    return mode in PRODUCTION_READY_MODES
+
+def is_pilot_ready(mode: str | None = None) -> bool:
+    """Check if the given input mode is acceptable for pilot rollout."""
+    if mode is None:
+        mode = INPUT_MODE
+    return mode in PILOT_READY_MODES
+
+def is_test_only(mode: str | None = None) -> bool:
+    """Check if the given input mode is for testing only."""
+    if mode is None:
+        mode = INPUT_MODE
+    return mode in TEST_ONLY_MODES
+
 # ── Safety ──────────────────────────────────────────────────────────
 IDLE_ONLY = True
 NO_FULLSCREEN = False  # This IS a fullscreen profile

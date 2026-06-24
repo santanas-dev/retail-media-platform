@@ -445,6 +445,16 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 
 ## Журнал
 
+### 2026-06-24 — Шаг 38.1.5 (Input Pass-through Design)
+
+Спроектирован механизм X11 input pass-through для fullscreen screensaver:
+- Decision matrix из 5 вариантов (A-E)
+- Рекомендован гибрид: X11 override-redirect + XFixes (production) + state observer (pilot)
+- `input_mode` contract: wake_only (test) → state_only (pilot) → x11_click_through (production)
+- `is_production_ready()` / `is_pilot_ready()` / `is_test_only()` в профиле
+- +26 тестов (input_mode + input_loss_risk)
+- Blocker B-FS-1/B-FS-2: решение → шаг 38.1.6 (X11 pass-through renderer)
+
 ### 2026-06-24 — Шаг 38.1.4
 
 Добавлен fullscreen idle screensaver профиль `portrait_fullscreen_idle_screensaver_768`:

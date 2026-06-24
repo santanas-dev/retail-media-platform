@@ -28,6 +28,7 @@
 | 10 | **38.1 — Physical KSO Phase 0–1 ✅** | Dry smoke 6/6 на Python 3.6.9, Phase 2 ⛔ не одобрен |
 | 11 | **38.1.2 — Phase 2 Overlay Attempted ⚠️** | Процесс запущен, xdotool окно НЕ нашёл, visual NOT confirmed |
 | 12 | **38.1.4 — Fullscreen Idle Screensaver Design ✅** | Profile contract + interaction hide rules + 141 тест |
+| 13 | **38.1.5 — X11 Input Pass-through Design ✅** | Decision matrix (A-E), input_mode contract, +26 тестов |
 
 ---
 

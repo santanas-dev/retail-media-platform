@@ -375,5 +375,70 @@ class TestUKM5NoDBAccess(unittest.TestCase):
         self.assertTrue(p.no_ukm5_db)
 
 
+class TestInputMode(unittest.TestCase):
+    """Input mode contract for fullscreen profile."""
+
+    def test_input_mode_default_is_wake_only(self):
+        from kso_player.profiles.portrait_fullscreen_idle_screensaver_768 import INPUT_MODE
+        self.assertEqual(INPUT_MODE, "wake_only")
+
+    def test_wake_only_not_production_ready(self):
+        from kso_player.profiles.portrait_fullscreen_idle_screensaver_768 import (
+            is_production_ready, is_test_only,
+        )
+        self.assertFalse(is_production_ready("wake_only"))
+        self.assertTrue(is_test_only("wake_only"))
+
+    def test_focus_return_not_production_ready(self):
+        from kso_player.profiles.portrait_fullscreen_idle_screensaver_768 import (
+            is_production_ready, is_test_only,
+        )
+        self.assertFalse(is_production_ready("focus_return"))
+        self.assertTrue(is_test_only("focus_return"))
+
+    def test_x11_click_through_is_production_ready(self):
+        from kso_player.profiles.portrait_fullscreen_idle_screensaver_768 import (
+            is_production_ready, is_pilot_ready, is_test_only,
+        )
+        self.assertTrue(is_production_ready("x11_click_through"))
+        self.assertTrue(is_pilot_ready("x11_click_through"))
+        self.assertFalse(is_test_only("x11_click_through"))
+
+    def test_state_only_is_pilot_ready(self):
+        from kso_player.profiles.portrait_fullscreen_idle_screensaver_768 import (
+            is_production_ready, is_pilot_ready, is_test_only,
+        )
+        self.assertFalse(is_production_ready("state_only"))
+        self.assertTrue(is_pilot_ready("state_only"))
+        self.assertFalse(is_test_only("state_only"))
+
+    def test_current_profile_not_production_ready(self):
+        from kso_player.profiles.portrait_fullscreen_idle_screensaver_768 import is_production_ready
+        self.assertFalse(is_production_ready())  # defaults to wake_only
+
+    def test_production_ready_modes_is_frozenset(self):
+        from kso_player.profiles.portrait_fullscreen_idle_screensaver_768 import PRODUCTION_READY_MODES
+        self.assertIsInstance(PRODUCTION_READY_MODES, frozenset)
+
+    def test_x11_is_only_production_mode(self):
+        from kso_player.profiles.portrait_fullscreen_idle_screensaver_768 import PRODUCTION_READY_MODES
+        self.assertEqual(PRODUCTION_READY_MODES, frozenset({"x11_click_through"}))
+
+    def test_invalid_mode_rejected(self):
+        from kso_player.profiles.portrait_fullscreen_idle_screensaver_768 import (
+            is_production_ready, is_pilot_ready, is_test_only,
+        )
+        self.assertFalse(is_production_ready("invalid"))
+        self.assertFalse(is_pilot_ready("invalid"))
+        self.assertFalse(is_test_only("invalid"))
+
+    def test_pilot_ready_includes_state_only(self):
+        from kso_player.profiles.portrait_fullscreen_idle_screensaver_768 import PILOT_READY_MODES
+        self.assertIn("state_only", PILOT_READY_MODES)
+        self.assertIn("x11_click_through", PILOT_READY_MODES)
+        self.assertNotIn("wake_only", PILOT_READY_MODES)
+        self.assertNotIn("focus_return", PILOT_READY_MODES)
+
+
 if __name__ == "__main__":
     unittest.main()

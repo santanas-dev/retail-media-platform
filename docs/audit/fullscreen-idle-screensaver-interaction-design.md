@@ -258,7 +258,20 @@ kill_switch > state_change > keydown/input > touch/pointer/mouse > click > wheel
 
 ---
 
-## 8. Связь с существующими профилями
+## 8. Input Modes (38.1.5)
+
+Выбор механизма обработки ввода. См. `docs/audit/fullscreen-screensaver-x11-input-passthrough-design.md`.
+
+| Mode | Production | Pilot | Test | Scanner risk |
+|---|---|---|---|---|
+| `wake_only` | ❌ | ❌ | ✅ | 🔴 Теряет всё |
+| `focus_return` | ❌ | ❌ | ✅ | 🔴 Теряет всё |
+| `state_only` | ❌ | ✅ | ✅ | 🟡 Touch теряется, scanner — нет |
+| `x11_click_through` | ✅ | ✅ | ✅ | 🟢 Нет потерь |
+
+**Текущий:** `wake_only` (запасной). **Целевой:** `x11_click_through` (шаг 38.1.6).
+
+## 9. Связь с существующими профилями
 
 | Профиль | Режим | Геометрия | Статус |
 |---|---|---|---|
@@ -299,6 +312,17 @@ kill_switch > state_change > keydown/input > touch/pointer/mouse > click > wheel
 - `apps/kso_player/tests/test_interaction_hide.py` — тесты hide rules (будущий)
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.1.5 (Input Pass-through Design)
+
+Добавлены input modes и X11 pass-through design:
+- 5 вариантов: A (wake-only), B (focus return), C (override-redirect), D (XFixes input), E (state-based)
+- Decision matrix: A ❌, B ❌, C ✅, D ✅, E ✅
+- Рекомендован гибрид: X11 override-redirect + XFixes (production) + state observer (pilot)
+- `input_mode` field in profile: wake_only | focus_return | x11_click_through | state_only
+- `is_production_ready()` / `is_pilot_ready()` / `is_test_only()` functions
+- Production-ready: only x11_click_through
+- +26 тестов (input_mode profile + hide rules)
 
 ### 2026-06-24 — Шаг 38.1.4
 
