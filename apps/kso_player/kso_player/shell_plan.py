@@ -25,6 +25,11 @@ from typing import FrozenSet, Optional
 
 from kso_player.profiles import PlayerProfile, get_profile
 from kso_player.kill_switch import DEFAULT_KILL_SWITCH_PATH, is_kill_switch_active
+from kso_player.state_observer import (
+    PlayerStateSnapshot,
+    STATE_UNKNOWN,
+    resolve_visibility,
+)
 
 # ══════════════════════════════════════════════════════════════════════
 # Constants
@@ -333,6 +338,66 @@ def validate_shell_plan_with_kill_switch(
     else:
         # No override — preserve current visibility
         new_visibility = plan.visible_plan
+
+    return ShellPlan(
+        profile_code=plan.profile_code,
+        profile_name=plan.profile_name,
+        root_width=plan.root_width,
+        root_height=plan.root_height,
+        window_x=plan.window_x,
+        window_y=plan.window_y,
+        window_width=plan.window_width,
+        window_height=plan.window_height,
+        creative_x=plan.creative_x,
+        creative_y=plan.creative_y,
+        creative_width=plan.creative_width,
+        creative_height=plan.creative_height,
+        window_type=plan.window_type,
+        fullscreen=plan.fullscreen,
+        kiosk=plan.kiosk,
+        always_on_top=plan.always_on_top,
+        no_focus_steal=plan.no_focus_steal,
+        kill_switch_required=plan.kill_switch_required,
+        hide_on_start_if_state_not_idle=plan.hide_on_start_if_state_not_idle,
+        idle_only=plan.idle_only,
+        no_ukm5_db=plan.no_ukm5_db,
+        visible_plan=new_visibility,
+        show_on_states=plan.show_on_states,
+        hide_on_states=plan.hide_on_states,
+        hide_sla_ms=plan.hide_sla_ms,
+        forbidden_zones=plan.forbidden_zones,
+        forbidden_chromium_flags=plan.forbidden_chromium_flags,
+    )
+
+
+def apply_state_snapshot(
+    plan: ShellPlan,
+    snapshot: PlayerStateSnapshot,
+    kill_switch_active: bool,
+) -> ShellPlan:
+    """Return a copy of the shell plan with visibility resolved from state snapshot.
+
+    Combines state observer + kill-switch into a single visibility decision.
+    Pure function — does not mutate the original plan.
+
+    Priority (highest first):
+        1. kill_switch_active → HIDDEN
+        2. state != idle → HIDDEN (stale, unknown, all others)
+        3. idle + kill_switch inactive → VISIBLE
+
+    Args:
+        plan: Existing ShellPlan (geometry, profile, flags).
+        snapshot: Immutable state snapshot from observer.
+        kill_switch_active: Current kill-switch status.
+
+    Returns:
+        New ShellPlan with updated visible_plan.
+    """
+    visibility = resolve_visibility(snapshot, kill_switch_active)
+    if visibility != "visible":
+        new_visibility = PLAN_MODE_HIDDEN
+    else:
+        new_visibility = PLAN_MODE_VISIBLE
 
     return ShellPlan(
         profile_code=plan.profile_code,

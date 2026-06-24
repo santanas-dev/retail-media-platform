@@ -365,11 +365,17 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 - 41 тест: file existence, error safety, bad paths, shell plan integration, immutability, no leaks
 - NO Chromium, NO X11, NO HTTP, NO backend, NO UKM5 DB
 
-### 38.0.9 — State Observer Stub / Safe Idle-Only
+### 38.0.9 — State Observer Stub / Safe Idle-Only ✅
 
-- State adapter stub для `portrait_idle_overlay_768`
-- Генерация safe state: только `idle` (manual) или `unknown` (default)
-- Тесты: state contract валидация, forbidden fields reject
+Реализовано:
+- `kso_player/state_observer.py` — `PlayerStateSnapshot` frozen dataclass + safe reader
+- `read_state_snapshot(path)` — fail-safe reader: no file/JSON/permission error → UNKNOWN
+- `resolve_visibility(snapshot, kill_switch)` — priority: kill-switch > state > idle
+- `from_dict(data)` — validates + rejects forbidden fields (receipt, payment, fiscal, customer, PII, DB, secrets)
+- Интеграция: `apply_state_snapshot(plan, snapshot, kill_switch)` в shell_plan.py
+- Правила: только idle → visible; stale/unknown/all others → hidden; kill-switch overrides
+- 114 тестов: snapshot construction, staleness, from_dict, reader (все ошибки), visibility, shell plan integration, immutability, no leaks
+- NO Chromium, NO X11, NO HTTP, NO subprocess, NO UKM5 DB, NO MySQL
 
 ### 38.0.10 — Local Smoke on Dev Environment
 
@@ -411,6 +417,11 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 - `docs/audit/one-kso-pilot-readiness-plan.md` — план test KSO → pilot
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.0.9
+
+State observer реализован: `kso_player/state_observer.py` + интеграция shell plan + 114 тестов ✅.
+См. `apps/kso_player/kso_player/state_observer.py`.
 
 ### 2026-06-24 — Шаг 38.0.8
 

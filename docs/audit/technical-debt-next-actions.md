@@ -3,7 +3,7 @@
 > **Статус:** 📋 Action Plan (37.14)
 >
 > Дата: 2026-06-16
-> Ревизия: 5 (38.0.8 — kill-switch implementation)
+> Ревизия: 6 (38.0.9 — state observer implementation)
 >
 > **Принцип:** Не закрывать весь долг сейчас. Закрывать только то, что блокирует следующий этап.
 >
@@ -22,7 +22,7 @@
 | 3 | **38.0.6 — Contract & tests ✅** | 71 тест: geometry, forbidden zones, state rules, SLA |
 | 4 | **38.0.7 — Shell plan support ✅** | 59 тестов: geometry, visibility, transitions, chromium flags |
 | 5 | **38.0.8 — Local kill-switch ✅** | File flag `/run/verny/kso/kill_switch` + shell plan integration, 41 тест |
-| 6 | **38.0.9 — State observer stub** | Safe state contract, forbidden fields validation |
+| 6 | **38.0.9 — State observer stub ✅** | Safe state contract, forbidden fields, 114 тестов |
 | 7 | **38.0.10 — Local smoke on dev** | Xvfb/headless smoke |
 | 8 | **38.0.11 — Manual test on physical KSO** | Off-hours test |
 | 9 | **НЕ менять УКМ5, openbox, Chromium, systemd** | production кассовая система |

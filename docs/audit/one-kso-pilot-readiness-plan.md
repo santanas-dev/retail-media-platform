@@ -641,3 +641,20 @@ creative → campaign → placement → approval → manifest → publish → si
 
 **Regression:** все suites green (backend 169, portal 407, state adapter 86, player 1139, sidecar 1838, infra 227 — **3866 всего**).
 **Commit:** `🛑 Add local player kill switch`
+
+### Шаг 38.0.9 — State Observer Stub / Safe Idle-Only (2026-06-24)
+
+✅ **State observer реализован — интеграция с shell plan.**
+
+- **Модуль:** `kso_player/state_observer.py` — `PlayerStateSnapshot` frozen dataclass + safe reader
+- **API:** `from_dict()`, `read_state_snapshot()`, `resolve_visibility()`
+- **Правила:** idle → visible; все остальные (busy/scan/cart/payment/error/offline/unknown/stale) → hidden
+- **Fail-safe:** отсутствующий файл, битый JSON, permission error, forbidden fields → UNKNOWN/hidden
+- **Forbidden fields:** receipt, transaction, payment, fiscal, customer, card, pan, phone, email, cashier, UKM5 DB, MySQL, Redis, secrets
+- **Интеграция:** `apply_state_snapshot(plan, snapshot, kill_switch)` — единая точка разрешения видимости
+- **Тесты:** 114 (snapshot construction/validation, staleness, from_dict с forbidden fields, reader все ошибки, visibility, shell plan интеграция, immutability, no leaks)
+- NO Chromium, NO X11, NO HTTP, NO subprocess, NO UKM5 DB, NO MySQL
+- КСО не менялась. Физический player не запускался. Legacy landscape тесты зелёные.
+
+**Regression:** все suites green (backend 169, portal 407, state adapter 86, player 1253, sidecar 1838, infra 227 — **3980 всего**).
+**Commit:** `🛡 Add safe player state observer stub`
