@@ -147,7 +147,16 @@ http://, https://, file://, 127.0.0.1, localhost
 
 ## Журнал
 
-### 2026-06-24 — Шаг 38.2 (Connect X11 Screensaver Runner to Manifest Creatives)
+### 38.2.1 — Preserve Backend creative_code (2026-06-24)
+
+- `PlayerPlaylistItem.creative_code`: Optional[str] — safe code from backend manifest
+- `_parse_kso_safe_item()`: extracts `creativeCode` from manifest item with forbidden-substring check
+- `build_screensaver_creative()`: backend creative_code wins; synthetic fallback marked `is_synthetic=True`
+- `ScreensaverCreativePayload.is_synthetic`: explicit flag — True only when auto-generated
+- +17 тестов: preservation chain, fallback marking, identity rules, PoP
+- КСО не менялась. Physical run не запускался.
+
+### 2026-06-24 — Шаг 38.2 (Connect Screensaver Runner to Manifest Creatives)
 
 - Создан `screensaver_creative.py`: ScreensaverCreativePayload, adapter, validator, visibility, PoP
 - Adapter: PlayerPlaylistItem → ScreensaverCreativePayload (strips UUID/sha256/paths)

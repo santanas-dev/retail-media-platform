@@ -75,13 +75,14 @@ class ScreensaverCreativePayload:
     storage_ref, minio, backend_url, tokens, secrets.
     """
 
-    creative_code: str = ""       # safe identifier (not UUID)
+    creative_code: str = ""       # safe identifier from backend, or synthetic fallback
     media_ref: str = ""           # local-safe alias: "slot-000"
     content_type: str = "test"    # image/png, image/jpeg, video/mp4, or test
     duration_ms: int = 10_000     # bounded: 1000..120000
     slot_order: int = 0
     valid_from: Optional[str] = None   # ISO8601 UTC, optional
     valid_to: Optional[str] = None     # ISO8601 UTC, optional
+    is_synthetic: bool = False    # True if creative_code was auto-generated (fallback)
 
     def __post_init__(self):
         if self.duration_ms < MIN_DURATION_MS:
@@ -116,6 +117,7 @@ class ScreensaverCreativePayload:
             "content_type": self.content_type,
             "duration_ms": self.duration_ms,
             "slot_order": self.slot_order,
+            "is_synthetic": self.is_synthetic,
         }
         if self.valid_from:
             d["valid_from"] = self.valid_from
@@ -226,12 +228,16 @@ def build_screensaver_creative(
 ) -> ScreensaverCreativePayload:
     """Convert a safe PlayerPlaylistItem into a ScreensaverCreativePayload.
 
+    Prefers item.creative_code (from backend manifest) over the creative_code
+    parameter. Falls back to synthetic code ONLY when no real creative_code
+    is available.
+
     Extracts only safe fields: media_ref, content_type, duration_ms, slot_order.
     Strips: manifest_item_id (UUID), filename, sha256, size_bytes.
 
     Args:
         item: PlayerPlaylistItem from the existing playlist builder.
-        creative_code: Optional stable creative identifier (not UUID).
+        creative_code: Fallback creative identifier (used only if item has none).
         valid_from: Optional ISO8601 UTC start.
         valid_to: Optional ISO8601 UTC end.
 
@@ -243,6 +249,7 @@ def build_screensaver_creative(
             creative_code=creative_code or "invalid",
             content_type="test",
             duration_ms=10_000,
+            is_synthetic=True,
         )
 
     # Build safe media_ref: strip path components, keep alias
@@ -251,12 +258,23 @@ def build_screensaver_creative(
     if "/" in media_ref:
         media_ref = media_ref.rsplit("/", 1)[-1]
 
-    # Build safe creative_code (not UUID)
-    code = creative_code or ""
-    if not code and media_ref:
+    # — Resolve creative_code: backend first, fallback only when missing —
+    code = ""
+    is_synthetic = False
+
+    if item.creative_code and isinstance(item.creative_code, str) and item.creative_code.strip():
+        # Backend creative_code takes priority
+        code = item.creative_code.strip()
+        is_synthetic = False
+    elif creative_code and creative_code.strip():
+        code = creative_code.strip()
+        is_synthetic = True  # caller-provided code is fallback
+    elif media_ref:
         code = f"scr-{media_ref}"
-    elif not code:
+        is_synthetic = True
+    else:
         code = f"scr-slot-{item.slot_order:03d}"
+        is_synthetic = True
 
     # Validate content_type
     content_type = item.content_type or "test"
@@ -282,6 +300,7 @@ def build_screensaver_creative(
         slot_order=item.slot_order,
         valid_from=valid_from,
         valid_to=valid_to,
+        is_synthetic=is_synthetic,
     )
 
 
@@ -343,7 +362,7 @@ def build_screensaver_creative_from_playlist(
 
     return build_screensaver_creative(
         target,
-        creative_code=creative_code,
+        creative_code=creative_code,  # fallback only — item.creative_code wins
         valid_from=valid_from,
         valid_to=valid_to,
     )

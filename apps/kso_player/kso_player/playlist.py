@@ -120,6 +120,9 @@ class PlayerPlaylistItem:
     order: int = 0                # >= 0 (LEGACY alias for slot_order)
     size_bytes: Optional[int] = None  # None if unknown (LEGACY)
 
+    # — Backend creative identity —
+    creative_code: Optional[str] = None  # safe code from manifest, None if unavailable
+
 
 @dataclass
 class PlayerPlaylist:
@@ -420,6 +423,15 @@ def _extract_kso_item(raw_item: dict, idx: int) -> PlayerPlaylistItem:
     media_ref = raw_item.get("mediaRef", "")
     media_ref = _validate_media_ref(media_ref, f"items[{idx}].mediaRef")
 
+    # ── creativeCode (optional — safe identifier from backend) ───
+    creative_code = raw_item.get("creativeCode")
+    if creative_code is not None:
+        if not isinstance(creative_code, str) or not creative_code.strip():
+            creative_code = None  # reject empty/non-string
+        else:
+            creative_code = creative_code.strip()
+            _check_forbidden(creative_code, f"items[{idx}].creativeCode")
+
     # ── Check forbidden substrings on all string fields ──────────
     _check_forbidden(ct, f"items[{idx}].contentType")
     _check_forbidden(media_ref, f"items[{idx}].mediaRef")
@@ -430,6 +442,7 @@ def _extract_kso_item(raw_item: dict, idx: int) -> PlayerPlaylistItem:
         content_type=ct,
         duration_ms=dur,
         order=slot_order,  # alias for compatibility
+        creative_code=creative_code,
     )
 
 

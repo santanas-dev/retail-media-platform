@@ -892,5 +892,246 @@ class TestConstants(unittest.TestCase):
         self.assertEqual(VIS_REASON_CREATIVE_VALID, "creative_valid")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# 38.2.1 — Backend creative_code preservation
+# ══════════════════════════════════════════════════════════════════════
+
+class TestCreativeCodePreservation(unittest.TestCase):
+    """Backend creative_code flows manifest → playlist → runner → PoP."""
+
+    def test_playlist_item_has_creative_code_field(self):
+        """PlayerPlaylistItem accepts creative_code."""
+        item = PlayerPlaylistItem(
+            media_ref="slot-000",
+            slot_order=0,
+            content_type="image/png",
+            duration_ms=15_000,
+            creative_code="summer-campaign-001",
+        )
+        self.assertEqual(item.creative_code, "summer-campaign-001")
+
+    def test_playlist_item_creative_code_default_none(self):
+        """creative_code defaults to None when not provided."""
+        item = PlayerPlaylistItem()
+        self.assertIsNone(item.creative_code)
+
+    def test_creative_code_maps_from_playlist_item(self):
+        """Backend creative_code in PlaylistItem → ScreensaverCreativePayload."""
+        item = PlayerPlaylistItem(
+            media_ref="slot-000",
+            slot_order=0,
+            content_type="image/png",
+            duration_ms=15_000,
+            creative_code="summer-campaign-001",
+        )
+        c = build_screensaver_creative(item)
+        self.assertEqual(c.creative_code, "summer-campaign-001")
+        self.assertFalse(c.is_synthetic)
+
+    def test_creative_code_overrides_caller_param(self):
+        """item.creative_code wins over the creative_code function parameter."""
+        item = PlayerPlaylistItem(
+            media_ref="slot-000",
+            slot_order=0,
+            content_type="image/png",
+            duration_ms=15_000,
+            creative_code="backend-real-code",
+        )
+        c = build_screensaver_creative(item, creative_code="caller-fallback")
+        self.assertEqual(c.creative_code, "backend-real-code")
+        self.assertFalse(c.is_synthetic)
+
+    def test_synthetic_when_no_creative_code(self):
+        """When item has no creative_code, synthetic fallback is generated."""
+        item = _test_item("slot-000", 0, "image/png", 15_000)
+        c = build_screensaver_creative(item)
+        self.assertTrue(c.is_synthetic)
+        self.assertTrue(c.creative_code.startswith("scr-"))
+
+    def test_synthetic_marked_explicitly(self):
+        """is_synthetic=True when creative_code is auto-generated."""
+        item = PlayerPlaylistItem(
+            media_ref="slot-005",
+            slot_order=5,
+            content_type="image/png",
+            duration_ms=20_000,
+            # no creative_code
+        )
+        c = build_screensaver_creative(item)
+        self.assertTrue(c.is_synthetic)
+        self.assertEqual(c.creative_code, "scr-slot-005")
+
+    def test_synthetic_in_safe_dict(self):
+        """is_synthetic appears in safe dict."""
+        c = build_screensaver_creative(
+            PlayerPlaylistItem(slot_order=7, content_type="image/png", duration_ms=10000)
+        )
+        d = c.to_safe_dict()
+        self.assertIn("is_synthetic", d)
+        self.assertTrue(d["is_synthetic"])
+
+    def test_backend_creative_not_synthetic_in_safe_dict(self):
+        """When creative_code comes from backend, is_synthetic=False."""
+        item = PlayerPlaylistItem(
+            media_ref="slot-000",
+            content_type="image/png",
+            creative_code="prod-camp-42",
+        )
+        c = build_screensaver_creative(item)
+        self.assertFalse(c.is_synthetic)
+        d = c.to_safe_dict()
+        self.assertFalse(d["is_synthetic"])
+
+    def test_slot_order_not_identity_when_creative_code_exists(self):
+        """slot_order is NOT the creative identity when creative_code is present."""
+        item = PlayerPlaylistItem(
+            slot_order=999,
+            creative_code="real-code",
+            content_type="image/png",
+            duration_ms=10_000,
+        )
+        c = build_screensaver_creative(item)
+        self.assertEqual(c.creative_code, "real-code")
+        self.assertNotEqual(c.creative_code, f"scr-slot-999")
+        self.assertFalse(c.is_synthetic)
+
+    def test_media_ref_not_identity_when_creative_code_exists(self):
+        """media_ref is NOT the creative identity when creative_code is present."""
+        item = PlayerPlaylistItem(
+            media_ref="slot-abc",
+            creative_code="real-code",
+            content_type="image/png",
+            duration_ms=10_000,
+        )
+        c = build_screensaver_creative(item)
+        self.assertEqual(c.creative_code, "real-code")
+        self.assertNotEqual(c.creative_code, "scr-slot-abc")
+
+    def test_pop_draft_uses_backend_creative_code(self):
+        """PoP draft event uses the same creative_code from backend manifest."""
+        item = PlayerPlaylistItem(
+            creative_code="summer-campaign-001",
+            content_type="image/png",
+            duration_ms=15_000,
+        )
+        creative = build_screensaver_creative(item)
+        self.assertEqual(creative.creative_code, "summer-campaign-001")
+
+        pop = build_screensaver_pop_draft(
+            creative,
+            event_type=SCREENSAVER_EVENT_VISIBLE,
+            visible=True,
+            state="idle",
+            reason="creative_valid",
+            duration_ms=creative.duration_ms,
+        )
+        self.assertEqual(pop.creative_code, "summer-campaign-001")
+
+    def test_pop_draft_marks_synthetic(self):
+        """PoP draft for synthetic creative still reports correct creative_code."""
+        item = PlayerPlaylistItem(slot_order=3, content_type="image/png", duration_ms=10_000)
+        creative = build_screensaver_creative(item)
+        self.assertTrue(creative.is_synthetic)
+
+        pop = build_screensaver_pop_draft(
+            creative,
+            event_type=SCREENSAVER_EVENT_VISIBLE,
+            visible=True,
+        )
+        self.assertEqual(pop.creative_code, "scr-slot-003")
+
+    def test_pop_draft_slot_order_not_identity(self):
+        """PoP creative_code is NOT just slot_order stringified."""
+        item = PlayerPlaylistItem(
+            slot_order=7,
+            creative_code="prod-camp-7",
+            content_type="image/png",
+            duration_ms=10_000,
+        )
+        creative = build_screensaver_creative(item)
+        pop = build_screensaver_pop_draft(creative, event_type=SCREENSAVER_EVENT_VISIBLE)
+        self.assertEqual(pop.creative_code, "prod-camp-7")
+        self.assertNotEqual(pop.creative_code, "scr-slot-007")
+
+    def test_full_chain_backend_to_pop(self):
+        """Full chain: playlist item → creative → visibility → PoP."""
+        item = PlayerPlaylistItem(
+            media_ref="slot-000",
+            slot_order=0,
+            content_type="image/png",
+            duration_ms=15_000,
+            creative_code="summer-promo-v2",
+        )
+        # 1. Playlist item has backend creative_code
+        self.assertEqual(item.creative_code, "summer-promo-v2")
+
+        # 2. Adapter preserves it
+        creative = build_screensaver_creative(item)
+        self.assertEqual(creative.creative_code, "summer-promo-v2")
+        self.assertFalse(creative.is_synthetic)
+
+        # 3. Visibility check
+        pl = _test_playlist(items=[item])
+        should, reason = decide_creative_visibility(
+            creative, pl, state="idle", kill_switch_active=False,
+        )
+        self.assertTrue(should)
+
+        # 4. PoP preserves backend creative_code
+        pop = build_screensaver_pop_draft(
+            creative,
+            event_type=SCREENSAVER_EVENT_PLAYBACK_COMPLETED,
+            visible=True,
+            state="idle",
+            reason=reason,
+            duration_ms=creative.duration_ms,
+        )
+        self.assertEqual(pop.creative_code, "summer-promo-v2")
+
+        # 5. Safety audit
+        pop_result = validate_screensaver_pop_safety(pop.to_safe_dict())
+        self.assertTrue(pop_result["valid"])
+
+    def test_no_creative_code_no_problem(self):
+        """Missing creative_code is handled gracefully — synthetic fallback."""
+        item = PlayerPlaylistItem(
+            media_ref="slot-000",
+            slot_order=0,
+            content_type="image/png",
+            duration_ms=10_000,
+        )
+        self.assertIsNone(item.creative_code)
+        creative = build_screensaver_creative(item)
+        self.assertTrue(creative.is_synthetic)
+        # Still works end-to-end
+        pl = _test_playlist(items=[item])
+        should, _ = decide_creative_visibility(
+            creative, pl, state="idle", kill_switch_active=False,
+        )
+        self.assertTrue(should)
+
+    def test_empty_creative_code_string_treated_as_missing(self):
+        """Empty string creative_code → treated as None."""
+        item = PlayerPlaylistItem(
+            creative_code="",
+            slot_order=0,
+            content_type="image/png",
+            duration_ms=10_000,
+        )
+        c = build_screensaver_creative(item)
+        self.assertTrue(c.is_synthetic)
+
+    def test_whitespace_only_creative_code_treated_as_missing(self):
+        """Whitespace-only creative_code → treated as None."""
+        item = PlayerPlaylistItem(
+            creative_code="   ",
+            slot_order=0,
+            content_type="image/png",
+            duration_ms=10_000,
+        )
+        c = build_screensaver_creative(item)
+        self.assertTrue(c.is_synthetic)
+
+
 if __name__ == "__main__":
     unittest.main()

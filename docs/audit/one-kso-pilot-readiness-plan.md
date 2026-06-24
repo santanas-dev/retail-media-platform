@@ -752,3 +752,13 @@ creative → campaign → placement → approval → manifest → publish → si
 - `screensaver_creative.py`: ScreensaverCreativePayload, adapter (PlayerPlaylistItem → creative), validator, visibility, PoP
 - +98 тестов: payload, adapter, validation (forbidden patterns), visibility, PoP safety
 - КСО не менялась. Physical run/X11/Chromium не запускались.
+
+### 38.2.1 — Preserve Backend creative_code (2026-06-24)
+
+✅ **Backend creative_code preserved through entire chain.**
+- `PlayerPlaylistItem.creative_code`: Optional[str] — извлекается из `creativeCode` в KSO safe manifest
+- `ScreensaverCreativePayload.is_synthetic`: True только когда creative_code авто-сгенерирован
+- Adapter: backend creative_code приоритетнее caller-параметра; synthetic fallback только когда нет real creative_code
+- PoP: creative_code из backend manifest доходит до ScreensaverPoPDraft
+- +17 тестов: preservation, fallback marking, identity rules, PoP chain
+- КСО не менялась. Physical run не запускался.
