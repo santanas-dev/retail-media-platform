@@ -365,6 +365,44 @@ def get_active_window_id():
     return 0
 
 
+def restore_focus(expected_window_id):
+    """Restore focus to UKM5 window after overlay destruction.
+
+    Returns:
+        (restored: bool, method: str, error: str)
+    """
+    if not expected_window_id or expected_window_id == 0:
+        return (False, "", "expected_window_id is 0 or None")
+
+    # Check current active window
+    current = get_active_window_id()
+
+    # Already correct — no action needed
+    if current == expected_window_id:
+        return (True, "already_active", "")
+
+    # Try xdotool windowactivate
+    try:
+        result = subprocess.run(
+            ["xdotool", "windowactivate", str(expected_window_id)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=5,
+            env=dict(os.environ, DISPLAY=":0")
+        )
+        if result.returncode == 0:
+            time.sleep(0.5)
+            after = get_active_window_id()
+            if after == expected_window_id:
+                return (True, "xdotool_windowactivate", "")
+            else:
+                return (False, "xdotool_windowactivate",
+                        "active_window={} after activate, expected={}".format(after, expected_window_id))
+        else:
+            return (False, "xdotool_windowactivate",
+                    "exit_code={}: {}".format(result.returncode, result.stderr.strip()))
+    except Exception as e:
+        return (False, "xdotool_windowactivate", str(e))
+
+
 def get_window_geometry(window_id):
     """Get window geometry via xwininfo."""
     try:
@@ -555,9 +593,19 @@ def do_run_once(state_path, ks_path, duration, display):
         # Destroy overlay
         destroy_overlay_window()
 
+        # — Post-rollback focus restore —
+        expected_ukm5 = active_before  # UKM5 window that was active before overlay
+        focus_restored, restore_method, restore_error = restore_focus(expected_ukm5)
+        focus_lost = not focus_restored
+
         stability_after = check_ukm5_stable(chromium_pid, openbox_pid)
 
         total_duration = time.time() - start_time
+
+        # Determine final stop reason
+        final_stop_reason = "timeout"
+        if focus_lost:
+            final_stop_reason = "focus_warning"
 
         result = {
             "started": True,
@@ -576,7 +624,13 @@ def do_run_once(state_path, ks_path, duration, display):
                 active_during not in (active_before, 0)
             ),
             "rollback_done": True,
-            "stop_reason": "timeout",
+            "stop_reason": final_stop_reason,
+            # — Post-rollback focus verification —
+            "focus_restored": focus_restored,
+            "focus_restore_attempted": True,
+            "focus_restore_method": restore_method,
+            "focus_restore_error": restore_error,
+            "post_rollback_focus_lost": focus_lost,
             "ukm5_stable_before": stability_before,
             "ukm5_stable_after": stability_after,
             "chromium_pid_unchanged": (
@@ -588,10 +642,12 @@ def do_run_once(state_path, ks_path, duration, display):
                 "visible=True, state={}, ks_active={}, "
                 "window_id={}, geometry={}, "
                 "active_before={}, active_during={}, "
-                "focus_stolen={}, rollback_done=True"
+                "focus_stolen={}, focus_restored={}, "
+                "post_rollback_focus_lost={}, rollback_done=True"
             ).format(state, ks_active, window_id, geom,
                      active_before, active_during,
-                     active_during != active_before),
+                     active_during != active_before,
+                     focus_restored, focus_lost),
         }
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return result

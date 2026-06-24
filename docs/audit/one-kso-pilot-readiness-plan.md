@@ -716,3 +716,32 @@ creative → campaign → placement → approval → manifest → publish → si
 - На КСО установлены xdotool, scrot, xwininfo — не были использованы (упущение).
 - Урок: process-alive ≠ window-visible. Для след. теста: scrot + xdotool + xwininfo.
 - Временные файлы удалены. Секреты не сохранялись.
+
+### 38.1.10 — Physical Run Guarded Runner (2026-06-24)
+
+✅ **Physical run + negative tests пройдены.**
+- Run-once: fullscreen 768×1024, 100% красных пикселей поверх УКМ5
+- Negative A: kill-switch active → hidden
+- Negative B: state=payment → hidden
+- Negative C: post-rollback → UKM5 restored (90.8% gray)
+- UKM5 stable: Chromium 1881, mint active, фокус не украден
+- Commits: `ad09c49` + `33a8526`
+
+### 38.1.11 — HW Scanner E2E Validation (2026-06-24)
+
+⚠️ **INCONCLUSIVE / POSTPONED.**
+- Run #1 (10s): оператор не успел просканировать
+- Run #2 (30s): физический сканер отсутствовал
+- scanner_reached_ukm5: **unknown**
+- first_scan_lost: **unknown**
+- **Обнаружен дефект:** `_NET_ACTIVE_WINDOW` → 0 после XDestroyWindow
+- Scanner retest blocked: нужен сканер + fix focus restore
+
+### 38.1.11.1 — Fix Post-Rollback UKM5 Focus Restore (2026-06-24)
+
+✅ **Focus restore implemented.**
+- `restore_focus()`: проверка active_window → xdotool windowactivate
+- +5 полей в ScreensaverRunResult: focus_restored, focus_restore_attempted, etc.
+- Stop reasons: `focus_warning`, `focus_lost`
+- +14 тестов. Physical scanner test НЕ запускался.
+- КСО permanent config не менялась.

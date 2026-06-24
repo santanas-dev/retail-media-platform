@@ -185,14 +185,26 @@ ScreensaverRunResult содержит ТОЛЬКО safe поля:
 5. Периодическая проверка state (poll interval 0.5s)
 6. Скрытие по kill_switch/state/forbidden
 7. Timeout (max 30s test, 60s hard max)
-8. Rollback: unmap → destroy → close display
+8. Rollback: unmap → destroy → close display → **restore UKM5 focus** (xdotool windowactivate)
 9. Cleanup: lockfile, tmp files
 10. Safe summary output (no secrets/PII/scanner values)
 
 ---
 
-## 9. Journal
+## 9. Компоненты
+
+| Компонент | Назначение |
+|---|---|
+| `ScreensaverRunResult` | Immutable safe result: +focus_restored, focus_restore_attempted, focus_restore_method, focus_restore_error, post_rollback_focus_lost |
+| `restore_focus()` | Post-rollback focus restoration: проверяет active window, если 0 или ≠UKM5 → xdotool windowactivate |
+| Stop reasons | `focus_warning` (фокус не восстановлен, overlay показан), `focus_lost` (резерв) |
+
+---
+
+## 10. Journal
 
 | Дата | Событие |
 |---|---|
+| 2026-06-24 | 38.1.11.1 — Fix post-rollback UKM5 focus restore: +restore_focus(), +focus fields in result, +14 tests |
+| 2026-06-24 | 38.1.11 — HW Scanner E2E: inconclusive/postponed. Обнаружен дефект: _NET_ACTIVE_WINDOW сбрасывается в 0 после XDestroyWindow |
 | 2026-06-24 | 38.1.9 — Runner design + contract + 0 тестов |

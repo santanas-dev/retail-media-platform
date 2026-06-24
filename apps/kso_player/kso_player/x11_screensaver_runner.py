@@ -75,6 +75,8 @@ STOP_REASON_PREFLIGHT = "preflight"
 STOP_REASON_FORBIDDEN = "forbidden"
 STOP_REASON_STALE = "state_stale"
 STOP_REASON_MISSING_STATE = "missing_state"
+STOP_REASON_FOCUS_LOST = "focus_lost"
+STOP_REASON_FOCUS_WARNING = "focus_warning"
 
 # Visibility reasons
 VISIBILITY_NONE = "none"
@@ -140,6 +142,13 @@ class ScreensaverRunResult:
     renderer_production_ready: bool = False
     hide_decision: HideDecision | None = None
 
+    # — Post-rollback focus verification —
+    focus_restored: bool = True
+    focus_restore_attempted: bool = False
+    focus_restore_method: str = ""
+    focus_restore_error: str = ""
+    post_rollback_focus_lost: bool = False
+
     def __post_init__(self):
         # Validate state
         if self.state not in ALLOWED_STATES:
@@ -177,6 +186,17 @@ class ScreensaverRunResult:
             result["hide_trigger"] = self.hide_decision.reason
             result["hide_target_ms"] = self.hide_decision.target_ms
             result["scanner_risk"] = self.hide_decision.scanner_risk
+
+        # — Focus restore fields (safe) —
+        result["focus_restored"] = self.focus_restored
+        result["focus_restore_attempted"] = self.focus_restore_attempted
+        if self.focus_restore_method:
+            result["focus_restore_method"] = self.focus_restore_method
+        if self.focus_restore_error:
+            result["focus_restore_error"] = self.focus_restore_error
+        if self.post_rollback_focus_lost:
+            result["post_rollback_focus_lost"] = True
+
         return result
 
 
@@ -550,6 +570,9 @@ def simulate_run(
             renderer_plan_valid=rv.valid,
             renderer_production_ready=rv.production_ready,
             hide_decision=hide_decision if hide_decision.hide else None,
+            focus_restored=True,
+            focus_restore_attempted=False,
+            post_rollback_focus_lost=False,
         )
 
     if plan.mode == MODE_PREFLIGHT_ONLY:
@@ -573,6 +596,9 @@ def simulate_run(
             renderer_plan_valid=rv.valid,
             renderer_production_ready=rv.production_ready,
             hide_decision=hide_decision if hide_decision.hide else None,
+            focus_restored=True,
+            focus_restore_attempted=False,
+            post_rollback_focus_lost=False,
         )
 
     if plan.mode == MODE_RUN_ONCE:
@@ -609,6 +635,9 @@ def simulate_run(
                 renderer_plan_valid=rv.valid,
                 renderer_production_ready=rv.production_ready,
                 hide_decision=None,
+                focus_restored=True,
+                focus_restore_attempted=False,
+                post_rollback_focus_lost=False,
             )
         else:
             hide_stop_reason = STOP_REASON_KILL_SWITCH if kill_switch_active else STOP_REASON_STATE_CHANGE
@@ -638,6 +667,9 @@ def simulate_run(
                 renderer_plan_valid=rv.valid,
                 renderer_production_ready=rv.production_ready,
                 hide_decision=hide_decision if hide_decision.hide else None,
+                focus_restored=True,
+                focus_restore_attempted=False,
+                post_rollback_focus_lost=False,
             )
 
     # Fallback (should not reach)
@@ -664,6 +696,9 @@ RUNNER_SAFE_LOG_FIELDS = frozenset({
     "rollback_done", "stop_reason", "proof_summary", "mode",
     "renderer_plan_valid", "renderer_production_ready",
     "hide_trigger", "hide_target_ms", "scanner_risk",
+    "focus_restored", "focus_restore_attempted",
+    "focus_restore_method", "focus_restore_error",
+    "post_rollback_focus_lost",
 })
 
 # Commands that the runner must NEVER execute

@@ -33,6 +33,9 @@
 | 15 | **38.1.7 — X11 Click-through Proof Harness ✅** | 3 режима, command safety, evidence plan, 82 теста |
 | 16 | **38.1.8 — Physical X11 Click-through Proof ✅** | SUCCESS. B-FS-1/B-FS-2 closed. HW scanner before pilot. |
 | 17 | **38.1.9 — Guarded X11 Screensaver Runner ✅** | State-driven runner, safe output, CLI modes, 124 теста. |
+| 18 | **38.1.10 — Physical Run Guarded Runner ✅** | SUCCESS + negative tests (kill-switch, state=payment, rollback). Commit `ad09c49` + `33a8526`. |
+| 19 | **38.1.11 — HW Scanner E2E ⚠️** | **INCONCLUSIVE** — scanner not available. Focus-loss defect found. Postponed until scanner arrives. |
+| 20 | **38.1.11.1 — Fix Post-Rollback Focus Restore ✅** | `restore_focus()` + focus fields + `focus_warning` stop reason + 14 tests. |
 
 ---
 

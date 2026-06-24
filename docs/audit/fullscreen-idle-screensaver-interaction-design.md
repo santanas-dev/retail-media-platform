@@ -362,3 +362,19 @@ X11ClickThroughCapabilities, X11RendererPlan, валидаторы, safe output.
 
 Код профиля и тесты — следующий шаг.
 КСО не менялась. Physical fullscreen test не запускался.
+
+### 2026-06-24 — Шаг 38.1.10 (Physical Run Guarded Runner)
+
+Physical run на КСО: fullscreen 768×1024, 100% красных пикселей, active window=UKM5.
+Negative tests: kill-switch active → hidden, state=payment → hidden, rollback→UKM5 restored.
+
+### 2026-06-24 — Шаг 38.1.11 (HW Scanner E2E)
+
+**INCONCLUSIVE / POSTPONED.** Физический сканер отсутствовал.
+scanner_reached_ukm5: unknown. first_scan_lost: unknown.
+Обнаружен дефект: _NET_ACTIVE_WINDOW → 0 после XDestroyWindow.
+
+### 2026-06-24 — Шаг 38.1.11.1 (Fix Post-Rollback Focus Restore)
+
+`restore_focus()` → xdotool windowactivate. +focus fields, focus_warning stop reason.
++14 тестов. Physical scanner test НЕ запускался.

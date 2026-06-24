@@ -225,3 +225,28 @@ Scanner/keyboard pass-through подтверждён на уровне X11 focus
 - Runner test-only на шаге 38.1.9, physical run — шаг 38.1.10+
 - Production/pilot запрещены до guarded runner validation + HW scanner E2E
 - КСО не менялась. Chromium не запускался.
+
+### 38.1.10 — Physical Run Guarded Runner (2026-06-24)
+
+- Physical run выполнен на КСО: fullscreen 768×1024, override-redirect, 100% красных пикселей
+- Active window = 10485762 (УКМ5) during/after, focus not stolen
+- Negative tests: kill-switch active → hidden, state=payment → hidden, post-rollback → UKM5 restored
+- UKM5 stable, rollback targeted. Commit `ad09c49` + negative `33a8526`.
+
+### 38.1.11 — HW Scanner E2E Validation (2026-06-24)
+
+- **Статус:** ⚠️ **INCONCLUSIVE / POSTPONED**
+- Run #1 (10s): оператор не успел просканировать
+- Run #2 (30s): физический сканер отсутствовал — использована клавиатура, УКМ5 не реагировала (kiosk mode не принимает клавиатурный ввод)
+- **scanner_reached_ukm5: unknown**
+- **first_scan_lost: unknown**
+- **Обнаружен дефект:** `_NET_ACTIVE_WINDOW` сбрасывается в 0 после `XDestroyWindow` — УКМ5 теряет фокус ввода
+- Scanner retest blocked until: (a) physical scanner available, (b) rollback focus restore fixed
+
+### 38.1.11.1 — Fix Post-Rollback UKM5 Focus Restore (2026-06-24)
+
+- Добавлена `restore_focus()` в proof harness (py36): проверяет active window, если 0 или ≠UKM5 → `xdotool windowactivate <ukm5_id>`
+- Поля в `ScreensaverRunResult`: `focus_restored`, `focus_restore_attempted`, `focus_restore_method`, `focus_restore_error`, `post_rollback_focus_lost`
+- Stop reasons: `focus_warning` (фокус не восстановлен), `focus_lost` (резерв)
+- +14 тестов: focus fields, safe dict, simulation modes, no barcode/secrets in output
+- Physical scanner test НЕ запускался. КСО permanent config не менялась.

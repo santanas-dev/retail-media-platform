@@ -63,6 +63,8 @@ from kso_player.x11_screensaver_runner import (
     STOP_REASON_STALE,
     STOP_REASON_MISSING_STATE,
     STOP_REASON_ERROR,
+    STOP_REASON_FOCUS_LOST,
+    STOP_REASON_FOCUS_WARNING,
 )
 from kso_player.state_observer import (
     PlayerStateSnapshot,
@@ -977,6 +979,169 @@ class TestSimulationEdgeCases(unittest.TestCase):
         plan = build_plan(mode=MODE_RUN_ONCE, approval_token=APPROVAL_TOKEN)
         result = simulate_run(plan, snapshot=_idle_snapshot(), kill_switch_active=False)
         self.assertIsNone(result.hide_decision)  # visible → no hide decision
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Post-rollback focus restore
+# ══════════════════════════════════════════════════════════════════════
+
+class TestPostRollbackFocusRestore(unittest.TestCase):
+    """Post-rollback focus restore verification."""
+
+    def test_default_result_has_focus_fields(self):
+        """All results include focus_restored, focus_restore_attempted, post_rollback_focus_lost."""
+        result = ScreensaverRunResult(
+            started=True, visible=True, reason=VISIBILITY_IDLE_OK,
+            state=STATE_IDLE, stop_reason=STOP_REASON_TIMEOUT,
+        )
+        self.assertTrue(result.focus_restored)
+        self.assertFalse(result.focus_restore_attempted)
+        self.assertFalse(result.post_rollback_focus_lost)
+        self.assertEqual(result.focus_restore_method, "")
+        self.assertEqual(result.focus_restore_error, "")
+
+    def test_focus_fields_in_safe_dict(self):
+        """Focus fields appear in to_safe_dict."""
+        result = ScreensaverRunResult(
+            started=True, visible=True, reason=VISIBILITY_IDLE_OK,
+            state=STATE_IDLE, stop_reason=STOP_REASON_TIMEOUT,
+            focus_restored=True, focus_restore_attempted=True,
+            focus_restore_method="xdotool_windowactivate",
+            post_rollback_focus_lost=False,
+        )
+        d = result.to_safe_dict()
+        self.assertIn("focus_restored", d)
+        self.assertIn("focus_restore_attempted", d)
+        self.assertIn("focus_restore_method", d)
+        self.assertTrue(d["focus_restored"])
+        self.assertTrue(d["focus_restore_attempted"])
+        self.assertNotIn("post_rollback_focus_lost", d)  # False → omitted
+
+    def test_focus_lost_appears_in_safe_dict(self):
+        """When focus IS lost, post_rollback_focus_lost=True appears."""
+        result = ScreensaverRunResult(
+            started=True, visible=True, reason=VISIBILITY_IDLE_OK,
+            state=STATE_IDLE, stop_reason=STOP_REASON_FOCUS_WARNING,
+            focus_restored=False, focus_restore_attempted=True,
+            focus_restore_method="xdotool_windowactivate",
+            focus_restore_error="expected=10485762 got=0",
+            post_rollback_focus_lost=True,
+        )
+        d = result.to_safe_dict()
+        self.assertTrue(d["post_rollback_focus_lost"])
+        self.assertEqual(d["focus_restore_error"], "expected=10485762 got=0")
+
+    def test_focus_lost_sets_warning_stop_reason(self):
+        """When focus_lost=True, result indicates focus_warning."""
+        result = ScreensaverRunResult(
+            started=True, visible=True, reason=VISIBILITY_IDLE_OK,
+            state=STATE_IDLE, stop_reason=STOP_REASON_FOCUS_WARNING,
+            focus_restored=False, focus_restore_attempted=True,
+            post_rollback_focus_lost=True,
+        )
+        self.assertEqual(result.stop_reason, STOP_REASON_FOCUS_WARNING)
+        self.assertEqual(result.stop_reason, "focus_warning")
+
+    def test_dry_run_focus_is_restored(self):
+        """Dry-run simulation always has focus_restored=True."""
+        plan = build_plan(mode=MODE_DRY_RUN)
+        result = simulate_run(plan, snapshot=_idle_snapshot(), kill_switch_active=False)
+        self.assertTrue(result.focus_restored)
+        self.assertFalse(result.focus_restore_attempted)
+        self.assertFalse(result.post_rollback_focus_lost)
+
+    def test_preflight_focus_is_restored(self):
+        """Preflight-only simulation always has focus_restored=True."""
+        plan = build_plan(mode=MODE_PREFLIGHT_ONLY)
+        result = simulate_run(plan, snapshot=_idle_snapshot(), kill_switch_active=False)
+        self.assertTrue(result.focus_restored)
+        self.assertFalse(result.focus_restore_attempted)
+        self.assertFalse(result.post_rollback_focus_lost)
+
+    def test_run_once_visible_focus_is_restored(self):
+        """Run-once (visible) simulation always has focus_restored=True."""
+        plan = build_plan(mode=MODE_RUN_ONCE, approval_token=APPROVAL_TOKEN)
+        result = simulate_run(plan, snapshot=_idle_snapshot(), kill_switch_active=False)
+        self.assertTrue(result.visible)
+        self.assertTrue(result.focus_restored)
+        self.assertFalse(result.focus_restore_attempted)
+        self.assertFalse(result.post_rollback_focus_lost)
+
+    def test_run_once_hidden_focus_is_restored(self):
+        """Run-once (hidden) simulation always has focus_restored=True."""
+        plan = build_plan(mode=MODE_RUN_ONCE, approval_token=APPROVAL_TOKEN)
+        result = simulate_run(plan, snapshot=_busy_snapshot(STATE_PAYMENT), kill_switch_active=False)
+        self.assertFalse(result.visible)
+        self.assertTrue(result.focus_restored)
+        self.assertFalse(result.focus_restore_attempted)
+        self.assertFalse(result.post_rollback_focus_lost)
+
+    def test_focus_restored_when_true(self):
+        """Result with focus_restored=True is safe for logging."""
+        result = ScreensaverRunResult(
+            started=True, visible=True, reason=VISIBILITY_IDLE_OK,
+            state=STATE_IDLE, stop_reason=STOP_REASON_TIMEOUT,
+            focus_restored=True, focus_restore_attempted=True,
+            focus_restore_method="already_active",
+        )
+        self.assertTrue(result.safe_for_logging)
+
+    def test_focus_lost_when_false(self):
+        """Result with focus_restored=False is NOT a success."""
+        result = ScreensaverRunResult(
+            started=True, visible=True, reason=VISIBILITY_IDLE_OK,
+            state=STATE_IDLE, stop_reason=STOP_REASON_FOCUS_WARNING,
+            focus_restored=False, focus_restore_attempted=True,
+            post_rollback_focus_lost=True,
+        )
+        self.assertFalse(result.focus_restored)
+        self.assertTrue(result.post_rollback_focus_lost)
+
+    def test_focus_fields_are_safe_log_fields(self):
+        """Focus fields are in RUNNER_SAFE_LOG_FIELDS."""
+        from kso_player.x11_screensaver_runner import RUNNER_SAFE_LOG_FIELDS
+        self.assertIn("focus_restored", RUNNER_SAFE_LOG_FIELDS)
+        self.assertIn("focus_restore_attempted", RUNNER_SAFE_LOG_FIELDS)
+        self.assertIn("focus_restore_method", RUNNER_SAFE_LOG_FIELDS)
+        self.assertIn("focus_restore_error", RUNNER_SAFE_LOG_FIELDS)
+        self.assertIn("post_rollback_focus_lost", RUNNER_SAFE_LOG_FIELDS)
+
+    def test_focus_stop_reason_constants(self):
+        """focus_lost and focus_warning stop reasons exist."""
+        self.assertEqual(STOP_REASON_FOCUS_LOST, "focus_lost")
+        self.assertEqual(STOP_REASON_FOCUS_WARNING, "focus_warning")
+
+    def test_no_barcode_in_focus_output(self):
+        """Focus restore output contains no barcode/scanner value."""
+        result = ScreensaverRunResult(
+            started=True, visible=True, reason=VISIBILITY_IDLE_OK,
+            state=STATE_IDLE, stop_reason=STOP_REASON_FOCUS_WARNING,
+            focus_restored=False, focus_restore_attempted=True,
+            focus_restore_method="xdotool_windowactivate",
+            focus_restore_error="active_window=0 after activate, expected=10485762",
+            post_rollback_focus_lost=True,
+        )
+        d = result.to_safe_dict()
+        d_str = json.dumps(d)
+        for forbidden in ["barcode", "scanner_value", "key_value", "event_key",
+                           "receipt", "payment", "fiscal", "customer", "card", "pan",
+                           "token", "secret", "password"]:
+            self.assertNotIn(forbidden, d_str.lower(),
+                             f"Forbidden pattern '{forbidden}' in focus output")
+
+    def test_no_restart_in_focus_output(self):
+        """Focus restore output contains no restart/stop commands."""
+        result = ScreensaverRunResult(
+            started=True, visible=True, reason=VISIBILITY_IDLE_OK,
+            state=STATE_IDLE, stop_reason=STOP_REASON_TIMEOUT,
+            focus_restored=True, focus_restore_attempted=True,
+            focus_restore_method="xdotool_windowactivate",
+        )
+        d = result.to_safe_dict()
+        d_str = json.dumps(d)
+        for forbidden in ["pkill", "systemctl restart", "systemctl stop",
+                           "reboot", "shutdown"]:
+            self.assertNotIn(forbidden, d_str.lower())
 
 
 # ══════════════════════════════════════════════════════════════════════
