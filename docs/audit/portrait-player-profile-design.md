@@ -401,7 +401,27 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 
 ---
 
-## 10. Что НЕ меняется
+## 10. Fullscreen Idle Screensaver (новый профиль)
+
+### 10.1 `portrait_fullscreen_idle_screensaver_768`
+
+Спроектирован отдельный fullscreen-профиль для режима ожидания: `portrait_fullscreen_idle_screensaver_768`.
+
+| Параметр | Значение |
+|---|---|
+| Режим | Fullscreen idle screensaver (768×1024) |
+| Отличие от Zone C | Занимает **весь экран**, а не только y=400-640 |
+| Hide triggers | touchstart, pointerdown, mousedown, click, keydown, input, wheel, state_change, kill_switch |
+| Scanner rule | Мгновенное скрытие при keydown/input, значение не логируется |
+| Blocker | Первый скан теряется при Chromium overlay (B-FS-1) |
+
+См. `docs/audit/fullscreen-idle-screensaver-interaction-design.md`.
+
+⚠️ **Fullscreen screensaver НЕ заменяет Zone C overlay.** Это отдельный режим для другого сценария. Zone C остаётся основным v1 production профилем.
+
+---
+
+## 11. Что НЕ меняется
 
 | Компонент | Статус |
 |---|---|
@@ -421,10 +441,18 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 - `docs/audit/ukm5-ui-safe-zone-mapping.md` — safe zone mapping
 - `docs/audit/test-kso-end-to-end-readiness-gate.md` — readiness gate
 - `docs/audit/technical-debt-register.md` — реестр техдолга
-- `docs/audit/technical-debt-next-actions.md` — план действий
-- `docs/audit/one-kso-pilot-readiness-plan.md` — план test KSO → pilot
+- `docs/audit/fullscreen-idle-screensaver-interaction-design.md` — fullscreen screensaver interaction design
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.1.4
+
+Добавлен fullscreen idle screensaver профиль `portrait_fullscreen_idle_screensaver_768`:
+- Fullscreen 768×1024, idle-only, hide на любом касании/сканировании
+- 9 hide triggers с приоритетами: kill_switch > state_change > keydown/input > touch/pointer > click > wheel
+- Scanner rule: мгновенное скрытие, значение не логируется
+- Blockers: первый скан теряется (B-FS-1), input passthrough невозможен (B-FS-2)
+- Код: profile contract, interaction_hide.py, 141 тест
 
 ### 2026-06-24 — Шаг 38.0.11
 

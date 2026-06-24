@@ -490,13 +490,24 @@ rm -f /run/verny/kso/kill_switch
 - `docs/audit/ukm5-ui-safe-zone-mapping.md` — safe zone mapping
 - `docs/audit/kso-portrait-architecture-pivot.md` — архитектурный pivot
 - `docs/audit/technical-debt-next-actions.md` — план действий
-- `docs/audit/one-kso-pilot-readiness-plan.md` — план test KSO → pilot
+- `docs/audit/fullscreen-idle-screensaver-interaction-design.md` — fullscreen screensaver design (38.1.4)
+
+---
+
+## 10. Fullscreen Idle Screensaver (новый режим)
+
+Отдельный fullscreen профиль `portrait_fullscreen_idle_screensaver_768`:
+- **НЕ заменяет** Zone C overlay (этот документ)
+- Physical test НЕ проводился
+- Production запрещён до решения блокеров B-FS-1, B-FS-2
+
+См. `docs/audit/fullscreen-idle-screensaver-interaction-design.md`.
 
 ---
 
 ## Журнал
 
-### 2026-06-24 — Шаг 38.0.11
+### 2026-06-24 — Шаг 38.1.4 (Fullscreen Screensaver Design)
 
 Создан план ручной проверки portrait overlay на физической test KSO (192.168.110.223):
 - Phase 0: Readiness check (5 мин)

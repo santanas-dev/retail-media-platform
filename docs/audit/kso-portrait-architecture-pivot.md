@@ -230,9 +230,15 @@ ID:     P0-5 (новый)
   ├── 38.0.7 ✅ Shell Plan Support (59 тестов)
   ├── 38.0.8 ✅ Local Kill-Switch (41 тест)
   ├── 38.0.9 ✅ State Observer Stub (114 тестов)
-  ├── 38.0.10 ✅ Local Smoke Harness (42 теста)
-  └── 38.0.11 ✅ Manual Test Plan (physical KSO, 3 phases)
-```
+  │   ├── 38.0.10 ✅ Local Smoke Harness (42 теста)
+  │   └── 38.0.11 ✅ Manual Test Plan (physical KSO, 3 phases)
+
+  38.1.4 — Fullscreen Idle Screensaver Interaction Design ✅ (done)
+    ├── Profile: portrait_fullscreen_idle_screensaver_768
+    ├── Interaction hide rules: 9 triggers, priorities, scanner safety
+    ├── Blockers: B-FS-1 (первый скан теряется), B-FS-2 (passthrough)
+    └── 141 тест: profile contract + hide rules
+  ```
 
 ---
 
@@ -243,14 +249,24 @@ ID:     P0-5 (новый)
 - `docs/audit/test-kso-end-to-end-readiness-gate.md` — readiness gate (обновлён)
 - `docs/audit/test-kso-deployment-dry-run.md` — dry run (обновлён)
 - `docs/audit/technical-debt-register.md` — реестр техдолга (обновлён)
-- `docs/audit/technical-debt-next-actions.md` — план действий (обновлён)
-- `docs/audit/one-kso-pilot-readiness-plan.md` — план (обновлён)
+- `docs/audit/fullscreen-idle-screensaver-interaction-design.md` — fullscreen screensaver design (38.1.4)
 
 ## Журнал
 
 ### 2026-06-24 — Шаг 38.0.11
 
 План ручной проверки создан: `docs/audit/portrait-overlay-physical-kso-test-plan.md` ✅.
+
+### 2026-06-24 — Шаг 38.1.4 (Fullscreen Idle Screensaver Interaction Design)
+
+Спроектирован `portrait_fullscreen_idle_screensaver_768` — fullscreen idle screensaver профиль.
+9 hide triggers с приоритетами. Scanner safety (значение не логируется).
+Blockers: B-FS-1 (первый скан теряется), B-FS-2 (input passthrough невозможен).
+141 тест: `test_profile_portrait_fullscreen_idle_screensaver_768` + `test_interaction_hide`.
+Physical fullscreen test НЕ запускался. КСО не менялась.
+См. `docs/audit/fullscreen-idle-screensaver-interaction-design.md`.
+Код: `apps/kso_player/kso_player/profiles/portrait_fullscreen_idle_screensaver_768.py` +
+`apps/kso_player/kso_player/interaction_hide.py`.
 
 ### 2026-06-24 — Шаг 38.1 (Physical KSO Phase 0–1)
 

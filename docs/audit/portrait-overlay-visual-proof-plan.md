@@ -296,7 +296,24 @@ rm -rf /tmp/kso_test/chromium-proof
 
 ---
 
-## 8. Файлы
+## 8. Fullscreen Idle Screensaver Test (будущее)
+
+Отдельный режим: `portrait_fullscreen_idle_screensaver_768` — fullscreen 768×1024 idle screensaver.
+Спроектирован в 38.1.4. **Physical fullscreen test НЕ проводился.**
+
+| Параметр | Значение |
+|---|---|
+| Profile | `portrait_fullscreen_idle_screensaver_768` |
+| Triggers | touch, pointer, mouse, click, keydown, input, wheel, state, kill-switch |
+| Scanner risk | Первый скан теряется при Chromium overlay (B-FS-1) |
+| Pass-through | Невозможен с текущим Chromium --app (B-FS-2) |
+| Production | ❌ Запрещён до решения B-FS-1, B-FS-2 |
+
+См. `docs/audit/fullscreen-idle-screensaver-interaction-design.md`.
+
+---
+
+## 9. Файлы
 
 - `docs/audit/portrait-overlay-visual-proof-plan.md` — этот документ
 - `apps/kso_player/scripts/visual_proof_harness.py` — automated proof harness
@@ -306,6 +323,12 @@ rm -rf /tmp/kso_test/chromium-proof
 ---
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.1.4 (Fullscreen Screensaver Design)
+
+Спроектирован `portrait_fullscreen_idle_screensaver_768` — отдельный fullscreen-режим.
+Interaction hide rules: 9 триггеров, приоритеты, scanner safety. 141 тест.
+Physical fullscreen test НЕ проводился.
 
 ### 2026-06-24 — Шаг 38.1.3 (Visual Proof Plan Created)
 
