@@ -362,6 +362,7 @@ def _build_under_lock(
             play_status="completed",
             selected_order=record.get("selected_order"),
             selected_content_type=record.get("selected_content_type"),
+            creative_code=record.get("creative_code"),
         )
 
         envelope.events.append(payload_event)

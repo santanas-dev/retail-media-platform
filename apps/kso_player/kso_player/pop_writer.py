@@ -137,6 +137,9 @@ ALLOWED_RECORD_KEYS = frozenset({
     "selected_content_type",
     "safety_state",
     "result",
+    # — Screensaver PoP extensions (optional, backward compatible) —
+    "creative_code",
+    "media_available",
 })
 
 # ── Max line size ──────────────────────────────────────────────────

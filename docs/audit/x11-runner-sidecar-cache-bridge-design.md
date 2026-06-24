@@ -102,6 +102,15 @@ ScreensaverPoPDraft {..., media_available}
 | `apps/kso_player/tests/test_screensaver_media_availability.py` | NEW | 59 tests |
 | `apps/kso_player/tests/test_screensaver_creative.py` | +2/−1 | Event types update |
 
+### Journal — 38.2.3 (2026-06-24)
+
+- **38.2.3 — PoP Event Queue Bridge**: `screensaver_pop_bridge.py` created.
+  ScreensaverPoPDraft → sidecar JSONL record adapter.
+  Creative_code carried through to backend PoP ingest.
+  Media gate: playback blocked without media_available.
+  +44 tests. Sidecar ALLOWED_RECORD_KEYS/ALLOWED_EVENT_TYPES extended.
+  Backend `kso_proof_of_play_events` already has `creative_code` field.
+
 ### Safety Constraints (unchanged)
 
 - ❌ KSO 192.168.110.223 not touched

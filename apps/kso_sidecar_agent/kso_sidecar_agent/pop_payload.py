@@ -80,6 +80,8 @@ class PopPayloadEvent:
     play_status: str = "completed"
     selected_order: Optional[int] = None
     selected_content_type: Optional[str] = None
+    # — Screensaver extension: safe creative_code from backend manifest —
+    creative_code: Optional[str] = field(default=None, repr=False)
 
 
 @dataclass
@@ -311,6 +313,7 @@ def build_pop_backend_payload(
                 play_status="completed",
                 selected_order=record.get("selected_order"),
                 selected_content_type=record.get("selected_content_type"),
+                creative_code=record.get("creative_code"),
             )
 
             envelope.events.append(payload_event)

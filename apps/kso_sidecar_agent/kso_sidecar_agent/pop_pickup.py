@@ -37,12 +37,17 @@ ALLOWED_RECORD_KEYS = frozenset({
     "selected_content_type",
     "safety_state",
     "result",
+    # — Screensaver PoP extensions (optional, backward compatible) —
+    "creative_code",
+    "media_available",
 })
 
 # ── Allowed event types ─────────────────────────────────────────────
 
 ALLOWED_EVENT_TYPES = frozenset({
     "would_play", "blocked", "not_ready", "error",
+    # — Screensaver PoP extensions (backward compatible) —
+    "impression", "playback_started", "playback_completed", "completed",
 })
 
 # ── Allowed event statuses ──────────────────────────────────────────

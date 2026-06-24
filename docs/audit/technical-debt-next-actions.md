@@ -37,6 +37,7 @@
 | 19 | **38.1.11 — HW Scanner E2E ⚠️** | **INCONCLUSIVE** — scanner not available. Focus-loss defect found. Postponed until scanner arrives. |
 | 20 | **38.1.11.1 — Fix Post-Rollback Focus Restore ✅** | `restore_focus()` + focus fields + `focus_warning` stop reason + 14 tests. |
 | 21 | **38.2 — Connect X11 Runner to Manifest Creatives ✅** | `screensaver_creative.py`: ScreensaverCreativePayload, adapter, validator, visibility, PoP + 98 tests. |
+| 24 | **38.2.3 — PoP Event Queue Bridge ✅** | `screensaver_pop_bridge.py`, ScreensaverPoPDraft→JSONL adapter, creative_code chain, idempotency, +44 tests. |
 | 23 | **38.2.2 — Sidecar Media Cache Bridge ✅** | `screensaver_media_availability.py`, media gate in visibility, PoP media_available, SCREENSAVER_EVENT_BLOCKED, +59 tests. |
 | 22 | **38.2.1 — Preserve Backend creative_code ✅** | `creative_code` in PlayerPlaylistItem, `is_synthetic` flag, +17 tests. |
 

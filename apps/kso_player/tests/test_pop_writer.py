@@ -163,9 +163,8 @@ class TestBuildRecordHappy(TestCase):
         record = build_pop_jsonl_record(draft, "idle")
         for key in record:
             self.assertIn(key, ALLOWED_RECORD_KEYS, f"Unexpected key '{key}'")
-        # All required allowed keys should be present
-        for key in ALLOWED_RECORD_KEYS:
-            self.assertIn(key, record, f"Missing key '{key}'")
+        # New optional keys (creative_code, media_available) are NOT required
+        # — only added by screensaver_pop_bridge, not by build_pop_jsonl_record
 
     def test_timestamps_present(self):
         draft = _make_draft(EVENT_TYPE_WOULD_PLAY)

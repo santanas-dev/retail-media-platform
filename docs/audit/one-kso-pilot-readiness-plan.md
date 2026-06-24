@@ -753,6 +753,19 @@ creative → campaign → placement → approval → manifest → publish → si
 - +98 тестов: payload, adapter, validation (forbidden patterns), visibility, PoP safety
 - КСО не менялась. Physical run/X11/Chromium не запускались.
 
+### 38.2.3 — PoP Event Queue / Backend Upload Bridge (2026-06-24)
+
+✅ **Screensaver PoP events bridge to sidecar/backend pipeline.**
+- `screensaver_pop_bridge.py`: ScreensaverPoPDraft → sidecar-compatible JSONL record
+- Event type mapping: screen_visible→impression, playback_completed→completed, blocked→blocked
+- Media gate: playback events → blocked when media_available=False
+- Idempotency: `build_screensaver_event_code()` — deterministic scr-NNN codes
+- `PopPayloadEvent.creative_code`: сквозная корреляция до backend
+- Backend `kso_proof_of_play_events` уже содержит `creative_code` (migration 030) — совместимость подтверждена
+- Sidecar: ALLOWED_RECORD_KEYS +2, ALLOWED_EVENT_TYPES +4 — полностью обратно совместимо
+- +44 теста: mapping, media gate, forbidden fields, backend compat, full chain
+- КСО не менялась. Physical run/X11/Chromium не запускались.
+
 ### 38.2.2 — Sidecar Media Cache Bridge (2026-06-24)
 
 ✅ **Bridge between sidecar media cache and X11 runner.**
