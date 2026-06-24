@@ -507,3 +507,52 @@ rm -f /run/verny/kso/kill_switch
 - Approval gate: явное разделение dry smoke (✅) vs overlay render (⛔ requires approval)
 
 Код не менялся. КСО не менялась.
+
+### 2026-06-24 — Шаг 38.1 (Physical KSO Phase 0–1 Execution)
+
+**Phase 0 — Readiness Check:** ✅ **пройден**
+
+- SSH доступ: `ukm5@192.168.110.223` — работает
+- УКМ5: Chromium 114 kiosk (768×1024 portrait), MintUKM Java активен
+- Ресурсы: RAM 1.9 GB free, CPU load 0.15, диск 85 GB free
+- `/run/verny/kso` недоступен на запись пользователю ukm5 (нет root)
+- Рабочая директория: `/tmp/kso_test/` (создана, права OK)
+- Kill-switch файл: создаётся/удаляется без ошибок
+
+**Phase 1 — Dry Smoke без UI:** ✅ **6/6 пройдено**
+
+Запущено на Python 3.6.9 (штатный python3 на КСО) через standalone smoke-скрипт
+`apps/kso_player/scripts/standalone_smoke_py36.py` (самодостаточный, без импортов kso_player):
+
+| # | Кейс | Результат |
+|---|------|-----------|
+| 1 | Нет state.json | `unknown_hidden` ✅ |
+| 2 | idle + нет kill-switch | `idle_visible` ✅ |
+| 3 | idle + kill-switch | `kill_switch_active` ✅ |
+| 4 | scan (busy) | `state_hidden (scan)` ✅ |
+| 5 | idle + stale (2020) | `stale_hidden` ✅ |
+| 6 | **idle + микросекунды `.573421Z`** | `idle_visible` ✅ |
+
+**Python 3.6.9 compatibility confirmed:**
+- `strptime` с форматом `%Y-%m-%dT%H:%M:%S.%f` корректно обрабатывает микросекунды
+- Без `dataclasses`, без `datetime.fromisoformat` (Python 3.7+)
+- Весь скрипт — standalone, без зависимостей от `kso_player`
+
+**Phase 2 — Overlay Render:** ⛔ **НЕ запускался, НЕ одобрен**
+
+- Требуется отдельное явное manual approval от Сергея Пащенко
+- Chromium overlay НЕ запускался
+- УКМ5 НЕ менялась
+- X11/window manager НЕ трогались
+
+**Очистка КСО:**
+- Временные файлы `/tmp/kso_test/state.json`, `/tmp/kso_test/kill_switch` удалены
+- Директория `/tmp/kso_test/` оставлена (может использоваться в будущих тестах)
+
+**Добавлено в репозиторий:**
+- `apps/kso_player/scripts/standalone_smoke_py36.py` — standalone smoke-скрипт (Python 3.6+)
+- `apps/kso_player/tests/test_state_observer.py` +3 теста: микросекундный timestamp, stale микросекунды, missing state file
+- Документы обновлены (все 5 audit docs)
+
+**Regression:** пройдена (см. commit log)
+

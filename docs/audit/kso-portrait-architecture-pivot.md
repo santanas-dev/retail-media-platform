@@ -252,6 +252,14 @@ ID:     P0-5 (новый)
 
 План ручной проверки создан: `docs/audit/portrait-overlay-physical-kso-test-plan.md` ✅.
 
+### 2026-06-24 — Шаг 38.1 (Physical KSO Phase 0–1)
+
+**Phase 0 пройден** (readiness check на 192.168.110.223).
+**Phase 1 пройден 6/6** через standalone smoke-скрипт на Python 3.6.9.
+Микросекундный timestamp `.573421Z` → `idle_visible` ✅.
+**Phase 2 НЕ одобрен** — требуется отдельное approval Сергея Пащенко.
+УКМ5 не менялась. Chromium overlay не запускался.
+
 ### 2026-06-24 — Шаг 38.0.10
 
 Local smoke harness реализован: `kso_player/portrait_smoke.py` + 42 теста ✅.

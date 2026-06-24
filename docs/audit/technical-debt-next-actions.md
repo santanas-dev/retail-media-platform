@@ -3,13 +3,12 @@
 > **Статус:** 📋 Action Plan (37.14)
 >
 > Дата: 2026-06-16
-> Ревизия: 8 (38.0.11 — physical KSO test plan)
+> Ревизия: 9 (38.1 — physical KSO Phase 0–1 dry smoke executed)
 >
 > **Принцип:** Не закрывать весь долг сейчас. Закрывать только то, что блокирует следующий этап.
 >
-> **Обновление 38.0.3-pivot:** Вся сеть — 768×1024 портрет с УКМ5 fullscreen kiosk.
-> Landscape player снят как v1 target. Новый v1 target: portrait 768×1024 UKM5-compatible player profile.
-> Приоритет: 38.0.4 Safe Zone Mapping → 38.0.5 Portrait player design → реализация.
+> **Обновление 38.1:** Phase 0 readiness + Phase 1 dry smoke выполнены на физической КСО (192.168.110.223).
+> 6/6 smoke-кейсов пройдено на Python 3.6.9. Phase 2 (overlay render) НЕ одобрен.
 
 ---
 
@@ -26,6 +25,7 @@
 | 7 | **38.0.10 — Local smoke on dev ✅** | Safe smoke harness, 42 теста |
 | 8 | **38.0.11 — Manual test plan ✅** | Physical KSO test plan, 3 phases + stop criteria + rollback |
 | 9 | **НЕ менять УКМ5, openbox, Chromium, systemd** | production кассовая система |
+| 10 | **38.1 — Physical KSO Phase 0–1 ✅** | Dry smoke 6/6 на Python 3.6.9, Phase 2 ⛔ не одобрен |
 
 ---
 

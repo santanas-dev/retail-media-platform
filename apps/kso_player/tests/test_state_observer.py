@@ -253,6 +253,36 @@ class TestPlayerStateSnapshotStaleness(unittest.TestCase):
         self.assertTrue(snap.is_stale)
         self.assertEqual(snap.effective_state, STATE_STALE)
 
+    def test_microsecond_timestamp_parsed_correctly(self):
+        """Timestamp with microseconds (.573421Z) is parsed correctly — NOT stale."""
+        now = datetime.now(timezone.utc)
+        ts = now.strftime("%Y-%m-%dT%H:%M:%S") + ".573421Z"
+        snap = PlayerStateSnapshot(
+            schema_version=1, device_code="dev", state=STATE_IDLE,
+            source="test", updated_at_utc=ts, stale_after_ms=999_999_999,
+        )
+        self.assertFalse(snap.is_stale)
+        self.assertTrue(snap.allows_display)
+        self.assertEqual(snap.effective_state, STATE_IDLE)
+
+    def test_stale_microsecond_timestamp_hidden(self):
+        """Old timestamp with microseconds → stale → hidden (does NOT display)."""
+        old_ts = "2020-01-01T00:00:00.573421Z"
+        snap = PlayerStateSnapshot(
+            schema_version=1, device_code="dev", state=STATE_IDLE,
+            source="test", updated_at_utc=old_ts, stale_after_ms=5000,
+        )
+        self.assertTrue(snap.is_stale)
+        self.assertFalse(snap.allows_display)
+        self.assertEqual(snap.effective_state, STATE_STALE)
+
+    def test_missing_state_file_unknown_hidden(self):
+        """No state file → UNKNOWN snapshot, does NOT allow display."""
+        snap = read_state_snapshot("/nonexistent/path/state.json")
+        self.assertEqual(snap.state, STATE_UNKNOWN)
+        self.assertFalse(snap.allows_display)
+        self.assertEqual(snap.effective_state, STATE_UNKNOWN)
+
 
 # ══════════════════════════════════════════════════════════════════════
 # from_dict() — dict → snapshot

@@ -687,3 +687,16 @@ creative → campaign → placement → approval → manifest → publish → si
 - **Stop criteria:** 9 ситуаций (перекрытие оплаты, зависание УКМ5, потеря фокуса Chromium, CPU/RAM, ошибка кассы, потеря SSH/VNC, чековые данные)
 - **Approval gate:** явное разделение dry smoke (✅) vs overlay render (⛔ requires approval)
 - Код не менялся. КСО не менялась.
+
+### Шаг 38.1 — Physical KSO Phase 0–1 Execution (2026-06-24)
+
+✅ **Phase 0 пройден.** SSH доступ, УКМ5 active, RAM 1.9 GB, Chromium 114 kiosk 768×1024.
+✅ **Phase 1 пройден 6/6** на Python 3.6.9 через standalone smoke-скрипт.
+⛔ **Phase 2 НЕ одобрен.** Overlay render не запускался. УКМ5 не менялась.
+
+- **Standalone smoke:** `apps/kso_player/scripts/standalone_smoke_py36.py` (Python 3.6+, self-contained)
+- **Микросекунды:** `.573421Z` → `idle_visible` ✅ (`strptime` + `%f`)
+- **Временные файлы на КСО очищены**
+- **Тесты:** +3 (timestamp с микросекундами, stale, missing state) в `test_state_observer.py`
+- **Phase 2 требует отдельного explicit manual approval Сергея Пащенко**
+- Код не менялся (standalone скрипт — новый файл, не модуль kso_player).

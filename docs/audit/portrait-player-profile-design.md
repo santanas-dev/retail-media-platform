@@ -431,6 +431,14 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 План ручной проверки создан: `docs/audit/portrait-overlay-physical-kso-test-plan.md` ✅.
 Phase 1 (dry smoke) одобрен. Phase 2 (overlay render) требует отдельного approval.
 
+### 2026-06-24 — Шаг 38.1 (Physical KSO Phase 0–1)
+
+**Phase 0 пройден** на 192.168.110.223 (Python 3.6.9, Chromium 114 kiosk 768×1024).
+**Phase 1 пройден 6/6** через standalone smoke-скрипт `apps/kso_player/scripts/standalone_smoke_py36.py`.
+Микросекундный timestamp `.573421Z` → `idle_visible` ✅ (Python 3.6 `strptime` + `%f`).
+**Phase 2 НЕ одобрен** — требуется отдельное manual approval Сергея Пащенко.
+УКМ5 не менялась. Chromium overlay не запускался. Временные файлы на КСО очищены.
+
 ### 2026-06-24 — Шаг 38.0.10
 
 Local smoke harness реализован: `kso_player/portrait_smoke.py` + 42 теста ✅.
