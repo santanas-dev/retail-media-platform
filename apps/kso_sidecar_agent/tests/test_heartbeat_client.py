@@ -673,6 +673,7 @@ class TestCLIHeartbeatOnceRetry(unittest.TestCase):
         code, out, err = _run("heartbeat-once", "--root", self.root,
                               "--retry-heartbeat",
                               "--heartbeat-max-attempts", "3",
+                              "--heartbeat-base-delay", "0.01",
                               *DEV_FLAG)
         self.assertEqual(code, 0, f"err={err}")
         self.assertIn("heartbeat:         sent", out)
@@ -683,6 +684,7 @@ class TestCLIHeartbeatOnceRetry(unittest.TestCase):
         code, out, err = _run("heartbeat-once", "--root", self.root,
                               "--retry-heartbeat",
                               "--heartbeat-max-attempts", "3",
+                              "--heartbeat-base-delay", "0.01",
                               *DEV_FLAG)
         self.assertNotEqual(code, 0)
         self.assertIn("Heartbeat failed", err)
@@ -694,6 +696,8 @@ class TestCLIHeartbeatOnceRetry(unittest.TestCase):
         code, out, err = _run("heartbeat-once", "--root", self.root,
                               "--retry-auth",
                               "--retry-heartbeat",
+                              "--heartbeat-max-attempts", "3",
+                              "--heartbeat-base-delay", "0.01",
                               *DEV_FLAG)
         self.assertEqual(code, 0, f"err={err}")
         self.assertIn("heartbeat:         sent", out)
@@ -702,7 +706,10 @@ class TestCLIHeartbeatOnceRetry(unittest.TestCase):
         """--retry-heartbeat output does not leak token."""
         HbRetryHandler.HB_FAIL_SEQUENCE = [500, None]
         code, out, err = _run("heartbeat-once", "--root", self.root,
-                              "--retry-heartbeat", *DEV_FLAG)
+                              "--retry-heartbeat",
+                              "--heartbeat-max-attempts", "3",
+                              "--heartbeat-base-delay", "0.01",
+                              *DEV_FLAG)
         self.assertNotIn(TEST_TOKEN, out + err)
         self.assertNotIn(TEST_SECRET, out + err)
 
@@ -710,7 +717,10 @@ class TestCLIHeartbeatOnceRetry(unittest.TestCase):
         """--retry-heartbeat output does not leak Authorization header."""
         HbRetryHandler.HB_FAIL_SEQUENCE = [500, None]
         code, out, err = _run("heartbeat-once", "--root", self.root,
-                              "--retry-heartbeat", *DEV_FLAG)
+                              "--retry-heartbeat",
+                              "--heartbeat-max-attempts", "3",
+                              "--heartbeat-base-delay", "0.01",
+                              *DEV_FLAG)
         self.assertNotIn("Bearer", out + err)
 
     def test_retry_heartbeat_403_cli(self):

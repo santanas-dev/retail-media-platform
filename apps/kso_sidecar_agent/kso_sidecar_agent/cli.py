@@ -406,7 +406,10 @@ def cmd_heartbeat_once(args: argparse.Namespace) -> None:
         # ── Send heartbeat ────────────────────────────────────────
         hb_retry = None
         if args.retry_heartbeat:
-            hb_policy = BackoffPolicy(max_attempts=args.heartbeat_max_attempts)
+            hb_policy = BackoffPolicy(
+                max_attempts=args.heartbeat_max_attempts,
+                base_delay_sec=args.heartbeat_base_delay,
+            )
             hb_retry = RetryBackoffManager(hb_policy)
 
         hb = heartbeat_client.HeartbeatClient(
@@ -1455,6 +1458,8 @@ def main() -> None:
                       help="Enable retry for heartbeat step")
     p_hb.add_argument("--heartbeat-max-attempts", type=int, default=3,
                       help="Max heartbeat attempts when --retry-heartbeat (default: 3)")
+    p_hb.add_argument("--heartbeat-base-delay", type=float, default=2.0,
+                      help="Base delay seconds for heartbeat retry (default: 2.0)")
     p_hb.set_defaults(func=cmd_heartbeat_once)
 
     # ── Manifest commands ───────────────────────────────────────────
