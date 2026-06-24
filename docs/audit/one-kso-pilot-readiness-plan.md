@@ -753,6 +753,17 @@ creative → campaign → placement → approval → manifest → publish → si
 - +98 тестов: payload, adapter, validation (forbidden patterns), visibility, PoP safety
 - КСО не менялась. Physical run/X11/Chromium не запускались.
 
+### 38.2.6 — Backend Integration E2E with Test DB (2026-06-24)
+
+✅ **Self-contained SQLite integration test — real DB, no mocks.**
+- Full synthetic seed: Branch → Cluster → Store → KsoDevice → Campaign → Creative → CampaignCreative → KsoPlacement → GeneratedManifest
+- `ingest_kso_pop()` with real SQLAlchemy session — 8-step chain verified (device→manifest→media_ref→placement→campaign→creative→duplicate→INSERT)
+- `list_kso_pop_events()` with real SQL queries — 5 filter params + pagination
+- 32 tests in 7 classes: HappyPath(13), Idempotency(2), Negative(6), ResponseSafety(6), BlockedEvents(2), MultiEvent(2), EventTypes(3)
+- Backend regression: 219/219 (was 187, +32 new — 0 regressions)
+- Full regression: 4836/4836 — 0 errors, 0 failures
+- КСО не менялась. Physical run/X11/Chromium не запускались.
+
 ### 38.2.5 — Backend PoP Ingest + Portal Integration (2026-06-24)
 
 ✅ **Backend service + portal integration validated (mock DB).**

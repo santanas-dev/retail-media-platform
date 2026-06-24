@@ -117,3 +117,21 @@ Full backend ingest with real DB is a separate integration test step.
 - ❌ No backend URLs, tokens, secrets added
 - ❌ No receipt/fiscal/customer data in any output
 - ✅ All test data is synthetic — no real manifest IDs, no real device codes
+
+### 38.2.6 — Real Backend Integration E2E with Test DB (2026-06-24)
+
+- Self-contained SQLite in-memory integration test (no PostgreSQL, no mock)
+- Synthetic seed data: Branch → Cluster → Store → KsoDevice → Campaign → Creative → CampaignCreative → KsoPlacement → GeneratedManifest
+- Full `ingest_kso_pop()` with real SQLAlchemy session — 8-step chain verified:
+  1. device lookup by device_code
+  2. latest published manifest with FK to device
+  3. optional manifest hash verification
+  4. media_ref validation against manifest items
+  5. placement→campaign→creative chain via KsoPlacement + CampaignCreative
+  6. duplicate event_code idempotency via UNIQUE constraint
+  7. DB INSERT into kso_proof_of_play_events
+  8. safe response projection (KsoPoPIngestResponse)
+- `list_kso_pop_events()` with real SQL queries — 5 filter params + pagination verified
+- 32 tests in 7 classes: HappyPath (13), Idempotency (2), Negative (6), ResponseSafety (6), BlockedEvents (2), MultiEvent (2), EventTypes (3)
+- Backend regression: 219/219 (was 187 — +32 new tests, 0 regressions)
+- Full regression: 4836/4836 — 0 errors, 0 failures
