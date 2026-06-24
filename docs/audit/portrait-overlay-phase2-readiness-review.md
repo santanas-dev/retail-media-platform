@@ -502,3 +502,52 @@ Regression запускается в рамках этого шага (38.1.1). 
 - 5 остаточных рисков идентифицированы (Openbox WM — HIGH, focus steal — MEDIUM, state drift — LOW, instance confusion — MEDIUM, tool availability — LOW)
 - **Phase 2 НЕ одобрен.** Требуется 6 approval gates (включая explicit approval Сергея Пащенко)
 - КСО не менялась. Chromium overlay не запускался. УКМ5 не менялась.
+
+### 2026-06-24 — Шаг 38.1.2 (Phase 2 Overlay Render Execution)
+
+**Phase 2 выполнен** по явному разрешению Сергея Пащенко на 192.168.110.223.
+
+**Длительность:** ~44 секунды.
+
+**Точная команда (без секретов):**
+```
+DISPLAY=:0 nohup chromium-browser \
+    --app="file:///tmp/kso_test/overlay.html" \
+    --window-position=0,400 \
+    --window-size=768,240 \
+    --disable-features=DialMediaRouteProvider \
+    --disable-translate --disable-save-password-bubble \
+    --no-first-run --disable-session-crashed-bubble \
+    --noerrdialogs --disable-infobars \
+    --disable-component-update --test-type \
+    --user-data-dir=/tmp/kso_test/chromium-profile &
+```
+Подтверждено: `--kiosk`, `--fullscreen`, `--start-fullscreen`, `--start-maximized` **отсутствуют**.
+
+**Результаты:**
+
+| Параметр | Значение |
+|----------|----------|
+| Overlay PID | 25714 (жив на +13s, +29s) |
+| Видимость | ⚠️ визуально не подтверждена (нет VNC/xdotool) |
+| Геометрия | (0,400) 768×240 — задана явно |
+| Перекрытие payment | ⚠️ визуально не подтверждено (gap 80px по геометрии) |
+| Перекрытие header | ⚠️ визуально не подтверждено (gap 340px по геометрии) |
+| Focus steal | ⚠️ невозможно подтвердить удалённо (UKM5 kiosk не перезапускался) |
+| Stop criteria | **НИ ОДИН не сработал** |
+| CPU | 1.4% (до и после) |
+| RAM | 1.9G → 1.8G → 1.9G (100 MB overlay overhead) |
+| Rollback | `pkill -f "chromium-browser.*overlay.html"` — overlay убит ✅ |
+| SSH | краткий обрыв при pkill (~8s), переподключение успешно |
+| UKM5 после | Chromium kiosk PID 1834 ✅, MintUKM PID 1189 ✅, mint.service active ✅ |
+| Openbox после | PID 1576 ✅ (не менялся) |
+
+**Временные файлы:** созданы и удалены — state.json, overlay.html, overlay_stdout.log, chromium-profile/, kill_switch.
+
+**Не менялись:** УКМ5, Chromium УКМ5, Openbox, systemd, .profile, xinitrc, index.html, MySQL, Redis.
+
+**Проблемы:**
+- Краткий обрыв SSH при pkill (~8 секунд) — некритично, переподключение успешно.
+- Визуальное подтверждение невозможно без VNC/xdotool на КСО — рекомендуется установить `xdotool` для будущих тестов.
+
+**Секреты/пароли/чеки/фискальные данные:** НЕ сохранялись, НЕ читались.

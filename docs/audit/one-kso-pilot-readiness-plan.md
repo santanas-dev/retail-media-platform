@@ -700,3 +700,11 @@ creative → campaign → placement → approval → manifest → publish → si
 - **Тесты:** +3 (timestamp с микросекундами, stale, missing state) в `test_state_observer.py`
 - **Phase 2 требует отдельного explicit manual approval Сергея Пащенко**
 - Код не менялся (standalone скрипт — новый файл, не модуль kso_player).
+
+### Шаг 38.1.2 — Phase 2 Overlay Render Execution (2026-06-24)
+
+✅ **Phase 2 выполнен** 1 раз по явному разрешению Сергея Пащенко.
+- Длительность: ~44 сек. Chromium --app (0,400) 768×240.
+- Stop criteria не сработали. Rollback успешен. UKM5/Openbox не менялись.
+- Визуальное подтверждение невозможно (нет VNC/xdotool). Рекомендуется установить xdotool.
+- Временные файлы удалены. Секреты/чеки не сохранялись.

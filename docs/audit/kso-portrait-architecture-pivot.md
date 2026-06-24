@@ -260,6 +260,10 @@ ID:     P0-5 (новый)
 **Phase 2 НЕ одобрен** — требуется отдельное approval Сергея Пащенко.
 УКМ5 не менялась. Chromium overlay не запускался.
 
+### 2026-06-24 — Шаг 38.1.2 (Phase 2 Executed)
+
+Phase 2 выполнен 1 раз (~44s). Chromium --app (0,400) 768×240. Stop criteria не сработали. Rollback успешен. UKM5/Openbox не менялись.
+
 ### 2026-06-24 — Шаг 38.0.10
 
 Local smoke harness реализован: `kso_player/portrait_smoke.py` + 42 теста ✅.

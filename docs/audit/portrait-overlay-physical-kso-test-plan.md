@@ -556,3 +556,21 @@ rm -f /run/verny/kso/kill_switch
 
 **Regression:** пройдена (см. commit log)
 
+### 2026-06-24 — Шаг 38.1.2 (Phase 2 Overlay Render — Executed)
+
+**Phase 2 выполнен** один раз по разрешению Сергея Пащенко.
+
+- Длительность: ~44 сек
+- Chromium --app, окно (0,400) 768×240, без --kiosk/--fullscreen
+- Overlay PID 25714, жив на +13s и +29s
+- Stop criteria: **ни один не сработал**
+- CPU: 1.4% стабильно, RAM: 1.9G→1.8G→1.9G
+- Rollback: kill-switch + pkill по URL pattern — overlay убит ✅
+- UKM5 после: Chromium kiosk PID 1834 ✅, MintUKM PID 1189 ✅, mint.service active ✅
+- Openbox PID 1576 ✅ (не менялся)
+- Визуальное подтверждение невозможно (нет VNC/xdotool)
+- Краткий обрыв SSH при pkill (~8s) — некритично
+- Временные файлы удалены
+- УКМ5/Chromium/Openbox/systemd/.profile/xinitrc/index.html не менялись
+- Секреты/чеки/фискальные данные не сохранялись
+
