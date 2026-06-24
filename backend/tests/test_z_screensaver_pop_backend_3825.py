@@ -16,11 +16,9 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
-from app.domains.proof_of_play.schemas import (
-    KsoPoPIngestRequest,
-    KsoPoPIngestResponse,
-    KsoPoPListResponse,
-)
+# All app.* imports are lazy (inside functions/test methods)
+# to avoid SQLAlchemy table conflicts with test_user_crud_api
+# when unittest discover loads files alphabetically.
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -106,6 +104,7 @@ def _run_ingest(db, device_code="a-05954", event_code="pop-001",
                 event_type="playback_completed",
                 manifest_version_id=None, manifest_hash=None):
     """Run ingest_kso_pop synchronously."""
+    from app.domains.proof_of_play.schemas import KsoPoPIngestRequest
     from app.domains.proof_of_play.service import ingest_kso_pop
 
     async def _do():
@@ -359,6 +358,7 @@ class TestScreensaverResponseSafety(unittest.TestCase):
 
     def test_list_response_no_forbidden(self):
         """KsoPoPListResponse projection must be clean."""
+        from app.domains.proof_of_play.schemas import KsoPoPListResponse
         now = datetime(2026, 6, 24, 12, 0, 0, tzinfo=timezone.utc)
         resp = KsoPoPListResponse(
             event_code="scr-proj-001", device_code="a-05954",
@@ -385,6 +385,7 @@ class TestScreensaverResponseSafety(unittest.TestCase):
             self.assertIn(key, allowed, f"Unexpected key '{key}' in response")
 
     def test_list_response_has_safe_fields_only(self):
+        from app.domains.proof_of_play.schemas import KsoPoPListResponse
         now = datetime(2026, 6, 24, 12, 0, 0, tzinfo=timezone.utc)
         resp = KsoPoPListResponse(
             event_code="scr-safe", device_code="d1",
@@ -439,6 +440,7 @@ class TestBlockedDraftHandling(unittest.TestCase):
 
     def test_ingest_request_minimal_fields(self):
         """KsoPoPIngestRequest requires only event_code + media_ref."""
+        from app.domains.proof_of_play.schemas import KsoPoPIngestRequest
         req = KsoPoPIngestRequest(
             event_code="scr-minimal",
             media_ref="media/current/slot-000",
@@ -448,6 +450,7 @@ class TestBlockedDraftHandling(unittest.TestCase):
         self.assertIsNone(req.manifest_version_id)  # optional
 
     def test_ingest_request_no_forbidden_in_dump(self):
+        from app.domains.proof_of_play.schemas import KsoPoPIngestRequest
         req = KsoPoPIngestRequest(
             event_code="scr-forbidden-test",
             media_ref="media/current/slot-000",
