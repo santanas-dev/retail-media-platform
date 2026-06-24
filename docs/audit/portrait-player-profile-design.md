@@ -388,13 +388,16 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 - 42 теста: idle→visible, все скрытые состояния, missing/broken/forbidden/stale файлы, kill-switch override, geometry, safe output, no leaks
 - NO Chromium, NO X11, NO Xvfb, NO network, NO subprocess, NO UKM5 DB
 
-### 38.0.11 — Manual Test on Physical KSO
+### 38.0.11 — Manual Test on Physical KSO ✅
 
-- Off-hours: запустить player на test KSO (192.168.110.223)
-- Проверить: overlay в idle-зоне (y=400-640), не перекрывает payment button
-- Проверить: скрытие при касании экрана
-- Проверить: kill-switch file flag
-- Решение: GO / NO-GO для controlled systemd
+Создан план ручной проверки: `docs/audit/portrait-overlay-physical-kso-test-plan.md`
+- Phase 0: Readiness check (5 мин)
+- Phase 1: Dry smoke без UI (10 мин, 6 шагов) — **одобрено**
+- Phase 2: Overlay render — **НЕ одобрен**, требует отдельного manual approval
+- Phase 3: Rollback (5 мин, 7 шагов)
+- Stop criteria: 9 ситуаций с немедленным прекращением
+- Approval gate: явное разделение dry smoke vs overlay render
+- Код не менялся. КСО не менялась.
 
 ---
 
@@ -422,6 +425,11 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 - `docs/audit/one-kso-pilot-readiness-plan.md` — план test KSO → pilot
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.0.11
+
+План ручной проверки создан: `docs/audit/portrait-overlay-physical-kso-test-plan.md` ✅.
+Phase 1 (dry smoke) одобрен. Phase 2 (overlay render) требует отдельного approval.
 
 ### 2026-06-24 — Шаг 38.0.10
 

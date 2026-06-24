@@ -674,3 +674,16 @@ creative → campaign → placement → approval → manifest → publish → si
 
 **Regression:** все suites green (backend 169, portal 407, state adapter 86, player 1295, sidecar 1838, infra 227 — **4022 всего**).
 **Commit:** `🧪 Add portrait overlay local smoke harness`
+
+### Шаг 38.0.11 — Physical KSO Manual Test Plan (2026-06-24)
+
+✅ **План ручной проверки создан — код и КСО не менялись.**
+
+- **Документ:** `docs/audit/portrait-overlay-physical-kso-test-plan.md`
+- **Phase 0:** Readiness check (5 мин, 5 шагов)
+- **Phase 1:** Dry smoke без UI (10 мин, 6 шагов: idle/ks/unknown/stale/payment/busy-error-offline) — **одобрено**
+- **Phase 2:** Overlay render — **НЕ одобрен**, требует отдельного manual approval
+- **Phase 3:** Rollback (5 мин, 7 шагов)
+- **Stop criteria:** 9 ситуаций (перекрытие оплаты, зависание УКМ5, потеря фокуса Chromium, CPU/RAM, ошибка кассы, потеря SSH/VNC, чековые данные)
+- **Approval gate:** явное разделение dry smoke (✅) vs overlay render (⛔ requires approval)
+- Код не менялся. КСО не менялась.
