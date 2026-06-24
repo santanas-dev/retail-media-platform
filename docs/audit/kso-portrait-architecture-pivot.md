@@ -230,8 +230,8 @@ ID:     P0-5 (новый)
   ├── 38.0.7 ✅ Shell Plan Support (59 тестов)
   ├── 38.0.8 ✅ Local Kill-Switch (41 тест)
   ├── 38.0.9 ✅ State Observer Stub (114 тестов)
-  ├── 38.0.10 ⬜ Local smoke (Xvfb)
-  └── 38.0.11 ⬜ Manual test on test KSO
+  ├── 38.0.10 ✅ Local Smoke Harness (42 теста)
+  ├── 38.0.11 ⬜ Manual test on test KSO
 ```
 
 ---
@@ -247,6 +247,10 @@ ID:     P0-5 (новый)
 - `docs/audit/one-kso-pilot-readiness-plan.md` — план (обновлён)
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.0.10
+
+Local smoke harness реализован: `kso_player/portrait_smoke.py` + 42 теста ✅.
 
 ### 2026-06-24 — Шаг 38.0.9
 

@@ -377,11 +377,16 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 - 114 тестов: snapshot construction, staleness, from_dict, reader (все ошибки), visibility, shell plan integration, immutability, no leaks
 - NO Chromium, NO X11, NO HTTP, NO subprocess, NO UKM5 DB, NO MySQL
 
-### 38.0.10 — Local Smoke on Dev Environment
+### 38.0.10 — Local Smoke on Dev Environment ✅
 
-- Xvfb или headless smoke: запуск player с portrait overlay profile
-- Проверка: geometry correct, state transitions работают
-- Проверка: kill-switch срабатывает
+Реализовано:
+- `kso_player/portrait_smoke.py` — safe local smoke harness (NO Chromium, NO Xvfb, NO network)
+- `run_portrait_smoke(profile_code, state_path, kill_switch_path)` — pure orchestration
+- `SmokeResult` dataclass — safe fields only (no forbidden substrings)
+- CLI: `python -m kso_player.portrait_smoke --state-file ... --kill-switch ...`
+- Pipeline: state.json → state_observer → kill_switch → shell_plan → visible/hidden
+- 42 теста: idle→visible, все скрытые состояния, missing/broken/forbidden/stale файлы, kill-switch override, geometry, safe output, no leaks
+- NO Chromium, NO X11, NO Xvfb, NO network, NO subprocess, NO UKM5 DB
 
 ### 38.0.11 — Manual Test on Physical KSO
 
@@ -417,6 +422,11 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 - `docs/audit/one-kso-pilot-readiness-plan.md` — план test KSO → pilot
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.0.10
+
+Local smoke harness реализован: `kso_player/portrait_smoke.py` + 42 теста ✅.
+См. `apps/kso_player/kso_player/portrait_smoke.py`.
 
 ### 2026-06-24 — Шаг 38.0.9
 

@@ -658,3 +658,19 @@ creative → campaign → placement → approval → manifest → publish → si
 
 **Regression:** все suites green (backend 169, portal 407, state adapter 86, player 1253, sidecar 1838, infra 227 — **3980 всего**).
 **Commit:** `🛡 Add safe player state observer stub`
+
+### Шаг 38.0.10 — Local Smoke Harness (2026-06-24)
+
+✅ **Local smoke harness реализован — pure orchestration без Chromium/Xvfb/сети.**
+
+- **Модуль:** `kso_player/portrait_smoke.py` — `run_portrait_smoke()` + `SmokeResult` dataclass
+- **Pipeline:** state.json → state_observer → kill_switch → shell_plan → visible/hidden
+- **CLI:** `python -m kso_player.portrait_smoke --state-file ... --kill-switch ...` → prints safe JSON
+- **SmokeResult:** только safe поля (profile_code, state, visible_plan, reason, geometry, flags)
+- **No forbidden output:** receipt, payment, fiscal, customer, card, pan, phone, email, token, secret, password, backend_url, file_path, sha256, media_path, ukm5, mysql
+- **Тесты:** 42 (idle→visible, все hidden состояния, missing/broken/forbidden/stale файлы, kill-switch override, geometry, safe JSON, no network/X11/subprocess imports)
+- NO Chromium, NO X11, NO Xvfb, NO network, NO subprocess, NO UKM5 DB
+- КСО не менялась. Физический player не запускался.
+
+**Regression:** все suites green (backend 169, portal 407, state adapter 86, player 1295, sidecar 1838, infra 227 — **4022 всего**).
+**Commit:** `🧪 Add portrait overlay local smoke harness`
