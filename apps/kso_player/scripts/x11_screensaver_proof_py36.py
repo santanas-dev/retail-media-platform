@@ -492,11 +492,13 @@ def do_run_once(state_path, ks_path, duration, display):
     # Lock
     lockfile = DEFAULT_LOCKFILE
     if os.path.exists(lockfile):
-        return {
+        result = {
             "started": False, "visible": False,
             "error": "Lockfile exists — another instance running?",
             "lockfile": lockfile,
         }
+        print(json.dumps(result))
+        return
     with open(lockfile, "w") as f:
         f.write(str(os.getpid()))
 
@@ -506,7 +508,7 @@ def do_run_once(state_path, ks_path, duration, display):
         ks_active = check_kill_switch(ks_path)
 
         if not is_idle or ks_active:
-            return {
+            result = {
                 "started": True, "visible": False,
                 "state": state, "kill_switch_active": ks_active,
                 "stop_reason": "kill_switch" if ks_active else "state_change",
@@ -514,6 +516,8 @@ def do_run_once(state_path, ks_path, duration, display):
                 "duration_sec": 0.0,
                 "rollback_done": True,
             }
+            print(json.dumps(result))
+            return
 
         # Screen clean check
         screen_safe, screen_reason = check_screen_clean()
