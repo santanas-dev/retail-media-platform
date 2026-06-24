@@ -625,3 +625,19 @@ creative → campaign → placement → approval → manifest → publish → si
 
 **Regression:** все suites green.
 **Commit:** `📋 Document isolated test KSO risk acceptance (Step 37.15)`
+
+### Шаг 38.0.8 — Local Kill-Switch File Flag (2026-06-24)
+
+✅ **Kill-switch реализован — интеграция с shell plan.**
+
+- **Модуль:** `kso_player/kill_switch.py` — `is_kill_switch_active(path)` чистая функция
+- **Путь по умолчанию:** `/run/verny/kso/kill_switch`
+- **Правила:** file exists → active, not exists → inactive, любая ошибка → active (fail-safe)
+- **Интеграция:** `build_shell_plan(kill_switch_active=...)`, `validate_shell_plan_with_kill_switch()`
+- **Поведение:** kill-switch active → force hidden даже при state=idle; geometry/safety флаги сохранены
+- **Тесты:** 41 (file existence, error safety, bad paths, shell plan integration, immutability, no leaks)
+- NO Chromium, NO X11, NO HTTP, NO backend, NO UKM5 DB
+- КСО не менялась. Физический player не запускался. Legacy landscape тесты зелёные.
+
+**Regression:** все suites green (backend 169, portal 407, state adapter 86, player 1139, sidecar 1838, infra 227 — **3866 всего**).
+**Commit:** `🛑 Add local player kill switch`

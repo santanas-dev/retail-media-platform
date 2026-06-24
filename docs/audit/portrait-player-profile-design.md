@@ -354,11 +354,16 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 - Non-fullscreen: `window_type=overlay`, `kiosk=false`, no `--kiosk` flag
 - 59 тестов: geometry, state visibility, transitions, chromium flags
 
-### 38.0.8 — Local Kill-Switch
+### 38.0.8 — Local Kill-Switch ✅
 
-- Проверка `/run/verny/kso/kill_switch` каждый cycle tick
-- При обнаружении: unmaps window, graceful shutdown
-- Тесты: kill-switch file flag → player exit with code 0
+Реализовано:
+- `kso_player/kill_switch.py` — `is_kill_switch_active(path)` чистая функция
+- Путь по умолчанию: `/run/verny/kso/kill_switch`
+- Правила: file exists → active, not exists → inactive, любая ошибка → active
+- Интеграция с shell plan: `build_shell_plan(kill_switch_active=...)`, `validate_shell_plan_with_kill_switch()`
+- Kill-switch active → force hidden даже при state=idle
+- 41 тест: file existence, error safety, bad paths, shell plan integration, immutability, no leaks
+- NO Chromium, NO X11, NO HTTP, NO backend, NO UKM5 DB
 
 ### 38.0.9 — State Observer Stub / Safe Idle-Only
 
@@ -406,6 +411,16 @@ Payment zone:    y=720..840  (120 px) — ❌ NEVER OVERLAY
 - `docs/audit/one-kso-pilot-readiness-plan.md` — план test KSO → pilot
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.0.8
+
+Kill-switch реализован: `kso_player/kill_switch.py` + интеграция с shell plan + 41 тест ✅.
+См. `apps/kso_player/kso_player/kill_switch.py`.
+
+### 2026-06-24 — Шаг 38.0.7
+
+Shell plan реализован: `kso_player/shell_plan.py` + 59 тестов ✅.
+См. `apps/kso_player/kso_player/shell_plan.py`.
 
 ### 2026-06-24 — Шаг 38.0.6
 

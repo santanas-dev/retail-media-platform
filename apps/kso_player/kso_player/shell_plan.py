@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import FrozenSet, Optional
 
 from kso_player.profiles import PlayerProfile, get_profile
+from kso_player.kill_switch import DEFAULT_KILL_SWITCH_PATH, is_kill_switch_active
 
 # ══════════════════════════════════════════════════════════════════════
 # Constants
@@ -135,6 +136,7 @@ class ShellPlan:
 def build_shell_plan(
     profile_code: str,
     initial_state: str = "unknown",
+    kill_switch_active: Optional[bool] = None,
 ) -> ShellPlan:
     """Build a shell plan from a registered player profile.
 
@@ -142,6 +144,11 @@ def build_shell_plan(
         profile_code: Registered profile code (e.g. 'portrait_idle_overlay_768').
         initial_state: Initial KSO state for visibility decision.
                        Default: 'unknown' (safe — always hidden).
+        kill_switch_active: Override for kill-switch status.
+                            True → force hidden regardless of state.
+                            False → use state-based visibility.
+                            None → check the default file path (/run/verny/kso/kill_switch).
+                            Default: None.
 
     Returns:
         ShellPlan describing window geometry, flags, and visibility.
@@ -189,6 +196,16 @@ def build_shell_plan(
         visible_plan = PLAN_MODE_HIDDEN
     else:
         visible_plan = PLAN_MODE_HOLD
+
+    # ── Resolve kill-switch status ───────────────────────────────
+    _ks_active: bool
+    if kill_switch_active is None:
+        _ks_active = is_kill_switch_active()  # check default path
+    else:
+        _ks_active = bool(kill_switch_active)
+
+    if _ks_active:
+        visible_plan = PLAN_MODE_HIDDEN  # kill-switch overrides everything
 
     # ── Forbidden Chromium flags for non-fullscreen ──────────────
     if profile.no_fullscreen:
@@ -261,6 +278,62 @@ def validate_shell_plan_for_state(
         new_visibility = PLAN_MODE_HOLD  # safe default
 
     # Create updated plan (dataclass is not frozen — we can replace)
+    return ShellPlan(
+        profile_code=plan.profile_code,
+        profile_name=plan.profile_name,
+        root_width=plan.root_width,
+        root_height=plan.root_height,
+        window_x=plan.window_x,
+        window_y=plan.window_y,
+        window_width=plan.window_width,
+        window_height=plan.window_height,
+        creative_x=plan.creative_x,
+        creative_y=plan.creative_y,
+        creative_width=plan.creative_width,
+        creative_height=plan.creative_height,
+        window_type=plan.window_type,
+        fullscreen=plan.fullscreen,
+        kiosk=plan.kiosk,
+        always_on_top=plan.always_on_top,
+        no_focus_steal=plan.no_focus_steal,
+        kill_switch_required=plan.kill_switch_required,
+        hide_on_start_if_state_not_idle=plan.hide_on_start_if_state_not_idle,
+        idle_only=plan.idle_only,
+        no_ukm5_db=plan.no_ukm5_db,
+        visible_plan=new_visibility,
+        show_on_states=plan.show_on_states,
+        hide_on_states=plan.hide_on_states,
+        hide_sla_ms=plan.hide_sla_ms,
+        forbidden_zones=plan.forbidden_zones,
+        forbidden_chromium_flags=plan.forbidden_chromium_flags,
+    )
+
+
+def validate_shell_plan_with_kill_switch(
+    plan: ShellPlan,
+    kill_switch_active: bool,
+) -> ShellPlan:
+    """Return a copy of the shell plan with visibility updated for kill-switch status.
+
+    Pure function — does not mutate the original plan.
+    Kill-switch overrides state-based visibility:
+
+        - kill_switch_active=True → force hidden (even if state=idle)
+        - kill_switch_active=False → state-based visibility determines plan
+
+    Args:
+        plan: Existing ShellPlan.
+        kill_switch_active: Current kill-switch status.
+
+    Returns:
+        New ShellPlan with updated visible_plan.
+    """
+    if kill_switch_active:
+        new_visibility = PLAN_MODE_HIDDEN
+    else:
+        # No override — preserve current visibility
+        new_visibility = plan.visible_plan
+
     return ShellPlan(
         profile_code=plan.profile_code,
         profile_name=plan.profile_name,

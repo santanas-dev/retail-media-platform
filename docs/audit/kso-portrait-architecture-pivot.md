@@ -226,10 +226,12 @@ ID:     P0-5 (новый)
   └── Profile: portrait_idle_overlay_768, overlay y=400-640
 
 38.0.6+ — Portrait Player Implementation
-  ├── Реализовать portrait player (новый модуль или профиль)
-  ├── Интегрировать с существующим sidecar/state-adapter
-  ├── Протестировать на test KSO (read-only, без перекрытия УКМ5)
-  └── Не менять существующий landscape player
+  ├── 38.0.6 ✅ Contract & Tests (71 тест)
+  ├── 38.0.7 ✅ Shell Plan Support (59 тестов)
+  ├── 38.0.8 ✅ Local Kill-Switch (41 тест)
+  ├── 38.0.9 ⬜ State Observer Stub
+  ├── 38.0.10 ⬜ Local smoke (Xvfb)
+  └── 38.0.11 ⬜ Manual test on test KSO
 ```
 
 ---
@@ -245,6 +247,18 @@ ID:     P0-5 (новый)
 - `docs/audit/one-kso-pilot-readiness-plan.md` — план (обновлён)
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.0.8
+
+Kill-switch реализован: `kso_player/kill_switch.py` + интеграция с shell plan + 41 тест ✅.
+
+### 2026-06-24 — Шаг 38.0.7
+
+Shell plan реализован: `kso_player/shell_plan.py` + 59 тестов ✅.
+
+### 2026-06-24 — Шаг 38.0.6
+
+Profile contract реализован: `portrait_idle_overlay_768` + 71 тест ✅.
 
 ### 2026-06-24 — Шаг 38.0.5
 
