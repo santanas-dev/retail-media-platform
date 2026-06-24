@@ -753,6 +753,16 @@ creative → campaign → placement → approval → manifest → publish → si
 - +98 тестов: payload, adapter, validation (forbidden patterns), visibility, PoP safety
 - КСО не менялась. Physical run/X11/Chromium не запускались.
 
+### 38.2.5 — Backend PoP Ingest + Portal Integration (2026-06-24)
+
+✅ **Backend service + portal integration validated (mock DB).**
+- `ingest_kso_pop()` returns creative_code from placement chain ✅
+- Duplicate event_code → idempotent accepted ✅
+- `list_kso_pop_events()` filter by creative_code works ✅
+- Portal template: creative_code filter + column present ✅
+- +18 backend tests (service mocks)
+- Backend не запускался — все тесты на AsyncMock.
+
 ### 38.2.4 — Dev E2E PoP Reporting Validation (2026-06-24)
 
 ✅ **Full E2E creative_code chain validated with synthetic data.**

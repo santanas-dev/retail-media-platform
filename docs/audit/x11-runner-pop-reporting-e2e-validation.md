@@ -95,7 +95,21 @@ The backend `POST /device-gateway/kso/{device_code}/pop` endpoint requires:
 Current validation covers **schema compatibility** — all fields match.
 Full backend ingest with real DB is a separate integration test step.
 
-## Safety Constraints (unchanged)
+### 38.2.5 — Backend Ingest + Portal Integration (2026-06-24)
+
+- Backend service test (mock DB): 18 tests — creative_code through ingest/response,
+  idempotency, list filters, safety audit, blocked/draft handling
+- `ingest_kso_pop()` returns `creative_code` from placement→campaign→creative chain ✅
+- Duplicate `event_code` → idempotent accepted ✅
+- `list_kso_pop_events(creative_code=…)` filter works ✅
+- All filter combinations tested: device_code, campaign_code, creative_code, placement_code ✅
+- Blocked event_type stored as `accepted` (backend doesn't reject) ✅
+- Ingest response: 0 forbidden fields (6 safe fields only) ✅
+- List response: 0 forbidden fields (11 safe fields only) ✅
+- Portal template: creative_code filter + column already present ✅
+- Backend not started — all tests use `AsyncMock` (no real DB) ✅
+
+### Safety Constraints (unchanged)
 
 - ❌ KSO 192.168.110.223 not touched
 - ❌ Physical run / X11 / Chromium not launched

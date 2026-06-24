@@ -112,6 +112,13 @@ NOT required in existing records. Sidecar classifier handles missing fields
 gracefully (they default to None/0). Existing Chromium player PoP pipeline
 is unaffected.
 
+### 38.2.5 — Backend Ingest + Portal Integration (2026-06-24)
+
+- Backend service tests: `ingest_kso_pop()` with mock DB, 18 tests.
+  creative_code flows from placement chain to response.
+  Duplicate event_code → idempotent. All filters work.
+  Security: 0 forbidden fields in ingest/list responses.
+
 ### 38.2.4 — E2E Validation (2026-06-24)
 
 - Full 9-step chain validated with synthetic data
