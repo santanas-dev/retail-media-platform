@@ -205,6 +205,7 @@ ScreensaverRunResult содержит ТОЛЬКО safe поля:
 
 | Дата | Событие |
 |---|---|
+| 2026-06-24 | 38.2.4 — Dev E2E PoP reporting validation: 9-step chain verified, synthetic data, 31 E2E tests, backend/portal compat |
 | 2026-06-24 | 38.2.3 — PoP event queue / backend upload bridge: ScreensaverPoPDraft→JSONL, creative_code chain, idempotency, +44 tests |
 | 2026-06-24 | 38.2.2 — Sidecar media cache bridge: ScreensaverMediaAvailability, media gate in visibility, PoP media_available flag, +59 tests |
 | 2026-06-24 | 38.2.1 — Preserve backend creative_code: +creative_code field in PlayerPlaylistItem, is_synthetic flag, +17 tests |

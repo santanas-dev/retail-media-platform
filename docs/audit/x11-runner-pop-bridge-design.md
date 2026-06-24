@@ -112,6 +112,15 @@ NOT required in existing records. Sidecar classifier handles missing fields
 gracefully (they default to None/0). Existing Chromium player PoP pipeline
 is unaffected.
 
+### 38.2.4 — E2E Validation (2026-06-24)
+
+- Full 9-step chain validated with synthetic data
+- creative_code preserved: manifest → playlist → creative → availability → PoP → JSONL → sidecar → PopPayloadEvent → backend/portal
+- 31 E2E tests: happy path, negative paths, security audit, backend/portal compat
+- Security: no forbidden fields in any user-facing output
+- Backend schema compatibility confirmed (KsoPoPIngestRequest/Response, KsoPoPListResponse)
+- Portal filter by creative_code confirmed compatible
+
 ### Safety Constraints (unchanged)
 
 - ❌ KSO 192.168.110.223 not touched

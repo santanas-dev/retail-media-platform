@@ -753,6 +753,18 @@ creative → campaign → placement → approval → manifest → publish → si
 - +98 тестов: payload, adapter, validation (forbidden patterns), visibility, PoP safety
 - КСО не менялась. Physical run/X11/Chromium не запускались.
 
+### 38.2.4 — Dev E2E PoP Reporting Validation (2026-06-24)
+
+✅ **Full E2E creative_code chain validated with synthetic data.**
+- 9-step chain: manifest → playlist → creative → availability → PoP → JSONL → sidecar → payload → backend/portal
+- creative_code preserved through all 9 steps (tested with "e2e-trace-promo-2025")
+- Negative paths: media_missing→blocked, kill_switch→hidden, non_idle→hidden, synthetic_fallback→not_production
+- Security: 6 output surfaces checked — 0 forbidden fields
+- Backend compat: KsoPoPIngestRequest, KsoPoPIngestResponse, KsoPoPListResponse all confirmed
+- Portal filter: list_kso_pop_events(creative_code=…) compatible
+- +31 E2E tests
+- КСО не менялась. Physical run/X11/Chromium не запускались.
+
 ### 38.2.3 — PoP Event Queue / Backend Upload Bridge (2026-06-24)
 
 ✅ **Screensaver PoP events bridge to sidecar/backend pipeline.**
