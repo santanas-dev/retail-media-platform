@@ -422,6 +422,12 @@ Production-ready renderer для fullscreen idle screensaver: `x11_click_through
 
 ## Журнал
 
+### 2026-06-24 — Шаг 38.1.8 (Physical X11 Proof — SUCCESS)
+
+Physical proof executed on KSO. X11 click-through confirmed:
+100% red fullscreen above UKM5, XFixes input EMPTY, focus NOT stolen.
+B-FS-1/B-FS-2 closed. B-FS-3: requires guarded runner + HW scanner + pilot.
+
 ### 2026-06-24 — Шаг 38.1.7 (X11 Click-through Physical Proof Harness)
 
 Создан runtime proof harness для X11 click-through проверки:

@@ -122,23 +122,44 @@ systemctl enable|disable|mask|daemon-reload
 | Gate | Условие | Статус |
 |---|---|---|
 | G1 | Renderer contract defined | ✅ 38.1.6 |
-| G2 | Proof harness prepared | ✅ 38.1.7 (этот шаг) |
-| G3 | Physical proof executed | ⬜ 38.1.8+ |
-| G4 | Scanner loss-free confirmed | ⬜ 38.1.8+ |
-| G5 | Touch pass-through confirmed | ⬜ 38.1.8+ |
-| G6 | Production approved | ⬜ После physical proof |
+| G2 | Proof harness prepared | ✅ 38.1.7 |
+| G3 | Physical proof executed | ✅ 38.1.8 |
+| G4 | Scanner loss-free confirmed (X11/focus level) | ✅ 38.1.8 |
+| G5 | Touch pass-through confirmed | ✅ 38.1.8 |
+| G6 | Hardware scanner E2E validation | ⬜ Перед pilot |
+| G7 | Production approved | ⬜ После G6 |
 
-**До proof нельзя считать x11_click_through production-ready.**
+**x11_click_through confirmed at X11/focus/input-path level.** Hardware scanner end-to-end validation still required.
 
 ---
 
-## 5. Blocker Status
+## 5. Physical Proof Execution (38.1.8)
+
+| Параметр | Значение |
+|---|---|
+| Дата | 2026-06-24 |
+| КСО | 192.168.110.223 |
+| Window ID | 52428801 |
+| Visual display | ✅ 100% красный fullscreen поверх УКМ5 |
+| XFixes input shape | EMPTY ✅ |
+| override_redirect | True ✅ |
+| Active window (до/во время/после) | УКМ5 (не изменился) ✅ |
+| Focus stolen | Нет ✅ |
+| UKM5 Chromium PID | 1881 (не изменился) ✅ |
+| Stop criteria | Ни один не сработал ✅ |
+| Permanent config | Не менялся ✅ |
+
+Scanner/keyboard pass-through подтверждён на уровне X11 focus/input-path — активное окно осталось УКМ5, renderer использовал no_keyboard_grab. Hardware scanner E2E validation — отдельный follow-up перед pilot.
+
+---
+
+## 6. Blocker Status
 
 | ID | Название | Статус |
 |---|---|---|
-| B-FS-1 | Первый скан теряется | 🟡 Harness готов, ждёт physical proof |
-| B-FS-2 | Input passthrough невозможен с Chromium | 🟢 Решён (отдельный X11 renderer) |
-| B-FS-3 | Production fullscreen запрещён | 🟡 Ждёт physical proof |
+| B-FS-1 | Первый скан теряется | 🟢 **Закрыт** (X11/focus/input-path уровень). HW E2E — follow-up |
+| B-FS-2 | Input passthrough невозможен с Chromium | 🟢 **Закрыт** (отдельный X11 renderer) |
+| B-FS-3 | Production fullscreen запрещён | 🟡 Требует guarded runner + HW scanner validation + pilot acceptance |
 
 ---
 
@@ -150,6 +171,21 @@ systemctl enable|disable|mask|daemon-reload
 - `apps/kso_player/tests/test_x11_click_through_proof.py` — 82 теста
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.1.8 (Physical X11 Click-through Proof)
+
+**Physical proof выполнен на КСО 192.168.110.223 — SUCCESS.**
+- X11 window 768×1024 created with ctypes (no Chromium, no python-xlib)
+- 100% red pixels during proof — fullscreen overlay visible above UKM5 kiosk
+- XFixes input shape EMPTY, override_redirect=True, _NET_WM_STATE_ABOVE
+- Active window stayed UKM5 throughout — focus NOT stolen
+- Scanner/keyboard pass-through confirmed at X11/focus/input-path level
+- Touch pass-through confirmed (XFixes empty input shape)
+- UKM5 untouched: Chromium PID 1881, Openbox 1626, mint.service active
+- Stop criteria: none triggered
+- Rollback: unmap → destroy → close display (automatic)
+- Permanent config unchanged. No UKM5 DB access. No receipt/payment/fiscal data.
+- Hardware scanner E2E validation remains separate follow-up before pilot.
 
 ### 2026-06-24 — Шаг 38.1.7
 

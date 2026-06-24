@@ -178,9 +178,9 @@ Runtime proof harness подготовлен, но **физический зап
 
 | ID | Название | Статус | Решение |
 |---|---|---|---|
-| B-FS-1 | Первый скан теряется | 🟡 Частично решён | Контракт x11_click_through не теряет — нужен physical proof |
-| B-FS-2 | Input passthrough невозможен с Chromium | 🟢 Решён | Отдельный X11 renderer (не Chromium) |
-| B-FS-3 | Production fullscreen запрещён | 🟡 Ждёт physical test | После 38.1.7/38.1.8 |
+| B-FS-1 | Первый скан теряется | 🟢 **Закрыт** (X11/focus/input-path) | 38.1.8 proof. HW E2E — follow-up |
+| B-FS-2 | Input passthrough невозможен с Chromium | 🟢 **Закрыт** | Отдельный X11 renderer (не Chromium) |
+| B-FS-3 | Production fullscreen запрещён | 🟡 Guarded runner + HW scanner + pilot | После G6/G7 |
 
 ---
 
@@ -191,6 +191,11 @@ Runtime proof harness подготовлен, но **физический зап
 - `apps/kso_player/tests/test_x11_click_through_renderer.py` — 79 тестов
 
 ## Журнал
+
+### 2026-06-24 — Шаг 38.1.8 (Physical X11 Proof — SUCCESS)
+
+Physical proof на КСО 192.168.110.223: 100% red fullscreen, XFixes input EMPTY, focus NOT stolen.
+B-FS-1/B-FS-2 closed. HW scanner E2E — follow-up before pilot.
 
 ### 2026-06-24 — Шаг 38.1.6
 

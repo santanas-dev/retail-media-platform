@@ -313,6 +313,11 @@ kill_switch > state_change > keydown/input > touch/pointer/mouse > click > wheel
 
 ## Журнал
 
+### 2026-06-24 — Шаг 38.1.8 (Physical X11 Proof — SUCCESS)
+
+Physical proof: X11 click-through fullscreen confirmed. B-FS-1/B-FS-2 closed.
+HW scanner E2E validation — follow-up before pilot.
+
 ### 2026-06-24 — Шаг 38.1.7 (X11 Click-through Physical Proof Harness)
 
 Runtime proof harness: 3 режима, command safety validators, evidence plan.
