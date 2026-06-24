@@ -165,7 +165,16 @@ FORBIDDEN_FIELDS = {
 
 ---
 
-## 7. Blocker Status
+## 7. Physical Proof Harness (38.1.7)
+
+Runtime proof harness подготовлен, но **физический запуск НЕ выполнялся**.
+
+См. `docs/audit/x11-click-through-physical-proof-plan.md`.
+
+Код: `x11_click_through_proof.py` + `scripts/x11_click_through_proof_harness.py` (82 теста).
+3 режима: dry_run, preflight_only, run_once (заблокирован до explicit approval).
+
+## 8. Blocker Status
 
 | ID | Название | Статус | Решение |
 |---|---|---|---|

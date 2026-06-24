@@ -313,6 +313,11 @@ kill_switch > state_change > keydown/input > touch/pointer/mouse > click > wheel
 
 ## Журнал
 
+### 2026-06-24 — Шаг 38.1.7 (X11 Click-through Physical Proof Harness)
+
+Runtime proof harness: 3 режима, command safety validators, evidence plan.
+82 теста. Physical run НЕ выполнялся.
+
 ### 2026-06-24 — Шаг 38.1.6 (X11 Click-through Renderer Contract)
 
 Создан контракт production-ready X11 renderer: x11_click_through.

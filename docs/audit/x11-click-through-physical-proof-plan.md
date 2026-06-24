@@ -1,0 +1,162 @@
+# X11 Click-through Physical Proof Plan — Runtime Proof Harness
+
+> **Статус:** 🧪 Proof Harness Contract (38.1.7) — PHYSICAL RUN NOT EXECUTED
+>
+> Дата: 2026-06-24
+> Ревизия: 1
+>
+> **Назначение:** Подготовить безопасный runtime proof harness для проверки X11 click-through fullscreen renderer на физической КСО.
+> **Физический запуск НЕ выполняется в этом шаге.** Требует отдельного explicit approval.
+>
+> **Предыдущий шаг:** 38.1.6 — X11 Click-through Renderer Contract.
+> **Следующий шаг:** 38.1.8 — Physical X11 Proof Run (после explicit approval).
+
+---
+
+## 1. Harness Overview
+
+| Компонент | Файл |
+|---|---|
+| Core module | `apps/kso_player/kso_player/x11_click_through_proof.py` |
+| CLI harness | `apps/kso_player/scripts/x11_click_through_proof_harness.py` |
+| Tests | `apps/kso_player/tests/test_x11_click_through_proof.py` (82 теста) |
+
+### 1.1 Modes
+
+| Mode | Выполняет X11? | Требует approval? | Назначение |
+|---|---|---|---|
+| `--dry-run` | ❌ Нет | ❌ Нет | Строит план, валидирует, печатает |
+| `--preflight-only` | ❌ Нет | ❌ Нет | Проверяет окружение, готовность |
+| `--run-once` | ⬜ Да (будущее) | ✅ Да (explicit) | Физический запуск proof (шаг 38.1.8+) |
+
+### 1.2 CLI usage
+
+```bash
+# Dry run — безопасно в любой момент
+python3 -m kso_player.x11_click_through_proof --dry-run
+
+# Preflight — проверка окружения
+python3 -m kso_player.x11_click_through_proof --preflight-only
+
+# Run once — ЗАБЛОКИРОВАН до explicit approval
+python3 -m kso_player.x11_click_through_proof --run-once \
+    --display=:0 --approval-token USER_APPROVED_RUN_ONCE
+```
+
+---
+
+## 2. Proof Plan
+
+### 2.1 Window properties
+
+| Свойство | Значение |
+|---|---|
+| Title | `X11_CLICK_THROUGH_PROOF` |
+| Display | `:0` |
+| Geometry | (0,0) 768×1024 |
+| override_redirect | True |
+| input_region_empty | True (XFixes) |
+| no_keyboard_grab | True |
+| no_pointer_grab | True |
+| no_focus_steal | True |
+| Duration | 10 sec (hard max 30 sec) |
+| Lockfile | `/tmp/x11_click_through_proof.lock` |
+
+### 2.2 Safety validators
+
+| Валидатор | Что проверяет |
+|---|---|
+| `validate_proof_plan(plan)` | Geometry, X11 properties, duration, kill-switch, rollback |
+| `validate_command_safety(cmd)` | Forbidden commands (pkill chromium, systemctl restart mint, ...) |
+| `validate_safe_output(data)` | Forbidden fields (receipt, payment, fiscal, secrets, scanner values) |
+| `is_mode_run_safe(mode)` | Безопасен ли режим без explicit approval |
+
+### 2.3 Command safety — FORBIDDEN
+
+```
+pkill chromium / pkill -f chromium / killall chromium
+systemctl restart|stop mint / mysql / redis / chromium
+systemctl enable|disable|mask|daemon-reload
+Модификация openbox/.profile/xinitrc/index.html/autostart
+Запись в /home/ukm5, /etc/, /var/lib/mint
+```
+
+---
+
+## 3. Evidence Plan (для physical run)
+
+### 3.1 Что собирается
+
+| Evidence | Инструмент | Описание |
+|---|---|---|
+| Screenshots (before/during/after) | `scrot` | Визуальное подтверждение |
+| Window tree | `xwininfo -root -tree` | Все окна до/после |
+| Window ID | `xdotool search` | ID тестового окна |
+| Window props | `xprop` | Свойства окна |
+| Active window | `xdotool getactivewindow` | Кто имеет фокус |
+| Pixel proof | Анализ скриншотов | Занял ли overlay экран |
+| Scanner pass-through | **Факт, без значения** | Сканер → УКМ5 (loss-free confirmation) |
+| Touch pass-through | **Факт, без значения** | Тач → УКМ5 (loss-free confirmation) |
+
+### 3.2 Scanner/touch pass-through evidence
+
+**Как доказывается scanner pass-through (без логирования штрихкода):**
+
+1. До proof: сканировать тестовый товар → штрихкод попадает в УКМ5 (чек создался)
+2. Во время proof: окно X11 видно на весь экран, **но не имеет фокуса и не захватывает клавиатуру**
+3. Сканировать тестовый товар → **штрихкод идёт НАПРЯМУЮ в УКМ5** (окно не перехватывает)
+4. Evidence: факт создания чека во время proof → scanner pass-through confirmed
+5. **Штрихкод НЕ логируется, НЕ сохраняется, НЕ передаётся**
+
+**Как доказывается touch pass-through:**
+
+1. Коснуться экрана в любом месте
+2. `xdotool getactivewindow` → должно быть окно УКМ5 (не proof-окно)
+3. XFixes input shape empty → pointer events проходят сквозь
+4. Evidence: активное окно = УКМ5 во время proof
+
+---
+
+## 4. Production Readiness Gates
+
+| Gate | Условие | Статус |
+|---|---|---|
+| G1 | Renderer contract defined | ✅ 38.1.6 |
+| G2 | Proof harness prepared | ✅ 38.1.7 (этот шаг) |
+| G3 | Physical proof executed | ⬜ 38.1.8+ |
+| G4 | Scanner loss-free confirmed | ⬜ 38.1.8+ |
+| G5 | Touch pass-through confirmed | ⬜ 38.1.8+ |
+| G6 | Production approved | ⬜ После physical proof |
+
+**До proof нельзя считать x11_click_through production-ready.**
+
+---
+
+## 5. Blocker Status
+
+| ID | Название | Статус |
+|---|---|---|
+| B-FS-1 | Первый скан теряется | 🟡 Harness готов, ждёт physical proof |
+| B-FS-2 | Input passthrough невозможен с Chromium | 🟢 Решён (отдельный X11 renderer) |
+| B-FS-3 | Production fullscreen запрещён | 🟡 Ждёт physical proof |
+
+---
+
+## 6. Файлы
+
+- `docs/audit/x11-click-through-physical-proof-plan.md` — этот документ
+- `apps/kso_player/kso_player/x11_click_through_proof.py` — proof harness core module
+- `apps/kso_player/scripts/x11_click_through_proof_harness.py` — CLI entry point
+- `apps/kso_player/tests/test_x11_click_through_proof.py` — 82 теста
+
+## Журнал
+
+### 2026-06-24 — Шаг 38.1.7
+
+Создан runtime proof harness для X11 click-through физической проверки:
+- 3 режима: dry_run, preflight_only, run_once (заблокирован)
+- Safety validators: command safety, plan validation, safe output
+- Evidence plan: 8 типов доказательств, scanner/touch pass-through без логирования значений
+- 82 теста: plan construction, validation, command safety, safe output, immutability
+- Physical run НЕ выполнялся. X11 window НЕ создавался.
+- КСО не менялась. Chromium не запускался.

@@ -30,6 +30,7 @@
 | 12 | **38.1.4 — Fullscreen Idle Screensaver Design ✅** | Profile contract + interaction hide rules + 141 тест |
 | 13 | **38.1.5 — X11 Input Pass-through Design ✅** | Decision matrix (A-E), input_mode contract, +26 тестов |
 | 14 | **38.1.6 — X11 Click-through Renderer Contract ✅** | Renderer dataclasses, validators, safe output, 79 тестов |
+| 15 | **38.1.7 — X11 Click-through Proof Harness ✅** | 3 режима, command safety, evidence plan, 82 теста |
 
 ---
 

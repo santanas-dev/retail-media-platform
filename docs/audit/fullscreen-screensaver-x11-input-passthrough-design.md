@@ -422,6 +422,14 @@ Production-ready renderer для fullscreen idle screensaver: `x11_click_through
 
 ## Журнал
 
+### 2026-06-24 — Шаг 38.1.7 (X11 Click-through Physical Proof Harness)
+
+Создан runtime proof harness для X11 click-through проверки:
+- 3 режима: dry_run, preflight_only, run_once (заблокирован)
+- Command safety validators: запрещены pkill chromium, restart mint, etc.
+- Evidence plan: 8 типов доказательств, scanner/touch pass-through без значений
+- 82 теста. Physical run НЕ выполнялся.
+
 ### 2026-06-24 — Шаг 38.1.6 (X11 Click-through Renderer Contract)
 
 Создан контракт production-ready X11 click-through renderer:
