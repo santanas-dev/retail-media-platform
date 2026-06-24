@@ -753,6 +753,18 @@ creative → campaign → placement → approval → manifest → publish → si
 - +98 тестов: payload, adapter, validation (forbidden patterns), visibility, PoP safety
 - КСО не менялась. Physical run/X11/Chromium не запускались.
 
+### 38.2.2 — Sidecar Media Cache Bridge (2026-06-24)
+
+✅ **Bridge between sidecar media cache and X11 runner.**
+- `screensaver_media_availability.py`: ScreensaverMediaAvailability + check_screensaver_media_availability()
+- `decide_creative_visibility()`: +`media_availability` gate — 3 новых причины скрытия
+- `ScreensaverPoPDraft.media_available`: флаг доступности медиа в PoP
+- `SCREENSAVER_EVENT_BLOCKED`: новый event type для blocked-событий без sensitive fields
+- Security: symlink rejected BEFORE existence, absolute paths/URLs/forbidden substrings rejected
+- Synthetic test creatives проходят без реальных медиафайлов
+- +59 тестов: availability, fallback, forbidden fields, identity, full chain
+- КСО не менялась. Physical run/X11/Chromium не запускались.
+
 ### 38.2.1 — Preserve Backend creative_code (2026-06-24)
 
 ✅ **Backend creative_code preserved through entire chain.**

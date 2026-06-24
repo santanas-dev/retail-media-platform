@@ -156,6 +156,18 @@ http://, https://, file://, 127.0.0.1, localhost
 - +17 тестов: preservation chain, fallback marking, identity rules, PoP
 - КСО не менялась. Physical run не запускался.
 
+### 38.2.2 — Sidecar Media Cache Bridge for X11 Runner (2026-06-24)
+
+- Создан `screensaver_media_availability.py`: ScreensaverMediaAvailability, check_screensaver_media_availability()
+- Bridge: creative → manifest lookup → media/current/ file check → ready/blocked
+- `decide_creative_visibility()`: +`media_availability` gate (3 новых причины скрытия)
+- `ScreensaverPoPDraft`: +`media_available` флаг, +`SCREENSAVER_EVENT_BLOCKED`
+- `build_screensaver_pop_draft()`: +`media_available` параметр
+- Security: symlink rejected BEFORE existence, absolute paths rejected, forbidden substrings
+- Synthetic test creatives allowed without real media
+- +59 тестов: availability, fallback, forbidden fields, identity, full chain
+- КСО не менялась. Physical run/X11/Chromium не запускались.
+
 ### 2026-06-24 — Шаг 38.2 (Connect Screensaver Runner to Manifest Creatives)
 
 - Создан `screensaver_creative.py`: ScreensaverCreativePayload, adapter, validator, visibility, PoP

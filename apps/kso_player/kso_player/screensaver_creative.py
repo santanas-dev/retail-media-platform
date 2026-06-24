@@ -15,6 +15,18 @@ from typing import Optional
 
 from kso_player.playlist import PlayerPlaylistItem, PlayerPlaylist
 
+from kso_player.screensaver_media_availability import (
+    ScreensaverMediaAvailability,
+    REASON_MEDIA_AVAILABLE,
+    REASON_MEDIA_MISSING,
+    REASON_INVALID_MEDIA_REF,
+    REASON_NO_MEDIA_REF,
+    REASON_CACHE_UNAVAILABLE,
+    REASON_MANIFEST_NOT_FOUND,
+    REASON_NO_MATCHING_ITEM,
+    REASON_MEDIA_FILE_CORRUPT,
+)
+
 # ══════════════════════════════════════════════════════════════════════
 # Constants
 # ══════════════════════════════════════════════════════════════════════
@@ -61,6 +73,9 @@ VIS_REASON_EMPTY_PLAYLIST = "empty_playlist"
 VIS_REASON_NO_VALID_CREATIVE = "no_valid_creative"
 VIS_REASON_CREATIVE_EXPIRED = "creative_expired"
 VIS_REASON_CREATIVE_VALID = "creative_valid"
+VIS_REASON_MEDIA_MISSING = "hidden_media_missing"
+VIS_REASON_INVALID_MEDIA_REF = "hidden_invalid_media_ref"
+VIS_REASON_CACHE_UNAVAILABLE = "hidden_cache_unavailable"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -377,10 +392,12 @@ def decide_creative_visibility(
     playlist: Optional[PlayerPlaylist] = None,
     state: str = "idle",
     kill_switch_active: bool = False,
+    media_availability=None,
 ) -> tuple[bool, str]:
     """Decide whether screensaver creative should be visible.
 
-    Integrates creative validity with runner visibility logic.
+    Integrates creative validity with runner visibility logic and
+    sidecar media cache availability (dev-only bridge).
 
     Priority:
         1. kill_switch_active → hidden
@@ -388,13 +405,20 @@ def decide_creative_visibility(
         3. playlist empty/not-ready → hidden (fallback)
         4. creative invalid → hidden
         5. creative expired → hidden
-        6. idle + valid creative + kill inactive → visible
+        6. media availability check (if provided):
+           - media missing → hidden_media_missing
+           - invalid ref → hidden_invalid_media_ref
+           - cache unavailable → hidden_cache_unavailable
+        7. idle + valid creative + media available + kill inactive → visible
 
     Args:
         creative: ScreensaverCreativePayload.
         playlist: Optional PlayerPlaylist for playlist-level checks.
         state: KSO state string.
         kill_switch_active: Kill-switch status.
+        media_availability: Optional ScreensaverMediaAvailability result
+            from check_screensaver_media_availability(). When None,
+            media availability is not checked (backward compatible).
 
     Returns:
         (should_show: bool, reason: str)
@@ -418,6 +442,27 @@ def decide_creative_visibility(
     if creative.is_expired:
         return False, VIS_REASON_CREATIVE_EXPIRED
 
+    # — Media availability gate (dev-only bridge, skipped when None) —
+    if media_availability is not None:
+        if not isinstance(media_availability, ScreensaverMediaAvailability):
+            return False, VIS_REASON_CACHE_UNAVAILABLE
+        if not media_availability.ready_for_runner:
+            # Map availability reason to visibility reason
+            reason_map = {
+                REASON_MEDIA_MISSING: VIS_REASON_MEDIA_MISSING,
+                REASON_INVALID_MEDIA_REF: VIS_REASON_INVALID_MEDIA_REF,
+                REASON_NO_MEDIA_REF: VIS_REASON_MEDIA_MISSING,
+                REASON_CACHE_UNAVAILABLE: VIS_REASON_CACHE_UNAVAILABLE,
+                REASON_MANIFEST_NOT_FOUND: VIS_REASON_CACHE_UNAVAILABLE,
+                REASON_NO_MATCHING_ITEM: VIS_REASON_MEDIA_MISSING,
+                REASON_MEDIA_FILE_CORRUPT: VIS_REASON_MEDIA_MISSING,
+            }
+            vis_reason = reason_map.get(
+                media_availability.reason,
+                VIS_REASON_CACHE_UNAVAILABLE,
+            )
+            return False, vis_reason
+
     return True, VIS_REASON_CREATIVE_VALID
 
 
@@ -429,12 +474,14 @@ SCREENSAVER_EVENT_VISIBLE = "screen_visible"
 SCREENSAVER_EVENT_HIDDEN = "screen_hidden"
 SCREENSAVER_EVENT_PLAYBACK_STARTED = "playback_started"
 SCREENSAVER_EVENT_PLAYBACK_COMPLETED = "playback_completed"
+SCREENSAVER_EVENT_BLOCKED = "blocked"
 
 SCREENSAVER_EVENT_TYPES = frozenset({
     SCREENSAVER_EVENT_VISIBLE,
     SCREENSAVER_EVENT_HIDDEN,
     SCREENSAVER_EVENT_PLAYBACK_STARTED,
     SCREENSAVER_EVENT_PLAYBACK_COMPLETED,
+    SCREENSAVER_EVENT_BLOCKED,
 })
 
 
@@ -456,6 +503,7 @@ class ScreensaverPoPDraft:
     duration_ms: int = 0
     started_at_utc: str = ""   # ISO8601
     ended_at_utc: str = ""     # ISO8601
+    media_available: bool = False  # True if sidecar cache had media
 
     def __post_init__(self):
         if self.event_type not in SCREENSAVER_EVENT_TYPES:
@@ -471,6 +519,7 @@ class ScreensaverPoPDraft:
             "kill_switch_active": self.kill_switch_active,
             "reason": self.reason,
             "duration_ms": self.duration_ms,
+            "media_available": self.media_available,
         }
         if self.started_at_utc:
             d["started_at_utc"] = self.started_at_utc
@@ -489,6 +538,7 @@ def build_screensaver_pop_draft(
     duration_ms: int = 0,
     started_at_utc: str = "",
     ended_at_utc: str = "",
+    media_available: bool = False,
 ) -> ScreensaverPoPDraft:
     """Build a safe screensaver PoP draft event.
 
@@ -498,7 +548,8 @@ def build_screensaver_pop_draft(
 
     Args:
         creative: ScreensaverCreativePayload shown/hidden.
-        event_type: screen_visible / screen_hidden / playback_started / playback_completed.
+        event_type: screen_visible / screen_hidden / playback_started
+                   / playback_completed / blocked.
         visible: Whether creative was actually shown.
         state: KSO state at event time.
         kill_switch_active: Kill-switch status.
@@ -506,6 +557,7 @@ def build_screensaver_pop_draft(
         duration_ms: Actual display duration (0 if hidden).
         started_at_utc: ISO8601 start timestamp.
         ended_at_utc: ISO8601 end timestamp.
+        media_available: Whether sidecar cache had media file ready.
 
     Returns:
         ScreensaverPoPDraft (always safe, never raises).
@@ -525,6 +577,7 @@ def build_screensaver_pop_draft(
         duration_ms=duration_ms,
         started_at_utc=started_at_utc,
         ended_at_utc=ended_at_utc,
+        media_available=media_available,
     )
 
 

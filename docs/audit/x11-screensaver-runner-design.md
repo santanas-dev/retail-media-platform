@@ -205,6 +205,7 @@ ScreensaverRunResult содержит ТОЛЬКО safe поля:
 
 | Дата | Событие |
 |---|---|
+| 2026-06-24 | 38.2.2 — Sidecar media cache bridge: ScreensaverMediaAvailability, media gate in visibility, PoP media_available flag, +59 tests |
 | 2026-06-24 | 38.2.1 — Preserve backend creative_code: +creative_code field in PlayerPlaylistItem, is_synthetic flag, +17 tests |
 | 2026-06-24 | 38.2 — Connect X11 screensaver runner to manifest creatives: ScreensaverCreativePayload, adapter, validator, visibility, PoP, +98 tests |
 | 2026-06-24 | 38.1.11.1 — Fix post-rollback UKM5 focus restore: +restore_focus(), +focus fields in result, +14 tests |
