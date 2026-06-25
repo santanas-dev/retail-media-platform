@@ -26,6 +26,8 @@ from app.domains.manifests.models import GeneratedManifest
 from app.domains.scheduling.models import KsoPlacement
 from app.domains.hierarchy.models import KsoDevice
 from app.domains.campaigns.models import CampaignCreative
+from app.domains.media.models import Creative  # FK resolution for PoP event commit
+from app.domains.identity.models import User  # FK resolution for GeneratedManifest relationships
 
 
 def _now_iso() -> str:
