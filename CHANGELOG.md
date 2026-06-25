@@ -7,6 +7,15 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [Unreleased] — 38.10 Phase B Application Preflight
+
+- `test-kso-sidecar-config-application-preflight.md` — controlled Phase B procedure
+- 8-step commands (templates), safety gates (G1–G5), stop criteria (S1–S6)
+- Verification gates (V1–V6), rollback (partial/full), запрещённые действия
+- All commands with placeholders only — no real values
+
+---
+
 ## [v0.6.0] — Sidecar Config Readiness (Phase B Preparation)
 
 **Tag:** `v0.6.0-sidecar-config-readiness` (2026-06-26)

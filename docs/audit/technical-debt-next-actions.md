@@ -171,5 +171,14 @@ Config template `agent_config.json.example`, `.gitignore` protection.
 Doc: `test-kso-sidecar-config-preparation.md`.
 
 ### Next actions (после 38.9)
-- 38.10: Phase D Manual Approval Gate
+- 38.10: Controlled Phase B preflight ✅
+
+## 38.10 — Controlled Phase B Sidecar Config Application Preflight (2026-06-26)
+
+Preflight doc: `test-kso-sidecar-config-application-preflight.md`:
+8-step procedure, safety gates, stop criteria, verification gates, rollback.
+Без реальных значений — только placeholders.
+
+### Next actions (после 38.10)
+- 38.11: Phase D Manual Approval Gate
 - Controlled one-KSO E2E dry run (после approval)

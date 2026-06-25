@@ -206,3 +206,11 @@ Backend readiness always returns `sidecar_config_ready: false` because:
 | 2 | Secret не записан на КСО | B |
 | 3 | Media cache пуст | C |
 | 4 | Phase D manual approval | D |
+
+## 9. Controlled Application Preflight
+
+When Phase B is approved for execution, follow the controlled procedure in:
+
+→ **`test-kso-sidecar-config-application-preflight.md`**
+
+Includes: step-by-step commands (templates), safety gates, stop criteria, rollback, запрещённые действия.

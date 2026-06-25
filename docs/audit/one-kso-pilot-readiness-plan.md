@@ -923,3 +923,10 @@ Config template `agent_config.json.example` с плейсхолдерами. `.g
 `local_config.validate_no_placeholders()` — dry-check без вывода значений. `config_status()` — enhanced с `has_placeholders`.
 `sidecar_config_ready` остаётся `false` (backend не может проверить локальный config).
 Doc: `test-kso-sidecar-config-preparation.md` — анализ mechanisms, operator checklist.
+
+## 38.10 — Controlled Phase B Sidecar Config Application Preflight (2026-06-26)
+
+Preflight doc: `test-kso-sidecar-config-application-preflight.md` — controlled procedure:
+step-by-step commands (templates), safety gates (G1–G5), stop criteria (S1–S6),
+verification gates (V1–V6), rollback (partial/full), запрещённые действия.
+Без реальных значений — только `<TEST_BACKEND_BASE_URL>`, `<TEST_KSO_DEVICE_CODE>`, `<AGENT_ROOT>`.
