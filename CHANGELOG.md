@@ -7,7 +7,10 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [Unreleased] — 38.9 Phase B Sidecar Config Preparation
+## [v0.6.0] — Sidecar Config Readiness (Phase B Preparation)
+
+**Tag:** `v0.6.0-sidecar-config-readiness` (2026-06-26)
+**Commit:** (see tag)
 
 ### Sidecar Config
 

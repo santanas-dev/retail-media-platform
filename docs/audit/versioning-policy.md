@@ -89,7 +89,8 @@ If needed, propose a list first — do **not** create retrospective tags without
 
 | Tag | Commit | Date | Description |
 |---|---|---|---|
-| `v0.5.0-test-kso-phase-a-readiness` | `c6ad526` | 2026-06-26 | Backend-only Phase A readiness verified |
+| `v0.6.0-sidecar-config-readiness` | (current) | 2026-06-26 | Sidecar config template, validation, gitignore |
+| `v0.5.0-test-kso-phase-a-readiness` | `87ab0be` | 2026-06-26 | Backend-only Phase A readiness verified |
 
 ---
 
@@ -97,7 +98,6 @@ If needed, propose a list first — do **not** create retrospective tags without
 
 | Tag | Expected content |
 |---|---|
-| `v0.6.0-sidecar-config-readiness` | Sidecar config filled + verified on KSO (Phase B complete) |
 | `v0.7.0-one-kso-e2e-dry-run` | Controlled one-KSO E2E dry run (Phase C+D, non-production) |
 | `v0.8.0-pilot-readiness` | All prerequisites met — pilot rollout gate open |
 | `v1.0.0-kso-production-release` | First production KSO release |
