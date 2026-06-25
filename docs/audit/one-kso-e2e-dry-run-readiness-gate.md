@@ -487,3 +487,33 @@ Placeholders: `<TEST_BACKEND_BASE_URL>`, `<TEST_KSO_DEVICE_CODE>`, `<DEVICE_SECR
 - Backend: `required_operator_steps` — только safe action names
 - Portal: guidance hints без destructive buttons
 - Phase D: ⛔ blocked
+
+## 15. Step 38.8 — Backend-Only Phase A Live Readiness Check (2026-06-26)
+
+### 15.1 Live Execution
+
+Все 4 эндпоинта вызваны против живого backend (`<CONFIGURED>`, localhost dev):
+- `/health` → `{"status":"ok","db":"connected"}`
+- `POST /api/test-kso/seed` → идемпотентен, `was_already_seeded: true`
+- `GET /api/test-kso/readiness?device_code=test-dev-seed` → `overall_ready: false`
+- Portal `/readiness` → 8 секций + Phase D Gate
+
+### 15.2 Исправление контракта readiness
+
+**Проблема:** `overall_ready` возвращал `true`, игнорируя `sidecar_config_ready: false` и `media_cache_ready: false`.
+
+**Исправлено:** `overall_ready` теперь требует **оба** `sidecar_config_ready=true` AND `media_cache_ready=true`.
+
+### 15.3 Результат
+
+Backend prerequisites (device, campaign, creative, placement, manifest, creativeCode, mediaRef, publication) — ✅ все зелёные.
+
+Но `overall_ready: false` из-за:
+- `sidecar_config_ready: false` (4 обязательных поля не заполнены)
+- `media_cache_ready: false` (1 файл не закеширован)
+
+Live blockers: sidecar config (Phase B), media cache (Phase C), manual approval (Phase D).
+
+### 15.4 Result Artifact
+
+`docs/audit/test-kso-phase-a-backend-readiness-result.md` — полный отчёт, безопасный (URL не указан, secrets отсутствуют).

@@ -150,5 +150,16 @@ Backend: `required_operator_steps` (12 шагов). Portal: Operator Preflight g
 Placeholders без реальных URL/secrets.
 
 ### Next actions (после 38.7)
-- Full regression + commit
-- 38.8: Phase D Manual Approval Gate
+- Full regression + commit ✅
+- 38.8: Backend-Only Phase A Live Readiness Check ✅
+
+## 38.8 — Backend-Only Phase A Live Readiness Check (2026-06-26)
+
+Live HTTP: health ✅, seed ✅, readiness ✅, portal ✅.
+Исправлен контракт `overall_ready` — теперь честно требует sidecar + media.
+Результат: `overall_ready: false`, backend prerequisites зелёные.
+Result artifact: `test-kso-phase-a-backend-readiness-result.md`.
+
+### Next actions (после 38.8)
+- 38.9: Phase D Manual Approval Gate
+- Controlled one-KSO E2E dry run (после approval)

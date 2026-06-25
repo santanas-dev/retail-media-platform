@@ -5,7 +5,7 @@ routers or templates. Timeouts, safe errors, and credential isolation
 are enforced here.
 
 Environment:
-    PORTAL_BACKEND_API_URL — backend base URL (default: http://localhost:8001)
+    PORTAL_BACKEND_API_URL — backend base URL (default: http://localhost:8421)
 """
 
 import os
@@ -20,7 +20,7 @@ __all__ = [
     "get_backend_url",
 ]
 
-_BACKEND_URL = os.getenv("PORTAL_BACKEND_API_URL", "http://localhost:8001")
+_BACKEND_URL = os.getenv("PORTAL_BACKEND_API_URL", "http://localhost:8421")
 # Strip trailing slash
 _BACKEND_URL = _BACKEND_URL.rstrip("/")
 

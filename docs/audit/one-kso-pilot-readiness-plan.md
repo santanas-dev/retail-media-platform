@@ -908,3 +908,11 @@ Docs: `test-kso-live-config-checklist.md`, обновлены readiness-gate/tec
 Runbook `test-kso-live-backend-seed-runbook.md`: Phase A (backend seed), Phase B (sidecar config),
 Phase C (dry preflight). Backend: `required_operator_steps`. Portal: Operator Preflight guidance.
 Placeholders `<TEST_...>` без реальных значений.
+
+## 38.8 — Backend-Only Phase A Live Readiness Check (2026-06-26)
+
+Live HTTP-вызовы: health ✅, seed ✅, readiness ✅, portal ✅.
+Исправлен контракт `overall_ready` — теперь требует `sidecar_config_ready` + `media_cache_ready`.
+Результат: `overall_ready: false` (sidecar не настроен, media не закеширован).
+Backend prerequisites все зелёные. Live blockers: sidecar config (Phase B), media cache (Phase C), approval (Phase D).
+Result artifact: `test-kso-phase-a-backend-readiness-result.md`.

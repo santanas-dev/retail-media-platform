@@ -307,6 +307,8 @@ async def build_readiness_summary(
         status.creative_registered and status.creative_status == "active",
         status.creative_ready,
         status.campaign_creative_linked,
+        status.sidecar_config_ready,
+        status.media_cache_ready,
     ])
 
     if not status.overall_ready:

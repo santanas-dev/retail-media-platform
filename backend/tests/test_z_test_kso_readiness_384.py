@@ -211,15 +211,15 @@ class TestReadinessEndpoint(unittest.TestCase):
         _run_async(_init_db())
         _run_async(_seed_full_chain())
 
-    def test_01_readiness_all_ready(self):
-        """Full chain → overall_ready=True."""
+    def test_01_readiness_backend_prerequisites_ready(self):
+        """Full chain → backend prerequisites True, overall False (sidecar+media missing)."""
         async def _do():
             db = TestSession()
             async with db as session:
                 from app.domains.test_kso_readiness.service import build_readiness_summary
                 return await build_readiness_summary(session, "test-dev-readiness")
         status = _run_async(_do())
-        self.assertTrue(status.overall_ready)
+        # Backend prerequisites all green
         self.assertTrue(status.device_registered)
         self.assertTrue(status.manifest_published)
         self.assertTrue(status.manifest_has_creative_code)
@@ -227,6 +227,10 @@ class TestReadinessEndpoint(unittest.TestCase):
         self.assertTrue(status.campaign_registered)
         self.assertTrue(status.placement_registered)
         self.assertTrue(status.creative_registered)
+        # But overall is False — sidecar config + media cache not ready
+        self.assertFalse(status.overall_ready)
+        self.assertFalse(status.sidecar_config_ready)
+        self.assertFalse(status.media_cache_ready)
 
     def test_02_readiness_no_forbidden_keys(self):
         """Readiness response has no forbidden keys."""
@@ -623,7 +627,7 @@ class TestSeedService(unittest.TestCase):
                 from app.domains.test_kso_readiness.service import build_readiness_summary
                 return await build_readiness_summary(session, "seed-dev-06")
         status = _run_async(_do())
-        self.assertTrue(status.overall_ready)
+        # Backend chain green
         self.assertTrue(status.device_registered)
         self.assertTrue(status.manifest_published)
         self.assertTrue(status.manifest_has_creative_code)
@@ -634,6 +638,8 @@ class TestSeedService(unittest.TestCase):
         self.assertTrue(status.campaign_creative_linked)
         self.assertTrue(status.placement_registered)
         self.assertTrue(status.publication_exists)
+        # Overall False — sidecar config + media cache not ready in test DB
+        self.assertFalse(status.overall_ready)
 
     def test_07_seed_summary_manifest_fields(self):
         """Seed summary includes manifest item count and creativeCode/mediaRef."""
