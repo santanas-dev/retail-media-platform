@@ -8,10 +8,11 @@ Creates a full one-KSO test chain:
 All entities are synthetic. No real device, no secrets, no URLs.
 
 Idempotent: repeated calls with same codes do not create duplicates.
+Uses INSERT ... ON CONFLICT DO NOTHING + fetch-IDs pattern for Postgres.
 """
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
 from sqlalchemy import text as sa_text
@@ -25,6 +26,19 @@ SYNTHETIC_USER = "synthetic_seed_user"
 SYNTHETIC_BRANCH = "syn-branch"
 SYNTHETIC_CLUSTER = "syn-cluster"
 SYNTHETIC_STORE = "syn-store"
+SYNTHETIC_ADVERTISER = "Synthetic Advertiser"
+SYNTHETIC_ORDER_NUMBER = "SYN-00001"
+
+
+async def _insert_get_id(db, insert_sql, select_sql, params, id_param="id"):
+    """INSERT ON CONFLICT DO NOTHING, then SELECT the real ID.
+
+    Returns the actual ID (newly inserted or pre-existing).
+    """
+    await db.execute(sa_text(insert_sql), params)
+    result = await db.execute(sa_text(select_sql), params)
+    row = result.fetchone()
+    return row[0] if row else params[id_param]
 
 
 async def seed_test_kso_chain(
@@ -35,61 +49,81 @@ async def seed_test_kso_chain(
     placement_code: str = "test-place-seed",
     manifest_code: str = "test-manifest-seed",
 ) -> SeedSummary:
-    """Seed a complete synthetic one-KSO test chain. Idempotent.
-
-    Returns a safe SeedSummary — no UUIDs, no secrets, no paths.
-    """
+    """Seed a complete synthetic one-KSO test chain. Idempotent."""
     summary = SeedSummary()
     now = datetime.now(timezone.utc)
-    uid = uuid4().hex
-    branch_id = uuid4().hex
-    cluster_id = uuid4().hex
-    store_id = uuid4().hex
-    device_id = uuid4().hex
-    campaign_id = uuid4().hex
-    creative_id = uuid4().hex
-    cc_id = uuid4().hex
-    placement_id = uuid4().hex
-    manifest_id = uuid4().hex
-
     parts: list[str] = []
 
     # ── 1. User ──────────────────────────────────────────────────────
-    await db.execute(sa_text(
-        "INSERT OR IGNORE INTO users (id, username, password_hash, display_name) "
-        "VALUES (:id, :un, :ph, :dn)"
-    ), {"id": uid, "un": SYNTHETIC_USER, "ph": "synthetic_hash_no_real_password",
-        "dn": "Synthetic Seed User"})
+    uid = await _insert_get_id(
+        db,
+        "INSERT INTO users (id, username, password_hash, display_name) "
+        "VALUES (:id, :un, :ph, :dn) ON CONFLICT (username) DO NOTHING",
+        "SELECT id FROM users WHERE username = :un",
+        {"id": uuid4().hex, "un": SYNTHETIC_USER,
+         "ph": "synthetic_hash_no_real_password", "dn": "Synthetic Seed User"},
+    )
 
-    # ── 2. Branch → Cluster → Store ──────────────────────────────────
-    await db.execute(sa_text(
-        "INSERT OR IGNORE INTO branches (id, name, code) "
-        "VALUES (:id, :n, :c)"
-    ), {"id": branch_id, "n": "Synthetic Branch", "c": SYNTHETIC_BRANCH})
+    # ── 2. Branch ────────────────────────────────────────────────────
+    branch_id = await _insert_get_id(
+        db,
+        "INSERT INTO branches (id, name, code) "
+        "VALUES (:id, 'Synthetic Branch', :c) ON CONFLICT (code) DO NOTHING",
+        "SELECT id FROM branches WHERE code = :c",
+        {"id": uuid4().hex, "c": SYNTHETIC_BRANCH},
+    )
 
-    await db.execute(sa_text(
-        "INSERT OR IGNORE INTO clusters (id, name, code, branch_id) "
-        "VALUES (:id, :n, :c, :bid)"
-    ), {"id": cluster_id, "n": "Synthetic Cluster", "c": SYNTHETIC_CLUSTER,
-        "bid": branch_id})
+    # ── 3. Cluster ───────────────────────────────────────────────────
+    cluster_id = await _insert_get_id(
+        db,
+        "INSERT INTO clusters (id, name, code, branch_id) "
+        "VALUES (:id, 'Synthetic Cluster', :c, :bid) "
+        "ON CONFLICT (branch_id, code) DO NOTHING",
+        "SELECT id FROM clusters WHERE branch_id = :bid AND code = :c",
+        {"id": uuid4().hex, "c": SYNTHETIC_CLUSTER, "bid": branch_id},
+    )
 
-    await db.execute(sa_text(
-        "INSERT OR IGNORE INTO stores (id, name, code, cluster_id) "
-        "VALUES (:id, :n, :c, :cid)"
-    ), {"id": store_id, "n": "Synthetic Store", "c": SYNTHETIC_STORE,
-        "cid": cluster_id})
+    # ── 4. Store ─────────────────────────────────────────────────────
+    store_id = await _insert_get_id(
+        db,
+        "INSERT INTO stores (id, name, code, cluster_id) "
+        "VALUES (:id, 'Synthetic Store', :c, :cid) "
+        "ON CONFLICT (code) DO NOTHING",
+        "SELECT id FROM stores WHERE code = :c",
+        {"id": uuid4().hex, "c": SYNTHETIC_STORE, "cid": cluster_id},
+    )
 
-    # ── 3. Device ────────────────────────────────────────────────────
+    # ── 5. Advertiser ────────────────────────────────────────────────
+    advertiser_id = await _insert_get_id(
+        db,
+        "INSERT INTO advertisers (id, name, status) "
+        "VALUES (:id, :n, 'active') ON CONFLICT DO NOTHING",
+        "SELECT id FROM advertisers WHERE name = :n",
+        {"id": uuid4().hex, "n": SYNTHETIC_ADVERTISER},
+    )
+
+    # ── 6. Order ─────────────────────────────────────────────────────
+    order_id = await _insert_get_id(
+        db,
+        "INSERT INTO orders (id, advertiser_id, name, number, status, currency) "
+        "VALUES (:id, :aid, 'Synthetic Order', :num, 'approved', 'RUB') "
+        "ON CONFLICT DO NOTHING",
+        "SELECT id FROM orders WHERE advertiser_id = :aid AND number = :num",
+        {"id": uuid4().hex, "aid": advertiser_id, "num": SYNTHETIC_ORDER_NUMBER},
+    )
+
+    # ── 7. Device ────────────────────────────────────────────────────
     result = await db.execute(sa_text(
         "SELECT id FROM kso_devices WHERE device_code = :dc"
     ), {"dc": device_code})
-    existing_device = result.scalar_one_or_none()
+    existing = result.scalar_one_or_none()
 
-    if existing_device:
+    if existing:
         summary.was_already_seeded = True
-        device_id = existing_device
+        device_id = existing
         parts.append(f"Device '{device_code}' already exists (idempotent)")
     else:
+        device_id = uuid4().hex
         await db.execute(sa_text(
             "INSERT INTO kso_devices "
             "(id, store_id, device_code, display_name, status, "
@@ -102,41 +136,43 @@ async def seed_test_kso_chain(
     summary.device_seeded = True
     summary.device_code = device_code
 
-    # ── 4. Campaign ──────────────────────────────────────────────────
+    # ── 8. Campaign ──────────────────────────────────────────────────
     result = await db.execute(sa_text(
         "SELECT id FROM campaigns WHERE campaign_code = :cc"
     ), {"cc": campaign_code})
-    existing_camp = result.scalar_one_or_none()
+    existing = result.scalar_one_or_none()
 
-    if existing_camp:
+    if existing:
         summary.was_already_seeded = True
-        campaign_id = existing_camp
+        campaign_id = existing
         parts.append(f"Campaign '{campaign_code}' already exists (idempotent)")
     else:
+        campaign_id = uuid4().hex
         await db.execute(sa_text(
             "INSERT INTO campaigns "
-            "(id, order_id, campaign_code, name, status, "
+            "(id, order_id, advertiser_id, campaign_code, name, status, "
             " planned_start_date, planned_end_date, created_by) "
-            "VALUES (:id, :oid, :cc, :n, 'active', :psd, :ped, :cb)"
-        ), {"id": campaign_id, "oid": uuid4().hex, "cc": campaign_code,
-            "n": "Synthetic Campaign", "psd": "2026-01-01", "ped": "2026-12-31",
-            "cb": uid})
+            "VALUES (:id, :oid, :aid, :cc, :n, 'active', :psd, :ped, :cb)"
+        ), {"id": campaign_id, "oid": order_id, "aid": advertiser_id,
+            "cc": campaign_code, "n": "Synthetic Campaign",
+            "psd": date(2026, 1, 1), "ped": date(2026, 12, 31), "cb": uid})
         parts.append(f"Campaign '{campaign_code}' created")
 
     summary.campaign_seeded = True
     summary.campaign_code = campaign_code
 
-    # ── 5. Creative ──────────────────────────────────────────────────
+    # ── 9. Creative (+ version) ──────────────────────────────────────
     result = await db.execute(sa_text(
         "SELECT id FROM creatives WHERE creative_code = :cc"
     ), {"cc": creative_code})
-    existing_cr = result.scalar_one_or_none()
+    existing = result.scalar_one_or_none()
 
-    if existing_cr:
+    if existing:
         summary.was_already_seeded = True
-        creative_id = existing_cr
+        creative_id = existing
         parts.append(f"Creative '{creative_code}' already exists (idempotent)")
     else:
+        creative_id = uuid4().hex
         await db.execute(sa_text(
             "INSERT INTO creatives "
             "(id, creative_code, name, status, created_by) "
@@ -145,50 +181,47 @@ async def seed_test_kso_chain(
             "n": "Synthetic Creative", "cb": uid})
         parts.append(f"Creative '{creative_code}' created")
 
-        # Also create a creative_version row so creative_ready check works
-        cv_id = uuid4().hex
+        # Also create creative_versions row for creative_ready check
         await db.execute(sa_text(
-            "INSERT OR IGNORE INTO creative_versions "
-            "(id, creative_id, version, original_filename, file_path, "
-            " mime_type, file_size, sha256, width, height, "
-            " duration_seconds, uploaded_by, status) "
+            "INSERT INTO creative_versions (id, creative_id, version, "
+            " original_filename, file_path, mime_type, file_size, sha256, "
+            " width, height, duration_seconds, uploaded_by, status) "
             "VALUES (:id, :cid, 1, 'synthetic_test.png', 'synthetic/test.png', "
             " 'image/png', 1024, 'synthetic_sha256_no_real_hash', 768, 1024, "
-            " 30.0, :ub, 'uploaded')"
-        ), {"id": cv_id, "cid": creative_id, "ub": uid})
+            " 30.0, :ub, 'uploaded') "
+            "ON CONFLICT (creative_id, version) DO NOTHING"
+        ), {"id": uuid4().hex, "cid": creative_id, "ub": uid})
 
     summary.creative_seeded = True
     summary.creative_code = creative_code
 
-    # ── 6. CampaignCreative link ─────────────────────────────────────
+    # ── 10. CampaignCreative link ────────────────────────────────────
     result = await db.execute(sa_text(
         "SELECT id FROM campaign_creatives "
         "WHERE campaign_id = :cid AND creative_code = :cc"
     ), {"cid": campaign_id, "cc": creative_code})
-    existing_cc = result.scalar_one_or_none()
+    existing = result.scalar_one_or_none()
 
-    if existing_cc:
-        cc_id = existing_cc
+    if existing:
         parts.append("CampaignCreative link already exists (idempotent)")
     else:
         await db.execute(sa_text(
             "INSERT INTO campaign_creatives "
             "(id, campaign_id, creative_code, slot_order) "
             "VALUES (:id, :cid, :cc, 0)"
-        ), {"id": cc_id, "cid": campaign_id, "cc": creative_code})
+        ), {"id": uuid4().hex, "cid": campaign_id, "cc": creative_code})
         parts.append("CampaignCreative link created")
 
     summary.campaign_creative_linked = True
 
-    # ── 7. Placement ─────────────────────────────────────────────────
+    # ── 11. Placement ────────────────────────────────────────────────
     result = await db.execute(sa_text(
         "SELECT id FROM kso_placements WHERE placement_code = :pc"
     ), {"pc": placement_code})
-    existing_pl = result.scalar_one_or_none()
+    existing = result.scalar_one_or_none()
 
-    if existing_pl:
+    if existing:
         summary.was_already_seeded = True
-        placement_id = existing_pl
         parts.append(f"Placement '{placement_code}' already exists (idempotent)")
     else:
         await db.execute(sa_text(
@@ -196,7 +229,7 @@ async def seed_test_kso_chain(
             "(id, placement_code, campaign_code, creative_code, device_code, "
             " starts_at, ends_at, status, created_by) "
             "VALUES (:id, :pc, :cc, :cr, :dc, :sa, :ea, 'active', :cb)"
-        ), {"id": placement_id, "pc": placement_code,
+        ), {"id": uuid4().hex, "pc": placement_code,
             "cc": campaign_code, "cr": creative_code, "dc": device_code,
             "sa": now - timedelta(days=1), "ea": now + timedelta(days=365),
             "cb": uid})
@@ -205,47 +238,38 @@ async def seed_test_kso_chain(
     summary.placement_seeded = True
     summary.placement_code = placement_code
 
-    # ── 8. Manifest ──────────────────────────────────────────────────
+    # ── 12. Manifest ─────────────────────────────────────────────────
     result = await db.execute(sa_text(
-        "SELECT id FROM generated_manifests WHERE manifest_code = :mc"
+        "SELECT id, status, item_count, manifest_body_json "
+        "FROM generated_manifests WHERE manifest_code = :mc"
     ), {"mc": manifest_code})
-    existing_mf = result.scalar_one_or_none()
+    row = result.fetchone()
 
-    if existing_mf:
+    if row:
         summary.was_already_seeded = True
-        manifest_id = existing_mf
         parts.append(f"Manifest '{manifest_code}' already exists (idempotent)")
-        # Check if already published
-        result2 = await db.execute(sa_text(
-            "SELECT status, item_count, manifest_body_json "
-            "FROM generated_manifests WHERE manifest_code = :mc"
-        ), {"mc": manifest_code})
-        row = result2.fetchone()
-        if row:
-            summary.manifest_published = (row[0] == "published")
-            summary.manifest_item_count = row[1] or 0
-            body = json.loads(row[2] or "{}")
-            items = body.get("items", [])
-            if isinstance(items, list) and items:
-                for item in items:
-                    if isinstance(item, dict):
-                        if item.get("creativeCode"):
-                            summary.manifest_has_creative_code = True
-                        if item.get("mediaRef"):
-                            summary.manifest_has_media_ref = True
+        summary.manifest_published = (row[1] == "published")
+        summary.manifest_item_count = row[2] or 0
+        body = row[3] if isinstance(row[3], dict) else json.loads(row[3] or "{}")
+        items = body.get("items", [])
+        if isinstance(items, list):
+            for item in items:
+                if isinstance(item, dict):
+                    if item.get("creativeCode"):
+                        summary.manifest_has_creative_code = True
+                    if item.get("mediaRef"):
+                        summary.manifest_has_media_ref = True
     else:
         manifest_body = {
             "manifestVersion": 1,
             "deviceCode": device_code,
             "generatedAt": now.isoformat(),
-            "items": [
-                {
-                    "slotOrder": 0,
-                    "contentType": "image/png",
-                    "creativeCode": creative_code,
-                    "mediaRef": "media/current/slot-000",
-                },
-            ],
+            "items": [{
+                "slotOrder": 0,
+                "contentType": "image/png",
+                "creativeCode": creative_code,
+                "mediaRef": "media/current/slot-000",
+            }],
         }
         await db.execute(sa_text(
             "INSERT INTO generated_manifests "
@@ -255,7 +279,7 @@ async def seed_test_kso_chain(
             " generated_at, published_at) "
             "VALUES (:id, :mc, :dc, :pc, :cc, 'published', 1, :mb, 1, "
             " 'media/current/slot-NNN', :gb, :pb, :ga, :pa)"
-        ), {"id": manifest_id, "mc": manifest_code,
+        ), {"id": uuid4().hex, "mc": manifest_code,
             "dc": device_code, "pc": placement_code, "cc": campaign_code,
             "mb": json.dumps(manifest_body), "gb": uid, "pb": uid,
             "ga": now, "pa": now})
@@ -272,9 +296,7 @@ async def seed_test_kso_chain(
     await db.commit()
 
     summary.seeded_at = now
-    if summary.was_already_seeded:
-        summary.summary = "Chain already existed (idempotent): " + "; ".join(parts)
-    else:
-        summary.summary = "Chain seeded: " + "; ".join(parts)
+    prefix = "Chain already existed (idempotent): " if summary.was_already_seeded else "Chain seeded: "
+    summary.summary = prefix + "; ".join(parts)
 
     return summary
