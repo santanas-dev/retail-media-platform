@@ -111,3 +111,32 @@ pytest backend/tests apps/portal-web/tests apps/kso_state_adapter/tests apps/kso
 | KSO sidecar | 1838 passed ✅ |
 | Infra | 227 passed ✅ |
 | **Core green** | **4918 passed, 0 failures** |
+
+---
+
+## 6. D4 Discovery — PoP Ingest FK Resolution Bug (FIXED)
+
+**Date:** 2026-06-25 (D4)
+**Commit:** `8b367eb`
+
+**Symptom:** `POST /api/device-gateway/kso/{device_code}/pop` returns HTTP 500.
+`NoReferencedTableError: Foreign key associated with column 'kso_proof_of_play_events.creative_code' could not find table 'creatives'`
+
+**Root cause:** `KsoProofOfPlayEvent` model defines FKs to `creatives.creative_code` and `users.id` tables.
+`GeneratedManifest` has `relationship("User")` FK references. The PoP `service.py` imported
+`CampaignCreative` but NOT `Creative` or `User` models. SQLAlchemy's mapper couldn't resolve
+FK targets at commit time — fails only against real PostgreSQL (not SQLite/mock).
+
+**Why wasn't caught earlier?** All PoP unit/integration tests use mock DB sessions or SQLite.
+No integration test exercised the full FK chain against a live PostgreSQL instance.
+
+**Related to b080025 (D3)?** No — D3 didn't touch PoP code.
+**Related to D4?** Directly blocks D4 — PoP upload is the D4 task.
+**Blocks D4?** YES — fixed in commit `8b367eb`.
+
+**Fix:** Added `from app.domains.media.models import Creative` and
+`from app.domains.identity.models import User` to `service.py` imports.
+No business logic changed. PoP tests (33 passed) unaffected.
+
+**Verification:** D4 synthetic PoP event successfully ingested against live PostgreSQL backend.
+HTTP 200, status=accepted, event code written, creative_code=test-creative-seed resolved.
