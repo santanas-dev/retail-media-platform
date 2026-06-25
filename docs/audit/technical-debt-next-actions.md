@@ -37,8 +37,9 @@
 | 19 | **38.1.11 — HW Scanner E2E ⚠️** | **INCONCLUSIVE** — scanner not available. Focus-loss defect found. Postponed until scanner arrives. |
 | 20 | **38.1.11.1 — Fix Post-Rollback Focus Restore ✅** | `restore_focus()` + focus fields + `focus_warning` stop reason + 14 tests. |
 | 21 | **38.2 — Connect X11 Runner to Manifest Creatives ✅** | `screensaver_creative.py`: ScreensaverCreativePayload, adapter, validator, visibility, PoP + 98 tests. |
-|| 26 | **38.2.5 — Backend Ingest + Portal ✅** | 18 backend service tests, creative_code ingest, idempotency, list filters, safety audit. |
+|| 28 | **38.2.7 — Full Dev E2E ✅** | 19 tests: player→JSONL→sidecar classify→payload→backend ingest→report. 4855/4855 green. |
 || 27 | **38.2.6 — Backend Integration E2E ✅** | 32 SQLite in-memory tests, synthetic seed (10 tables), real ingest+list with FK integrity. 4836/4836 green. |
+|| 26 | **38.2.5 — Backend Ingest + Portal ✅** | 18 backend service tests, creative_code ingest, idempotency, list filters, safety audit. |
 | 25 | **38.2.4 — Dev E2E PoP Validation ✅** | 9-step E2E chain, 31 tests, backend/portal compat, security audit, synthetic data only. |
 | 24 | **38.2.3 — PoP Event Queue Bridge ✅** | `screensaver_pop_bridge.py`, ScreensaverPoPDraft→JSONL adapter, creative_code chain, idempotency, +44 tests. |
 | 23 | **38.2.2 — Sidecar Media Cache Bridge ✅** | `screensaver_media_availability.py`, media gate in visibility, PoP media_available, SCREENSAVER_EVENT_BLOCKED, +59 tests. |

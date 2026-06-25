@@ -118,7 +118,21 @@ Full backend ingest with real DB is a separate integration test step.
 - ❌ No receipt/fiscal/customer data in any output
 - ✅ All test data is synthetic — no real manifest IDs, no real device codes
 
-### 38.2.6 — Real Backend Integration E2E with Test DB (2026-06-24)
+### 38.2.7 — Full Dev E2E: Player → Sidecar → Backend (2026-06-24)
+
+✅ **Full cross-component dev E2E chain validated (19 tests).**
+- Player: ScreensaverPoPDraft → build_screensaver_pop_record() → JSONL record
+- JSONL: write to disk → read back — creative_code preserved
+- Sidecar: classify_pop_event() → CLASS_ELIGIBLE (playback_completed + idle + media + manifest)
+- Sidecar: PopPayloadEvent with creative_code from JSONL record
+- Backend: ingest_kso_pop() → accepted with creative_code
+- Backend: list_kso_pop_events(creative_code=…) → event found
+- 6-stage creative_code trace: draft → JSONL → classify → payload → ingest → report ✅
+- 7 security surfaces audited: ScreensaverPopRecordResult, PopWriteResult, PopPickupScanResult, PopPayloadBuildResult, KsoPoPIngestResponse, KsoPoPListResponse, full JSONL record — all clean
+- Full regression: 4855/4855 (0 errors, 0 failures)
+- КСО не менялась. Physical run/X11/Chromium не запускались.
+
+### 38.2.6 — Backend Integration E2E with Test DB (2026-06-24)
 
 - Self-contained SQLite in-memory integration test (no PostgreSQL, no mock)
 - Synthetic seed data: Branch → Cluster → Store → KsoDevice → Campaign → Creative → CampaignCreative → KsoPlacement → GeneratedManifest

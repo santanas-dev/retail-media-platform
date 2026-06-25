@@ -753,6 +753,17 @@ creative → campaign → placement → approval → manifest → publish → si
 - +98 тестов: payload, adapter, validation (forbidden patterns), visibility, PoP safety
 - КСО не менялась. Physical run/X11/Chromium не запускались.
 
+### 38.2.7 — Full Dev E2E: Player → Sidecar → Backend (2026-06-24)
+
+✅ **Full cross-component dev E2E chain validated.**
+- Player: ScreensaverPoPDraft → JSONL record through screensaver_pop_bridge
+- JSONL: write → read back, creative_code preserved
+- Sidecar: classify_pop_event → CLASS_ELIGIBLE; PopPayloadEvent with creative_code
+- Backend: ingest_kso_pop → accepted; list_kso_pop_events → event found by creative_code
+- 7 surfaces audited: 0 forbidden fields, 0 raw UUIDs
+- +19 tests, 4855/4855 regression green
+- КСО не менялась. Physical run/X11/Chromium не запускались.
+
 ### 38.2.6 — Backend Integration E2E with Test DB (2026-06-24)
 
 ✅ **Self-contained SQLite integration test — real DB, no mocks.**
