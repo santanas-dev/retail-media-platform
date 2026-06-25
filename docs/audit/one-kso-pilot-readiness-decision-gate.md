@@ -69,7 +69,7 @@ Portal ──→ Backend ──→ Manifest/Media ──→ KSO Player (768×102
 
 | # | Что | Почему | Severity |
 |---|---|---|---|
-| 1 | **HW scanner E2E validation** | Не проверена цепочка: barcode scan → campaign match → render. Без этого pilot в магазине невозможен. | 🔴 HIGH |
+| 1 | **HW scanner E2E validation** | ⚠️ PLAN CREATED (38.15), validation POSTPONED — scanner unavailable. | 🔴 HIGH |
 | 2 | **Controlled long-run** | D3 был 10 секунд. Нужен прогон ≥1 часа с реальным циклом рендера. | 🔴 HIGH |
 | 3 | **BackendIntegration test isolation fix** | 9 pre-existing failures блокируют чистый CI baseline для production. | 🟡 MEDIUM |
 
@@ -168,11 +168,23 @@ fleet management readiness, full CI/CD pipeline.
 
 ## 8. Next Steps (рекомендованные)
 
-1. **HW scanner E2E validation** — barcode scan → campaign match → player render → PoP
-2. **Controlled long-run** — 1+ час с реальным циклом рендера на физической КСО
-3. **BackendIntegration RBAC fix** — 3-layer isolation defect (documented in regression-baseline-notes.md)
-4. **Pilot runbook update** — добавить D3/D4/D5/D6 процедуры, stop criteria, rollback
+1. **HW scanner E2E validation** — ⚠️ PLAN CREATED (38.15), POSTPONED until hardware available
+2. **Controlled long-run** — 1+ час с реальным циклом рендера на физической КСО (38.16)
+3. **BackendIntegration RBAC fix** — 3-layer isolation defect (documented in regression-baseline-notes.md) (38.17)
+4. **Pilot runbook update** — добавить D3/D4/D5/D6 процедуры, stop criteria, rollback (38.18)
 5. **Production auth hardening** — заменить TEST_ONLY PoP ingest на device gateway auth / mTLS
+
+### 38.15 — HW Scanner E2E Validation Plan (2026-06-25)
+
+See: `docs/audit/hw-scanner-e2e-validation-plan.md`
+
+- **Validation:** NOT EXECUTED ❌
+- **Reason:** physical barcode scanner hardware unavailable
+- **Pilot blocker:** 🔴 HIGH — remains active
+- **Cannot be replaced:** keyboard simulation is NOT equivalent
+- **Safe protocol documented:** 4-phase test (S1–S4), 8 stop criteria, safety rules
+- **Safe alternatives while blocked:** long-run plan (38.16), BackendIntegration fix (38.17), runbook (38.18)
+- **Resumption:** requires `PHASE_SCANNER_E2E_APPROVED` + scanner hardware + operator present
 
 ---
 

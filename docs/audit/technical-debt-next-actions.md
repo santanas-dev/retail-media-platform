@@ -356,3 +356,33 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - `docs/audit/one-kso-pilot-readiness-decision-gate.md` — полный decision gate
 - Proven chain: portal/backend → manifest/media → KSO render → PoP → backend → portal report
 - All constraints met, no secrets committed, 4918 regression green
+
+## 38.15 — HW Scanner E2E Validation Plan (2026-06-25)
+
+### Status
+- **Validation:** NOT EXECUTED ❌
+- **Reason:** physical barcode scanner hardware unavailable
+- **Pilot blocker:** 🔴 HIGH — remains active
+
+### Created
+- `docs/audit/hw-scanner-e2e-validation-plan.md` — полный validation plan
+
+### Protocol documented
+- 4-phase test (S1–S4: pre-scan baseline → launch overlay → scanner test → post-scan verify)
+- 8 stop criteria (including: first scan lost, overlay captures input, focus steal, sensitive data)
+- 7 absolute safety rules (no barcode logging, no key payload, no UKM5 DB, no payment)
+- 6 expected proof points (overlay active, UKM5 focused, input reaches UKM5, no focus steal, no data stored)
+
+### Safe alternatives while scanner blocked
+- Controlled long-run plan (38.16)
+- BackendIntegration test isolation fix (38.17)
+- Pilot runbook update (38.18)
+
+### Not executed
+- ❌ No physical scanner test
+- ❌ No SSH to KSO
+- ❌ No X11/Chromium/runner launch
+- ❌ No sidecar daemon
+- ❌ No PoP upload
+- ❌ No UKM5/Openbox/systemd modification
+- ❌ No barcode/key payload logged

@@ -1137,9 +1137,39 @@ Real KSO is portrait 768×1024. Legacy `kso_devices` had correct 768×1024.
 - No secrets/screenshots/tmp/logs committed
 
 ### Next recommended step
-Pilot readiness decision / HW scanner E2E validation / controlled long-run (no auto-start)
+Pilot readiness decision / HW scanner E2E validation plan (38.15) / controlled long-run (no auto-start)
 
 **Decision gate:** `docs/audit/one-kso-pilot-readiness-decision-gate.md`
 - One-KSO technical dry run: **PASSED** ✅
 - One-KSO pilot readiness: **CONDITIONAL** ⚠️ (requires HW scanner E2E + long-run)
 - Production/fleet rollout: **NOT APPROVED** 🚫
+
+## 38.15 — HW Scanner E2E Validation Plan (2026-06-25)
+
+### Status
+- **Validation:** NOT EXECUTED ❌ — POSTPONED / BLOCKED BY MISSING HARDWARE
+- **Reason:** physical barcode scanner hardware unavailable
+- **Pilot blocker:** 🔴 HIGH — remains active
+- **Validation cannot be replaced** by keyboard simulation
+
+### Created
+- `docs/audit/hw-scanner-e2e-validation-plan.md` — полный validation plan
+
+### Protocol documented (ready for execution when scanner available)
+- Approval token: `PHASE_SCANNER_E2E_APPROVED`
+- 4-phase test (S1–S4), 8 stop criteria, 7 safety rules, 6 proof points
+- One controlled test only, operator-observed confirmation, no data logging
+
+### Safe alternatives while scanner blocked
+- Controlled long-run plan (38.16)
+- BackendIntegration test isolation fix (38.17)
+- Pilot runbook update (38.18)
+
+### Not executed
+- ❌ No physical scanner test
+- ❌ No SSH to KSO
+- ❌ No X11/Chromium/runner launch
+- ❌ No sidecar daemon
+- ❌ No PoP upload
+- ❌ No UKM5/Openbox/systemd modification
+- ❌ No barcode/key payload logged

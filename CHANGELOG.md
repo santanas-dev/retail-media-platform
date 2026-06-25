@@ -7,7 +7,30 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [Unreleased] — Phase D E2E Complete + Decision Gate (38.14, 2026-06-25)
+## [Unreleased] — HW Scanner E2E Validation Plan (38.15, 2026-06-25)
+
+### 38.15 — HW Scanner E2E Validation Plan
+
+**Plan document:** `docs/audit/hw-scanner-e2e-validation-plan.md`
+
+- **Status:** NOT EXECUTED ❌ — POSTPONED / BLOCKED BY MISSING HARDWARE
+- **Reason:** physical barcode scanner hardware unavailable
+- **Pilot blocker:** 🔴 HIGH — remains active
+- **Validation cannot be replaced** by keyboard simulation
+- **Test can resume only** when real hardware scanner is available
+
+**Safe protocol documented:**
+- 4-phase test (S1–S4), 8 stop criteria, 7 safety rules, 6 proof points
+- Approval token: `PHASE_SCANNER_E2E_APPROVED`
+- One controlled test only, operator-observed confirmation, no data logging
+
+**Resumption conditions:** scanner hardware connected + operator present + PHASE_SCANNER_E2E_APPROVED + regression green
+
+**Not executed:** no physical scanner test, no SSH to KSO, no X11/Chromium/runner, no sidecar, no PoP upload, no UKM5 modification
+
+**Safe alternatives:** long-run plan (38.16), BackendIntegration fix (38.17), runbook (38.18)
+
+---
 
 ### 38.14 — One-KSO Pilot Readiness Decision Gate
 
