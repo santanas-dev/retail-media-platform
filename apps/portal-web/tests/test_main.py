@@ -45,6 +45,7 @@ _MOCK_ALL_PERMISSIONS = frozenset({
     "view_deployment", "view_admin",
     "users.read", "roles.read", "users.create", "users.manage",
     "roles.manage", "audit.read",
+    "scheduling.read", "scheduling.manage",
 })
 
 # ── Global mock auth for existing page-content tests ────────────────────
@@ -608,7 +609,7 @@ class TestCampaignsPage(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class TestSchedulePage(unittest.TestCase):
-    """KSO Schedule page — form + safe table (Step 37.5 backend-driven)."""
+    """Schedule page — production schedule CRUD + slot management (39.2.1 backend-driven)."""
 
     def setUp(self):
         self.client = TestClient(app)
@@ -616,20 +617,20 @@ class TestSchedulePage(unittest.TestCase):
         self.html = resp.text
 
     def test_has_create_form(self):
-        self.assertIn("Создать размещение", self.html)
+        self.assertIn("Создать расписание", self.html)
         self.assertIn('action="/schedule/create"', self.html)
         self.assertIn('<form method="post"', self.html)
 
     def test_form_fields_present(self):
-        for field in ("placement_code", "campaign_code", "creative_code",
-                       "device_code", "starts_at", "ends_at", "slot_order"):
+        for field in ("schedule_code", "name", "campaign_code",
+                       "valid_from", "valid_to", "timezone"):
             self.assertIn(f'id="{field}"', self.html,
                           f"Form must have field '{field}'")
         self.assertIn('type="submit"', self.html)
 
     def test_has_safe_notes(self):
         self.assertIn("Безопасная проекция", self.html)
-        self.assertIn("Test KSO technical validation", self.html)
+        self.assertIn("Production Schedule API", self.html)
 
     def test_backend_unavailable_fallback(self):
         self.assertIn("временно недоступны", self.html.lower())
@@ -1161,10 +1162,10 @@ class TestDemoData(unittest.TestCase):
         self.assertTrue(True)
 
     def test_schedule_has_demo_data(self):
-        """Schedule page is now backend-driven — form + safe table, no demo."""
+        """Schedule page is now production backend-driven — Schedule API, no demo."""
         resp = self.client.get("/schedule")
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("Создать размещение", resp.text)
+        self.assertIn("Создать расписание", resp.text)
 
     def test_publications_has_demo_data(self):
         """Publications page is now backend-driven — forms + safe table, no demo."""

@@ -372,6 +372,93 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Schedule Production API (39.2.1) ─────────────────────────────────
+
+    async def list_schedules(self, access_token: str) -> dict:
+        """GET /api/schedules → {ok, data: [{schedule_code, name, status, ...}]}"""
+        return await self._request(
+            "GET", "/api/schedules",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def create_schedule(self, access_token: str, payload: dict) -> dict:
+        """POST /api/schedules → {ok, data: {schedule_code, name, ...}}"""
+        return await self._request(
+            "POST", "/api/schedules",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_schedule(self, access_token: str, schedule_code: str) -> dict:
+        """GET /api/schedules/{code} → {ok, data: {schedule_code, ...}}"""
+        return await self._request(
+            "GET", f"/api/schedules/{schedule_code}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def update_schedule(
+        self, access_token: str, schedule_code: str, payload: dict,
+    ) -> dict:
+        """PATCH /api/schedules/{code} → {ok, data: {schedule_code, ...}}"""
+        return await self._request(
+            "PATCH", f"/api/schedules/{schedule_code}",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def archive_schedule(self, access_token: str, schedule_code: str) -> dict:
+        """POST /api/schedules/{code}/archive → {ok, data: {schedule_code, ...}}"""
+        return await self._request(
+            "POST", f"/api/schedules/{schedule_code}/archive",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def list_schedule_slots(
+        self, access_token: str, schedule_code: str,
+    ) -> dict:
+        """GET /api/schedules/{code}/items → {ok, data: [{slot_code, ...}]}"""
+        return await self._request(
+            "GET", f"/api/schedules/{schedule_code}/items",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def create_schedule_slot(
+        self, access_token: str, schedule_code: str, payload: dict,
+    ) -> dict:
+        """POST /api/schedules/{code}/items → {ok, data: {slot_code, ...}}"""
+        return await self._request(
+            "POST", f"/api/schedules/{schedule_code}/items",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def update_schedule_slot(
+        self, access_token: str, schedule_code: str,
+        slot_code: str, payload: dict,
+    ) -> dict:
+        """PATCH /api/schedules/{code}/items/{slot} → {ok, data: {slot_code, ...}}"""
+        return await self._request(
+            "PATCH", f"/api/schedules/{schedule_code}/items/{slot_code}",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def disable_schedule_slot(
+        self, access_token: str, schedule_code: str, slot_code: str,
+    ) -> dict:
+        """DELETE /api/schedules/{code}/items/{slot} → {ok, data: {slot_code, ...}}"""
+        return await self._request(
+            "DELETE", f"/api/schedules/{schedule_code}/items/{slot_code}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def list_placements_prod(self, access_token: str) -> dict:
+        """GET /api/placements → {ok, data: [{placement_code, ...}]} (production)."""
+        return await self._request(
+            "GET", "/api/placements",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
     # ── Approval (Step 37.6) ───────────────────────────────────────────
 
     async def list_approvals(self, access_token: str) -> dict:

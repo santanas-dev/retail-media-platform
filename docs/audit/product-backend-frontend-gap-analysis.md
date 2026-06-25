@@ -20,7 +20,7 @@ security gaps, которые необходимо закрыть перед pil
 **Что блокирует pilot:**
 1. 🔴 Device gateway / PoP ingest — TEST_ONLY без аутентификации (security gap)
 2. 🟡 Campaign/placement creation — test-kso wrapper'ы (не production API)
-3. 🟡 Schedule UI — DEMO form (не подключён к backend)
+3. 🟢 Schedule UI — production backend-driven (✅ 39.2.1)
 4. 🟡 Reports UI — DEMO page (slicers disabled, charts placeholder)
 5. 🟡 Dashboard — DEMO page (использует demo_data.py)
 
@@ -204,7 +204,7 @@ Portal UI ──→ Backend API ──→ Manifest/Media ──→ KSO Player (7
 | # | Blocker | Компонент | Fix complexity |
 |---|---|---|---|
 | B1 | Device gateway auth (manifest/media/PoP) | Backend | 3-5 шагов |
-| B2 | Schedule UI — DEMO form | Frontend | 3-5 шагов |
+| B2 | Schedule UI — DEMO form | Frontend | ✅ FIXED (39.2.1) |
 | B3 | HW scanner E2E validation | KSO physical | POSTPONED (scanner unavailable) |
 | B4 | Controlled long-run (≥1 час) | KSO physical | PLAN NEEDED (38.16) |
 
@@ -248,8 +248,8 @@ Portal UI ──→ Backend API ──→ Manifest/Media ──→ KSO Player (7
 ### Phase 39.2 — Portal Campaign/Creative/Placement UI Completion
 **Goal:** Убрать DEMO-заглушки, подключить все формы к backend.
 
-- Schedule page: backend-driven (list + create)
-- Campaign create: production form (не test-kso)
+- Schedule page: backend-driven (✅ 39.2.1 — list + create + slots + archive)
+- Campaign UI: production form (не test-kso)
 - Dashboard: реальные KPI из backend campaign_reports
 - Creative list: backend-driven (уже ✅)
 - Creative upload: улучшить UX (preview, progress)

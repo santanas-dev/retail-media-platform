@@ -9,6 +9,22 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.2.1 — Portal Schedule UI Backend Integration
+
+**Schedule page connected to production Schedule Backend API.**
+
+- `BackendClient`: 12 new methods — list_schedules, create_schedule, get_schedule, update_schedule, archive_schedule, list_schedule_slots, create_schedule_slot, update_schedule_slot, disable_schedule_slot, list_placements_prod
+- Portal `/schedule` page: schedules list + slots inline + create schedule form + create slot form
+- Portal POST endpoints: `/schedule/create`, `/schedule/{code}/create-slot`, `/schedule/{code}/archive`, `/schedule/{code}/items/{slot}/disable`
+- RBAC fix: PAGE_PERMISSION_MAP `/schedule` → `scheduling.read` (match backend permission)
+- Template: schedules table (schedule_code, name, status, campaign_code, valid_from/to, timezone, slot_count), slots table (slot_code, day_of_week, start/end_time, placement_code, is_active), archive/disable actions
+- All forms server-side POST, no JS/CDN/localStorage
+- Fallback renders safe empty state when backend unreachable
+- Portal tests: 424/424 OK
+- Schedule UI DEMO gap → CLOSED ✅
+
+**Remaining:** Campaign UI (39.2.2), Dashboard (39.2.3), Reports (39.5)
+
 ### 39.1.3 — Schedule Backend API Hardening
 
 **Schedule + ScheduleSlot models** — production schedule API foundation.

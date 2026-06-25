@@ -589,12 +589,16 @@ def _campaigns_fallback(request: Request, current_user) -> HTMLResponse:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# Schedule — Backend API Integration (Step 37.5)
+# Schedule — Production Backend API Integration (39.2.1)
 # ══════════════════════════════════════════════════════════════════════
 
 @app.get("/schedule", response_class=HTMLResponse)
 async def schedule_page(request: Request):
-    """Schedule page: list placements from backend + create form (Step 37.5)."""
+    """Schedule page: production schedule CRUD + slot management (39.2.1).
+
+    Fetches schedules from backend production API, shows slots inline.
+    Backend-driven — no demo/stub data.
+    """
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/schedule")
     if guard is not None:
@@ -607,34 +611,66 @@ async def schedule_page(request: Request):
     if not access_token:
         return _schedule_fallback(request, current_user)
 
-    result = await backend.list_placements(access_token)
+    result = await backend.list_schedules(access_token)
     if not result["ok"]:
         return _schedule_fallback(request, current_user)
 
-    placements = result.get("data", [])
-    safe_rows = []
-    for p in placements:
-        safe_rows.append({
-            "placement_code": p.get("placement_code", ""),
-            "campaign_code": p.get("campaign_code", ""),
-            "creative_code": p.get("creative_code", ""),
-            "device_code": p.get("device_code", ""),
-            "status": p.get("status", "—"),
-            "starts_at": _fmt_dt(p.get("starts_at")),
-            "ends_at": _fmt_dt(p.get("ends_at")),
-            "slot_order": p.get("slot_order", 0),
-            "created_at": _fmt_dt(p.get("created_at")),
+    schedules = result.get("data", [])
+    safe_schedules = []
+    for s in schedules:
+        safe_schedules.append({
+            "schedule_code": s.get("schedule_code", ""),
+            "name": s.get("name", ""),
+            "status": s.get("status", "—"),
+            "campaign_code": s.get("campaign_code") or "—",
+            "valid_from": _fmt_dt(s.get("valid_from")),
+            "valid_to": _fmt_dt(s.get("valid_to")),
+            "timezone": s.get("timezone", "Europe/Moscow"),
+            "slot_count": s.get("slot_count", 0),
+            "created_at": _fmt_dt(s.get("created_at")),
+            "updated_at": _fmt_dt(s.get("updated_at")),
         })
 
+    # Fetch slots for each schedule
+    schedule_slots = {}
+    for s in schedules:
+        code = s.get("schedule_code", "")
+        if code:
+            slots_r = await backend.list_schedule_slots(access_token, code)
+            if slots_r["ok"]:
+                safe_slots = []
+                for sl in slots_r.get("data", []):
+                    safe_slots.append({
+                        "slot_code": sl.get("slot_code", ""),
+                        "schedule_code": sl.get("schedule_code", ""),
+                        "placement_code": sl.get("placement_code") or "—",
+                        "day_of_week": sl.get("day_of_week", 0),
+                        "start_time": str(sl.get("start_time", "")),
+                        "end_time": str(sl.get("end_time", "")),
+                        "slot_order": sl.get("slot_order", 0),
+                        "is_active": sl.get("is_active", True),
+                    })
+                schedule_slots[code] = safe_slots
+
+    # Consume flash messages
     flash_type = ""
     flash_msg = ""
-    raw = request.session.pop("schedule_flash", "")
+    raw = request.session.pop("sched_flash", "")
     if raw == "ok:created":
         flash_type = "success"
-        flash_msg = "Размещение успешно создано."
+        flash_msg = "Расписание создано."
+    elif raw == "ok:archived":
+        flash_type = "success"
+        flash_msg = "Расписание архивировано."
+    elif raw == "ok:slot_created":
+        flash_type = "success"
+        flash_msg = "Слот добавлен."
+    elif raw == "ok:slot_disabled":
+        flash_type = "success"
+        flash_msg = "Слот отключён."
     elif raw == "error":
         flash_type = "error"
-        flash_msg = request.session.pop("schedule_flash_msg", "Ошибка создания размещения.")
+        flash_msg = request.session.pop("sched_flash_msg", "Ошибка.")[:200]
 
     return templates.TemplateResponse(request, "pages/schedule.html", {
         "request": request,
@@ -642,7 +678,8 @@ async def schedule_page(request: Request):
         "active": "schedule",
         "demo": False,
         "current_user": current_user,
-        "placements": safe_rows,
+        "schedules": safe_schedules,
+        "schedule_slots": schedule_slots,
         "flash_type": flash_type,
         "flash_msg": flash_msg,
     })
@@ -651,15 +688,14 @@ async def schedule_page(request: Request):
 @app.post("/schedule/create", response_class=HTMLResponse)
 async def schedule_create(
     request: Request,
-    placement_code: str = Form(..., min_length=3, max_length=64),
-    campaign_code: str = Form(..., min_length=1, max_length=64),
-    creative_code: str = Form(..., min_length=1, max_length=64),
-    device_code: str = Form(..., min_length=1, max_length=64),
-    starts_at: str = Form(..., min_length=10, max_length=25),
-    ends_at: str = Form(..., min_length=10, max_length=25),
-    slot_order: str = Form("0"),
+    schedule_code: str = Form(..., min_length=3, max_length=64),
+    name: str = Form(..., min_length=1, max_length=255),
+    campaign_code: str = Form("", max_length=64),
+    valid_from: str = Form(..., min_length=10, max_length=10),
+    valid_to: str = Form(..., min_length=10, max_length=10),
+    timezone: str = Form("Europe/Moscow", max_length=50),
 ):
-    """Handle placement create — POST /schedule/create → backend (Step 37.5)."""
+    """Create schedule via POST /schedule/create → backend /api/schedules."""
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/schedule")
     if guard is not None:
@@ -667,30 +703,143 @@ async def schedule_create(
 
     tokens = get_portal_tokens(request)
     access_token = tokens.get("access_token", "")
-
     if not access_token:
-        request.session["schedule_flash"] = "error"
-        request.session["schedule_flash_msg"] = "Нет доступа."
+        request.session["sched_flash"] = "error"
+        request.session["sched_flash_msg"] = "Нет доступа."
         return RedirectResponse(url="/schedule", status_code=303)
 
     payload = {
-        "placement_code": placement_code.strip(),
-        "campaign_code": campaign_code.strip(),
-        "creative_code": creative_code.strip(),
-        "device_code": device_code.strip(),
-        "starts_at": starts_at.strip(),
-        "ends_at": ends_at.strip(),
-        "slot_order": int(slot_order.strip() or "0"),
+        "schedule_code": schedule_code.strip(),
+        "name": name.strip(),
+        "valid_from": valid_from.strip(),
+        "valid_to": valid_to.strip(),
+        "timezone": timezone.strip() or "Europe/Moscow",
     }
+    cc = campaign_code.strip()
+    if cc:
+        payload["campaign_code"] = cc
 
     backend = BackendClient()
-    result = await backend.create_placement(access_token, payload)
+    result = await backend.create_schedule(access_token, payload)
 
     if result["ok"]:
-        request.session["schedule_flash"] = "ok:created"
+        request.session["sched_flash"] = "ok:created"
     else:
-        request.session["schedule_flash"] = "error"
-        request.session["schedule_flash_msg"] = result.get("error", "Ошибка создания")[:200]
+        request.session["sched_flash"] = "error"
+        request.session["sched_flash_msg"] = result.get("error", "Ошибка создания")[:200]
+
+    return RedirectResponse(url="/schedule", status_code=303)
+
+
+@app.post("/schedule/{schedule_code}/create-slot", response_class=HTMLResponse)
+async def schedule_slot_create(
+    request: Request,
+    schedule_code: str,
+    slot_code: str = Form(..., min_length=3, max_length=64),
+    placement_code: str = Form("", max_length=64),
+    day_of_week: int = Form(...),
+    start_time: str = Form(..., min_length=5, max_length=8),
+    end_time: str = Form(..., min_length=5, max_length=8),
+    slot_order: int = Form(0),
+):
+    """Create schedule slot via POST → backend /api/schedules/{code}/items."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/schedule")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["sched_flash"] = "error"
+        request.session["sched_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/schedule", status_code=303)
+
+    payload = {
+        "slot_code": slot_code.strip(),
+        "day_of_week": day_of_week,
+        "start_time": start_time.strip(),
+        "end_time": end_time.strip(),
+        "slot_order": slot_order,
+    }
+    pc = placement_code.strip()
+    if pc:
+        payload["placement_code"] = pc
+
+    backend = BackendClient()
+    result = await backend.create_schedule_slot(
+        access_token, schedule_code, payload,
+    )
+
+    if result["ok"]:
+        request.session["sched_flash"] = "ok:slot_created"
+    else:
+        request.session["sched_flash"] = "error"
+        request.session["sched_flash_msg"] = result.get("error", "Ошибка создания слота")[:200]
+
+    return RedirectResponse(url="/schedule", status_code=303)
+
+
+@app.post("/schedule/{schedule_code}/archive", response_class=HTMLResponse)
+async def schedule_archive(
+    request: Request,
+    schedule_code: str,
+):
+    """Archive schedule via POST → backend /api/schedules/{code}/archive."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/schedule")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["sched_flash"] = "error"
+        request.session["sched_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/schedule", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.archive_schedule(access_token, schedule_code)
+
+    if result["ok"]:
+        request.session["sched_flash"] = "ok:archived"
+    else:
+        request.session["sched_flash"] = "error"
+        request.session["sched_flash_msg"] = result.get("error", "Ошибка архивирования")[:200]
+
+    return RedirectResponse(url="/schedule", status_code=303)
+
+
+@app.post(
+    "/schedule/{schedule_code}/items/{slot_code}/disable",
+    response_class=HTMLResponse,
+)
+async def schedule_slot_disable(
+    request: Request,
+    schedule_code: str,
+    slot_code: str,
+):
+    """Disable slot via POST → backend DELETE /api/schedules/{code}/items/{slot}."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/schedule")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["sched_flash"] = "error"
+        request.session["sched_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/schedule", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.disable_schedule_slot(access_token, schedule_code, slot_code)
+
+    if result["ok"]:
+        request.session["sched_flash"] = "ok:slot_disabled"
+    else:
+        request.session["sched_flash"] = "error"
+        request.session["sched_flash_msg"] = result.get("error", "Ошибка отключения слота")[:200]
 
     return RedirectResponse(url="/schedule", status_code=303)
 
@@ -702,7 +851,8 @@ def _schedule_fallback(request: Request, current_user) -> HTMLResponse:
         "active": "schedule",
         "demo": False,
         "current_user": current_user,
-        "placements": [],
+        "schedules": [],
+        "schedule_slots": {},
         "backend_unavailable": True,
         "backend_message": "Данные временно недоступны. Попробуйте позже.",
     })
