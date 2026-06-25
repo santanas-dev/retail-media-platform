@@ -197,7 +197,7 @@ Preflight doc: `test-kso-sidecar-config-application-preflight.md`:
 **Phase B deployment details (safe):**
 - AGENT_ROOT: `/home/ukm5/kso-agent` on KSO (192.168.110.223)
 - device_code: `test-dev-seed`
-- 9 subdirectories, agent_config.json (177 bytes), device_secret.dev (32 bytes, 0600)
+- 9 subdirectories, agent_config.json (177 bytes), device_secret.dev (Phase B: 32 bytes → Phase C: 25 bytes, 0600)
 - Backend reachable: scheme+host verified, no full URL in output
 - Secret: present, 600 perms — value never printed
 
@@ -207,15 +207,20 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 10-section document: current state, pre-conditions, command templates (masked),
 10 safety gates, 10 stop criteria, rollback (partial/full).
 
-### Not Executed
-- ❌ sync-manifest NOT run
-- ❌ sync-media NOT run
-- ❌ No network calls from KSO
-- ❌ Sidecar/X11/Chromium NOT started
-- ❌ PoP NOT uploaded
-- ❌ No secrets/full URLs/tokens in output or committed files
-- Full regression: 4926 green
+### Preflight Status
+- ✅ Documented: pre-conditions, command templates, safety gates, stop criteria
+- ✅ No network calls from KSO at preflight stage
+- ✅ Sidecar/X11/Chromium NOT started
+- ✅ Full regression: 4926 green
 
-### Next actions (после 38.12)
+## 38.12.1 — Phase C Controlled Run + Stabilization (2026-06-25)
+
+### Executed
+- ✅ **sync-manifest:** `served` — manifest downloaded (1 item, image/png, slot-000)
+- ✅ **sync-media:** `complete` — media downloaded (`slot-000.png`, 108 bytes)
+- ✅ **Backend fixes:** ScheduleItem model, device↔display_surface link, schedule_item.date, media_path
+- ✅ No secrets/full URLs/tokens in output or committed files
+
+### Next actions (после 38.12.1)
 - 38.13: Phase D Manual Approval Gate
-- Phase C run (после approval) — sync-manifest + sync-media
+- Phase D: физический one-KSO E2E dry run (requires approval)

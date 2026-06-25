@@ -3,14 +3,14 @@
 KsoPlacement — minimal placement linking campaign_code, creative_code,
 device_code with a time window.  Stable codes are used instead of raw
 UUIDs for safe API responses.
+
+ScheduleItem — Phase C (38.12.1): model added to fix ImportError in
+_collect_kso_source_items. Table already existed in DB (created by
+prior migration), but SQLAlchemy model was missing.
 """
 
 from sqlalchemy import (
-    Column,
-    DateTime,
-    ForeignKey,
-    Integer,
-    String,
+    Column, Date, DateTime, ForeignKey, Integer, String, Time,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -80,3 +80,31 @@ class KsoPlacement(Base):
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(),
     )
+
+
+class ScheduleItem(Base):
+    """ScheduleItem — ORM model for schedule_items table.
+
+    Added during Phase C (38.12.1) — the table existed in DB from prior
+    migrations but the SQLAlchemy model was missing, causing ImportError
+    in _collect_kso_source_items when the KSO channel was matched.
+    """
+
+    __tablename__ = "schedule_items"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    schedule_run_id = Column(UUID(as_uuid=True), ForeignKey("schedule_runs.id"), nullable=False)
+    booking_item_id = Column(UUID(as_uuid=True), ForeignKey("booking_items.id"), nullable=False)
+    inventory_unit_id = Column(UUID(as_uuid=True), ForeignKey("inventory_units.id"), nullable=False)
+    campaign_id = Column(UUID(as_uuid=True), ForeignKey("campaigns.id"), nullable=False)
+    campaign_rendition_id = Column(UUID(as_uuid=True), ForeignKey("campaign_renditions.id"), nullable=False)
+    rendition_id = Column(UUID(as_uuid=True), ForeignKey("renditions.id"), nullable=False)
+    date = Column(Date, nullable=False)
+    time_from = Column(Time, nullable=False)
+    time_to = Column(Time, nullable=False)
+    loop_position = Column(Integer, nullable=False)
+    spot_position = Column(Integer, nullable=False)
+    spot_duration_seconds = Column(Integer, nullable=False)
+    priority = Column(Integer, default=0)
+    weight = Column(Integer, default=1)
+    status = Column(String(20), nullable=False, default="active")

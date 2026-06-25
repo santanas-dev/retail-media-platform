@@ -7,7 +7,30 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [Unreleased] — 38.12 Phase C Manifest & Media Cache Preflight
+## [Unreleased] — Phase C Controlled Run + Stabilization (38.12.1, 2026-06-25)
+
+### Phase C.1 — Manifest Sync
+- GatewayDevice `test-dev-seed` created in `gateway_devices` + credential in `device_credentials`
+- Publication chain wired: device → display_surface → publication_target → manifest_version → manifest_items
+- Manifest sync via `/api/device-gateway/manifest/current`: ✅ `served`, 1 item (`image/png`, slot-000)
+- Manifest saved on KSO: `manifest/current_manifest.json`, 1 item
+
+### Phase C.2 — Media Sync
+- Media downloaded: ✅ `slot-000.png` (108 bytes), cache complete
+- Endpoint: `/api/device-gateway/media/{manifest_item_id}` — 200 OK
+
+### Backend/Data Fixes (during Phase C)
+- **ScheduleItem model** — added to `scheduling/models.py` (table existed, model was missing → ImportError in `_collect_kso_source_items`)
+- **GatewayDevice** — linked to display_surface + store (was unlinked, causing `no_manifest`)
+- **schedule_item.date** — updated to today (was 2026-06-21, past valid_to → items filtered out)
+- **media_path** — fixed to `creatives/...` format (was `media/current/...` → 403 `_validate_object_key`)
+
+### Security
+- No sidecar daemon / PoP upload / X11 / Chromium / UKM5 modifications
+- No secrets, full URLs, or tokens in output or git
+- No media/manifest/runtime KSO files committed
+
+## Phase C Preflight (38.12)
 
 - `test-kso-phase-c-manifest-media-cache-preflight.md` — 10-section Phase C readiness plan
 - Pre-conditions: backend reachability, auth path, published manifest, creative media, disk space

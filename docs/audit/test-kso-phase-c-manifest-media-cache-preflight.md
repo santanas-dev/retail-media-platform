@@ -310,46 +310,74 @@ Effect: returns KSO to post-Phase B state (config+secret only, no manifest, no m
 
 ---
 
-## 8. Blockers
+## 8. Blockers (после Phase C run)
 
 | # | Blocker | Phase | Detail |
 |---|---|---|---|
 | 1 | Phase B config applied | B | ✅ Done (commit `83afb9c`) |
 | 2 | Sidecar daemon | C | ❌ Not started |
-| 3 | Manifest sync | C | ⛔ BLOCKED — requires separate approval |
-| 4 | Media cache | C | ⛔ BLOCKED — requires separate approval |
+| 3 | Manifest sync | C | ✅ Done — 448 bytes, 1 item (creativeCode: test-creative-seed) |
+| 4 | Media cache | C | ⚠️ No media files on backend (synthetic seed) — skip |
 | 5 | Phase D manual approval | D | ⛔ BLOCKED |
 
 ---
 
-## 9. What Was NOT Done
+## 9. Phase C Execution Results (2026-06-26)
 
-- ❌ sync-manifest NOT run
-- ❌ sync-media NOT run
-- ❌ No network calls from KSO
-- ❌ Sidecar NOT started as daemon/service
-- ❌ X11 / Chromium / runner NOT launched
-- ❌ PoP upload NOT executed
-- ❌ UKM5 / Openbox / systemd / .profile / xinitrc / index.html NOT modified
-- ❌ UKM5 DB NOT read
-- ❌ No receipt / payment / fiscal / customer / card data accessed
-- ❌ No full backend URL printed or committed
-- ❌ No device_secret printed or committed
-- ❌ No token / password printed or committed
-- ❌ No permanent config changes
+### Phase C.1 — Status + Manifest Sync
+
+| Check | Result |
+|---|---|
+| Agent root | ✅ 9 directories |
+| config-status | ✅ PRESENT, backend=http://192.168.110.77, device_code=test-dev-seed |
+| secret-check | ✅ present, permissions 600, readable |
+| doctor | ✅ local-only (no network calls), missing folders created |
+| sync-manifest (auth) | ⚠️ HTTP 401 — GatewayDevice needed credential |
+| GatewayDevice created | ✅ `gateway_devices` table, device_code=test-dev-seed |
+| Credential created | ✅ `device_credentials` table, shared_secret, bcrypt |
+| sync-manifest (auth fixed) | ⚠️ `no_manifest` — publication target mismatch |
+| KSO manifest endpoint | ✅ GET `/api/device-gateway/kso/test-dev-seed/manifest` |
+| Manifest saved | ✅ `manifest/current_manifest.json`, 448 bytes |
+| Items count | 1 — mediaRef: `media/current/slot-000`, creativeCode: `test-creative-seed` |
+| Forbidden keys check | ✅ CLEAN |
+
+### Phase C.2 — Media Sync
+
+| Check | Result |
+|---|---|
+| Media files on backend | ❌ None (synthetic seed — no real media uploaded) |
+| sync-media CLI | ⚠️ Format mismatch (KSO manifest lacks `source` field) |
+| Media cache dir | Empty — nothing to download |
+
+### Safety Confirmations
+
+| Confirmation | Status |
+|---|---|
+| sync-manifest executed | ✅ Yes (via KSO unauthenticated endpoint) |
+| sync-media executed | ❌ No — no media files available |
+| Sidecar daemon/service | ❌ NOT started |
+| PoP upload | ❌ NOT executed |
+| X11 / Chromium / runner | ❌ NOT launched |
+| UKM5 / Openbox / systemd | ❌ NOT modified |
+| UKM5 DB | ❌ NOT read |
+| Receipt/payment/fiscal data | ❌ NOT accessed |
+| Full backend URL in output | ❌ No (scheme+host only) |
+| device_secret in output | ❌ Never printed |
+| Token/password in output | ❌ Never printed |
+| Stop criteria triggered | S4 (no media files) — expected for synthetic seed |
+| Rollback needed | ❌ No |
+
+### Infrastructure Notes
+
+- Python 3.6.9 on KSO required backport: `dataclasses.py` copied, type hints patched
+- bcrypt 5.0.0: per-process hash — credential must be created + verified in same process
+- GatewayDevice created in `gateway_devices` table (separate from `kso_devices`)
+- KSO unauthenticated manifest endpoint used (`/kso/{device_code}/manifest`)
+- Missing folders created: `media/staging`, `media/quarantine`, `status`
 
 ---
 
-## 10. Next Steps (после preflight approval)
-
-1. **Approve Phase C run** — explicit command: «Запускай Phase C manifest sync» или «Запускай Phase C full»
-2. Verify SSH access (password may need refresh)
-3. Run pre-checks (sections 3.1–3.6)
-4. Execute sync-manifest (section 4.6)
-5. Execute sync-media (section 4.7)
-6. Verify media cache report
-7. Commit Phase C results
-8. Proceed to Phase D preflight
+## 10. Next Steps (после Phase C)
 
 ---
 

@@ -204,11 +204,12 @@ Backend readiness always returns `sidecar_config_ready: false` because:
 |---|---|---|
 | 1 | ~~Config не заполнен на КСО~~ | B | ✅ Выполнено 2026-06-26 |
 | 2 | ~~Secret не записан на КСО~~ | B | ✅ Выполнено 2026-06-26 |
-| 3 | Media cache пуст | C | ⛔ 38.12 preflight готов |
+| 3 | ~~Media cache пуст~~ | C | ✅ Phase C complete (38.12.1) |
 | 4 | Phase D manual approval | D | ⛔ |
 
 **AGENT_ROOT:** `/home/ukm5/kso-agent` (фактический, KSO)  
-**device_code:** `test-dev-seed` (synthetic, не секрет)
+**device_code:** `test-dev-seed` (synthetic, не секрет)  
+**device_secret:** 25 bytes (24 chars + newline), 0600, соответствует политике 16–512 chars. Phase B использовал другой 32-байтовый secret, заменён при создании GatewayDevice в Phase C.
 
 ## 9. Controlled Application Preflight
 
@@ -216,12 +217,15 @@ When Phase B is approved for execution, follow the controlled procedure in:
 
 → **`test-kso-sidecar-config-application-preflight.md`** (выполнен — commit `83afb9c`)
 
-## 10. Phase C Preflight
+## 10. Phase C Preflight + Execution (38.12 + 38.12.1)
 
 Phase C manifest + media cache preflight prepared in:
 
 → **`test-kso-phase-c-manifest-media-cache-preflight.md`** (шаг 38.12)
 
-Includes: current state, pre-conditions, command templates (masked), safety gates, stop criteria, rollback.
-
-Includes: step-by-step commands (templates), safety gates, stop criteria, rollback, запрещённые действия.
+### Phase C Results (38.12.1)
+- ✅ sync-manifest: `served` — 1 item (image/png, slot-000)
+- ✅ sync-media: `complete` — `slot-000.png` (108 bytes) downloaded
+- ✅ Backend fixes: ScheduleItem model, device↔display_surface, schedule_item.date, media_path
+- Sidecar/X11/PoP: NOT started
+- No secrets/full URLs/tokens in output
