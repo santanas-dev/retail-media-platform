@@ -17,6 +17,14 @@ from main import app
 from backend_client import backend_login as _real_backend_login
 from starlette.testclient import TestClient
 
+# ── Module-level originals for safe patch isolation ──────────────────
+# Multiple test classes patch main.BackendClient + main.get_portal_tokens.
+# Saving originals at module level ensures tearDown always restores the
+# real value, not a potentially leaked fake from another test class.
+import main as _main_mod
+_ORIG_BACKEND_CLIENT = _main_mod.BackendClient
+_ORIG_GET_PORTAL_TOKENS = _main_mod.get_portal_tokens
+
 FORBIDDEN = frozenset({
     "device_secret", "access_token", "authorization",
     "backend_url", "api_key", "bearer ",
@@ -322,8 +330,8 @@ class TestDevicesPage(unittest.TestCase):
 
     def tearDown(self):
         import main
-        main.BackendClient = self._orig_bc
-        main.get_portal_tokens = self._orig_gpt
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
 
     def test_renders_summary_cards(self):
         for card in ("Всего КСО", "Активно", "Неактивно",
@@ -395,8 +403,8 @@ class TestStoresPage(unittest.TestCase):
 
     def tearDown(self):
         import main
-        main.BackendClient = self._orig_bc
-        main.get_portal_tokens = self._orig_gpt
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
 
     def test_renders_summary_cards(self):
         for card in ("Всего магазинов", "Магазинов с КСО", "КСО всего",
@@ -465,8 +473,8 @@ class TestCreativesPage(unittest.TestCase):
 
     def tearDown(self):
         import main
-        main.BackendClient = self._orig_bc
-        main.get_portal_tokens = self._orig_gpt
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
         main.get_current_portal_user = self._orig_gcpu
 
     def test_has_kso_requirements(self):
@@ -3258,7 +3266,6 @@ class TestStoresBackendIntegration(unittest.TestCase):
     def setUp(self):
         from main import app
         self.client = TestClient(app)
-        # Patch BackendClient to use fake
         import main
         self._orig_bc = main.BackendClient
         self._orig_gpt = main.get_portal_tokens
@@ -3267,8 +3274,8 @@ class TestStoresBackendIntegration(unittest.TestCase):
 
     def tearDown(self):
         import main
-        main.BackendClient = self._orig_bc
-        main.get_portal_tokens = self._orig_gpt
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
 
     def test_stores_renders_backend_data(self):
         resp = self.client.get("/stores")
@@ -3340,8 +3347,8 @@ class TestDevicesBackendIntegration(unittest.TestCase):
 
     def tearDown(self):
         import main
-        main.BackendClient = self._orig_bc
-        main.get_portal_tokens = self._orig_gpt
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
 
     def test_devices_renders_backend_data(self):
         resp = self.client.get("/devices")

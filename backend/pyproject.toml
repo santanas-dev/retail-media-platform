@@ -39,6 +39,9 @@ pythonpath = [
     "../apps/kso_player",
     "../apps/kso_sidecar_agent",
 ]
+norecursedirs = [
+    "backend/tests/integration",
+]
 
 [build-system]
 requires = ["setuptools>=68.0"]
