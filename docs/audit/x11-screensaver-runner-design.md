@@ -10,6 +10,7 @@
 >
 > **Предыдущий шаг:** 38.1.8 — Physical X11 Click-through Proof успешно выполнен. B-FS-1/B-FS-2 закрыты.
 > **Следующий шаг:** 38.1.10 — Guarded physical screensaver run на КСО (отдельный шаг с explicit approval).
+> **Readiness Gate:** 38.3 — `docs/audit/one-kso-e2e-dry-run-readiness-gate.md`
 
 ---
 

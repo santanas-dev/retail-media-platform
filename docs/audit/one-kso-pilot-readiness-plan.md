@@ -753,6 +753,16 @@ creative → campaign → placement → approval → manifest → publish → si
 - +98 тестов: payload, adapter, validation (forbidden patterns), visibility, PoP safety
 - КСО не менялась. Physical run/X11/Chromium не запускались.
 
+### 38.3 — One-KSO E2E Dry Run Readiness Gate (2026-06-24)
+
+✅ **Readiness gate document created — 11-section plan, 23 safety tests.**
+- Document: `docs/audit/one-kso-e2e-dry-run-readiness-gate.md`
+- 5 phases: Backend → Sidecar → Runner Dry-Run → (⛔ Phase D requires approval) → PoP+Report
+- 11 stop criteria, targeted rollback procedure, artefacts policy
+- 23 readiness safety tests: contract audit, component importability, stop criteria, document consistency
+- Full regression: 4878/4878 (0 errors, 0 failures)
+- КСО не менялась. Physical run/X11/Chromium не запускались.
+
 ### 38.2.7 — Full Dev E2E: Player → Sidecar → Backend (2026-06-24)
 
 ✅ **Full cross-component dev E2E chain validated.**

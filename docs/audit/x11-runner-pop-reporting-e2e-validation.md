@@ -118,6 +118,16 @@ Full backend ingest with real DB is a separate integration test step.
 - ❌ No receipt/fiscal/customer data in any output
 - ✅ All test data is synthetic — no real manifest IDs, no real device codes
 
+### 38.3 — One-KSO E2E Dry Run Readiness Gate (2026-06-24)
+
+✅ **Readiness gate document created.**
+- `docs/audit/one-kso-e2e-dry-run-readiness-gate.md` — 11 sections
+- 5 phases: Backend readiness → Sidecar readiness → Runner dry-run → (⛔ Phase D: explicit approval required) → PoP+Report
+- 11 stop criteria, targeted rollback, artefacts policy
+- 23 readiness safety tests: contracts, imports, stop criteria, document consistency
+- Phase D ⛔ REQUIRES EXPLICIT MANUAL APPROVAL before any physical X11 window
+- Full regression: 4878/4878 green
+
 ### 38.2.7 — Full Dev E2E: Player → Sidecar → Backend (2026-06-24)
 
 ✅ **Full cross-component dev E2E chain validated (19 tests).**
