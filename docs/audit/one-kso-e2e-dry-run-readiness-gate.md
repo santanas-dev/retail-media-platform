@@ -517,3 +517,36 @@ Live blockers: sidecar config (Phase B), media cache (Phase C), manual approval 
 ### 15.4 Result Artifact
 
 `docs/audit/test-kso-phase-a-backend-readiness-result.md` — полный отчёт, безопасный (URL не указан, secrets отсутствуют).
+
+## 16. Step 38.9 — Phase B Sidecar Config Preparation (2026-06-26)
+
+### 16.1 Config Template
+
+`apps/kso_sidecar_agent/config/agent_config.json.example` — безопасный шаблон:
+- `backend_base_url: <TEST_BACKEND_BASE_URL>`
+- `device_code: <TEST_KSO_DEVICE_CODE>`
+- `tls_verify`, `request_timeout_sec`, `local_interface_version`
+
+Заполненный файл (`agent_config.json`) защищён `.gitignore`.
+
+### 16.2 Config Validation
+
+`local_config.validate_no_placeholders()` — проверка без вывода значений:
+- `filled: bool` — все плейсхолдеры заменены?
+- `placeholder_fields: list[str]` — какие поля ещё шаблонные
+- `all_required_present: bool` — ready для Phase B?
+
+`config_status()` теперь возвращает `has_placeholders` и `placeholder_fields`.
+
+### 16.3 Gitignore
+
+Защищены: `agent_config.json`, `device_secret.dev`, `*_filled.json`, `agent-root/`, `kso-agent-root/`, `test-agent-root/`.
+
+### 16.4 Readiness
+
+`sidecar_config_ready` остаётся `false` — backend не может проверить локальный config.
+Только `validate_no_placeholders()` на КСО определяет реальную готовность.
+
+### 16.5 Documentation
+
+`test-kso-sidecar-config-preparation.md` — полный анализ config mechanisms, template, operator checklist (Phase B).

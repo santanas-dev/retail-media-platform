@@ -231,4 +231,6 @@ sidecar doctor --root <AGENT_ROOT>
 - Sidecar config заполнен (имена полей ✅, значения ❌ не переданы)
 - Phase D всё ещё blocked
 
-Следующий шаг: **38.8 — Phase D Manual Approval Gate** (явное разрешение на физический запуск).
+Следующий шаг: **38.9 — Phase B Sidecar Config Preparation** (подготовка config template, валидация плейсхолдеров, без физической КСО).
+
+See also: `docs/audit/test-kso-sidecar-config-preparation.md`

@@ -171,6 +171,9 @@ def config_status(root: str | Path) -> dict:
     except (ValueError, FileNotFoundError) as e:
         return {"present": True, "ok": False, "error": str(e)}
 
+    # Check for placeholder values
+    placeholder_fields = _check_placeholder_values(validated)
+
     parsed = urlparse(validated["backend_base_url"])
     return {
         "present": True,
@@ -181,4 +184,71 @@ def config_status(root: str | Path) -> dict:
         "tls_verify": validated["tls_verify"],
         "request_timeout_sec": validated["request_timeout_sec"],
         "local_interface_version": validated["local_interface_version"],
+        "has_placeholders": len(placeholder_fields) > 0,
+        "placeholder_fields": placeholder_fields,
     }
+
+
+PLACEHOLDER_PATTERNS = [
+    "<TEST_BACKEND_BASE_URL>",
+    "<TEST_KSO_DEVICE_CODE>",
+    "<DEVICE_SECRET_VALUE>",
+    "<AGENT_ROOT>",
+    "<REPLACE_ME>",
+    "changeme",
+    "placeholder",
+]
+
+
+def _check_placeholder_values(data: dict) -> list[str]:
+    """Return list of field names that contain placeholder values."""
+    placeholder_fields: list[str] = []
+    for field in ("backend_base_url", "device_code"):
+        val = data.get(field, "")
+        val_lower = str(val).lower()
+        for pattern in PLACEHOLDER_PATTERNS:
+            if pattern.lower() in val_lower:
+                placeholder_fields.append(field)
+                break
+    return placeholder_fields
+
+
+def validate_no_placeholders(root: str | Path) -> dict:
+    """Check if config has been filled (no placeholders). Returns safe summary without values."""
+    root = Path(root)
+    path = root / CONFIG_FILE
+
+    result = {
+        "present": False,
+        "ok": False,
+        "filled": False,
+        "placeholder_fields": [],
+        "all_required_present": False,
+    }
+
+    if not path.exists():
+        return result
+
+    result["present"] = True
+
+    try:
+        data = read_json(path)
+        validated = validate_config(data)
+        result["ok"] = True
+    except (ValueError, FileNotFoundError) as e:
+        result["error"] = str(e)
+        return result
+
+    # Check placeholders
+    placeholder_fields = _check_placeholder_values(validated)
+    result["placeholder_fields"] = placeholder_fields
+    result["filled"] = len(placeholder_fields) == 0
+
+    # All required fields present and filled
+    result["all_required_present"] = (
+        result["filled"]
+        and bool(validated.get("backend_base_url"))
+        and bool(validated.get("device_code"))
+    )
+
+    return result

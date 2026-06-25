@@ -916,3 +916,10 @@ Live HTTP-вызовы: health ✅, seed ✅, readiness ✅, portal ✅.
 Результат: `overall_ready: false` (sidecar не настроен, media не закеширован).
 Backend prerequisites все зелёные. Live blockers: sidecar config (Phase B), media cache (Phase C), approval (Phase D).
 Result artifact: `test-kso-phase-a-backend-readiness-result.md`.
+
+## 38.9 — Phase B Sidecar Config Preparation (2026-06-26)
+
+Config template `agent_config.json.example` с плейсхолдерами. `.gitignore` защита заполненных файлов.
+`local_config.validate_no_placeholders()` — dry-check без вывода значений. `config_status()` — enhanced с `has_placeholders`.
+`sidecar_config_ready` остаётся `false` (backend не может проверить локальный config).
+Doc: `test-kso-sidecar-config-preparation.md` — анализ mechanisms, operator checklist.

@@ -1,0 +1,15 @@
+{
+  "_comment": "SAFE TEMPLATE — all values are placeholders. DO NOT commit a filled copy.",
+  "_instructions": [
+    "1. Copy this file to config/agent_config.json (NOT tracked by git)",
+    "2. Replace each <...> placeholder with the real value",
+    "3. Run: sidecar config-status --root <AGENT_ROOT> to verify",
+    "4. Ensure device_secret.dev is also created (via secret-store-set, stdin only)",
+    "5. NEVER commit agent_config.json or device_secret.dev"
+  ],
+  "backend_base_url": "<TEST_BACKEND_BASE_URL>",
+  "device_code": "<TEST_KSO_DEVICE_CODE>",
+  "tls_verify": true,
+  "request_timeout_sec": 10,
+  "local_interface_version": "1.0"
+}

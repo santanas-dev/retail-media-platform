@@ -161,5 +161,15 @@ Live HTTP: health ✅, seed ✅, readiness ✅, portal ✅.
 Result artifact: `test-kso-phase-a-backend-readiness-result.md`.
 
 ### Next actions (после 38.8)
-- 38.9: Phase D Manual Approval Gate
+- 38.9: Phase B Sidecar Config Preparation ✅
+
+## 38.9 — Phase B Sidecar Config Preparation (2026-06-26)
+
+Config template `agent_config.json.example`, `.gitignore` protection.
+`local_config.validate_no_placeholders()` — dry-check без вывода значений.
+`sidecar_config_ready` остаётся `false` (backend не может проверить локальный config).
+Doc: `test-kso-sidecar-config-preparation.md`.
+
+### Next actions (после 38.9)
+- 38.10: Phase D Manual Approval Gate
 - Controlled one-KSO E2E dry run (после approval)

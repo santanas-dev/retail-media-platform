@@ -94,5 +94,6 @@ Never shows:
 ## Related Documents
 
 - **Operator Runbook:** [test-kso-live-backend-seed-runbook.md](test-kso-live-backend-seed-runbook.md) — Phase A/B/C preflight
+- **Phase B Preparation:** [test-kso-sidecar-config-preparation.md](test-kso-sidecar-config-preparation.md) — config template, validation, gitignore
 - **Readiness Gate:** [one-kso-e2e-dry-run-readiness-gate.md](one-kso-e2e-dry-run-readiness-gate.md)
 - **Pilot Plan:** [one-kso-pilot-readiness-plan.md](one-kso-pilot-readiness-plan.md)

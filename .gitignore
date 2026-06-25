@@ -24,6 +24,15 @@ Thumbs.db
 .env.*.local
 *.secret
 
+# Sidecar agent — local filled config files (templates with placeholders ARE committed)
+apps/kso_sidecar_agent/config/agent_config.json
+apps/kso_sidecar_agent/config/device_secret.dev
+apps/kso_sidecar_agent/config/*_filled.json
+# sidecar operator runtime dirs (if testing locally)
+agent-root/
+kso-agent-root/
+test-agent-root/
+
 # Database
 *.db
 *.sqlite3

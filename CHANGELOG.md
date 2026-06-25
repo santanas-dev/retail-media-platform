@@ -7,6 +7,32 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [Unreleased] — 38.9 Phase B Sidecar Config Preparation
+
+### Sidecar Config
+
+- `config/agent_config.json.example` — safe template with placeholders (no real values)
+- `local_config.validate_no_placeholders()` — dry-check config without exposing values
+- `local_config.config_status()` — enhanced: now returns `has_placeholders`, `placeholder_fields`
+- `PLACEHOLDER_PATTERNS` — detects `<TEST_BACKEND_BASE_URL>`, `<TEST_KSO_DEVICE_CODE>`, etc.
+
+### Gitignore
+
+- `agent_config.json`, `device_secret.dev`, `*_filled.json` — ignored
+- `agent-root/`, `kso-agent-root/`, `test-agent-root/` — local test roots ignored
+
+### Docs
+
+- `test-kso-sidecar-config-preparation.md` — Phase B analysis, config mechanisms, operator checklist
+- Updated: runbook, config-checklist, readiness-gate, pilot-plan, tech-debt
+
+### Readiness
+
+- `sidecar_config_ready` stays `false` — backend cannot inspect local sidecar filesystem
+- Only `validate_no_placeholders()` on KSO determines real config readiness
+
+---
+
 ## [v0.5.0] — Test-KSO Readiness Control Plane + Phase A Backend Readiness
 
 **Tag:** `v0.5.0-test-kso-phase-a-readiness` (2026-06-25)
