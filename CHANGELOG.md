@@ -7,7 +7,40 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [Unreleased] — HW Scanner E2E Validation Plan (38.15, 2026-06-25)
+## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
+
+### 39.0 — Product Backend / Frontend Gap Analysis
+
+**Analysis document:** `docs/audit/product-backend-frontend-gap-analysis.md`
+
+- **23 backend domains** audited: 16 production-ready, 4 partial, 3 TEST_ONLY security gaps
+- **16 portal pages** audited: 10 backend-driven, 3 partial, 3 DEMO stubs (dashboard, schedule, reports)
+- **29 total gaps** identified
+
+**Pilot blockers (🔴 HIGH):**
+- Device gateway auth (manifest/media/PoP — TEST_ONLY без аутентификации)
+- Schedule UI (DEMO form, не подключён к backend)
+- HW scanner E2E validation (POSTPONED — scanner unavailable)
+- Controlled long-run (≥1 час)
+
+**Release plan proposed (7 phases):**
+39.1 Backend API hardening → 39.2 Portal UI completion → 39.3 Approval/publication workflow →
+39.4 Device/readiness dashboard → 39.5 PoP reporting → 39.6 RBAC/RLS/Admin →
+39.7 Pilot runbook
+
+**Regression:** 4939 all green, git clean
+
+---
+
+### 38.17 — Backend Regression Baseline Stabilization
+
+- Backend: 27 cross-component import errors → **FIXED** (sys.path test isolation)
+- Backend: 292/292 OK, 0 errors
+- Full regression: 4939 all green
+- 2 test files patched (`test_z_readiness_gate_383.py`, `test_z_x11_runner_pop_full_e2e_3827.py`)
+- Zero business logic changes
+
+---
 
 ### 38.15 — HW Scanner E2E Validation Plan
 
