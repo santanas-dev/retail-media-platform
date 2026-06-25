@@ -247,4 +247,17 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - ✅ Regression: 4894 green baseline
 
 ### Next actions (после 38.13)
+- 38.13.1: Phase D geometry consistency fix (portrait 768×1024)
+- Phase D: физический one-KSO E2E dry run (requires explicit manual approval)
+
+## 38.13.1 — Phase D Geometry Consistency Fix (2026-06-25)
+
+### Executed
+- ✅ Fixed display_surface: test-dev-seed was 1920×1080 (shared landscape) → now 768×1024 (dedicated portrait)
+- ✅ Created portrait logical_carrier + display_surface in DB
+- ✅ Created `docs/audit/kso-portrait-architecture-pivot.md`
+- ✅ Manifest/media NOT dependent on geometry — no changes needed
+- ✅ Full regression: 4894 green
+
+### Next actions (после 38.13.1)
 - Phase D: физический one-KSO E2E dry run (requires explicit manual approval)

@@ -7,7 +7,16 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [Unreleased] — Phase D Preflight (38.13, 2026-06-25)
+## [Unreleased] — Phase D Preflight + Geometry Fix (38.13.1, 2026-06-25)
+
+### 38.13.1 — Phase D Geometry Consistency Fix
+- **Critical fix:** test-dev-seed GatewayDevice was linked to shared landscape display_surface (1920×1080)
+- Real KSO is portrait 768×1024 — created dedicated portrait surface + logical_carrier
+- GatewayDevice updated to portrait surface; legacy landscape surface preserved for other devices
+- Created `docs/audit/kso-portrait-architecture-pivot.md`
+- Manifest/media NOT geometry-dependent — no content changes needed
+
+### 38.13 — Phase D Preflight
 
 ### 38.12.2 — Backend Regression Stabilization
 - Fixed 27 pre-existing backend errors: PYTHONPATH config in `backend/pyproject.toml`

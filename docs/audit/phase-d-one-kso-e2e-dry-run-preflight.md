@@ -14,7 +14,7 @@
 | GatewayDevice | ✅ active | `test-dev-seed`, device_name="Test KSO Seed" |
 | Credential | ✅ active | bcrypt hash (60 chars), matched to sidecar secret |
 | Channel | ✅ | `kso` channel registered |
-| Display Surface | ✅ | 1920×1080, linked to GatewayDevice |
+| Display Surface | ✅ | 768×1024 portrait, dedicated surface for test KSO |
 | Campaign | ✅ active | `test-camp-seed` |
 | Placement | ✅ active | `test-place-seed`, linked to `test-dev-seed` |
 | Manifest | ✅ published | `test-manifest-seed`, 1 item, version 1 |
@@ -291,7 +291,7 @@ During Phase D, all terminal output must be filtered:
 | KSO player | 2059 | 2047 | -12 | 12 skipped tests counted in old total, not in new |
 | KSO sidecar agent | 1838 | 1838 | 0 | Same scope |
 | Infra/kso-linux | 227 | 227 | 0 | Same scope |
-| **Total** | **4926** | **4894** | **-32** | |
+| **Total** | **4926** | **4894** | **-32** | 20 portal integration + 12 player skips |
 
 The 32-test delta is entirely explained by:
 - **20 tests:** Portal-web `BackendIntegration` tests excluded (require live backend, pre-existing)

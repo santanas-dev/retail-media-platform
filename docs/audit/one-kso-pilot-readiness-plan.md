@@ -1012,3 +1012,19 @@ Phase D runbook created. All preconditions documented. Awaiting manual approval.
 ### Remaining
 - Phase D: ⛔ requires manual approval
 - Regression: 4894 green baseline
+
+## 38.13.1 — Phase D Geometry Consistency Fix (2026-06-25)
+
+### Discovery
+test-dev-seed GatewayDevice was linked to shared landscape display_surface (1920×1080).
+Real KSO is portrait 768×1024. Legacy `kso_devices` had correct 768×1024.
+
+### Fix
+- Created dedicated portrait display_surface (768×1024) + logical_carrier
+- Updated GatewayDevice test-dev-seed → portrait surface
+- Created `docs/audit/kso-portrait-architecture-pivot.md`
+- Manifest/media NOT dependent on geometry — no changes needed
+
+### Remaining
+- Phase D: ⛔ requires manual approval
+- Regression: 4894 green baseline

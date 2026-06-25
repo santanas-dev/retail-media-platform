@@ -334,3 +334,41 @@ User clarification: вся сеть использует КСО 768×1024 portra
 - Меняется только исполнительный слой показа
 
 Код не менялся. КСО не менялась. Документация обновлена.
+
+### 2026-06-25 — Шаг 38.13.1 (Phase D Geometry Consistency Fix)
+
+**Discovery:** При preflight Phase D обнаружено расхождение:
+- `gateway_devices.test-dev-seed` → display_surface `f20b2706` = **1920×1080** (landscape, shared)
+- `kso_devices.test-dev-seed` → **768×1024** (portrait, correct)
+- Реальная тестовая КСО = 768×1024 portrait
+
+**Причина:** В БД существовала только одна display_surface (`f20b2706`, 1920×1080), общая для всех 31 gateway device. При создании GatewayDevice в Phase C он был привязан к этой shared surface автоматически.
+
+**Исправление:**
+```sql
+-- Создан dedicated portrait logical_carrier
+INSERT INTO logical_carriers (id, physical_device_id, type, zone, position)
+VALUES ('b2c3d4e5...', '9b7778ca...', 'x11_screensaver', 'fullscreen', 'portrait_768x1024');
+
+-- Создана dedicated portrait display_surface
+INSERT INTO display_surfaces (id, logical_carrier_id, capability_profile_id, resolution, is_active)
+VALUES ('a1b2c3d4...', 'b2c3d4e5...', 'a0489644...', '768x1024', true);
+
+-- test-dev-seed переключён на portrait surface
+UPDATE gateway_devices SET display_surface_id = 'a1b2c3d4...' WHERE device_code = 'test-dev-seed';
+```
+
+**Результат:**
+- ✅ `gateway_devices.test-dev-seed` → 768×1024 portrait
+- ✅ `kso_devices.test-dev-seed` → 768×1024 portrait
+- ✅ Legacy landscape surface `f20b2706` сохранена для других устройств
+- ✅ Manifest/media не зависят от геометрии — без изменений
+- ✅ Полный regression: 4894 green
+
+**Документы обновлены:**
+- `docs/audit/phase-d-one-kso-e2e-dry-run-preflight.md`
+- `docs/audit/one-kso-pilot-readiness-plan.md`
+- `docs/audit/technical-debt-next-actions.md`
+- `CHANGELOG.md`
+
+Phase D не запускался. КСО не менялась. Код не менялся.
