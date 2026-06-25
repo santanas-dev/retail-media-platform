@@ -222,5 +222,29 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - ✅ No secrets/full URLs/tokens in output or committed files
 
 ### Next actions (после 38.12.1)
-- 38.13: Phase D Manual Approval Gate
+- 38.12.2: Backend regression stabilization (27 errors)
+- 38.13: Phase D Preflight + Runbook
 - Phase D: физический one-KSO E2E dry run (requires approval)
+
+## 38.12.2 — Backend Regression Stabilization (2026-06-25)
+
+### Executed
+- ✅ **27 errors resolved:** PYTHONPATH fix in `backend/pyproject.toml` — added `kso_player` + `kso_sidecar_agent` paths
+- ✅ All 292 backend tests green (was 265+27)
+- ✅ Portal-web: 404 green (20 BackendIntegration excluded — need live backend)
+- ✅ Full regression: 4894 green
+- ✅ Secret discrepancy documented: 32→25 bytes = different registration instances
+
+### Next actions (после 38.12.2)
+- 38.13: Phase D Preflight + Runbook
+
+## 38.13 — Phase D Preflight (2026-06-25)
+
+### Executed
+- ✅ Phase D runbook created: `docs/audit/phase-d-one-kso-e2e-dry-run-preflight.md`
+- ✅ 6 sub-phases (D0–D6), 12 stop criteria, rollback, approval gates
+- ✅ Readiness verified: backend health, manifest, credential, campaign/placement
+- ✅ Regression: 4894 green baseline
+
+### Next actions (после 38.13)
+- Phase D: физический one-KSO E2E dry run (requires explicit manual approval)

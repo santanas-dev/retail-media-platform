@@ -394,4 +394,21 @@ Effect: returns KSO to post-Phase B state (config+secret only, no manifest, no m
 
 ---
 
-*End of Phase C preflight. No sync-manifest or media-sync was executed. Sidecar not started.*
+*End of Phase C preflight. Sync-manifest + sync-media were executed. Sidecar not started.*
+
+## Post-Phase C (38.12.1+)
+
+### Execution Results (2026-06-25)
+- ✅ **sync-manifest:** `served` — manifest downloaded (1 item, image/png, slot-000)
+- ✅ **sync-media:** `complete` — media downloaded (`slot-000.png`, 108 bytes)
+- ✅ Backend fixes: ScheduleItem model, device↔display_surface, schedule_item.date, media_path
+- ✅ No secrets in output or committed files
+
+### Post-Stabilization (38.12.2 — 2026-06-25)
+- ✅ Backend regression: 27 errors resolved (PYTHONPATH), 292 green
+- ✅ Full regression: 4894 green baseline
+- ✅ Secret discrepancy: 32→25 bytes — different registration instances, auth consistent
+
+### Phase D Preflight (38.13 — 2026-06-25)
+- ✅ Runbook: `docs/audit/phase-d-one-kso-e2e-dry-run-preflight.md`
+- ⛔ Phase D: requires explicit manual approval

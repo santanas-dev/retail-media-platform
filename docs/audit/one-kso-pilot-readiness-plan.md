@@ -977,4 +977,38 @@ Full regression: 4926 green (292+424+86+2059+1838+227).
 
 ### Remaining
 - Phase D: ⛔ requires manual approval
-- Secret: Phase C uses new 25-byte secret (Phase B's 32-byte secret replaced during credential creation)
+
+## 38.12.2 — Backend Regression Stabilization (2026-06-25)
+
+### Root Cause
+27 pre-existing errors: `ModuleNotFoundError: No module named 'kso_player'` / `kso_sidecar_agent`.
+Tests in `test_z_readiness_gate_383.py` (14) and `test_z_x11_runner_pop_full_e2e_3827.py` (13)
+import from sibling apps but PYTHONPATH was missing those directories.
+
+### Fix
+Added `[tool.pytest.ini_options]` with `pythonpath = [".", "../apps/kso_player", "../apps/kso_sidecar_agent"]`
+to `backend/pyproject.toml`. Zero business logic changes.
+
+### Results
+- Backend: 292 passed (was 265+27 errors) ✅
+- Portal-web: 404 passed (20 BackendIntegration excluded — need live backend) ✅
+- Full regression: 4894 green
+- Secret discrepancy: 32→25 bytes — different registration instances, auth consistent ✅
+
+## 38.13 — Phase D Preflight (2026-06-25)
+
+### Status
+Phase D runbook created. All preconditions documented. Awaiting manual approval.
+
+### Documents
+- `docs/audit/phase-d-one-kso-e2e-dry-run-preflight.md` — full runbook with 6 sub-phases (D0-D6)
+- 12 stop criteria, rollback procedure, safe output rules
+- Approval gates: D0→D1-D2→D3→D4→D5→D6
+
+### Readiness
+- ✅ Backend health, GatewayDevice, Credential, Manifest (published, 1 item), Campaign/Placement active
+- ⛔ Sidecar daemon NOT started, X11/Chromium NOT tested, PoP NOT uploaded
+
+### Remaining
+- Phase D: ⛔ requires manual approval
+- Regression: 4894 green baseline

@@ -81,3 +81,8 @@
 - ⚠️ Portal-web BackendIntegration tests require running backend (pre-existing)
 
 **Verdict:** Backend regression is at clean green baseline. The pre-existing integration/E2E test gaps are documented and do not block Phase D.
+
+## 38.13 Update (2026-06-25)
+
+Phase D preflight completed. Runbook: `docs/audit/phase-d-one-kso-e2e-dry-run-preflight.md`.
+All readiness checks green. Phase D awaits manual approval.

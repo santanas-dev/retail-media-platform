@@ -7,7 +7,31 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [Unreleased] — Phase C Controlled Run + Stabilization (38.12.1, 2026-06-25)
+## [Unreleased] — Phase D Preflight (38.13, 2026-06-25)
+
+### 38.12.2 — Backend Regression Stabilization
+- Fixed 27 pre-existing backend errors: PYTHONPATH config in `backend/pyproject.toml`
+- Added `["../apps/kso_player", "../apps/kso_sidecar_agent"]` to pytest pythonpath
+- Backend: 292/292 green (was 265)
+- Portal-web: 404/404 green (20 BackendIntegration excluded — need live backend)
+- Full regression: 4894 green baseline
+- Secret discrepancy resolved: 32→25 bytes = different registration instances
+
+### 38.13 — Phase D Preflight
+- Created `docs/audit/phase-d-one-kso-e2e-dry-run-preflight.md` — full runbook
+- 6 sub-phases (D0–D6), 12 stop criteria, rollback procedure, approval gates
+- Readiness verified: backend health, manifest, credential, campaign/placement
+- No KSO/sidecar/X11/PoP executed — documentation only
+
+### Requirements verification
+- ✅ Full regression: 4894 green
+- ✅ Git status clean
+- ✅ No secrets / full URLs / tokens committed
+- ✅ No sidecar/X11/PoP/runner launched
+
+---
+
+## [38.12.1] — Phase C Controlled Run + Stabilization (2026-06-25)
 
 ### Phase C.1 — Manifest Sync
 - GatewayDevice `test-dev-seed` created in `gateway_devices` + credential in `device_credentials`
