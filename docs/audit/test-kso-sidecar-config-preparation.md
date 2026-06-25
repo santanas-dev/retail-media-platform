@@ -204,8 +204,8 @@ Backend readiness always returns `sidecar_config_ready: false` because:
 |---|---|---|
 | 1 | ~~Config не заполнен на КСО~~ | B | ✅ Выполнено 2026-06-26 |
 | 2 | ~~Secret не записан на КСО~~ | B | ✅ Выполнено 2026-06-26 |
-| 3 | Media cache пуст | C | |
-| 4 | Phase D manual approval | D | |
+| 3 | Media cache пуст | C | ⛔ 38.12 preflight готов |
+| 4 | Phase D manual approval | D | ⛔ |
 
 **AGENT_ROOT:** `/home/ukm5/kso-agent` (фактический, KSO)  
 **device_code:** `test-dev-seed` (synthetic, не секрет)
@@ -214,6 +214,14 @@ Backend readiness always returns `sidecar_config_ready: false` because:
 
 When Phase B is approved for execution, follow the controlled procedure in:
 
-→ **`test-kso-sidecar-config-application-preflight.md`**
+→ **`test-kso-sidecar-config-application-preflight.md`** (выполнен — commit `83afb9c`)
+
+## 10. Phase C Preflight
+
+Phase C manifest + media cache preflight prepared in:
+
+→ **`test-kso-phase-c-manifest-media-cache-preflight.md`** (шаг 38.12)
+
+Includes: current state, pre-conditions, command templates (masked), safety gates, stop criteria, rollback.
 
 Includes: step-by-step commands (templates), safety gates, stop criteria, rollback, запрещённые действия.

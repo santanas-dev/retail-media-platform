@@ -189,8 +189,9 @@ Preflight doc: `test-kso-sidecar-config-application-preflight.md`:
 Исправлено в: preflight doc, runbook, preparation doc.
 
 ### Next actions (после 38.11)
-- ⏳ Phase B applied on KSO ✅ (2026-06-26)
-- 38.12: Phase D Manual Approval Gate
+- ✅ Phase B applied on KSO (2026-06-26, commit `83afb9c`)
+- ✅ 38.12: Phase C manifest/media cache preflight
+- 38.13: Phase D Manual Approval Gate
 - Controlled one-KSO E2E dry run (после approval)
 
 **Phase B deployment details (safe):**
@@ -199,3 +200,22 @@ Preflight doc: `test-kso-sidecar-config-application-preflight.md`:
 - 9 subdirectories, agent_config.json (177 bytes), device_secret.dev (32 bytes, 0600)
 - Backend reachable: scheme+host verified, no full URL in output
 - Secret: present, 600 perms — value never printed
+
+## 38.12 — Phase C Manifest & Media Cache Preflight (2026-06-26)
+
+Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes).
+10-section document: current state, pre-conditions, command templates (masked),
+10 safety gates, 10 stop criteria, rollback (partial/full).
+
+### Not Executed
+- ❌ sync-manifest NOT run
+- ❌ sync-media NOT run
+- ❌ No network calls from KSO
+- ❌ Sidecar/X11/Chromium NOT started
+- ❌ PoP NOT uploaded
+- ❌ No secrets/full URLs/tokens in output or committed files
+- Full regression: 4926 green
+
+### Next actions (после 38.12)
+- 38.13: Phase D Manual Approval Gate
+- Phase C run (после approval) — sync-manifest + sync-media

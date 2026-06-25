@@ -7,15 +7,20 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [Unreleased] — 38.10 + 38.11 Phase B Preflight
+## [Unreleased] — 38.12 Phase C Manifest & Media Cache Preflight
 
-- `test-kso-sidecar-config-application-preflight.md` — controlled Phase B procedure
-- 8-step commands (templates), safety gates (G1–G5), stop criteria (S1–S6)
-- Verification gates (V1–V6), rollback (partial/full), запрещённые действия
-- **38.11 security fix:** `echo -n '<SECRET>'` → `read -rsp + printf + unset` (no shell history leak)
-- All commands with placeholders only — no real values
+- `test-kso-phase-c-manifest-media-cache-preflight.md` — 10-section Phase C readiness plan
+- Pre-conditions: backend reachability, auth path, published manifest, creative media, disk space
+- Command templates (masked): config-status, secret-store-check, sync-manifest (⛔ not run), sync-media (⛔ not run)
+- 10 safety gates (G1–G10), 10 stop criteria (S1–S10), rollback (partial/full)
+- No network calls from KSO, no sidecar/X11/Chromium/PoP started
+- Full regression: 4926 green (292+424+86+2059+1838+227)
 
----
+## Phase B Applied — Config on Test KSO (commit `83afb9c`)
+
+- AGENT_ROOT: `/home/ukm5/kso-agent`, 9 subdirectories, valid config (177 bytes), secret (32 bytes, 0600)
+- Backend reachable, no placeholders, secret via safe stdin (never printed)
+- No sidecar/X11/Chromium/PoP started
 
 ## [v0.6.0] — Sidecar Config Readiness (Phase B Preparation)
 

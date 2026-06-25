@@ -930,3 +930,23 @@ Preflight doc: `test-kso-sidecar-config-application-preflight.md` — controlled
 step-by-step commands (templates), safety gates (G1–G5), stop criteria (S1–S6),
 verification gates (V1–V6), rollback (partial/full), запрещённые действия.
 Без реальных значений — только `<TEST_BACKEND_BASE_URL>`, `<TEST_KSO_DEVICE_CODE>`, `<AGENT_ROOT>`.
+
+## 38.11 — Phase B Final Preflight + Security Fix (2026-06-26)
+
+**Критичная правка:** замена `echo -n '<SECRET>' | ...` на `read -rsp + printf '%s' + unset` — секрет не попадает в shell history / `ps aux`.
+Исправлено в: preflight doc, runbook, preparation doc, CLI help.
+
+## 38.Phase B — Config Applied on Test KSO (2026-06-26)
+
+**Commit:** `83afb9c` — sidecar config applied on physical KSO (192.168.110.223).
+AGENT_ROOT: `/home/ukm5/kso-agent`, 9 поддиректорий, `agent_config.json` (177 bytes, valid, no placeholders), `device_secret.dev` (32 bytes, 0600).
+Backend reachable. Secret введён через безопасный stdin, ни разу не выведен.
+
+## 38.12 — Phase C Manifest & Media Cache Preflight (2026-06-26)
+
+Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` — Phase C readiness plan.
+Pre-conditions: backend reachability, auth path, published manifest, creative media, disk space.
+Command templates (masked): config-status, secret-store-check, sync-manifest (⛔ not run), sync-media (⛔ not run).
+10 safety gates, 10 stop criteria, rollback (partial/full). No network calls from KSO performed.
+Sidecar/X11/Chromium/PoP NOT started.
+Full regression: 4926 green (292+424+86+2059+1838+227).
