@@ -10,9 +10,19 @@ Pure contract/document audit.
 
 import json
 import re
+import sys
 import unittest
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from uuid import uuid4
+
+# Cross-component test isolation: ensure sibling apps are importable
+# even when unittest discover doesn't read pyproject.toml pythonpath.
+_HERE = Path(__file__).resolve().parent
+for _app_dir in ("kso_player", "kso_sidecar_agent"):
+    _sp = str(_HERE.parent.parent / "apps" / _app_dir)
+    if _sp not in sys.path:
+        sys.path.insert(0, _sp)
 
 
 # ══════════════════════════════════════════════════════════════════════
