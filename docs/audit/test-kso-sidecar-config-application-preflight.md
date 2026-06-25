@@ -113,15 +113,24 @@ cp apps/kso_sidecar_agent/config/agent_config.json.example /tmp/agent_config_fil
 > shred -u /tmp/agent_config_filled.json
 > ```
 
-#### Step 5: Write device secret (stdin only)
+#### Step 5: Write device secret (hidden stdin — НЕ через echo!)
 
 ```bash
 # На КСО:
-# Секрет НЕ передаётся как аргумент — только через stdin!
-echo -n '<DEVICE_SECRET_VALUE>' | sidecar secret-store-set \
+# ⚠️ Секрет вводится скрыто — НЕ через echo (попадает в shell history)!
+# НЕ через аргумент командной строки (виден в ps aux)!
+
+read -rsp "Device secret: " DEVICE_SECRET
+printf '%s' "$DEVICE_SECRET" | sidecar secret-store-set \
   --root <AGENT_ROOT> \
   --dev-secret-store
+unset DEVICE_SECRET
 ```
+
+- `read -rsp` — **скрытый ввод** (не отображается на экране, символы не видны)
+- `printf` — **без newline** (в отличие от echo добавляет `\n`)
+- `unset DEVICE_SECRET` — **немедленная очистка** переменной из памяти
+- Секрет **не попадает** в shell history (`.bash_history`), `ps aux`, или вывод
 
 Ожидаемый вывод: **ничего** (успех — отсутствие ошибки).
 

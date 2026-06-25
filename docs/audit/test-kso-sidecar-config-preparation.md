@@ -179,7 +179,7 @@ Backend readiness always returns `sidecar_config_ready: false` because:
 | B1 | Copy template | `cp agent_config.json.example agent_config.json` | ✅ |
 | B2 | Fill base URL | Edit `agent_config.json` → replace `<TEST_BACKEND_BASE_URL>` | ⚠️ private |
 | B3 | Fill device code | Edit `agent_config.json` → replace `<TEST_KSO_DEVICE_CODE>` | ⚠️ private |
-| B4 | Write secret | `echo -n '<SECRET>' | sidecar secret-store-set --root <AGENT_ROOT>` | ✅ stdin |
+| B4 | Write secret | `read -rsp "..." DEVICE_SECRET; printf '%s' "$DEVICE_SECRET" \| ...; unset DEVICE_SECRET` | ✅ hidden stdin |
 | B5 | Verify config | `sidecar config-status --root <AGENT_ROOT>` | ✅ safe output |
 | B6 | Verify secret | `sidecar secret-store-check --root <AGENT_ROOT>` | ✅ safe output |
 | B7 | Dry-check filled | `sidecar validate-no-placeholders --root <AGENT_ROOT>` | ✅ safe output |

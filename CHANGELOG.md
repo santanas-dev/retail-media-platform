@@ -7,11 +7,12 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [Unreleased] — 38.10 Phase B Application Preflight
+## [Unreleased] — 38.10 + 38.11 Phase B Preflight
 
 - `test-kso-sidecar-config-application-preflight.md` — controlled Phase B procedure
 - 8-step commands (templates), safety gates (G1–G5), stop criteria (S1–S6)
 - Verification gates (V1–V6), rollback (partial/full), запрещённые действия
+- **38.11 security fix:** `echo -n '<SECRET>'` → `read -rsp + printf + unset` (no shell history leak)
 - All commands with placeholders only — no real values
 
 ---

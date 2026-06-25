@@ -180,5 +180,15 @@ Preflight doc: `test-kso-sidecar-config-application-preflight.md`:
 Без реальных значений — только placeholders.
 
 ### Next actions (после 38.10)
-- 38.11: Phase D Manual Approval Gate
+- 38.11: Controlled Phase B final preflight ✅
+
+## 38.11 — Controlled Phase B Final Preflight (2026-06-26)
+
+**Критичная правка безопасности:** замена `echo -n '<SECRET>' | ...` на `read -rsp ...; printf '%s' "$DEVICE_SECRET" | ...; unset DEVICE_SECRET` — секрет не попадает в shell history, `ps aux`, или вывод.
+
+Исправлено в: preflight doc, runbook, preparation doc.
+
+### Next actions (после 38.11)
+- ⏳ Ожидание команды пользователя: «Применяй Phase B config»
+- 38.12: Phase D Manual Approval Gate
 - Controlled one-KSO E2E dry run (после approval)

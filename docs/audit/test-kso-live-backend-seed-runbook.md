@@ -107,8 +107,11 @@ sidecar write-config \
   --backend-base-url <TEST_BACKEND_BASE_URL> \
   --device-code <TEST_KSO_DEVICE_CODE>
 
-# 3. Записать секрет (через stdin — никогда не передавать аргументом!)
-echo -n '<DEVICE_SECRET_VALUE>' | sidecar secret-store-set --root <AGENT_ROOT> --stdin
+# 3. Записать секрет (скрытый ввод — НЕ через echo!)
+# ⚠️ echo пишет секрет в shell history — использовать read -rsp:
+read -rsp "Device secret: " DEVICE_SECRET
+printf '%s' "$DEVICE_SECRET" | sidecar secret-store-set --root <AGENT_ROOT> --dev-secret-store
+unset DEVICE_SECRET
 ```
 
 ### B2: Проверить config без вывода значений
