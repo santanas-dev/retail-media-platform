@@ -210,3 +210,20 @@ class CampaignSafeResponse(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Campaign-Creative Binding (production API schemas)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CampaignCreativeBind(BaseModel):
+    creative_code: str = Field(min_length=1, max_length=64, pattern=CAMPAIGN_CODE_PATTERN)
+
+
+class CampaignCreativeSafeResponse(BaseModel):
+    """Safe campaign-creative binding — no raw UUIDs."""
+    creative_code: str
+    is_active: bool
+    created_at: datetime | None = None
+
+    model_config = {"from_attributes": True}

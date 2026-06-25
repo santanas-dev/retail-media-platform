@@ -241,3 +241,73 @@ async def create_placement(
         "created_at": placement.created_at,
         "updated_at": placement.updated_at,
     }
+
+
+async def update_placement(
+    db: AsyncSession, placement_code: str, data: schemas.KsoPlacementUpdate,
+) -> dict:
+    """Update placement mutable fields."""
+    result = await db.execute(
+        select(models.KsoPlacement).where(
+            models.KsoPlacement.placement_code == placement_code,
+        )
+    )
+    p = result.scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="Placement not found")
+    if p.status == "archived":
+        raise HTTPException(status_code=400, detail="Placement is archived")
+
+    if data.starts_at is not None:
+        p.starts_at = data.starts_at
+    if data.ends_at is not None:
+        p.ends_at = data.ends_at
+    if data.slot_order is not None:
+        p.slot_order = data.slot_order
+    p.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(p)
+    return {
+        "placement_code": p.placement_code,
+        "campaign_code": p.campaign_code,
+        "creative_code": p.creative_code,
+        "device_code": p.device_code,
+        "status": p.status,
+        "starts_at": p.starts_at,
+        "ends_at": p.ends_at,
+        "slot_order": p.slot_order,
+        "created_at": p.created_at,
+        "updated_at": p.updated_at,
+    }
+
+
+async def archive_placement(
+    db: AsyncSession, placement_code: str,
+) -> dict:
+    """Archive a placement (status → archived)."""
+    result = await db.execute(
+        select(models.KsoPlacement).where(
+            models.KsoPlacement.placement_code == placement_code,
+        )
+    )
+    p = result.scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="Placement not found")
+    if p.status == "archived":
+        raise HTTPException(status_code=400, detail="Placement already archived")
+    p.status = "archived"
+    p.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(p)
+    return {
+        "placement_code": p.placement_code,
+        "campaign_code": p.campaign_code,
+        "creative_code": p.creative_code,
+        "device_code": p.device_code,
+        "status": p.status,
+        "starts_at": p.starts_at,
+        "ends_at": p.ends_at,
+        "slot_order": p.slot_order,
+        "created_at": p.created_at,
+        "updated_at": p.updated_at,
+    }

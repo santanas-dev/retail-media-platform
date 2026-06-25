@@ -260,3 +260,118 @@ async def create_test_kso_campaign(
         created_at=campaign.created_at,
         updated_at=campaign.updated_at,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Code-based campaign lookups (production API)
+# Lookup by campaign_code instead of raw UUID — safe for frontend.
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get(
+    "/campaigns/by-code/{campaign_code}",
+    response_model=schemas.CampaignResponse,
+)
+async def get_campaign_by_code(
+    campaign_code: str,
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("campaigns.read")),
+):
+    """Get campaign by campaign_code (safe external identifier)."""
+    from fastapi import HTTPException
+    campaign = await service.get_campaign_by_code(db, campaign_code)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return campaign
+
+
+@router.patch(
+    "/campaigns/by-code/{campaign_code}",
+    response_model=schemas.CampaignResponse,
+)
+async def patch_campaign_by_code(
+    campaign_code: str,
+    data: schemas.CampaignUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+):
+    """Update campaign by campaign_code."""
+    from fastapi import HTTPException
+    campaign = await service.get_campaign_by_code(db, campaign_code)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return await service.update_campaign(db, campaign.id, data)
+
+
+@router.post(
+    "/campaigns/by-code/{campaign_code}/archive",
+    response_model=schemas.CampaignResponse,
+)
+async def archive_campaign_by_code(
+    campaign_code: str,
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+):
+    """Archive campaign by campaign_code."""
+    from fastapi import HTTPException
+    campaign = await service.get_campaign_by_code(db, campaign_code)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return await service.archive_campaign(db, campaign.id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Campaign-Creative Binding (production API)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get(
+    "/campaigns/by-code/{campaign_code}/creatives",
+    response_model=list[schemas.CampaignCreativeSafeResponse],
+)
+async def list_campaign_creatives(
+    campaign_code: str,
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("campaigns.read")),
+):
+    """List creatives bound to a campaign (safe projection)."""
+    from fastapi import HTTPException
+    campaign = await service.get_campaign_by_code(db, campaign_code)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return await service.list_campaign_creatives(db, campaign.id)
+
+
+@router.post(
+    "/campaigns/by-code/{campaign_code}/creatives",
+    response_model=schemas.CampaignCreativeSafeResponse,
+    status_code=201,
+)
+async def bind_campaign_creative(
+    campaign_code: str,
+    data: schemas.CampaignCreativeBind,
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+):
+    """Bind a creative to a campaign."""
+    from fastapi import HTTPException
+    campaign = await service.get_campaign_by_code(db, campaign_code)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return await service.bind_campaign_creative(db, campaign.id, data.creative_code)
+
+
+@router.delete(
+    "/campaigns/by-code/{campaign_code}/creatives/{creative_code}",
+    response_model=schemas.CampaignCreativeSafeResponse,
+)
+async def unbind_campaign_creative(
+    campaign_code: str,
+    creative_code: str,
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+):
+    """Remove a creative binding from a campaign (deactivate)."""
+    from fastapi import HTTPException
+    campaign = await service.get_campaign_by_code(db, campaign_code)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return await service.unbind_campaign_creative(db, campaign.id, creative_code)

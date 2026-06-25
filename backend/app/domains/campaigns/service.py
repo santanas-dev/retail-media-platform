@@ -758,3 +758,147 @@ async def list_test_kso_campaigns(
             "updated_at": c.updated_at,
         })
     return safe_list
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Code-based campaign lookup + archive (production API)
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def get_campaign_by_code(
+    db: AsyncSession, campaign_code: str,
+) -> models.Campaign | None:
+    """Lookup campaign by campaign_code."""
+    result = await db.execute(
+        select(models.Campaign).where(
+            models.Campaign.campaign_code == campaign_code,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def archive_campaign(
+    db: AsyncSession, campaign_id: UUID,
+) -> models.Campaign:
+    """Archive a campaign (status → archived)."""
+    campaign = await db.get(models.Campaign, campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if campaign.status == "archived":
+        raise HTTPException(status_code=400, detail="Campaign already archived")
+    campaign.status = "archived"
+    campaign.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(campaign)
+    return campaign
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Campaign-Creative Binding (production API)
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def list_campaign_creatives(
+    db: AsyncSession, campaign_id: UUID,
+) -> list[dict]:
+    """List active creative bindings for a campaign."""
+    result = await db.execute(
+        select(models.CampaignCreative).where(
+            models.CampaignCreative.campaign_id == campaign_id,
+            models.CampaignCreative.is_active == True,
+        ).order_by(models.CampaignCreative.created_at)
+    )
+    bindings = result.scalars().all()
+    return [
+        {
+            "creative_code": b.creative_code,
+            "is_active": b.is_active,
+            "created_at": b.created_at,
+        }
+        for b in bindings
+    ]
+
+
+async def bind_campaign_creative(
+    db: AsyncSession, campaign_id: UUID, creative_code: str,
+) -> dict:
+    """Bind a creative to a campaign (idempotent)."""
+    from app.domains.media.models import Creative
+
+    # Verify campaign exists
+    campaign = await db.get(models.Campaign, campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    # Verify creative exists
+    creative_result = await db.execute(
+        select(Creative).where(Creative.creative_code == creative_code)
+    )
+    creative = creative_result.scalar_one_or_none()
+    if not creative:
+        raise HTTPException(status_code=404, detail="Creative not found")
+
+    # Check existing binding
+    existing_result = await db.execute(
+        select(models.CampaignCreative).where(
+            models.CampaignCreative.campaign_id == campaign_id,
+            models.CampaignCreative.creative_code == creative_code,
+        )
+    )
+    existing = existing_result.scalar_one_or_none()
+
+    if existing:
+        if existing.is_active:
+            # Idempotent: return existing
+            return {
+                "creative_code": existing.creative_code,
+                "is_active": existing.is_active,
+                "created_at": existing.created_at,
+            }
+        # Reactivate
+        existing.is_active = True
+        await db.commit()
+        await db.refresh(existing)
+        return {
+            "creative_code": existing.creative_code,
+            "is_active": existing.is_active,
+            "created_at": existing.created_at,
+        }
+
+    binding = models.CampaignCreative(
+        campaign_id=campaign_id,
+        creative_code=creative_code,
+        is_active=True,
+    )
+    db.add(binding)
+    await db.commit()
+    await db.refresh(binding)
+    return {
+        "creative_code": binding.creative_code,
+        "is_active": binding.is_active,
+        "created_at": binding.created_at,
+    }
+
+
+async def unbind_campaign_creative(
+    db: AsyncSession, campaign_id: UUID, creative_code: str,
+) -> dict:
+    """Deactivate a creative binding (soft delete)."""
+    result = await db.execute(
+        select(models.CampaignCreative).where(
+            models.CampaignCreative.campaign_id == campaign_id,
+            models.CampaignCreative.creative_code == creative_code,
+        )
+    )
+    binding = result.scalar_one_or_none()
+    if not binding:
+        raise HTTPException(status_code=404, detail="Binding not found")
+    if not binding.is_active:
+        raise HTTPException(status_code=400, detail="Binding already inactive")
+
+    binding.is_active = False
+    await db.commit()
+    await db.refresh(binding)
+    return {
+        "creative_code": binding.creative_code,
+        "is_active": binding.is_active,
+        "created_at": binding.created_at,
+    }

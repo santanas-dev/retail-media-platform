@@ -9,6 +9,26 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.1.2 — Campaign / Placement Production API Hardening
+
+**Production API foundation:** campaign code-based CRUD, creative binding, placement CRUD.
+
+- `GET/PATCH /api/campaigns/by-code/{campaign_code}` — code-based lookup + update
+- `POST /api/campaigns/by-code/{campaign_code}/archive` — archive by code
+- `GET /api/campaigns/by-code/{campaign_code}/creatives` — list campaign creatives
+- `POST /api/campaigns/by-code/{campaign_code}/creatives` — bind creative (idempotent)
+- `DELETE /api/campaigns/by-code/{campaign_code}/creatives/{code}` — unbind (soft)
+- `GET/POST /api/placements` — production placement list + create
+- `GET/PATCH /api/placements/{placement_code}` — get + update by code
+- `POST /api/placements/{placement_code}/archive` — archive by code
+- Test-kso endpoints retained as legacy (`/api/campaigns/test-kso`, `/api/schedule/test-kso`)
+- Backend tests: +9 new tests, 314/314 OK
+- Security gap SG5 (campaign/placement test-kso wrapper) → **CLOSED** ✅
+
+**Remaining:** Schedule CRUD (39.1.3), Portal UI (39.2)
+
+---
+
 ### 39.1.1 — Device Gateway Auth Hardening
 
 **Auth foundation:** device gateway PoP ingest + KSO manifest endpoints now require valid device JWT.

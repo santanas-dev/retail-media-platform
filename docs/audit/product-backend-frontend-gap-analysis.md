@@ -91,7 +91,7 @@ Portal UI ──→ Backend API ──→ Manifest/Media ──→ KSO Player (7
 | SG2 | Manifest delivery (KSO path) без аутентификации | 🔴 HIGH → ✅ FIXED (39.1.1) | `device_gateway/router.py` | Device JWT auth added |
 | SG3 | Media delivery без аутентификации | 🔴 HIGH | `device_gateway/router.py` | Already protected ✅ |
 | SG4 | Test KSO readiness без аутентификации | 🟡 MEDIUM | `test_kso_readiness/router.py` | TEST-KSO only (explicit) |
-| SG5 | Campaign/placement через test-kso wrapper | 🟡 MEDIUM | `campaigns/router.py`, `placements/router.py` | Production CRUD API (future) |
+| SG5 | Campaign/placement через test-kso wrapper | 🟡 MEDIUM → ✅ FIXED (39.1.2) | `campaigns/router.py`, `scheduling/router.py` | Production API added |
 | SG6 | RLS enforcement частичный | 🟡 MEDIUM | `identity/rls.py` | Полный query-level RLS (future) |
 | SG7 | In-memory portal session store | 🟡 LOW | `portal-web/portal_session.py` | Redis/persistent session (future) |
 | SG8 | Portal session secret hardcoded default | 🟡 LOW | `portal-web/main.py:49` | Env-only, no default (future) |
@@ -211,11 +211,11 @@ Portal UI ──→ Backend API ──→ Manifest/Media ──→ KSO Player (7
 
 | # | Blocker | Компонент | Fix complexity |
 |---|---|---|---|
-| B5 | Campaign/placement production API | Backend | 3-5 шагов |
+| B5 | Campaign/placement production API | Backend | 🟡 MEDIUM → ✅ FIXED (39.1.2) |
 | B6 | Dashboard — real data | Frontend | 2-3 шага |
 | B7 | Reports — backend-driven | Frontend | 3-5 шагов |
 | B8 | Sidecar status in portal | Frontend | 2-3 шага |
-| B9 | RLS enforcement (full) | Backend | 3-5 шагов |
+| B9 | RLS enforcement (full) | Backend | 3-5 шагов (future) |
 
 ### 🟢 LOW — можно отложить
 

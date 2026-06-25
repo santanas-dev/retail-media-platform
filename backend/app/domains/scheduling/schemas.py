@@ -48,3 +48,17 @@ class KsoPlacementResponse(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+
+class KsoPlacementUpdate(BaseModel):
+    """Fields allowed for update — only mutable fields."""
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    slot_order: int | None = Field(None, ge=0)
+
+    @model_validator(mode="after")
+    def validate_time_window(self) -> "KsoPlacementUpdate":
+        if self.starts_at is not None and self.ends_at is not None:
+            if self.starts_at >= self.ends_at:
+                raise ValueError("starts_at must be before ends_at")
+        return self
