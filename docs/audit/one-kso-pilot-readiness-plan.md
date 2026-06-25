@@ -753,6 +753,19 @@ creative → campaign → placement → approval → manifest → publish → si
 - +98 тестов: payload, adapter, validation (forbidden patterns), visibility, PoP safety
 - КСО не менялась. Physical run/X11/Chromium не запускались.
 
+### 38.4 — Backend + Portal Test-KSO Control Plane (2026-06-25)
+
+✅ **Readiness endpoint + portal page + seed helper added.**
+- New domain: `app/domains/test_kso_readiness/` — schemas, service, router
+- `GET /api/test-kso/readiness?device_code=...` — safe readiness summary (0 secrets)
+- 28 fields: overall_ready, device/manifest/campaign/placement/creative status, phase_d blocked
+- Portal page: `/readiness` — read-only, Phase D always blocked, no destructive buttons
+- BackendClient: `get_test_kso_readiness()` method
+- Synthetic seed helper in test: `_seed_full_chain()` — complete backend chain
+- 15 backend tests: readiness, forbidden keys/values/UUIDs, schema, phase D, unknown device
+- Full regression: 4893/4893 (0 errors, 0 failures)
+- Backend: 276 (+15), Portal: 407, State: 86, Player: 2059, Sidecar: 1838, Infra: 227
+
 ### 38.3 — One-KSO E2E Dry Run Readiness Gate (2026-06-24)
 
 ✅ **Readiness gate document created — 11-section plan, 23 safety tests.**

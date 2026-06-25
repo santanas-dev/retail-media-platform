@@ -457,6 +457,19 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    async def get_test_kso_readiness(
+        self, device_code: str,
+    ) -> dict:
+        """GET /api/test-kso/readiness?device_code=... → {ok, data: ReadinessStatus}
+
+        No auth required (TEST_ONLY endpoint). Returns safe readiness summary.
+        """
+        from urllib.parse import urlencode
+        query = "?" + urlencode({"device_code": device_code})
+        return await self._request(
+            "GET", f"/api/test-kso/readiness{query}",
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 

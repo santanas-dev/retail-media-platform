@@ -198,6 +198,44 @@ app.add_api_route("/admin", _page("pages/admin.html", "Администриро�
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Test KSO Readiness — Backend API Integration (Step 38.4)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/readiness", response_class=HTMLResponse)
+async def readiness_page(request: Request):
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/readiness")
+    if guard is not None:
+        return guard
+
+    backend = BackendClient()
+    device_code = request.query_params.get("device_code", "test-dev-readiness")
+
+    readiness_data = {
+        "overall_ready": False,
+        "backend_healthy": False,
+        "phase_d_requires_approval": True,
+        "phase_d_blocked": True,
+        "phase_d_block_reason": "Explicit manual approval required",
+        "device_code": device_code,
+    }
+
+    result = await backend.get_test_kso_readiness(device_code)
+    if result.get("ok"):
+        readiness_data = result.get("data", readiness_data)
+
+    return templates.TemplateResponse(request, "pages/readiness.html", {
+        "request": request,
+        "title": "Test KSO Readiness",
+        "active": "readiness",
+        "demo": False,
+        "current_user": current_user,
+        "readiness": readiness_data,
+        "backend_unavailable": not result.get("ok", False),
+    })
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Hierarchy & KSO Devices — Backend API Integration (Step 37.2)
 # ══════════════════════════════════════════════════════════════════════
 

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">Test KSO Readiness</h1>
+<p class="page-description">Readiness gate для one-KSO E2E dry run. Только чтение — никаких destructive actions.</p>
+
+<!-- Overall Status -->
+<div class="cards">
+  <div class="card">
+    <div class="card-title">Общая готовность</div>
+    <div class="card-value" style="color:{% if readiness.overall_ready %}#22c55e{% else %}#ef4444{% endif %}">
+      {{ "✅ Готов" if readiness.overall_ready else "❌ Не готов" }}
+    </div>
+    <div class="card-hint">Все prerequisites</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Phase D</div>
+    <div class="card-value" style="color:#ef4444">⛔ Заблокирован</div>
+    <div class="card-hint">Требуется explicit manual approval</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Backend</div>
+    <div class="card-value">{{ "✅" if readiness.backend_healthy else "—" }}</div>
+    <div class="card-hint">Health check</div>
+  </div>
+</div>
+
+<!-- Readiness Checks -->
+<h2 style="margin-top:24px;margin-bottom:12px;font-size:16px;">Prerequisites</h2>
+<div class="component-list">
+
+  <div class="component-item">
+    <h3>
+      <span class="component-status {{ 'status-active' if readiness.device_registered else 'status-blocked' }}"></span>
+      Device: {{ readiness.device_code or "—" }}
+      {{ "✅" if readiness.device_registered else "❌" }}
+    </h3>
+    <p>КСО устройство зарегистрировано в backend</p>
+  </div>
+
+  <div class="component-item">
+    <h3>
+      <span class="component-status {{ 'status-active' if readiness.manifest_published else 'status-blocked' }}"></span>
+      Manifest: {{ readiness.manifest_code or "—" }}
+      {{ "✅" if readiness.manifest_published else "❌" }}
+    </h3>
+    <p>Published manifest: {{ readiness.manifest_item_count }} items,
+    creativeCode: {{ "✅" if readiness.manifest_has_creative_code else "❌" }},
+    mediaRef: {{ "✅" if readiness.manifest_has_media_ref else "❌" }}</p>
+  </div>
+
+  <div class="component-item">
+    <h3>
+      <span class="component-status {{ 'status-active' if readiness.campaign_registered else 'status-blocked' }}"></span>
+      Campaign: {{ readiness.campaign_code or "—" }}
+      {{ "✅" if readiness.campaign_registered else "❌" }}
+    </h3>
+    <p>Campaign зарегистрирована</p>
+  </div>
+
+  <div class="component-item">
+    <h3>
+      <span class="component-status {{ 'status-active' if readiness.placement_registered else 'status-blocked' }}"></span>
+      Placement: {{ readiness.placement_code or "—" }}
+      {{ "✅" if readiness.placement_registered else "❌" }}
+    </h3>
+    <p>Placement создан</p>
+  </div>
+
+  <div class="component-item">
+    <h3>
+      <span class="component-status {{ 'status-active' if readiness.creative_registered else 'status-blocked' }}"></span>
+      Creative: {{ readiness.creative_code or "—" }}
+      {{ "✅" if readiness.creative_registered else "❌" }}
+    </h3>
+    <p>Creative зарегистрирован</p>
+  </div>
+
+  <div class="component-item">
+    <h3>
+      <span class="component-status status-pending"></span>
+      Sidecar Config
+    </h3>
+    <p>Требуются поля: {{ readiness.sidecar_config_fields | join(", ") }}</p>
+  </div>
+
+  <div class="component-item">
+    <h3>
+      <span class="component-status status-pending"></span>
+      Media Cache
+    </h3>
+    <p>Ожидается {{ readiness.media_cache_items_expected }} файлов на КСО</p>
+  </div>
+
+  <div class="component-item">
+    <h3>
+      <span class="component-status status-active"></span>
+      PoP Endpoint
+    </h3>
+    <p>Готов ({{ readiness.pop_last_count }} событий для этого устройства)</p>
+  </div>
+
+  <div class="component-item">
+    <h3>
+      <span class="component-status status-active"></span>
+      Portal Report
+    </h3>
+    <p>Готов, фильтр по creative_code: ✅</p>
+  </div>
+</div>
+
+<!-- Phase D Gate -->
+<h2 style="margin-top:24px;margin-bottom:12px;font-size:16px;color:#ef4444;">⛔ Phase D — Controlled Physical Window</h2>
+<div class="component-item" style="border-left:3px solid #ef4444;">
+  <h3>{{ readiness.phase_d_block_reason }}</h3>
+  <p style="color:#94a3b8;margin-top:8px;">
+    Phase D требует отдельного explicit manual approval.
+    Никакие кнопки для физического запуска, X11 render, или deploy на КСО не активны.
+  </p>
+</div>
+
+<!-- Reasons -->
+{% if readiness.readiness_reasons %}
+<h2 style="margin-top:24px;margin-bottom:12px;font-size:16px;">Readiness Reasons</h2>
+<ul style="color:#94a3b8;list-style:disc;padding-left:20px;">
+  {% for reason in readiness.readiness_reasons %}
+  <li>{{ reason }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<p style="margin-top:16px;color:#64748b;font-size:12px;">
+  Проверено: {{ readiness.checked_at }}
+</p>
+{% endblock %}
