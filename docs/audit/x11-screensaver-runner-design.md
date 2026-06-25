@@ -1,13 +1,23 @@
 # X11 Screensaver Runner Design
 
-**Updated:** 2026-06-25 (D2.1 — Python 3.6 compatibility + fullscreen profile)
+**Updated:** 2026-06-25 (D3 — physical visual run executed ✅)
 
 ## Profiles
 
-| Profile | Geometry | Type | D3 Target |
+| Profile | Geometry | Type | D3 Result |
 |---|---|---|---|
 | `portrait_idle_overlay_768` | 768×240+0+400 | overlay | ❌ (Phase D2) |
-| `portrait_fullscreen_idle_screensaver_768` | 768×1024+0+0 | fullscreen kiosk | ✅ (Phase D3) |
+| `portrait_fullscreen_idle_screensaver_768` | 768×1024+0+0 | fullscreen kiosk | ✅ (D3 physical run) |
+
+## D3 Physical Run Results (2026-06-25)
+
+- **KSO:** 192.168.110.223, DISPLAY=:0, Python 3.6.9
+- **Window:** 0x1600001, 768×1024+0+0, Override Redirect: yes, IsViewable
+- **Visual:** DURING screenshot = 100% green (0,255,0), 786,432 pixels single color
+- **Click-through:** Active window 0xa00002 (КСО - Chromium) unchanged before/during/after
+- **Stop criteria:** 13/13 passed
+- **Rollback:** Window destroyed, PIDs unchanged, mint.service=active
+- **D4/D5/D6:** NOT executed
 
 ## Fullscreen Profile (portrait_fullscreen_idle_screensaver_768)
 

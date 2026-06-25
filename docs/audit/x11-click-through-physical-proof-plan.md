@@ -1,15 +1,15 @@
 # X11 Click-through Physical Proof Plan — Runtime Proof Harness
 
-> **Статус:** 🧪 Proof Harness Contract (38.1.7) — PHYSICAL RUN NOT EXECUTED
+> **Статус:** ✅ D3 Physical X11 Proof Run EXECUTED (2026-06-25)
 >
-> Дата: 2026-06-24
-> Ревизия: 1
+> Дата: 2026-06-24 (обновлено 2026-06-25)
+> Ревизия: 2 (D3 results)
 >
 > **Назначение:** Подготовить безопасный runtime proof harness для проверки X11 click-through fullscreen renderer на физической КСО.
-> **Физический запуск НЕ выполняется в этом шаге.** Требует отдельного explicit approval.
+> **D3 run:** Выполнен на КСО 192.168.110.223. Полный отчёт ниже.
 >
 > **Предыдущий шаг:** 38.1.6 — X11 Click-through Renderer Contract.
-> **Следующий шаг:** 38.1.8 — Physical X11 Proof Run (после explicit approval).
+> **Следующий шаг:** D4 PoP upload (НЕ выполнен, требует отдельного approval).
 
 ---
 
@@ -255,3 +255,52 @@ Scanner/keyboard pass-through подтверждён на уровне X11 focus
 
 - `screensaver_creative.py`: ScreensaverCreativePayload, adapter, validator, visibility, PoP
 - +98 тестов. КСО не менялась. Physical run/X11 не запускались.
+
+---
+
+## 38.13.3 — D3 Physical X11 Proof Run Results (2026-06-25)
+
+### Run Summary
+
+| Параметр | Значение |
+|---|---|
+| KSO | 192.168.110.223 |
+| DISPLAY | :0, 768×1024 portrait |
+| Profile | `portrait_fullscreen_idle_screensaver_768` |
+| Window | 0x1600001, 768×1024+0+0 |
+| Duration | 10 seconds |
+| Approval | PHASE_D3_APPROVED |
+| Renderer | ctypes + libX11 (minimal, no Pillow/GTK) |
+
+### Visual Confirmation
+
+| Screenshot | Size | Colors | Content |
+|---|---|---|---|
+| before | 44,004 B | 507 | UKM5 Chromium |
+| **during** | **12,336 B** | **1** | **100% green (0,255,0) — fullscreen** |
+| after | 44,004 B | 507 | UKM5 Chromium (= before) |
+
+Pixel proof: 786,432 pixels = 100% (0,255,0). Fullscreen confirmed.
+
+### Click-through Confirmation
+
+| Phase | Active Window | Name |
+|---|---|---|
+| BEFORE | 0xa00002 | КСО - Chromium |
+| DURING | 0xa00002 | КСО - Chromium |
+| AFTER | 0xa00002 | КСО - Chromium |
+
+Focus NOT stolen. Click-through confirmed.
+
+### Stop Criteria
+
+13/13 passed. No UKM5 disruption, no PID change, mint.service=active, CPU 94% idle, RAM 1744 MB.
+
+### Rollback
+
+Window 0x1600001 destroyed, lockfile removed. PIDs: UKM5=1881, MintUKM=720, Openbox=1626 (all unchanged).
+
+### Non-executed
+
+❌ D4 PoP upload | ❌ D5 report verify | ❌ D6 cleanup
+❌ Sidecar daemon | ❌ UKM5/Openbox/systemd changes | ❌ Secrets printed

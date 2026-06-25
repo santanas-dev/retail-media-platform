@@ -37,6 +37,7 @@
 | 19 | **38.1.11 — HW Scanner E2E ⚠️** | **INCONCLUSIVE** — scanner not available. Focus-loss defect found. Postponed until scanner arrives. |
 | 20 | **38.1.11.1 — Fix Post-Rollback Focus Restore ✅** | `restore_focus()` + focus fields + `focus_warning` stop reason + 14 tests. |
 | 21 | **38.2 — Connect X11 Runner to Manifest Creatives ✅** | `screensaver_creative.py`: ScreensaverCreativePayload, adapter, validator, visibility, PoP + 98 tests. |
+| 22 | **38.13.3 / D3 — Physical X11 Fullscreen Run ✅** | KSO 192.168.110.223. Profile `portrait_fullscreen_idle_screensaver_768`, window 0x1600001 768×1024+0+0. Visual: 100% green fullscreen. Click-through: focus retained on Chromium. 13/13 stop criteria passed. Rollback clean. D4/D5/D6 NOT executed. |
 || 30 | **38.4 — Control Plane ✅** | Readiness endpoint + portal page + seed helper. 15 backend tests. 4893/4893 green. |
 || 29 | **38.3 — Readiness Gate ✅** | 11-section document, 23 safety tests, 5-phase plan. 4878/4878 green. |
 || 28 | **38.2.7 — Full Dev E2E ✅** | 19 tests: player→JSONL→sidecar classify→payload→backend ingest→report. 4855/4855 green. |

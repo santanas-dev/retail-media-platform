@@ -1,9 +1,9 @@
 # Phase D One-KSO E2E Dry Run — Preflight
 
-**Task:** 38.13.2 — Phase D Preflight + D2.1 Fix
+**Task:** 38.13.3 — D3 Controlled Visual Run Complete
 **Date:** 2026-06-25
-**Status:** ✅ D0–D2.1 complete. READY for D3 manual approval.
-**Depends on:** 38.13 (commit bae0e49), 38.13.1 (commit 4f7a5f4), 38.13.2 (commits 1534bc6, daf2969)
+**Status:** ✅ D0–D3 complete. D4/D5/D6 NOT executed (requires separate approval).
+**Depends on:** 38.13 (bae0e49), 38.13.1 (4f7a5f4), 38.13.2 (1534bc6, daf2969, 142d367)
 
 ---
 
@@ -151,20 +151,22 @@ grep -r 'fromisoformat' apps/kso_player/kso_player/ apps/kso_sidecar_agent/kso_s
 # Regression: 4912 passed, 0 failed ✅
 ```
 
-### D3 — Controlled Visual Run (KSO, manual supervision)
-```
-# APPROVAL TOKEN REQUIRED: PHASE_D3_APPROVED
-python3 -m kso_sidecar_agent.cli run-once \
-    --approval-token PHASE_D3_APPROVED \
-    --duration 10 \
-    --screenshot /tmp/phase-d3-screenshot.png
+### D3 — Controlled Visual Run (KSO) — ✅ EXECUTED 2026-06-25
 
-# Wait for run to complete (10 seconds)
-# Verify: overlay visible on screen
-# Verify: screenshot captured
-# Verify: runner exited cleanly (exit code 0)
-# Verify: no UKM5 disruption (PID, mint.service)
+Actual command:
 ```
+DISPLAY=:0 PYTHONPATH=/home/ukm5/kso-agent python3 /tmp/d3_runner.py
+```
+
+Results:
+- Window: 0x1600001, 768×1024+0+0, Override Redirect: yes
+- Visual: DURING = 100% green (0,255,0), 786,432 pixels single color ✅
+- Click-through: Active window 0xa00002 (Chromium) unchanged throughout ✅
+- Duration: 10 seconds
+- Stop criteria: 13/13 passed
+- Rollback: Clean, PIDs unchanged, mint.service=active
+
+Evidence: /tmp/d3_evidence/ (before/during/after screenshots)
 
 ### D4 — PoP Event Generation/Upload
 ```

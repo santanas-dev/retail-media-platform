@@ -1043,3 +1043,30 @@ Real KSO is portrait 768×1024. Legacy `kso_devices` had correct 768×1024.
 
 ### Remaining
 - Phase D3: ⛔ requires manual approval
+
+## D3 — Controlled Visual Run on Physical KSO ✅ (2026-06-25)
+
+### Run
+- KSO: 192.168.110.223, DISPLAY=:0, Profile: `portrait_fullscreen_idle_screensaver_768`
+- Window: 0x1600001, 768×1024+0+0, Override Redirect: yes, 10 second duration
+- ctypes + libX11 minimal renderer (no Pillow/GTK), Python 3.6.9
+
+### Visual
+- DURING screenshot: 12,336 bytes, **1 unique color — (0,255,0) 100% green**
+- BEFORE/AFTER: 44,004 bytes, 507 colors (UKM5 Chromium)
+- Pixel proof: 786,432 pixels single color. Fullscreen confirmed.
+
+### Click-through
+- Active window BEFORE/DURING/AFTER: 0xa00002 (КСО - Chromium)
+- Focus NOT stolen. Click-through confirmed.
+
+### Safety
+- Stop criteria: 13/13 passed
+- PIDs unchanged: UKM5=1881, MintUKM=720, Openbox=1626
+- mint.service=active, CPU=94% idle, RAM=1744 MB
+
+### Rollback
+- Window destroyed, lockfile removed. КСО in original state.
+- D4/D5/D6 NOT executed
+- Sidecar daemon NOT started
+- Secrets/full URLs/tokens NOT printed
