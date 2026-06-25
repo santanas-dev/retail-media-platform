@@ -62,6 +62,15 @@ class SeedSummary(BaseModel):
 # Readiness Summary
 # ══════════════════════════════════════════════════════════════════════
 
+class SidecarConfigField(BaseModel):
+    """One sidecar config field — name, status, description. NEVER the value."""
+    name: str = Field(max_length=64)
+    required: bool = True
+    present: bool = False
+    filled_by: str = "operator"           # always "operator" — no automation
+    description: str = Field(default="", max_length=200)
+
+
 class ReadinessStatus(BaseModel):
     """Safe readiness status — NO secrets, NO UUIDs, NO URLs."""
 
@@ -107,9 +116,11 @@ class ReadinessStatus(BaseModel):
     publication_exists: bool = False      # same as manifest_published for one-KSO
     publication_status: Optional[str] = Field(default=None, max_length=30)
 
-    # Sidecar config (safe hints only — no actual config values)
-    sidecar_config_required: bool = True
-    sidecar_config_fields: list[str] = Field(default_factory=list)
+    # Sidecar config readiness (names + status only — NEVER values, URLs, tokens)
+    sidecar_config_ready: bool = False
+    sidecar_config_required_fields: list[str] = Field(default_factory=list)
+    sidecar_config_missing_fields: list[str] = Field(default_factory=list)
+    sidecar_config_checklist: list[SidecarConfigField] = Field(default_factory=list)
 
     # Media cache (safe booleans only — no paths)
     media_cache_ready: bool = False

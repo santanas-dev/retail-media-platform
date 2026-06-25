@@ -413,4 +413,47 @@ KsoPlacement → GeneratedManifest (published)
 | Media cache на КСО | ⚠️ required |
 | Phase D manual approval | ⛔ blocked |
 | Physical run/X11/Chromium | ⛔ disabled |
-| Backend URL в sidecar | ⚠️ не в коде (только field hint) |
+|| Backend URL в sidecar | ⚠️ не в коде (только field hint) |
+
+## 13. Step 38.6 — Live Config Checklist + Sidecar Config Readiness (2026-06-25)
+
+### 13.1 Config Checklist
+
+Определён полный список полей sidecar-конфигурации для one-KSO E2E dry run:
+
+**Обязательные (4):** `backend_base_url`, `device_code`, `device_secret`, `agent_root`
+**Опциональные (8):** `manifest_poll_interval_sec`, `media_cache_path`, `pop_queue_path`,
+`pop_upload_endpoint`, `state_file_path`, `kill_switch_path`, `runner_mode`, `display_screen`
+
+Все поля заполняются оператором вручную. Никакие значения не возвращаются в readiness endpoint.
+
+### 13.2 Readiness Status расширен
+
+- `sidecar_config_ready` (bool) — всегда false до подтверждения оператора
+- `sidecar_config_required_fields` (list[str]) — имена обязательных полей
+- `sidecar_config_missing_fields` (list[str]) — какие обязательные поля не настроены
+- `sidecar_config_checklist` (list[SidecarConfigField]) — полный checklist:
+  - `name`, `required`, `present`, `filled_by`, `description`
+  - **Никаких значений!** Только имена полей и статус.
+
+### 13.3 Portal /readiness
+
+- Выделенная секция «Sidecar Config Checklist» с таблицей всех 12 полей
+- Field: имя + описание (visible)
+- Required: ✅/— (visible)
+- Present: ✅/❌ (visible — всегда ❌ для required полей)
+- Filled By: "operator" (visible — всегда)
+- **Значения:** НЕ показываются. Специальное предупреждение внизу таблицы.
+
+### 13.4 Docs
+
+- `docs/audit/test-kso-live-config-checklist.md` — полный checklist для оператора
+- Обновлены: `one-kso-e2e-dry-run-readiness-gate.md`, `one-kso-pilot-readiness-plan.md`, `technical-debt-next-actions.md`
+
+### 13.5 Safety
+
+- Конфиг поля — только имена, без значений
+- `backend_base_url` не возвращается (только как field name)
+- `device_secret` не возвращается (только как field name)
+- Никаких token/path/URL в JSON ответе
+- Phase D всё ещё blocked

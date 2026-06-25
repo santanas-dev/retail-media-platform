@@ -122,7 +122,22 @@ DS API integration — secondary, не блокирует portrait player develo
 - Backend: 292 теста, Portal: 424 теста — всё зелёное
 
 ### Next actions (после 38.5)
-- Sidecar config на КСО (field hints уже показаны в readiness)
+- ~~Sidecar config на КСО (field hints уже показаны в readiness)~~ → 38.6: полный checklist
 - Media cache readiness на КСО
 - Phase D manual approval (остаётся ⛔ blocked)
 - `docs/audit/technical-debt-register.md` — полный реестр (36 пунктов)
+
+## 38.5.1 — Sidecar Regression Recheck (2026-06-25)
+
+Sidecar 1838/1838 green за 190.5s. Timeout ложный, не связан с 38.5.
+Commit `cf9314d`: DDL fix в тестах (UNIQUE + advertisers/orders).
+
+## 38.6 — Live Config Checklist + Sidecar Config Readiness (2026-06-25)
+
+12 полей sidecar-конфигурации (4 required + 8 optional). Backend: `SidecarConfigField`
+модель, `sidecar_config_ready`/`missing_fields`/`checklist`. Portal: таблица полей —
+имена visible, значения hidden. Docs: `test-kso-live-config-checklist.md`.
+
+### Next actions (после 38.6)
+- Прогнать full regression (backend + portal + sidecar + player + infra)
+- Закоммитить: `🔧 Add test KSO live config readiness checklist`

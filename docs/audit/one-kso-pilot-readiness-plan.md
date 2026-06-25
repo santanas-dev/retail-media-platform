@@ -889,3 +889,16 @@ creative → campaign → placement → approval → manifest → publish → si
 - Portal: 424 (+17: readiness page)
 - Forbidden fields audit: чисто во всех новых схемах и endpoint'ах
 - КСО не менялась. Physical run/X11/Chromium не запускались.
+
+## 38.5.1 — Sidecar Regression Recheck (2026-06-25)
+
+- Sidecar: 1838/1838 за 190.5s ✅. Timeout ложный, не связан с 38.5.
+- DDL fix: `test_z_test_kso_readiness_384.py` (UNIQUE + advertisers/orders)
+- Commit: `cf9314d`, full regression 4926 green.
+
+## 38.6 — Live Config Checklist + Sidecar Config Readiness (2026-06-25)
+
+12 полей sidecar-конфигурации: 4 обязательных + 8 опциональных.
+Backend: `SidecarConfigField` модель, `sidecar_config_ready`/`missing_fields`/`checklist`.
+Portal: таблица полей — имена visible, значения hidden. Phase D blocked.
+Docs: `test-kso-live-config-checklist.md`, обновлены readiness-gate/tech-debt.

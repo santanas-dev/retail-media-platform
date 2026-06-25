@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select as _select, text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.test_kso_readiness.schemas import ReadinessStatus
+from app.domains.test_kso_readiness.schemas import ReadinessStatus, SidecarConfigField
 from app.domains.manifests.models import GeneratedManifest
 from app.domains.hierarchy.models import KsoDevice
 from app.domains.scheduling.models import KsoPlacement
@@ -18,12 +18,36 @@ from app.domains.media.models import Creative
 from app.domains.proof_of_play.models import KsoProofOfPlayEvent
 
 
-# Fields that sidecar MUST have configured (safe hint names only)
-SIDECAR_REQUIRED_FIELDS = [
-    "backend_base_url",
-    "device_code",
-    "device_secret",
-    "agent_root",
+# ── Sidecar config checklist ────────────────────────────────────────────
+# Full field list for one-KSO E2E dry run. Values MUST be filled by operator.
+# These are field NAMES only — NEVER the actual values.
+# Format: (name, required, description)
+
+SIDECAR_CONFIG_CHECKLIST: list[dict] = [
+    {"name": "backend_base_url",    "required": True,
+     "description": "HTTPS URL of the Retail Media backend API (e.g. https://api.example.com)"},
+    {"name": "device_code",        "required": True,
+     "description": "KSO device code registered in backend"},
+    {"name": "device_secret",      "required": True,
+     "description": "Device authentication secret (set via secret-store-set, stored in dev_secret file)"},
+    {"name": "agent_root",         "required": True,
+     "description": "Absolute path to agent root directory (contains config/, state/, manifest/, media/, pop/)"},
+    {"name": "manifest_poll_interval_sec", "required": False,
+     "description": "Seconds between manifest sync attempts (default: 60)"},
+    {"name": "media_cache_path",   "required": False,
+     "description": "Path to media cache directory (default: $AGENT_ROOT/media)"},
+    {"name": "pop_queue_path",     "required": False,
+     "description": "Path to PoP pending queue (default: $AGENT_ROOT/pop/pending)"},
+    {"name": "pop_upload_endpoint", "required": False,
+     "description": "API path for PoP batch upload (default: /api/device-gateway/pop/batch)"},
+    {"name": "state_file_path",    "required": False,
+     "description": "Path to KSO state adapter JSON file (default: $AGENT_ROOT/state/kso_state.json)"},
+    {"name": "kill_switch_path",   "required": False,
+     "description": "Path to kill-switch marker file (default: $AGENT_ROOT/kill-switch)"},
+    {"name": "runner_mode",        "required": False,
+     "description": "Runner execution mode — 'daemon' (continuous) or 'once' (single cycle)"},
+    {"name": "display_screen",     "required": False,
+     "description": "X11 DISPLAY string for player window (e.g. ':0') — for Phase D only"},
 ]
 
 
@@ -211,10 +235,31 @@ async def build_readiness_summary(
     else:
         status.pop_report_ready = False
 
-    # ── 4. Sidecar config (hints only) ───────────────────────────
-    status.sidecar_config_required = True
-    status.sidecar_config_fields = list(SIDECAR_REQUIRED_FIELDS)
-    remaining.append("Configure sidecar on KSO with required fields")
+    # ── 4. Sidecar config checklist ────────────────────────────────
+    checklist: list[SidecarConfigField] = []
+    missing: list[str] = []
+    required_names: list[str] = []
+
+    for field_def in SIDECAR_CONFIG_CHECKLIST:
+        field = SidecarConfigField(
+            name=field_def["name"],
+            required=field_def["required"],
+            present=False,              # always false — operator must configure
+            filled_by="operator",
+            description=field_def["description"],
+        )
+        checklist.append(field)
+        if field_def["required"]:
+            required_names.append(field_def["name"])
+            missing.append(field_def["name"])
+
+    status.sidecar_config_required_fields = required_names
+    status.sidecar_config_missing_fields = missing
+    status.sidecar_config_checklist = checklist
+    status.sidecar_config_ready = False  # always false until operator confirms
+
+    if missing:
+        remaining.append("Configure sidecar required fields: " + ", ".join(missing[:4]) + ("…" if len(missing) > 4 else ""))
 
     # ── 5. Media cache (always requires check on KSO) ────────────
     status.media_cache_ready = False

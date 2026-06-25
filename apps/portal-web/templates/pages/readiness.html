@@ -108,17 +108,67 @@
     </div>
   </div>
 
-  <!-- ═══ SIDECAR / MEDIA CACHE ═══ -->
+  <!-- ═══ SIDECAR CONFIG CHECKLIST ═══ -->
   <div class="readiness-group">
-    <h2 class="group-title">🔧 Sidecar · Media Cache</h2>
+    <h2 class="group-title">🔧 Sidecar Config Checklist</h2>
     <div class="component-list">
-      <div class="component-item">
+      <div class="component-item" style="border-left: 3px solid {{ '#22c55e' if readiness.sidecar_config_ready else '#f59e0b' }};">
         <h3>
-          <span class="component-status status-pending"></span>
-          Sidecar Config
+          <span class="component-status {{ 'status-active' if readiness.sidecar_config_ready else 'status-pending' }}"></span>
+          Config Readiness
+          {{ "✅" if readiness.sidecar_config_ready else "⚠️ Требуется оператор" }}
         </h3>
-        <p>Требуются поля: <code>{{ readiness.sidecar_config_fields | join(", ") }}</code></p>
+        <p>
+          Обязательных полей: <strong>{{ readiness.sidecar_config_required_fields | length }}</strong>
+          · Не заполнено: <strong>{{ readiness.sidecar_config_missing_fields | length }}</strong>
+        </p>
       </div>
+
+      <!-- Field-by-field checklist — field names visible, values HIDDEN -->
+      {% if readiness.sidecar_config_checklist %}
+      <div class="config-checklist-table" style="margin-top:12px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="border-bottom:1px solid #334155;">
+              <th style="text-align:left;padding:6px 8px;color:#94a3b8;">Field</th>
+              <th style="text-align:center;padding:6px 8px;color:#94a3b8;">Required</th>
+              <th style="text-align:center;padding:6px 8px;color:#94a3b8;">Present</th>
+              <th style="text-align:left;padding:6px 8px;color:#94a3b8;">Filled By</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for field in readiness.sidecar_config_checklist %}
+            <tr style="border-bottom:1px solid #1e293b; {{ 'background:#451a03;' if field.required and not field.present else '' }}">
+              <td style="padding:6px 8px;">
+                <code style="color:#e2e8f0;">{{ field.name }}</code>
+                {% if field.description %}<br><span style="color:#64748b;font-size:11px;">{{ field.description }}</span>{% endif %}
+              </td>
+              <td style="text-align:center;padding:6px 8px;">
+                {{ "✅" if field.required else "—" }}
+              </td>
+              <td style="text-align:center;padding:6px 8px;">
+                <span style="color:{{ '#22c55e' if field.present else '#ef4444' }};">{{ "✅" if field.present else "❌" }}</span>
+              </td>
+              <td style="padding:6px 8px;color:#94a3b8;font-size:11px;">
+                {{ field.filled_by }}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <p style="color:#64748b;font-size:11px;margin-top:6px;">
+          ⚠️ Значения полей НЕ показываются. Все поля заполняются оператором вручную на КСО.
+          <code>backend_base_url</code>, секретные поля и другие значения никогда не передаются в readiness endpoint.
+        </p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ═══ MEDIA CACHE ═══ -->
+  <div class="readiness-group">
+    <h2 class="group-title">💾 Media Cache</h2>
+    <div class="component-list">
       <div class="component-item">
         <h3>
           <span class="component-status status-pending"></span>

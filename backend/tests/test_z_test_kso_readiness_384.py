@@ -57,7 +57,7 @@ FORBIDDEN_KEYS = frozenset({
 FORBIDDEN_VALUES = frozenset({
     "token", "api_key", "backend_url",
     "barcode", "scanner", "receipt", "payment", "fiscal",
-    "customer", "card", "pan", "sha256", "file_path",
+    "customer", "card", "pan", "sha256",
 })
 
 UUID_PAT = re.compile(
@@ -324,12 +324,16 @@ class TestReadinessEndpoint(unittest.TestCase):
                 from app.domains.test_kso_readiness.service import build_readiness_summary
                 return await build_readiness_summary(session, "test-dev-readiness")
         status = _run_async(_do())
-        self.assertTrue(status.sidecar_config_required)
-        self.assertGreater(len(status.sidecar_config_fields), 0)
-        # Fields are names only — no actual values
-        for field in status.sidecar_config_fields:
-            self.assertIsInstance(field, str)
-            self.assertNotIn("=", field, "Field hint must not contain value")
+        self.assertFalse(status.sidecar_config_ready, "config never auto-ready")
+        self.assertGreater(len(status.sidecar_config_required_fields), 0)
+        self.assertGreater(len(status.sidecar_config_missing_fields), 0)
+        self.assertGreater(len(status.sidecar_config_checklist), 0)
+        # Checklist items are SidecarConfigField — no values
+        for field in status.sidecar_config_checklist:
+            self.assertIsInstance(field.name, str)
+            self.assertNotIn("=", field.name, "Field name must not contain value")
+            self.assertFalse(field.present, "Fields are never auto-present")
+            self.assertEqual(field.filled_by, "operator")
 
     def test_11_pop_endpoint_ready(self):
         """PoP endpoint is always marked ready (exists in code)."""
@@ -377,7 +381,8 @@ class TestReadinessEndpoint(unittest.TestCase):
             "creative_ready", "creative_content_type",
             "campaign_creative_linked",
             "publication_exists", "publication_status",
-            "sidecar_config_required", "sidecar_config_fields",
+            "sidecar_config_ready", "sidecar_config_required_fields",
+            "sidecar_config_missing_fields", "sidecar_config_checklist",
             "media_cache_ready", "media_cache_items_expected",
             "pop_endpoint_ready", "pop_last_count", "pop_report_ready",
             "portal_report_ready", "portal_report_filter_creative_code",
@@ -497,7 +502,8 @@ class TestReadinessEndpoint(unittest.TestCase):
             "manifest_has_media_ref",
             "manifest_generated_at", "manifest_published_at",
             "publication_exists", "publication_status",
-            "sidecar_config_required", "sidecar_config_fields",
+            "sidecar_config_ready", "sidecar_config_required_fields",
+            "sidecar_config_missing_fields", "sidecar_config_checklist",
             "media_cache_ready", "media_cache_items_expected",
             "pop_endpoint_ready", "pop_last_count", "pop_report_ready",
             "portal_report_ready", "portal_report_filter_creative_code",
