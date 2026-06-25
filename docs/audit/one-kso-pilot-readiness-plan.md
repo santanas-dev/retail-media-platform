@@ -1028,3 +1028,18 @@ Real KSO is portrait 768×1024. Legacy `kso_devices` had correct 768×1024.
 ### Remaining
 - Phase D: ⛔ requires manual approval
 - Regression: 4894 green baseline
+
+## D2.1 — Python 3.6 Compatibility + Fullscreen Plan (2026-06-25)
+
+### Blocker 1: datetime.fromisoformat (Python 3.7+) → py36 parser
+- Created `kso_player/timestamp_utils.py` — `parse_iso_utc()` using strptime
+- Replaced 5 `fromisoformat` calls in: runtime_gate, screensaver_creative, state_observer, run_cycle, simulator
+- 13 tests: Z, microseconds, offset, invalid→None, real KSO format
+
+### Blocker 2: Fullscreen profile for D3
+- Registered `portrait_fullscreen_idle_screensaver_768` (was only overlay profile)
+- Geometry: 768×1024+0+0 fullscreen kiosk
+- D3 target: x11_click_through renderer
+
+### Remaining
+- Phase D3: ⛔ requires manual approval

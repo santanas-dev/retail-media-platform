@@ -689,11 +689,15 @@ def build_cycle_result(
     # Compute duration
     started_ts = context.started_at or finished_at
     try:
-        started_dt = datetime.fromisoformat(started_ts.replace("Z", "+00:00"))
-        finished_dt = datetime.fromisoformat(finished_at.replace("Z", "+00:00"))
-        duration_ms = (finished_dt - started_dt).total_seconds() * 1000
-        if duration_ms < 0:
+        from kso_player.timestamp_utils import parse_iso_utc
+        started_dt = parse_iso_utc(started_ts)
+        finished_dt = parse_iso_utc(finished_at)
+        if started_dt is None or finished_dt is None:
             duration_ms = 0.0
+        else:
+            duration_ms = (finished_dt - started_dt).total_seconds() * 1000
+            if duration_ms < 0:
+                duration_ms = 0.0
     except (ValueError, TypeError):
         duration_ms = 0.0
 

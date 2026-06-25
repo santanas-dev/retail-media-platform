@@ -23,10 +23,15 @@ TEST_SHA = _hl.sha256(TEST_CONTENT).hexdigest()
 
 
 def _run(*args):
+    env = {**__import__("os").environ}
+    # Add kso_player to PYTHONPATH for timestamp_utils import
+    player_path = str(PKG_DIR.parent / "kso_player")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{player_path}:{existing}" if existing else player_path
     r = subprocess.run(
         [sys.executable, "-m", "kso_sidecar_agent.cli", *args],
         capture_output=True, text=True, cwd=str(PKG_DIR),
-        timeout=15,
+        timeout=15, env=env,
     )
     return r.returncode, r.stdout, r.stderr
 

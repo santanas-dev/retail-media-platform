@@ -118,8 +118,12 @@ class ScreensaverCreativePayload:
             return False
         try:
             from datetime import datetime, timezone
+            from kso_player.timestamp_utils import parse_iso_utc
             now = datetime.now(timezone.utc)
-            valid_to_dt = datetime.fromisoformat(self.valid_to)
+            valid_to_dt_raw = parse_iso_utc(self.valid_to)
+            if valid_to_dt_raw is None:
+                return True  # unparseable → expired
+            valid_to_dt = valid_to_dt_raw.replace(tzinfo=timezone.utc)
             return now > valid_to_dt
         except Exception:
             return True  # unparseable date → treat as expired

@@ -67,7 +67,10 @@ def _now_iso() -> str:
 def _iso_add_ms(iso: str, duration_ms: int) -> str:
     """Add duration_ms to an ISO8601 timestamp."""
     try:
-        dt = datetime.fromisoformat(iso)
+        from kso_player.timestamp_utils import parse_iso_utc
+        dt = parse_iso_utc(iso)
+        if dt is None:
+            return iso
     except (ValueError, TypeError):
         return iso
     return (dt + timedelta(milliseconds=duration_ms)).isoformat()

@@ -260,4 +260,17 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - ✅ Full regression: 4894 green
 
 ### Next actions (после 38.13.1)
+- D2.1: Python 3.6 compatibility fix + fullscreen profile registration
 - Phase D: физический one-KSO E2E dry run (requires explicit manual approval)
+
+## D2.1 — Python 3.6 Compatibility + Fullscreen Plan (2026-06-25)
+
+### Executed
+- ✅ Created `kso_player/timestamp_utils.py` — `parse_iso_utc()` Python 3.6-compatible parser
+- ✅ Replaced all 5 `datetime.fromisoformat()` calls in runtime path
+- ✅ Registered `portrait_fullscreen_idle_screensaver_768` profile (768×1024 fullscreen kiosk)
+- ✅ 13 timestamp parser tests + existing 130 shell plan/profile tests pass
+- ✅ Full regression: pending
+
+### Next actions (после D2.1)
+- Phase D3: физический visual run (requires explicit manual approval)

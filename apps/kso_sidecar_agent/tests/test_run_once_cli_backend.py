@@ -27,14 +27,22 @@ PNG2_SHA = _hl.sha256(PNG2).hexdigest()
 
 
 def _run(*args):
+    env = {**__import__("os").environ}
+    player_path = str(PKG_DIR.parent / "kso_player")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{player_path}:{existing}" if existing else player_path
     r = subprocess.run(
         [sys.executable, "-m", "kso_sidecar_agent.cli", *args],
-        capture_output=True, text=True, cwd=str(PKG_DIR),
+        capture_output=True, text=True, cwd=str(PKG_DIR), env=env,
     )
     return r.returncode, r.stdout, r.stderr
 
 
 def _run_stdin(secret, *args):
+    env = {**__import__("os").environ}
+    player_path = str(PKG_DIR.parent / "kso_player")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{player_path}:{existing}" if existing else player_path
     r = subprocess.run(
         [sys.executable, "-m", "kso_sidecar_agent.cli", *args],
         capture_output=True, text=True, cwd=str(PKG_DIR), input=secret,

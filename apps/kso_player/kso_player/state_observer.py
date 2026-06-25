@@ -254,7 +254,11 @@ _UNKNOWN_SNAPSHOT = PlayerStateSnapshot(
 def _is_timestamp_stale(updated_at_utc: str, stale_after_ms: int) -> bool:
     """Return True if the given timestamp is older than stale_after_ms."""
     try:
-        ts = datetime.fromisoformat(updated_at_utc.replace("Z", "+00:00"))
+        from kso_player.timestamp_utils import parse_iso_utc
+        ts_naive = parse_iso_utc(updated_at_utc)
+        if ts_naive is None:
+            return True  # unparseable → treat as stale/hidden
+        ts = ts_naive.replace(tzinfo=timezone.utc)
         now = datetime.now(timezone.utc)
         delta_ms = (now - ts).total_seconds() * 1000
         return delta_ms > stale_after_ms

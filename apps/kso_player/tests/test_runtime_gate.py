@@ -383,7 +383,7 @@ class TestTimestampIssues(TestCase):
     def test_timestamp_with_Z_suffix(self):
         _write_state(self.tmp, state="idle", age_seconds=5)
         # _write_state uses isoformat() which includes +00:00
-        # Test that fromisoformat handles it
+        # Test that py36-compatible parser handles it
         result = evaluate_kso_runtime_gate(self.tmp)
         self.assertTrue(result.play_allowed)
 

@@ -157,14 +157,15 @@ def _parse_iso8601(raw: str) -> Optional[datetime]:
         return None
     raw = raw.strip()
     try:
-        # Try fromisoformat first (handles Z, +00:00, +0000)
-        dt = datetime.fromisoformat(raw)
-    except (ValueError, TypeError):
+        from kso_player.timestamp_utils import parse_iso_utc
+        dt = parse_iso_utc(raw)
+    except Exception:
+        return None
+    if dt is None:
         return None
 
-    # If naive, assume UTC
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+    # Assume UTC (parser returns naive UTC)
+    dt = dt.replace(tzinfo=timezone.utc)
 
     return dt
 

@@ -203,3 +203,4 @@ def list_profiles() -> tuple:
 # ══════════════════════════════════════════════════════════════════════
 
 from kso_player.profiles import portrait_idle_overlay_768  # noqa: E402, F401
+from kso_player.profiles import portrait_fullscreen_idle_screensaver_768  # noqa: E402, F401
