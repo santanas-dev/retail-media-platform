@@ -3438,5 +3438,209 @@ class TestStoresDevicesRouteAuth(unittest.TestCase):
         self.assertIn("/login", resp.headers.get("location", "").lower())
 
 
+class TestReadinessPage(unittest.TestCase):
+    """Portal /readiness page — groups, safety, no destructive actions."""
+
+    @classmethod
+    def setUpClass(cls):
+        from main import app
+        from unittest.mock import AsyncMock, patch
+        cls._patcher = patch(
+            "main.BackendClient.get_test_kso_readiness",
+            new_callable=AsyncMock,
+        )
+        cls._mock_readiness = cls._patcher.start()
+        cls._mock_readiness.return_value = {
+            "ok": True,
+            "data": {
+                "overall_ready": True,
+                "backend_healthy": True,
+                "device_registered": True,
+                "device_code": "test-dev-readiness",
+                "device_status": "active",
+                "campaign_registered": True,
+                "campaign_code": "test-camp-readiness",
+                "campaign_status": "active",
+                "creative_registered": True,
+                "creative_code": "test-creative-readiness",
+                "creative_status": "active",
+                "creative_ready": True,
+                "creative_content_type": "image/png",
+                "placement_registered": True,
+                "placement_code": "test-place-readiness",
+                "placement_status": "active",
+                "campaign_creative_linked": True,
+                "manifest_published": True,
+                "manifest_code": "test-manifest-readiness",
+                "manifest_status": "published",
+                "manifest_item_count": 1,
+                "manifest_has_creative_code": True,
+                "manifest_has_media_ref": True,
+                "manifest_generated_at": "2026-06-25T10:00:00Z",
+                "manifest_published_at": "2026-06-25T10:01:00Z",
+                "publication_exists": True,
+                "publication_status": "published",
+                "sidecar_config_required": True,
+                "sidecar_config_fields": ["backend_base_url", "device_code", "device_secret", "agent_root"],
+                "media_cache_ready": False,
+                "media_cache_items_expected": 1,
+                "pop_endpoint_ready": True,
+                "pop_last_count": 3,
+                "pop_report_ready": True,
+                "portal_report_ready": True,
+                "portal_report_filter_creative_code": True,
+                "phase_d_requires_approval": True,
+                "phase_d_blocked": True,
+                "phase_d_block_reason": "Explicit manual approval required before any physical X11 window",
+                "readiness_reasons": [],
+                "remaining_steps": [
+                    "Configure sidecar on KSO with required fields",
+                    "Ensure 1 media files cached on KSO",
+                    "Get manual approval for Phase D (controlled physical window)",
+                ],
+                "checked_at": "2026-06-25T10:05:00Z",
+            },
+        }
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._patcher.stop()
+
+    # ── Page renders ───────────────────────────────────────────────
+
+    def test_01_readiness_page_returns_200(self):
+        """GET /readiness returns 200."""
+        resp = self.client.get("/readiness")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_02_readiness_has_groups(self):
+        """Page has readiness group sections."""
+        resp = self.client.get("/readiness")
+        html = resp.text.lower()
+        # Group headers
+        groups = [
+            "backend", "device", "campaign", "creative", "placement",
+            "publication", "manifest", "sidecar", "media cache",
+            "pop", "report", "phase d",
+        ]
+        found = sum(1 for g in groups if g in html)
+        self.assertGreaterEqual(found, 5, f"Only {found} groups found, expected >=5")
+
+    def test_03_readiness_shows_overall_status(self):
+        """Page shows overall readiness and Phase D blocked."""
+        resp = self.client.get("/readiness")
+        html = resp.text
+        self.assertIn("Готов", html)
+        self.assertIn("Заблокирован", html)
+
+    def test_04_readiness_shows_remaining_steps(self):
+        """Page shows 'Что осталось сделать' section."""
+        resp = self.client.get("/readiness")
+        html = resp.text
+        self.assertIn("Что осталось сделать", html)
+        self.assertIn("Configure sidecar", html)
+
+    def test_05_readiness_shows_phase_d_gate(self):
+        """Page shows Phase D gate as blocked."""
+        resp = self.client.get("/readiness")
+        html = resp.text
+        self.assertIn("Phase D", html)
+        self.assertIn("manual approval", html.lower())
+
+    def test_06_readiness_shows_manifest_timestamps(self):
+        """Page shows manifest generated/published timestamps."""
+        resp = self.client.get("/readiness")
+        html = resp.text
+        self.assertIn("10:00", html)  # generated_at
+        self.assertIn("10:01", html)  # published_at
+
+    def test_07_readiness_shows_creative_ready(self):
+        """Page shows creative content type."""
+        resp = self.client.get("/readiness")
+        html = resp.text
+        self.assertIn("image/png", html)
+
+    # ── Safety: no destructive actions ─────────────────────────────
+
+    def test_08_no_deploy_button(self):
+        """No <button> or <a class='btn'> deploy actions on readiness page."""
+        resp = self.client.get("/readiness")
+        html = resp.text.lower()
+        # No submit buttons with destructive text
+        self.assertNotIn(">deploy<", html)
+        self.assertNotIn('"deploy"', html)
+        # The explanatory text "deploy на ксо не активны" is fine (it says NOT active)
+
+    def test_09_no_start_x11_button(self):
+        """No 'Start X11' button on readiness page."""
+        resp = self.client.get("/readiness")
+        html = resp.text.lower()
+        self.assertNotIn("start x11", html)
+        self.assertNotIn("start runner", html)
+
+    def test_10_no_physical_run(self):
+        """No physical run references."""
+        resp = self.client.get("/readiness")
+        html = resp.text.lower()
+        self.assertNotIn("physical run", html)
+
+    def test_11_no_destructive_forms(self):
+        """No POST forms (only read-only)."""
+        resp = self.client.get("/readiness")
+        html = resp.text.lower()
+        self.assertNotIn('method="post"', html)
+        self.assertNotIn("method='post'", html)
+
+    # ── Safety: no forbidden fields ────────────────────────────────
+
+    def test_12_no_backend_url_in_html(self):
+        """No backend URL in page HTML."""
+        resp = self.client.get("/readiness")
+        for forbidden in ("backend_url", "backend-url", "https://", "http://"):
+            self.assertNotIn(forbidden, resp.text.lower(),
+                f"Forbidden substring '{forbidden}' in readiness page")
+
+    def test_13_no_token_in_html(self):
+        """No token/secret VALUES in page HTML (field names as hints are OK)."""
+        resp = self.client.get("/readiness")
+        html = resp.text.lower()
+        self.assertNotIn("token", html)
+        self.assertNotIn("api_key", html)
+        # device_secret appears as a FIELD NAME in sidecar config hints (no value)
+        # Verify it's used as a field name, not a value
+        self.assertIn("device_secret", html)  # field name hint is expected
+
+    def test_14_no_raw_uuid_in_html(self):
+        """No raw UUID in page HTML."""
+        import re
+        resp = self.client.get("/readiness")
+        uuid_pat = re.compile(
+            r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
+            re.IGNORECASE,
+        )
+        self.assertIsNone(uuid_pat.search(resp.text),
+            f"Raw UUID in readiness page: {resp.text[:200]}")
+
+    def test_15_no_file_path_in_html(self):
+        """No file path in page HTML."""
+        resp = self.client.get("/readiness")
+        html = resp.text.lower()
+        self.assertNotIn("file_path", html)
+        self.assertNotIn("sha256", html)
+
+    def test_16_devices_link_in_nav(self):
+        """Navigation has readiness link."""
+        resp = self.client.get("/readiness")
+        html = resp.text
+        self.assertIn("/readiness", html)
+
+    def test_17_publication_status_shown(self):
+        """Page shows publication status."""
+        resp = self.client.get("/readiness")
+        html = resp.text
+        self.assertIn("published", html.lower())
+
+
 if __name__ == "__main__":
     unittest.main()

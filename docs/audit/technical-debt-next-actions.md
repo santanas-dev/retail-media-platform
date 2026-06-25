@@ -110,4 +110,19 @@ DS API integration — secondary, не блокирует portrait player develo
 ## Файлы
 
 - `docs/audit/technical-debt-next-actions.md` — этот документ
+
+---
+
+## 38.5 — Test-KSO Seed + Publication Readiness (2026-06-25)
+
+### Сделано
+- Seed service `POST /api/test-kso/seed` — idempotent synthetic chain
+- ReadinessStatus: +15 полей (status, creative_ready, publication, remaining_steps)
+- Portal /readiness: 7 групп, все статусы, «Что осталось сделать»
+- Backend: 292 теста, Portal: 424 теста — всё зелёное
+
+### Next actions (после 38.5)
+- Sidecar config на КСО (field hints уже показаны в readiness)
+- Media cache readiness на КСО
+- Phase D manual approval (остаётся ⛔ blocked)
 - `docs/audit/technical-debt-register.md` — полный реестр (36 пунктов)

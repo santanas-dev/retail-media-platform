@@ -356,3 +356,61 @@
 | 2 | Focus restore physical verification | ⚠️ POSTPONED | Вместе со scanner retest |
 | 3 | Physical run Phase D | ⛔ REQUIRES APPROVAL | После Phase A+B+C green + explicit approval |
 | 4 | Fleet rollout (3–5 КСО) | ⛔ FUTURE | После successful one-KSO dry run |
+
+---
+
+## 12. Step 38.5 — Seed + Publication Readiness (2026-06-25)
+
+### 12.1 Seed Service (`POST /api/test-kso/seed`)
+
+Создаёт полную синтетическую цепочку для one-KSO E2E dry run:
+
+```
+User → Branch → Cluster → Store → KsoDevice →
+Campaign → Creative (+ CreativeVersion) → CampaignCreative →
+KsoPlacement → GeneratedManifest (published)
+```
+
+**Idempotent:** повторный вызов с теми же `_code` не создаёт дубликаты.
+**Safe:** возвращает `SeedSummary` без UUID, без secrets, без path/URL.
+
+### 12.2 Расширенный Readiness Status
+
+Добавлены поля:
+- `device_status`, `campaign_status`, `creative_status`, `placement_status`
+- `creative_ready`, `creative_content_type`
+- `campaign_creative_linked`
+- `publication_exists`, `publication_status`
+- `manifest_generated_at`, `manifest_published_at`
+- `manifest_status`
+- `pop_report_ready`
+- `remaining_steps` — человекочитаемый список «что осталось сделать»
+
+### 12.3 Portal /readiness Groups
+
+Страница `/readiness` переработана в группы:
+1. 🖥️ Backend
+2. 📱 Device
+3. 📋 Campaign · Creative · Placement
+4. 📦 Publication · Manifest
+5. 🔧 Sidecar · Media Cache
+6. 📊 PoP · Report
+7. ⛔ Physical Phase D Gate
+
+Показаны все статусы, timestamps, «Что осталось сделать». Никаких destructive buttons.
+
+### 12.4 Тесты
+
+- Backend: 292 теста (+16: 8 seed + 8 expanded readiness)
+- Portal: 424 теста (+17: readiness page groups, safety, forbidden checks)
+- Forbidden fields audit: чисто
+
+### 12.5 Live Blockers (остаются)
+
+| Blocker | Статус |
+|---|---|
+| Sidecar config на КСО | ⚠️ required |
+| Media cache на КСО | ⚠️ required |
+| Phase D manual approval | ⛔ blocked |
+| Physical run/X11/Chromium | ⛔ disabled |
+| Backend URL в sidecar | ⚠️ не в коде (только field hint) |

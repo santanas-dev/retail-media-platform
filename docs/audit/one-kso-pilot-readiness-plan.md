@@ -854,3 +854,38 @@ creative → campaign → placement → approval → manifest → publish → si
 - PoP: creative_code из backend manifest доходит до ScreensaverPoPDraft
 - +17 тестов: preservation, fallback marking, identity rules, PoP chain
 - КСО не менялась. Physical run не запускался.
+
+---
+
+## 38.5 — Test-KSO Live Seed + Publication Status Control Plane (2026-06-25)
+
+**Commit:** `cdf16f0` (предыдущий) + 38.5 changes
+
+### Seed Service
+
+Добавлен `POST /api/test-kso/seed` — idempotent synthetic seed:
+- `backend/app/domains/test_kso_readiness/seed.py`: `seed_test_kso_chain()`
+- Создаёт: User → Branch → Cluster → Store → KsoDevice → Campaign → Creative (+ version) → CampaignCreative → KsoPlacement → GeneratedManifest (published)
+- Idempotent: повторный вызов возвращает `was_already_seeded: True`
+- Возвращает `SeedSummary` без UUID, secrets, paths
+
+### Readiness Expansion
+
+- `ReadinessStatus` расширен с 28 до 43 полей
+- Добавлены: `device_status`, `campaign_status`, `creative_status`, `placement_status`, `creative_ready`, `creative_content_type`, `campaign_creative_linked`, `publication_exists`, `publication_status`, `manifest_status`, `manifest_generated_at`, `manifest_published_at`, `pop_report_ready`, `remaining_steps`
+- Схема `SeedSummary` + `SeedRequest` добавлены
+
+### Portal /readiness
+
+- Переработан в 7 групп: Backend, Device, Campaign/Creative/Placement, Publication/Manifest, Sidecar/Media Cache, PoP/Report, Phase D Gate
+- Показаны все статусы, timestamps, creative content type
+- «Что осталось сделать» — человекочитаемый список
+- Никаких destructive buttons/forms
+- Никаких backend URL/token/secret/UUID/path в HTML
+
+### Тесты
+
+- Backend: 292 (+16: 8 seed + 8 expanded readiness)
+- Portal: 424 (+17: readiness page)
+- Forbidden fields audit: чисто во всех новых схемах и endpoint'ах
+- КСО не менялась. Physical run/X11/Chromium не запускались.

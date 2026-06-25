@@ -6,7 +6,7 @@ All return values are safe — no UUIDs, no paths, no secrets, no URLs.
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select as _select
+from sqlalchemy import select as _select, text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.test_kso_readiness.schemas import ReadinessStatus
@@ -40,6 +40,7 @@ async def build_readiness_summary(
     """
     status = ReadinessStatus()
     reasons: list[str] = []
+    remaining: list[str] = []
     now = datetime.now(timezone.utc)
 
     # ── 1. Device check ──────────────────────────────────────────
@@ -50,10 +51,14 @@ async def build_readiness_summary(
     if device:
         status.device_registered = True
         status.device_code = device.device_code
+        status.device_status = device.status
+        if device.status != "active":
+            reasons.append(f"Device status is '{device.status}', not 'active'")
     else:
         reasons.append(f"Device '{device_code}' not registered in backend")
+        remaining.append("Register device in backend")
 
-    # ── 2. Manifest check ────────────────────────────────────────
+    # ── 2. Manifest (publication) check ──────────────────────────
     manifest_result = await db.execute(
         _select(GeneratedManifest)
         .where(
@@ -68,6 +73,11 @@ async def build_readiness_summary(
     if manifest:
         status.manifest_published = True
         status.manifest_code = manifest.manifest_code
+        status.manifest_status = manifest.status
+        status.publication_exists = True
+        status.publication_status = manifest.status
+        status.manifest_generated_at = manifest.generated_at
+        status.manifest_published_at = manifest.published_at
 
         body = manifest.manifest_body_json or {}
         items = body.get("items", [])
@@ -88,8 +98,10 @@ async def build_readiness_summary(
 
         if not has_cc:
             reasons.append("Manifest items missing creativeCode")
+            remaining.append("Regenerate manifest with creativeCode")
         if not has_mr:
             reasons.append("Manifest items missing mediaRef")
+            remaining.append("Regenerate manifest with mediaRef")
 
         # Placement check (from manifest)
         if manifest.placement_code:
@@ -102,8 +114,13 @@ async def build_readiness_summary(
             if placement:
                 status.placement_registered = True
                 status.placement_code = placement.placement_code
-                status.campaign_code = placement.campaign_code
-                status.creative_code = placement.creative_code
+                status.placement_status = placement.status
+
+                if placement.campaign_code:
+                    status.campaign_code = placement.campaign_code
+
+                if placement.creative_code:
+                    status.creative_code = placement.creative_code
 
                 # Campaign check
                 campaign_result = await db.execute(
@@ -114,6 +131,12 @@ async def build_readiness_summary(
                 campaign = campaign_result.scalar_one_or_none()
                 if campaign:
                     status.campaign_registered = True
+                    status.campaign_status = campaign.status
+                    if campaign.status != "active":
+                        reasons.append(f"Campaign status is '{campaign.status}', not 'active'")
+                else:
+                    reasons.append(f"Campaign '{placement.campaign_code}' not found")
+                    remaining.append("Create campaign")
 
                 # Creative check
                 creative_result = await db.execute(
@@ -124,6 +147,27 @@ async def build_readiness_summary(
                 creative = creative_result.scalar_one_or_none()
                 if creative:
                     status.creative_registered = True
+                    status.creative_status = creative.status
+                    if creative.status != "active":
+                        reasons.append(f"Creative status is '{creative.status}', not 'active'")
+
+                    # Check creative_versions for content readiness
+                    cv_result = await db.execute(sa_text(
+                        "SELECT mime_type, width, height, file_size "
+                        "FROM creative_versions "
+                        "WHERE creative_id = :cid AND status = 'uploaded' "
+                        "ORDER BY version DESC LIMIT 1"
+                    ), {"cid": creative.id})
+                    cv_row = cv_result.fetchone()
+                    if cv_row:
+                        status.creative_ready = True
+                        status.creative_content_type = cv_row[0]
+                    else:
+                        reasons.append("Creative has no uploaded version")
+                        remaining.append("Upload creative content")
+                else:
+                    reasons.append(f"Creative '{placement.creative_code}' not found")
+                    remaining.append("Create creative")
 
                 # CampaignCreative link
                 cc_result = await db.execute(
@@ -132,14 +176,19 @@ async def build_readiness_summary(
                     )
                 )
                 cc = cc_result.scalar_one_or_none()
-                if not cc:
+                if cc:
+                    status.campaign_creative_linked = True
+                else:
                     reasons.append("Creative not linked to campaign (CampaignCreative missing)")
+                    remaining.append("Link creative to campaign")
             else:
                 reasons.append(f"Placement '{manifest.placement_code}' not found")
+                remaining.append("Create placement")
         else:
             reasons.append("Manifest has no placement_code")
     else:
         reasons.append(f"No published manifest for device '{device_code}'")
+        remaining.append("Generate and publish manifest")
 
     # ── 3. PoP check ─────────────────────────────────────────────
     pop_result = await db.execute(
@@ -150,29 +199,50 @@ async def build_readiness_summary(
     pop_events = pop_result.scalars().all()
     status.pop_last_count = len(pop_events) if pop_events else 0
 
+    # Check if PoP events have creative_code (real reporting readiness)
+    if pop_events:
+        has_cc_events = any(
+            getattr(e, "creative_code", None) for e in pop_events
+        )
+        status.pop_report_ready = has_cc_events
+        if not has_cc_events:
+            reasons.append("PoP events exist but none have creative_code")
+            remaining.append("Ensure PoP ingest includes creative_code")
+    else:
+        status.pop_report_ready = False
+
     # ── 4. Sidecar config (hints only) ───────────────────────────
     status.sidecar_config_required = True
     status.sidecar_config_fields = list(SIDECAR_REQUIRED_FIELDS)
+    remaining.append("Configure sidecar on KSO with required fields")
 
     # ── 5. Media cache (always requires check on KSO) ────────────
     status.media_cache_ready = False
     status.media_cache_items_expected = status.manifest_item_count
+    if status.media_cache_items_expected > 0:
+        remaining.append(f"Ensure {status.media_cache_items_expected} media files cached on KSO")
 
-    # ── 6. Overall readiness ─────────────────────────────────────
+    # ── 6. Phase D ───────────────────────────────────────────────
+    remaining.append("Get manual approval for Phase D (controlled physical window)")
+
+    # ── 7. Overall readiness ─────────────────────────────────────
     status.overall_ready = all([
-        status.device_registered,
+        status.device_registered and status.device_status == "active",
         status.manifest_published,
         status.manifest_has_creative_code,
         status.manifest_has_media_ref,
-        status.campaign_registered,
+        status.campaign_registered and status.campaign_status == "active",
         status.placement_registered,
-        status.creative_registered,
+        status.creative_registered and status.creative_status == "active",
+        status.creative_ready,
+        status.campaign_creative_linked,
     ])
 
     if not status.overall_ready:
         reasons.append("Not all backend prerequisites met")
 
     status.readiness_reasons = reasons
+    status.remaining_steps = remaining
     status.checked_at = now
 
     return status

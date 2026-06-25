@@ -12,6 +12,53 @@ from pydantic import BaseModel, Field
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Seed
+# ══════════════════════════════════════════════════════════════════════
+
+class SeedRequest(BaseModel):
+    """Request to seed a synthetic test KSO chain. All fields optional — defaults used."""
+    device_code: str = Field(default="test-dev-seed", min_length=1, max_length=64, pattern=r"^[a-z0-9_-]+$")
+    creative_code: str = Field(default="test-creative-seed", min_length=1, max_length=64, pattern=r"^[a-z0-9_-]+$")
+    campaign_code: str = Field(default="test-camp-seed", min_length=1, max_length=64)
+    placement_code: str = Field(default="test-place-seed", min_length=3, max_length=64, pattern=r"^[a-z0-9_-]+$")
+    manifest_code: str = Field(default="test-manifest-seed", min_length=1, max_length=64)
+
+
+class SeedSummary(BaseModel):
+    """Safe summary after seeding — NO UUIDs, NO secrets, NO paths."""
+    # Idempotency
+    was_already_seeded: bool = False
+
+    # What was created/idempotently verified
+    device_seeded: bool = False
+    device_code: Optional[str] = None
+
+    campaign_seeded: bool = False
+    campaign_code: Optional[str] = None
+
+    creative_seeded: bool = False
+    creative_code: Optional[str] = None
+
+    campaign_creative_linked: bool = False
+
+    placement_seeded: bool = False
+    placement_code: Optional[str] = None
+
+    manifest_generated: bool = False
+    manifest_code: Optional[str] = None
+    manifest_published: bool = False
+    manifest_item_count: int = 0
+    manifest_has_creative_code: bool = False
+    manifest_has_media_ref: bool = False
+
+    # Timing
+    seeded_at: datetime = Field(default_factory=lambda: datetime.utcnow())
+
+    # Human-readable summary
+    summary: str = ""
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Readiness Summary
 # ══════════════════════════════════════════════════════════════════════
 
@@ -27,21 +74,38 @@ class ReadinessStatus(BaseModel):
     # Device
     device_registered: bool = False
     device_code: Optional[str] = Field(default=None, max_length=64)
+    device_status: Optional[str] = Field(default=None, max_length=20)
+
+    # Campaign / Creative / Placement chain
+    campaign_registered: bool = False
+    campaign_code: Optional[str] = Field(default=None, max_length=64)
+    campaign_status: Optional[str] = Field(default=None, max_length=20)
+
+    creative_registered: bool = False
+    creative_code: Optional[str] = Field(default=None, max_length=64)
+    creative_status: Optional[str] = Field(default=None, max_length=20)
+    creative_ready: bool = False          # has version with content_type + dimensions
+    creative_content_type: Optional[str] = Field(default=None, max_length=100)
+
+    placement_registered: bool = False
+    placement_code: Optional[str] = Field(default=None, max_length=64)
+    placement_status: Optional[str] = Field(default=None, max_length=20)
+
+    campaign_creative_linked: bool = False
 
     # Manifest
     manifest_published: bool = False
     manifest_code: Optional[str] = Field(default=None, max_length=64)
+    manifest_status: Optional[str] = Field(default=None, max_length=30)
+    manifest_item_count: int = 0
     manifest_has_creative_code: bool = False
     manifest_has_media_ref: bool = False
-    manifest_item_count: int = 0
+    manifest_generated_at: Optional[datetime] = None
+    manifest_published_at: Optional[datetime] = None
 
-    # Campaign/Placement chain
-    campaign_registered: bool = False
-    campaign_code: Optional[str] = Field(default=None, max_length=64)
-    placement_registered: bool = False
-    placement_code: Optional[str] = Field(default=None, max_length=64)
-    creative_registered: bool = False
-    creative_code: Optional[str] = Field(default=None, max_length=64)
+    # Publication (for one-KSO, GeneratedManifest is the publication)
+    publication_exists: bool = False      # same as manifest_published for one-KSO
+    publication_status: Optional[str] = Field(default=None, max_length=30)
 
     # Sidecar config (safe hints only — no actual config values)
     sidecar_config_required: bool = True
@@ -52,11 +116,12 @@ class ReadinessStatus(BaseModel):
     media_cache_items_expected: int = 0
 
     # PoP
-    pop_endpoint_ready: bool = True  # endpoint exists in code
+    pop_endpoint_ready: bool = True       # endpoint exists in code
     pop_last_count: int = 0
+    pop_report_ready: bool = False        # has actual events with creative_code
 
     # Report
-    portal_report_ready: bool = True  # page exists
+    portal_report_ready: bool = True      # page exists
     portal_report_filter_creative_code: bool = True
 
     # Phase D gate
@@ -66,6 +131,9 @@ class ReadinessStatus(BaseModel):
 
     # Readiness reasons (human-readable, safe)
     readiness_reasons: list[str] = Field(default_factory=list)
+
+    # Что осталось сделать (human-readable next steps)
+    remaining_steps: list[str] = Field(default_factory=list)
 
     # Timestamps
     checked_at: datetime = Field(default_factory=lambda: datetime.utcnow())

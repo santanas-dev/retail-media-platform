@@ -24,7 +24,7 @@ _test_engine = create_async_engine(TEST_DB_URL, echo=False)
 TestSession = async_sessionmaker(_test_engine, class_=AsyncSession, expire_on_commit=False)
 
 ALL_DDL = [
-    "CREATE TABLE IF NOT EXISTS users (id VARCHAR(36) PRIMARY KEY, username VARCHAR(100) UNIQUE, password_hash VARCHAR(255) DEFAULT '', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+    "CREATE TABLE IF NOT EXISTS users (id VARCHAR(36) PRIMARY KEY, username VARCHAR(100) UNIQUE, password_hash VARCHAR(255) DEFAULT '', display_name VARCHAR(255), created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
     "CREATE TABLE IF NOT EXISTS branches (id VARCHAR(36) PRIMARY KEY, name VARCHAR(255), code VARCHAR(50) UNIQUE)",
     "CREATE TABLE IF NOT EXISTS clusters (id VARCHAR(36) PRIMARY KEY, name VARCHAR(255), code VARCHAR(50), branch_id VARCHAR(36) REFERENCES branches(id))",
     "CREATE TABLE IF NOT EXISTS stores (id VARCHAR(36) PRIMARY KEY, name VARCHAR(255), code VARCHAR(50) UNIQUE, cluster_id VARCHAR(36) REFERENCES clusters(id), status VARCHAR(20) DEFAULT 'active')",
@@ -36,6 +36,7 @@ ALL_DDL = [
     "CREATE TABLE IF NOT EXISTS campaign_renditions (id VARCHAR(36) PRIMARY KEY, campaign_id VARCHAR(36) REFERENCES campaigns(id), rendition_id VARCHAR(36), weight INTEGER DEFAULT 1, position INTEGER, is_active BOOLEAN DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
     "CREATE TABLE IF NOT EXISTS creatives (id VARCHAR(36) PRIMARY KEY, advertiser_id VARCHAR(36), brand_id VARCHAR(36), creative_code VARCHAR(64) UNIQUE, name VARCHAR(255), status VARCHAR(20) DEFAULT 'draft', comment TEXT, created_by VARCHAR(36) REFERENCES users(id), created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
     "CREATE TABLE IF NOT EXISTS creative_versions (id VARCHAR(36) PRIMARY KEY, creative_id VARCHAR(36) REFERENCES creatives(id), version INTEGER, original_filename VARCHAR(500), file_path VARCHAR(1000), mime_type VARCHAR(100), file_size BIGINT, sha256 VARCHAR(64), width INTEGER, height INTEGER, duration_seconds FLOAT, uploaded_by VARCHAR(36) REFERENCES users(id), status VARCHAR(20) DEFAULT 'uploaded', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(creative_id, version))",
+    "CREATE TABLE IF NOT EXISTS renditions (id VARCHAR(36) PRIMARY KEY, creative_version_id VARCHAR(36) REFERENCES creative_versions(id), channel_id VARCHAR(36), capability_profile_id VARCHAR(36), file_path VARCHAR(1000), mime_type VARCHAR(100), file_size BIGINT, sha256 VARCHAR(64), width INTEGER, height INTEGER, duration_seconds FLOAT, status VARCHAR(20) DEFAULT 'active', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
     "CREATE TABLE IF NOT EXISTS campaign_creatives (id VARCHAR(36) PRIMARY KEY, campaign_id VARCHAR(36) REFERENCES campaigns(id), creative_code VARCHAR(64) REFERENCES creatives(creative_code), slot_order INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(campaign_id, creative_code))",
     "CREATE TABLE IF NOT EXISTS kso_placements (id VARCHAR(36) PRIMARY KEY, placement_code VARCHAR(64) UNIQUE, campaign_code VARCHAR(64) REFERENCES campaigns(campaign_code), creative_code VARCHAR(64) REFERENCES creatives(creative_code), device_code VARCHAR(64) REFERENCES kso_devices(device_code), starts_at DATETIME, ends_at DATETIME, status VARCHAR(20) DEFAULT 'draft', slot_order INTEGER DEFAULT 0, created_by VARCHAR(36) REFERENCES users(id), created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
     "CREATE TABLE IF NOT EXISTS generated_manifests (id VARCHAR(36) PRIMARY KEY, manifest_code VARCHAR(64) UNIQUE, device_code VARCHAR(64) REFERENCES kso_devices(device_code), placement_code VARCHAR(64) REFERENCES kso_placements(placement_code), campaign_code VARCHAR(64) REFERENCES campaigns(campaign_code), status VARCHAR(30) DEFAULT 'generated', manifest_body_json TEXT DEFAULT '{}', item_count INTEGER DEFAULT 0, media_ref_format VARCHAR(50), generated_by VARCHAR(36) REFERENCES users(id), published_by VARCHAR(36) REFERENCES users(id), generated_at DATETIME DEFAULT CURRENT_TIMESTAMP, published_at DATETIME, schema_version INTEGER DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
@@ -185,6 +186,8 @@ async def _seed_full_chain(
 
         await db.execute(sa_text("INSERT INTO campaigns (id, order_id, campaign_code, name, status, planned_start_date, planned_end_date, created_by) VALUES (:id, :oid, :cc, 'C', 'active', '2026-01-01', '2026-12-31', :cb)"), {"id": uuid4().hex, "oid": uuid4().hex, "cc": campaign_code, "cb": uid})
         await db.execute(sa_text("INSERT INTO creatives (id, creative_code, name, status, created_by) VALUES (:id, :cc, 'C', 'active', :cb)"), {"id": uuid4().hex, "cc": creative_code, "cb": uid})
+        cvid = uuid4().hex
+        await db.execute(sa_text("INSERT OR IGNORE INTO creative_versions (id, creative_id, version, original_filename, file_path, mime_type, file_size, sha256, width, height, duration_seconds, uploaded_by, status) VALUES (:id, (SELECT id FROM creatives WHERE creative_code=:cc), 1, 'test.png', 'test.png', 'image/png', 1024, 'synth_hash', 768, 1024, 30.0, :ub, 'uploaded')"), {"id": cvid, "cc": creative_code, "ub": uid})
         cid = uuid4().hex
         await db.execute(sa_text("INSERT INTO campaign_creatives (id, campaign_id, creative_code, slot_order) VALUES (:id, (SELECT id FROM campaigns WHERE campaign_code=:cc), :cr, 0)"), {"id": cid, "cc": campaign_code, "cr": creative_code})
         await db.execute(sa_text("INSERT INTO kso_placements (id, placement_code, campaign_code, creative_code, device_code, starts_at, ends_at, status, created_by) VALUES (:id, :pc, :cc, :cr, :dc, :sa, :ea, 'active', :cb)"), {"id": uuid4().hex, "pc": placement_code, "cc": campaign_code, "cr": creative_code, "dc": device_code, "sa": now - timedelta(days=1), "ea": now + timedelta(days=365), "cb": uid})
@@ -361,20 +364,24 @@ class TestReadinessEndpoint(unittest.TestCase):
         fields = set(ReadinessStatus.model_fields.keys())
         allowed = {
             "overall_ready", "backend_healthy",
-            "device_registered", "device_code",
-            "manifest_published", "manifest_code",
+            "device_registered", "device_code", "device_status",
+            "manifest_published", "manifest_code", "manifest_status",
             "manifest_has_creative_code", "manifest_has_media_ref",
             "manifest_item_count",
-            "campaign_registered", "campaign_code",
-            "placement_registered", "placement_code",
-            "creative_registered", "creative_code",
+            "manifest_generated_at", "manifest_published_at",
+            "campaign_registered", "campaign_code", "campaign_status",
+            "placement_registered", "placement_code", "placement_status",
+            "creative_registered", "creative_code", "creative_status",
+            "creative_ready", "creative_content_type",
+            "campaign_creative_linked",
+            "publication_exists", "publication_status",
             "sidecar_config_required", "sidecar_config_fields",
             "media_cache_ready", "media_cache_items_expected",
-            "pop_endpoint_ready", "pop_last_count",
+            "pop_endpoint_ready", "pop_last_count", "pop_report_ready",
             "portal_report_ready", "portal_report_filter_creative_code",
             "phase_d_requires_approval", "phase_d_blocked",
             "phase_d_block_reason",
-            "readiness_reasons", "checked_at",
+            "readiness_reasons", "remaining_steps", "checked_at",
         }
         for f in fields:
             self.assertIn(f, allowed, f"Unexpected field '{f}' in ReadinessStatus")
@@ -392,3 +399,248 @@ class TestReadinessEndpoint(unittest.TestCase):
         for reason in status.readiness_reasons:
             self.assertIsInstance(reason, str)
             _assert_no_forbidden_values(self, reason)
+
+    # ── 38.5 expanded fields ─────────────────────────────────────────
+
+    def test_16_creative_ready_with_version(self):
+        """Creative has uploaded version → creative_ready=True."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.service import build_readiness_summary
+                return await build_readiness_summary(session, "test-dev-readiness")
+        status = _run_async(_do())
+        self.assertTrue(status.creative_ready)
+        self.assertIsNotNone(status.creative_content_type)
+
+    def test_17_campaign_creative_linked(self):
+        """CampaignCreative link is detected."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.service import build_readiness_summary
+                return await build_readiness_summary(session, "test-dev-readiness")
+        status = _run_async(_do())
+        self.assertTrue(status.campaign_creative_linked)
+
+    def test_18_publication_exists(self):
+        """publication_exists reflects manifest status."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.service import build_readiness_summary
+                return await build_readiness_summary(session, "test-dev-readiness")
+        status = _run_async(_do())
+        self.assertTrue(status.publication_exists)
+        self.assertEqual(status.publication_status, "published")
+
+    def test_19_manifest_timestamps(self):
+        """Manifest generated_at/published_at populated."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.service import build_readiness_summary
+                return await build_readiness_summary(session, "test-dev-readiness")
+        status = _run_async(_do())
+        self.assertIsNotNone(status.manifest_generated_at)
+        self.assertIsNotNone(status.manifest_published_at)
+
+    def test_20_remaining_steps_present(self):
+        """remaining_steps list populated even when ready."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.service import build_readiness_summary
+                return await build_readiness_summary(session, "test-dev-readiness")
+        status = _run_async(_do())
+        self.assertIsInstance(status.remaining_steps, list)
+        self.assertGreater(len(status.remaining_steps), 0)
+
+    def test_21_device_status_field(self):
+        """device_status is populated."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.service import build_readiness_summary
+                return await build_readiness_summary(session, "test-dev-readiness")
+        status = _run_async(_do())
+        self.assertEqual(status.device_status, "active")
+
+    def test_22_campaign_placement_status_fields(self):
+        """campaign_status, placement_status, creative_status populated."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.service import build_readiness_summary
+                return await build_readiness_summary(session, "test-dev-readiness")
+        status = _run_async(_do())
+        self.assertEqual(status.campaign_status, "active")
+        self.assertIsNotNone(status.placement_status)
+        self.assertEqual(status.creative_status, "active")
+
+    def test_23_schema_all_fields_known(self):
+        """All ReadinessStatus fields are known (no unknown fields)."""
+        from app.domains.test_kso_readiness.schemas import ReadinessStatus
+        fields = set(ReadinessStatus.model_fields.keys())
+        allowed = {
+            "overall_ready", "backend_healthy",
+            "device_registered", "device_code", "device_status",
+            "campaign_registered", "campaign_code", "campaign_status",
+            "creative_registered", "creative_code", "creative_status",
+            "creative_ready", "creative_content_type",
+            "placement_registered", "placement_code", "placement_status",
+            "campaign_creative_linked",
+            "manifest_published", "manifest_code", "manifest_status",
+            "manifest_item_count", "manifest_has_creative_code",
+            "manifest_has_media_ref",
+            "manifest_generated_at", "manifest_published_at",
+            "publication_exists", "publication_status",
+            "sidecar_config_required", "sidecar_config_fields",
+            "media_cache_ready", "media_cache_items_expected",
+            "pop_endpoint_ready", "pop_last_count", "pop_report_ready",
+            "portal_report_ready", "portal_report_filter_creative_code",
+            "phase_d_requires_approval", "phase_d_blocked",
+            "phase_d_block_reason",
+            "readiness_reasons", "remaining_steps", "checked_at",
+        }
+        for f in fields:
+            self.assertIn(f, allowed, f"Unexpected field '{f}' in ReadinessStatus")
+        for a in allowed:
+            self.assertIn(a, fields, f"Missing expected field '{a}' in ReadinessStatus")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Seed Service Tests (Step 38.5)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestSeedService(unittest.TestCase):
+    """POST /api/test-kso/seed — idempotent synthetic chain creation."""
+
+    @classmethod
+    def setUpClass(cls):
+        _run_async(_init_db())
+
+    def test_01_seed_creates_full_chain(self):
+        """Seed creates device+campaign+creative+placement+manifest."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.seed import seed_test_kso_chain
+                return await seed_test_kso_chain(
+                    session,
+                    device_code="seed-dev-01",
+                    creative_code="seed-cr-01",
+                    campaign_code="seed-camp-01",
+                    placement_code="seed-pl-01",
+                    manifest_code="seed-mf-01",
+                )
+        summary = _run_async(_do())
+        self.assertTrue(summary.device_seeded)
+        self.assertTrue(summary.campaign_seeded)
+        self.assertTrue(summary.creative_seeded)
+        self.assertTrue(summary.campaign_creative_linked)
+        self.assertTrue(summary.placement_seeded)
+        self.assertTrue(summary.manifest_generated)
+        self.assertTrue(summary.manifest_published)
+        self.assertEqual(summary.device_code, "seed-dev-01")
+        self.assertEqual(summary.creative_code, "seed-cr-01")
+        self.assertEqual(summary.campaign_code, "seed-camp-01")
+        self.assertEqual(summary.placement_code, "seed-pl-01")
+        self.assertEqual(summary.manifest_code, "seed-mf-01")
+
+    def test_02_seed_idempotent(self):
+        """Second call with same codes does not error or duplicate."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.seed import seed_test_kso_chain
+                # First seed
+                await seed_test_kso_chain(session, device_code="seed-dev-02")
+                await session.commit()
+            async with db as session:
+                # Second seed — should be idempotent
+                summary = await seed_test_kso_chain(session, device_code="seed-dev-02")
+                return summary
+        summary = _run_async(_do())
+        self.assertTrue(summary.was_already_seeded)
+        self.assertTrue(summary.device_seeded)
+        self.assertIn("idempotent", summary.summary.lower())
+
+    def test_03_seed_summary_no_forbidden_keys(self):
+        """SeedSummary has no forbidden keys."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.seed import seed_test_kso_chain
+                return await seed_test_kso_chain(session, device_code="seed-dev-03")
+        summary = _run_async(_do())
+        data = summary.model_dump()
+        _assert_no_forbidden_keys(self, data, "SeedSummary")
+
+    def test_04_seed_summary_no_forbidden_values(self):
+        """SeedSummary JSON has no forbidden value substrings."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.seed import seed_test_kso_chain
+                return await seed_test_kso_chain(session, device_code="seed-dev-04")
+        summary = _run_async(_do())
+        data_str = json.dumps(summary.model_dump(mode="json"), default=str)
+        _assert_no_forbidden_values(self, data_str)
+
+    def test_05_seed_summary_no_raw_uuid(self):
+        """SeedSummary JSON has no raw UUIDs."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.seed import seed_test_kso_chain
+                return await seed_test_kso_chain(session, device_code="seed-dev-05")
+        summary = _run_async(_do())
+        data_str = json.dumps(summary.model_dump(mode="json"), default=str)
+        _assert_no_raw_uuid(self, data_str)
+
+    def test_06_seed_readiness_integration(self):
+        """After seeding, readiness check sees the chain as ready."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.seed import seed_test_kso_chain
+                await seed_test_kso_chain(session, device_code="seed-dev-06",
+                    creative_code="seed-cr-06", campaign_code="seed-camp-06",
+                    placement_code="seed-pl-06", manifest_code="seed-mf-06")
+                await session.commit()
+            async with db as session:
+                from app.domains.test_kso_readiness.service import build_readiness_summary
+                return await build_readiness_summary(session, "seed-dev-06")
+        status = _run_async(_do())
+        self.assertTrue(status.overall_ready)
+        self.assertTrue(status.device_registered)
+        self.assertTrue(status.manifest_published)
+        self.assertTrue(status.manifest_has_creative_code)
+        self.assertTrue(status.manifest_has_media_ref)
+        self.assertTrue(status.campaign_registered)
+        self.assertTrue(status.creative_registered)
+        self.assertTrue(status.creative_ready)
+        self.assertTrue(status.campaign_creative_linked)
+        self.assertTrue(status.placement_registered)
+        self.assertTrue(status.publication_exists)
+
+    def test_07_seed_summary_manifest_fields(self):
+        """Seed summary includes manifest item count and creativeCode/mediaRef."""
+        async def _do():
+            db = TestSession()
+            async with db as session:
+                from app.domains.test_kso_readiness.seed import seed_test_kso_chain
+                return await seed_test_kso_chain(session, device_code="seed-dev-07")
+        summary = _run_async(_do())
+        self.assertEqual(summary.manifest_item_count, 1)
+        self.assertTrue(summary.manifest_has_creative_code)
+        self.assertTrue(summary.manifest_has_media_ref)
+
+    def test_08_seed_schema_no_forbidden_fields(self):
+        """SeedSummary and SeedRequest have no forbidden field names."""
+        from app.domains.test_kso_readiness.schemas import SeedSummary, SeedRequest
+        for schema_cls in [SeedSummary, SeedRequest]:
+            for f in schema_cls.model_fields.keys():
+                self.assertNotIn(f, FORBIDDEN_KEYS,
+                    f"{schema_cls.__name__} has forbidden field '{f}'")
