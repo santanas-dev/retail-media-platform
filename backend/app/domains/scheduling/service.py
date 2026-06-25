@@ -83,53 +83,33 @@ async def _check_conflict(
     ends_at: datetime,
     exclude_placement_code: str | None = None,
 ) -> None:
-    """Minimal conflict guard: overlapping placements on same device.
-
-    Checks for any placement on the same device_code whose time window
-    overlaps with [starts_at, ends_at) and whose status is NOT in
-    {cancelled, rejected}.  If found, raises 409 Conflict.
-    """
-    stmt = select(models.KsoPlacement.placement_code).where(
+    """Verify no active placement overlaps on the same device."""
+    stmt = select(models.KsoPlacement).where(
         models.KsoPlacement.device_code == device_code,
         models.KsoPlacement.status.notin_(_NON_CONFLICT_STATUSES),
         models.KsoPlacement.starts_at < ends_at,
         models.KsoPlacement.ends_at > starts_at,
     )
-    if exclude_placement_code:
-        stmt = stmt.where(
-            models.KsoPlacement.placement_code != exclude_placement_code,
-        )
-
-    result = await db.execute(stmt.limit(1))
-    conflicting = result.scalar_one_or_none()
-    if conflicting:
+    result = await db.execute(stmt)
+    overlaps = result.scalars().all()
+    for overlap in overlaps:
+        if exclude_placement_code and overlap.placement_code == exclude_placement_code:
+            continue
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Device '{device_code}' already has placement "
-                f"'{conflicting}' overlapping the requested time window"
-            ),
+            detail=f"Time overlap with placement '{overlap.placement_code}' on device '{device_code}'",
         )
-
-
-# ── Public API ──────────────────────────────────────────────────────────
 
 
 async def list_placements(
-    db: AsyncSession,
-    skip: int = 0,
-    limit: int = 100,
+    db: AsyncSession, skip: int = 0, limit: int = 100,
 ) -> list[dict]:
-    """List placements with safe projection — no raw UUIDs."""
-    stmt = (
+    result = await db.execute(
         select(models.KsoPlacement)
         .order_by(models.KsoPlacement.created_at.desc())
-        .offset(skip)
-        .limit(limit)
+        .offset(skip).limit(limit)
     )
-    result = await db.execute(stmt)
     placements = result.scalars().all()
-
     return [
         {
             "placement_code": p.placement_code,
@@ -150,7 +130,6 @@ async def list_placements(
 async def get_placement(
     db: AsyncSession, placement_code: str,
 ) -> dict:
-    """Get single placement by code — safe projection."""
     result = await db.execute(
         select(models.KsoPlacement).where(
             models.KsoPlacement.placement_code == placement_code,
@@ -311,3 +290,210 @@ async def archive_placement(
         "created_at": p.created_at,
         "updated_at": p.updated_at,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Schedule + ScheduleSlot production API (39.1.3)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _schedule_to_dict(s: models.Schedule) -> dict:
+    return {
+        "schedule_code": s.schedule_code, "name": s.name,
+        "status": s.status, "campaign_code": s.campaign_code,
+        "valid_from": s.valid_from, "valid_to": s.valid_to,
+        "timezone": s.timezone,
+        "slot_count": len(s.slots) if s.slots else 0,
+        "created_at": s.created_at, "updated_at": s.updated_at,
+    }
+
+
+def _slot_to_dict(sl: models.ScheduleSlot, schedule_code: str) -> dict:
+    return {
+        "slot_code": sl.slot_code, "schedule_code": schedule_code,
+        "placement_code": sl.placement_code,
+        "day_of_week": sl.day_of_week,
+        "start_time": sl.start_time, "end_time": sl.end_time,
+        "slot_order": sl.slot_order, "is_active": sl.is_active,
+        "created_at": sl.created_at, "updated_at": sl.updated_at,
+    }
+
+
+async def _get_schedule_or_404(
+    db: AsyncSession, schedule_code: str,
+) -> models.Schedule:
+    result = await db.execute(
+        select(models.Schedule)
+        .options(selectinload(models.Schedule.slots))
+        .where(models.Schedule.schedule_code == schedule_code)
+    )
+    s = result.scalar_one_or_none()
+    if not s:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return s
+
+
+async def list_schedules(
+    db: AsyncSession, skip: int = 0, limit: int = 100,
+) -> list[dict]:
+    result = await db.execute(
+        select(models.Schedule)
+        .options(selectinload(models.Schedule.slots))
+        .order_by(models.Schedule.created_at.desc())
+        .offset(skip).limit(limit)
+    )
+    return [_schedule_to_dict(s) for s in result.scalars().all()]
+
+
+async def create_schedule(
+    db: AsyncSession, data: schemas.ScheduleCreate, user_id,
+) -> dict:
+    existing = await db.execute(
+        select(models.Schedule.id).where(
+            models.Schedule.schedule_code == data.schedule_code,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Schedule code already exists")
+
+    if data.campaign_code:
+        camp = await db.execute(
+            select(Campaign.id).where(Campaign.campaign_code == data.campaign_code)
+        )
+        if not camp.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Campaign not found")
+
+    s = models.Schedule(
+        schedule_code=data.schedule_code, name=data.name,
+        campaign_code=data.campaign_code,
+        valid_from=data.valid_from, valid_to=data.valid_to,
+        timezone=data.timezone, created_by=user_id,
+    )
+    db.add(s)
+    await db.commit()
+    await db.refresh(s)
+    return _schedule_to_dict(s)
+
+
+async def get_schedule(db: AsyncSession, schedule_code: str) -> dict:
+    return _schedule_to_dict(await _get_schedule_or_404(db, schedule_code))
+
+
+async def update_schedule(
+    db: AsyncSession, schedule_code: str, data: schemas.ScheduleUpdate,
+) -> dict:
+    s = await _get_schedule_or_404(db, schedule_code)
+    if s.status == "archived":
+        raise HTTPException(status_code=400, detail="Schedule is archived")
+    if data.name is not None: s.name = data.name
+    if data.valid_from is not None: s.valid_from = data.valid_from
+    if data.valid_to is not None: s.valid_to = data.valid_to
+    if data.timezone is not None: s.timezone = data.timezone
+    s.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(s)
+    return _schedule_to_dict(s)
+
+
+async def archive_schedule(db: AsyncSession, schedule_code: str) -> dict:
+    s = await _get_schedule_or_404(db, schedule_code)
+    if s.status == "archived":
+        raise HTTPException(status_code=400, detail="Schedule already archived")
+    s.status = "archived"
+    s.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(s)
+    return _schedule_to_dict(s)
+
+
+# ── Schedule Slots ────────────────────────────────────────────────────────
+
+async def list_schedule_slots(
+    db: AsyncSession, schedule_code: str,
+) -> list[dict]:
+    await _get_schedule_or_404(db, schedule_code)
+    result = await db.execute(
+        select(models.ScheduleSlot)
+        .join(models.Schedule)
+        .where(models.Schedule.schedule_code == schedule_code)
+        .order_by(models.ScheduleSlot.slot_order)
+    )
+    return [_slot_to_dict(sl, schedule_code) for sl in result.scalars().all()]
+
+
+async def create_schedule_slot(
+    db: AsyncSession, schedule_code: str, data: schemas.ScheduleSlotCreate,
+) -> dict:
+    s = await _get_schedule_or_404(db, schedule_code)
+    existing = await db.execute(
+        select(models.ScheduleSlot.id).where(
+            models.ScheduleSlot.slot_code == data.slot_code,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Slot code already exists")
+    if data.placement_code:
+        p_result = await db.execute(
+            select(models.KsoPlacement.id).where(
+                models.KsoPlacement.placement_code == data.placement_code,
+            )
+        )
+        if not p_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Placement not found")
+    sl = models.ScheduleSlot(
+        slot_code=data.slot_code, schedule_id=s.id,
+        placement_code=data.placement_code,
+        day_of_week=data.day_of_week,
+        start_time=data.start_time, end_time=data.end_time,
+        slot_order=data.slot_order,
+    )
+    db.add(sl)
+    await db.commit()
+    await db.refresh(sl)
+    return _slot_to_dict(sl, schedule_code)
+
+
+async def update_schedule_slot(
+    db: AsyncSession, schedule_code: str, slot_code: str,
+    data: schemas.ScheduleSlotUpdate,
+) -> dict:
+    result = await db.execute(
+        select(models.ScheduleSlot)
+        .join(models.Schedule)
+        .where(
+            models.Schedule.schedule_code == schedule_code,
+            models.ScheduleSlot.slot_code == slot_code,
+        )
+    )
+    sl = result.scalar_one_or_none()
+    if not sl:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    if data.placement_code is not None: sl.placement_code = data.placement_code
+    if data.day_of_week is not None: sl.day_of_week = data.day_of_week
+    if data.start_time is not None: sl.start_time = data.start_time
+    if data.end_time is not None: sl.end_time = data.end_time
+    if data.slot_order is not None: sl.slot_order = data.slot_order
+    sl.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(sl)
+    return _slot_to_dict(sl, schedule_code)
+
+
+async def disable_schedule_slot(
+    db: AsyncSession, schedule_code: str, slot_code: str,
+) -> dict:
+    result = await db.execute(
+        select(models.ScheduleSlot)
+        .join(models.Schedule)
+        .where(
+            models.Schedule.schedule_code == schedule_code,
+            models.ScheduleSlot.slot_code == slot_code,
+        )
+    )
+    sl = result.scalar_one_or_none()
+    if not sl:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    sl.is_active = False
+    sl.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(sl)
+    return _slot_to_dict(sl, schedule_code)

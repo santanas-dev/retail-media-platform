@@ -10,7 +10,7 @@ prior migration), but SQLAlchemy model was missing.
 """
 
 from sqlalchemy import (
-    Column, Date, DateTime, ForeignKey, Integer, String, Time,
+    Column, Date, DateTime, ForeignKey, Integer, String, Time, Boolean,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -108,3 +108,96 @@ class ScheduleItem(Base):
     priority = Column(Integer, default=0)
     weight = Column(Integer, default=1)
     status = Column(String(20), nullable=False, default="active")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Schedule + ScheduleSlot — production schedule API (39.1.3)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class Schedule(Base):
+    """Schedule — groups time slots for campaign/placement delivery."""
+
+    __tablename__ = "schedules"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    schedule_code = Column(
+        String(64), unique=True, nullable=False, index=True,
+    )
+    name = Column(String(255), nullable=False)
+    status = Column(
+        String(20), nullable=False, server_default="draft", index=True,
+    )
+    campaign_code = Column(
+        String(64),
+        ForeignKey("campaigns.campaign_code", ondelete="RESTRICT"),
+        nullable=True, index=True,
+    )
+    valid_from = Column(Date, nullable=False)
+    valid_to = Column(Date, nullable=False)
+    timezone = Column(String(50), nullable=False, server_default="Europe/Moscow")
+    created_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+
+    slots = relationship(
+        "ScheduleSlot", back_populates="schedule", lazy="selectin",
+        order_by="ScheduleSlot.slot_order",
+    )
+
+
+class ScheduleSlot(Base):
+    """ScheduleSlot — daily time slot linked to a placement."""
+
+    __tablename__ = "schedule_slots"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    slot_code = Column(
+        String(64), unique=True, nullable=False, index=True,
+    )
+    schedule_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("schedules.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    placement_code = Column(
+        String(64),
+        ForeignKey("kso_placements.placement_code", ondelete="RESTRICT"),
+        nullable=True, index=True,
+    )
+    day_of_week = Column(
+        Integer, nullable=False,  # 0=Mon … 6=Sun
+    )
+    start_time = Column(
+        Time, nullable=False,
+    )
+    end_time = Column(
+        Time, nullable=False,
+    )
+    slot_order = Column(
+        Integer, nullable=False, server_default="0",
+    )
+    is_active = Column(
+        Boolean, nullable=False, server_default=func.text("true"),
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+
+    schedule = relationship("Schedule", back_populates="slots")

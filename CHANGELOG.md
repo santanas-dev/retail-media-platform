@@ -9,6 +9,27 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.1.3 — Schedule Backend API Hardening
+
+**Schedule + ScheduleSlot models** — production schedule API foundation.
+
+- `Schedule` model: schedule_code, name, status (draft/active/archived), valid_from/to, campaign_code, timezone
+- `ScheduleSlot` model: slot_code, day_of_week, start_time/end_time, placement_code, is_active
+- `GET/POST /api/schedules` — list + create schedules
+- `GET/PATCH /api/schedules/{schedule_code}` — get + update by code
+- `POST /api/schedules/{schedule_code}/archive` — archive
+- `GET /api/schedules/{schedule_code}/items` — list slots
+- `POST /api/schedules/{schedule_code}/items` — create slot
+- `PATCH /api/schedules/{schedule_code}/items/{slot_code}` — update slot
+- `DELETE /api/schedules/{schedule_code}/items/{slot_code}` — disable (soft)
+- Test-kso schedule endpoints retained as legacy
+- Backend tests: 314/314 OK
+- **Schedule backend gap → CLOSED** ✅
+
+**Remaining:** Portal Schedule UI (39.2), Dashboard (39.2), Reports (39.5)
+
+---
+
 ### 39.1.2 — Campaign / Placement Production API Hardening
 
 **Production API foundation:** campaign code-based CRUD, creative binding, placement CRUD.

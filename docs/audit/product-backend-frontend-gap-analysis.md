@@ -93,8 +93,9 @@ Portal UI ──→ Backend API ──→ Manifest/Media ──→ KSO Player (7
 | SG4 | Test KSO readiness без аутентификации | 🟡 MEDIUM | `test_kso_readiness/router.py` | TEST-KSO only (explicit) |
 | SG5 | Campaign/placement через test-kso wrapper | 🟡 MEDIUM → ✅ FIXED (39.1.2) | `campaigns/router.py`, `scheduling/router.py` | Production API added |
 | SG6 | RLS enforcement частичный | 🟡 MEDIUM | `identity/rls.py` | Полный query-level RLS (future) |
-| SG7 | In-memory portal session store | 🟡 LOW | `portal-web/portal_session.py` | Redis/persistent session (future) |
-| SG8 | Portal session secret hardcoded default | 🟡 LOW | `portal-web/main.py:49` | Env-only, no default (future) |
+| SG7 | Schedule backend API | 🟡 MEDIUM → ✅ FIXED (39.1.3) | `scheduling/` | Schedule + ScheduleSlot API |
+| SG8 | In-memory portal session store | 🟡 LOW | `portal-web/portal_session.py` | Redis/persistent session (future) |
+| SG9 | Portal session secret hardcoded default | 🟡 LOW | `portal-web/main.py:49` | Env-only, no default (future) |
 
 ---
 
