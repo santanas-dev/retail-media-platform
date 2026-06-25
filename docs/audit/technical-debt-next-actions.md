@@ -344,3 +344,15 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - HW scanner E2E validation (barcode → campaign match)
 - Controlled long-run (hours, not seconds) without auto-start
 - BackendIntegration test isolation fix (pre-existing, deferred)
+
+## 38.14 — Pilot Readiness Decision Gate (2026-06-25)
+
+### Decision
+- One-KSO technical dry run: **PASSED** (D0–D6 all green)
+- One-KSO pilot readiness: **CONDITIONAL** (requires HW scanner E2E + controlled long-run)
+- Production/fleet rollout: **NOT APPROVED**
+
+### Documented
+- `docs/audit/one-kso-pilot-readiness-decision-gate.md` — полный decision gate
+- Proven chain: portal/backend → manifest/media → KSO render → PoP → backend → portal report
+- All constraints met, no secrets committed, 4918 regression green

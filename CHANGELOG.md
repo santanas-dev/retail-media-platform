@@ -7,9 +7,22 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [Unreleased] — Phase D E2E: D3 Visual → D4 PoP → D5 Report (38.14, 2026-06-25)
+## [Unreleased] — Phase D E2E Complete + Decision Gate (38.14, 2026-06-25)
 
-### 38.14 — D3.1 Pre-D4 Regression Triage + D4 PoP Upload + D5 Report Verify ✅
+### 38.14 — One-KSO Pilot Readiness Decision Gate
+
+**Decision document:** `docs/audit/one-kso-pilot-readiness-decision-gate.md`
+
+- One-KSO technical dry run: **PASSED** ✅ (D0–D6 all green)
+- One-KSO pilot readiness: **CONDITIONAL** ⚠️ (requires HW scanner E2E + controlled long-run)
+- Production/fleet rollout: **NOT APPROVED** 🚫
+
+**Proven chain:** portal/backend → manifest/media → KSO player render → PoP → backend → portal report
+
+**Allowed next:** HW scanner E2E plan, controlled long-run plan, BackendIntegration RBAC fix
+**Forbidden:** systemd/autostart, fleet rollout, live store pilot, PoP evidence deletion
+
+### 38.13.3 — Phase D Closure (D0–D6 all green) ✅
 
 **D3.1 — Pre-D4 Regression Triage:**
 - Backend 6 INTERNALERROR → fixed: `norecursedirs` excludes integration scripts

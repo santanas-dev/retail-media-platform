@@ -1138,3 +1138,8 @@ Real KSO is portrait 768×1024. Legacy `kso_devices` had correct 768×1024.
 
 ### Next recommended step
 Pilot readiness decision / HW scanner E2E validation / controlled long-run (no auto-start)
+
+**Decision gate:** `docs/audit/one-kso-pilot-readiness-decision-gate.md`
+- One-KSO technical dry run: **PASSED** ✅
+- One-KSO pilot readiness: **CONDITIONAL** ⚠️ (requires HW scanner E2E + long-run)
+- Production/fleet rollout: **NOT APPROVED** 🚫
