@@ -6,6 +6,7 @@ Design: docs/audit/fullscreen-idle-screensaver-interaction-design.md
 """
 
 from dataclasses import dataclass, field
+from typing import FrozenSet, Optional
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -99,7 +100,7 @@ HIDE_STATES = frozenset({
 # Pure functions
 # ══════════════════════════════════════════════════════════════════════
 
-def resolve_highest_priority_trigger(events: frozenset) -> str | None:
+def resolve_highest_priority_trigger(events: FrozenSet) -> Optional[str]:
     """Given a set of DOM event names, return the highest-priority trigger.
 
     Returns None if no valid hide trigger is present.
@@ -119,7 +120,7 @@ def resolve_highest_priority_trigger(events: frozenset) -> str | None:
 
 
 def should_hide(
-    dom_events: frozenset | None = None,
+    dom_events: Optional[FrozenSet] = None,
     state: str = "unknown",
     kill_switch_active: bool = False,
     input_mode: str = "wake_only",

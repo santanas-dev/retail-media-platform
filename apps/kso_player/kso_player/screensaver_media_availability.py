@@ -15,7 +15,7 @@ Prerequisite: 38.2.1 — creative_code preservation.
 import json as _json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -126,7 +126,7 @@ def _validate_media_ref_safe(media_ref: str) -> bool:
     return True
 
 
-def _validate_availability_payload_safe(data: dict) -> list[str]:
+def _validate_availability_payload_safe(data: dict) -> List[str]:
     """Check dict for forbidden fields. Returns list of error strings."""
     errors = []
     forbidden_lower = {
@@ -189,7 +189,8 @@ def _find_manifest_item_by_order(
 
 def check_screensaver_media_availability(
     creative,
-    agent_root: str | Path,
+    agent_root,  # py36-compat: Union[str, Path] — use string annotation
+    # str | Path not supported in Python 3.6
 ) -> ScreensaverMediaAvailability:
     """Check whether a creative has media available in the sidecar's local cache.
 

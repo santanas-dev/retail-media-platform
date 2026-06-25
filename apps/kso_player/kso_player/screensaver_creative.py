@@ -11,7 +11,7 @@ Prerequisite: 38.1.11.1 — Post-rollback UKM5 focus restore.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import List, Optional, Tuple
 
 from kso_player.playlist import PlayerPlaylistItem, PlayerPlaylist
 
@@ -149,7 +149,7 @@ class ScreensaverCreativePayload:
 # Validation
 # ══════════════════════════════════════════════════════════════════════
 
-def _check_forbidden_patterns(value: str, field_name: str) -> list[str]:
+def _check_forbidden_patterns(value: str, field_name: str) -> List[str]:
     """Return list of forbidden patterns found in value."""
     errors = []
     lower = value.lower()
@@ -397,7 +397,7 @@ def decide_creative_visibility(
     state: str = "idle",
     kill_switch_active: bool = False,
     media_availability=None,
-) -> tuple[bool, str]:
+) -> Tuple[bool, str]:
     """Decide whether screensaver creative should be visible.
 
     Integrates creative validity with runner visibility logic and

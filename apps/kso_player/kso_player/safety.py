@@ -9,7 +9,7 @@ All other states → fail closed (stop or hold).
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Dict, Optional
 
 # ══════════════════════════════════════════════════════════════════════
 # KSO Screen States
@@ -74,7 +74,7 @@ REASON_INVALID_STATE = "invalid_state"
 REASON_MISSING_SNAPSHOT = "missing_snapshot"
 
 # State → reason mapping for STOP states
-_STATE_TO_REASON: dict[str, str] = {
+_STATE_TO_REASON: Dict[str, str] = {
     "transaction": REASON_TRANSACTION_ACTIVE,
     "payment": REASON_PAYMENT_ACTIVE,
     "receipt": REASON_RECEIPT_ACTIVE,

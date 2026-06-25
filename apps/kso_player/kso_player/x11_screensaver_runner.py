@@ -15,6 +15,7 @@ Prerequisite: 38.1.6/38.1.7/38.1.8 — X11 click-through proof confirmed
 """
 
 from dataclasses import dataclass, field
+from typing import Optional, Tuple
 
 from kso_player.kill_switch import DEFAULT_KILL_SWITCH_PATH, is_kill_switch_active
 from kso_player.state_observer import (
@@ -133,14 +134,14 @@ class ScreensaverRunResult:
     state: str = STATE_UNKNOWN
     kill_switch_active: bool = False
     duration_sec: float = 0.0
-    window_id: int | None = None
+    window_id: Optional[int] = None
     rollback_done: bool = False
     stop_reason: str = STOP_REASON_NONE
     proof_summary: str = ""
     mode: str = MODE_DRY_RUN
     renderer_plan_valid: bool = False
     renderer_production_ready: bool = False
-    hide_decision: HideDecision | None = None
+    hide_decision: Optional[HideDecision] = None
 
     # — Post-rollback focus verification —
     focus_restored: bool = True
@@ -216,7 +217,7 @@ class ScreensaverRunPlan:
     lockfile_path: str = DEFAULT_LOCKFILE_PATH
 
     approval_provided: bool = False
-    renderer_plan: X11RendererPlan | None = None
+    renderer_plan: Optional[X11RendererPlan] = None
 
     def __post_init__(self):
         if not self.display:
@@ -375,7 +376,7 @@ def build_plan(
     state_path: str = DEFAULT_STATE_PATH,
     kill_switch_path: str = DEFAULT_KILL_SWITCH_PATH,
     lockfile_path: str = DEFAULT_LOCKFILE_PATH,
-    approval_token: str | None = None,
+    approval_token: Optional[str] = None,
 ) -> ScreensaverRunPlan:
     """Build a runner execution plan.
 
@@ -410,7 +411,7 @@ def build_plan(
 def decide_visibility(
     state_snapshot: PlayerStateSnapshot,
     kill_switch_active: bool,
-) -> tuple[bool, str]:
+) -> Tuple[bool, str]:
     """Decide whether the screensaver should be visible.
 
     Pure function — no I/O, no X11.
@@ -468,8 +469,8 @@ def check_forbidden_state_fields(data: dict) -> bool:
 
 def simulate_run(
     plan: ScreensaverRunPlan,
-    snapshot: PlayerStateSnapshot | None = None,
-    kill_switch_active: bool | None = None,
+    snapshot: Optional[PlayerStateSnapshot] = None,
+    kill_switch_active: Optional[bool] = None,
 ) -> ScreensaverRunResult:
     """Simulate a full runner lifecycle — NO X11 calls.
 

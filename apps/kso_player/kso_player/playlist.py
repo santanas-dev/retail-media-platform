@@ -23,7 +23,7 @@ import json as _json
 import re as _re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 # ══════════════════════════════════════════════════════════════════════
 # Constants
@@ -565,7 +565,7 @@ def build_playlist(root) -> PlayerPlaylist:
 
     # ── Extract items ────────────────────────────────────────────
     items_total = len(raw_items)
-    extracted: list[PlayerPlaylistItem] = []
+    extracted: List[PlayerPlaylistItem] = []
 
     for idx, raw in enumerate(raw_items):
         try:
@@ -587,7 +587,7 @@ def build_playlist(root) -> PlayerPlaylist:
         )
 
     # ── Verify media files ───────────────────────────────────────
-    ready_items: list[PlayerPlaylistItem] = []
+    ready_items: List[PlayerPlaylistItem] = []
     items_missing = 0
     items_failed = 0
 
