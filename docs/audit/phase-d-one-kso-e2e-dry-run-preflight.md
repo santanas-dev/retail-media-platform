@@ -291,10 +291,11 @@ During Phase D, all terminal output must be filtered:
 |---|---|---|
 | Phase D0 (readiness) | User says "start Phase D" | ⛔ pending |
 | Phase D1-D2 (local status + preflight) | Manual approval after D0 | ⛔ pending |
-| Phase D3 (visual run) | `--approval-token PHASE_D3_APPROVED` | ⛔ pending |
-| Phase D4 (PoP upload) | Manual approval after D3 | ⛔ pending |
-| Phase D5 (report verify) | Auto after D4 success | ⛔ pending |
-| Phase D6 (cleanup) | Auto after D5 | ⛔ pending |
+| Phase D3 (visual run) | `--approval-token PHASE_D3_APPROVED` | ✅ D3: commit `b080025` |
+| Phase D3.1 (pre-D4 triage) | Manual approval after D3 | ✅ commit `dd64ab7` |
+| Phase D4 (PoP upload) | `--approval-token PHASE_D4_APPROVED` | ✅ D4: HTTP 200 accepted, commit `7146029` |
+| Phase D5 (report verify) | `--approval-token PHASE_D5_APPROVED` | ✅ D5: event visible, all filters pass |
+| Phase D6 (cleanup) | Separate approval | ⛔ pending |
 
 ## 10. Regression Count Explanation
 

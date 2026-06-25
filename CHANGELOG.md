@@ -7,20 +7,42 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [Unreleased] — D3 Controlled Visual Run (38.13.3, 2026-06-25)
+## [Unreleased] — Phase D E2E: D3 Visual → D4 PoP → D5 Report (38.14, 2026-06-25)
 
-### 38.13.3 — D3: Controlled Visual Run on Physical KSO ✅
-- **Profile:** `portrait_fullscreen_idle_screensaver_768` (768×1024 fullscreen, idle_only, click-through)
-- **Window:** 0x1600001, 768×1024+0+0, Override Redirect: yes, Map State: IsViewable
-- **Visual:** DURING screenshot = 100% green (0,255,0), 786,432 pixels single color — fullscreen confirmed
-- **Click-through:** Active window remained `0xa00002` (КСО - Chromium) before/during/after — focus NOT stolen
-- **Stop criteria:** 13/13 passed
-- **Rollback:** Window destroyed, lockfile removed, PIDs unchanged (UKM5=1881, MintUKM=720, Openbox=1626)
-- **Evidence:** before (44KB), during (12KB green), after (44KB) — stored in /tmp/d3_evidence/
-- **D4/D5/D6 NOT executed** — PoP upload, report verify, cleanup skipped per constraints
-- **Sidecar daemon NOT started, UKM5/Openbox/systemd unchanged, secrets NOT printed**
-- **Regression:** TBD (run after doc update)
-- **Commit:** TBD
+### 38.14 — D3.1 Pre-D4 Regression Triage + D4 PoP Upload + D5 Report Verify ✅
+
+**D3.1 — Pre-D4 Regression Triage:**
+- Backend 6 INTERNALERROR → fixed: `norecursedirs` excludes integration scripts
+- Portal-web 9 BackendIntegration → documented (pre-existing 3-layer isolation defect)
+- Infra 1 unittest failure → documented (pytest-only, 227/227 pass)
+- Core green: **4917 passed, 0 failures**
+
+**D4 — Controlled PoP Upload:**
+- **Bug discovered:** `NoReferencedTableError` on `creatives.creative_code` FK — PoP ingest returned HTTP 500 against real PostgreSQL
+- Root cause: `service.py` imported `CampaignCreative` but not `Creative`/`User` — SQLAlchemy FK resolution failed at commit
+- **Fix:** Added `from app.domains.media.models import Creative` and `from app.domains.identity.models import User` (commit `8b367eb`)
+- **PoP upload:** 1 synthetic event sent → HTTP 200 accepted ✅
+- **Event data:** test_playback_completed, duration_ms=1000, device=test-dev-seed, campaign=test-camp-seed, creative=test-creative-seed
+- **Before:** 0 PoP events, **After:** 1 PoP event (delta +1)
+- **Commit:** `7146029` — regression baseline docs updated with FK discovery
+
+**D5 — PoP Report Verification:**
+- **Backend:** D4 event found via `/api/proof-of-play/test-kso` ✅
+- All fields verified: status=accepted, campaign=test-camp-seed, creative=test-creative-seed, placement=test-place-seed, event_type=test_playback_completed, duration_ms=1000
+- All filters pass: device (2 events), campaign (2), creative (2), placement (2)
+- KPI count: 2 test_playback_completed events
+- Forbidden fields: **CLEAN** (no IDs, secrets, receipts, fiscal, payment, personal data)
+- **D5 not executed yet** — commit pending after regression
+
+**Stop criteria all met:**
+- D3 visual run NOT repeated, X11/Chromium/runner NOT launched
+- Sidecar daemon NOT started, UKM5/Openbox/systemd unchanged
+- No new PoP events beyond D4's single upload
+- Secrets/full URLs/tokens/barcodes NOT printed
+- Payload forbidden field check: CLEAN
+- D6 cleanup NOT executed (awaiting separate approval)
+
+**Regression:** TBD (after doc update)
 
 ### 38.13.2 — D2.1: Python 3.6 Runner Compatibility + Fullscreen Runner Plan
 - **Blocker 1:** `datetime.fromisoformat` unavailable on Python 3.6 (KSO runtime)

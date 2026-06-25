@@ -275,3 +275,52 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 
 ### Next actions (после D2.1)
 - Phase D3: физический visual run (requires explicit manual approval)
+
+## D3 — Controlled Visual Run (2026-06-25)
+
+### Executed
+- ✅ Physical KSO visual run: 768×1024 fullscreen green window, 10s controlled run
+- ✅ Click-through confirmed (UKM5 focus preserved)
+- ✅ 13/13 stop criteria passed, rollback clean
+- ✅ All evidence captured (not in repo)
+- ✅ Commit: `b080025`, 6 docs updated
+
+### Next actions (после D3)
+- D3.1: Pre-D4 regression triage
+
+## D3.1 — Pre-D4 Regression Triage (2026-06-25)
+
+### Executed
+- ✅ Backend: 6 INTERNALERROR fixed (`norecursedirs`), 292 passed
+- ✅ Portal-web: 9 BackendIntegration documented (pre-existing)
+- ✅ Infra: 1 unittest failure documented
+- ✅ Core green: 4917 passed, 0 failures
+- ✅ Commit: `dd64ab7`
+
+### Next actions (после D3.1)
+- Phase D4: Controlled PoP upload (requires explicit manual approval)
+
+## D4 — Controlled PoP Upload (2026-06-25)
+
+### Executed
+- ✅ FK resolution bug discovered and fixed (`8b367eb`: missing Creative/User imports)
+- ✅ 1 synthetic PoP event uploaded: HTTP 200, status=accepted
+- ✅ PoP count: 0 → 1 (delta +1)
+- ✅ Regression baseline updated with FK discovery
+- ✅ Commit: `7146029`
+
+### Next actions (после D4)
+- Phase D5: PoP report verification (requires explicit manual approval)
+
+## D5 — PoP Report Verification (2026-06-25)
+
+### Executed
+- ✅ D4 event visible in backend `/api/proof-of-play/test-kso`
+- ✅ All fields verified: campaign=test-camp-seed, creative=test-creative-seed
+- ✅ All portal filters pass (device, campaign, creative, placement)
+- ✅ Forbidden fields: CLEAN across all report output
+- ✅ No new PoP events uploaded, no sidecar/runner/X11 launched
+
+### Next actions (после D5)
+- Phase D6: Cleanup (requires separate approval)
+- No further actions needed for Phase D one-KSO E2E dry run

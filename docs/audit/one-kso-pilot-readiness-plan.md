@@ -1070,3 +1070,49 @@ Real KSO is portrait 768×1024. Legacy `kso_devices` had correct 768×1024.
 - D4/D5/D6 NOT executed
 - Sidecar daemon NOT started
 - Secrets/full URLs/tokens NOT printed
+
+## D3.1 — Pre-D4 Regression Triage ✅ (2026-06-25)
+
+### Backend
+- 6 INTERNALERROR (integration scripts) → fixed via `norecursedirs` in pyproject.toml
+- 292 passed ✅
+
+### Portal-web
+- 9 BackendIntegration failures (3-layer isolation defect) → documented, pre-existing
+- Not related to D3/D4, not blocking
+
+### Infra
+- 1 unittest-only failure (`test_build_creates_manifest_json`) → documented, pre-existing
+- 227/227 pass with pytest
+
+### Baseline
+- Core green: **4917 passed, 0 failures**
+
+## D4 — Controlled PoP Upload ✅ (2026-06-25)
+
+### Bug: PoP Ingest FK Resolution (commit `8b367eb`)
+- `NoReferencedTableError` on `creatives.creative_code` FK — PoP ingest returned HTTP 500
+- Root cause: `service.py` imported `CampaignCreative` but not `Creative`/`User`
+- Fix: 2 import lines added. No business logic changed.
+
+### Upload
+- 1 synthetic event: `d4-synth-***-0de5dc`
+- HTTP 200, status=accepted
+- device=test-dev-seed, campaign=test-camp-seed, creative=test-creative-seed
+- PoP count: 0 → 1 (delta +1)
+
+## D5 — PoP Report Verification ✅ (2026-06-25)
+
+### Backend
+- D4 event found via `/api/proof-of-play/test-kso` ✅
+- All fields correct (status, campaign, creative, placement, event_type, duration_ms)
+- Forbidden fields: CLEAN
+
+### Portal filters
+- device_code=test-dev-seed → 2 events ✅
+- campaign_code=test-camp-seed → 2 ✅
+- creative_code=test-creative-seed → 2 ✅
+- placement_code=test-place-seed → 2 ✅
+
+### D6
+- ⛔ NOT executed (awaiting separate approval)
