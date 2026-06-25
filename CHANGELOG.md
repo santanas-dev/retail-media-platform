@@ -7,7 +7,17 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [Unreleased] — Phase D Preflight + Geometry Fix (38.13.1, 2026-06-25)
+## [Unreleased] — Phase D Preflight + Geometry Fix + Py36 Compatibility (38.13.2, 2026-06-25)
+
+### 38.13.2 — D2.1: Python 3.6 Runner Compatibility + Fullscreen Runner Plan
+- **Blocker 1:** `datetime.fromisoformat` unavailable on Python 3.6 (KSO runtime)
+- Created `kso_player/timestamp_utils.py` with `parse_iso_utc()` via `strptime` — py36-compatible
+- Replaced all `fromisoformat` calls in `runtime_gate.py`, `screensaver_creative.py`, `state_observer.py`, `simulator.py`, `run_cycle.py`
+- **Blocker 2:** Registered fullscreen profile `portrait_fullscreen_idle_screensaver_768` (768×1024+0+0, kiosk, idle_only)
+- 13 new unit tests for timestamp parser — Z, microseconds, offset, invalid→None
+- Added `PYTHONPATH` to subprocess calls in CLI tests (`test_run_once_cli.py`, `test_run_once_cli_backend.py`, `test_run_cycle_runtime_config.py`)
+- **Regression:** backend 292 ✅ | portal-web 404 ✅ | kso_state_adapter 86 ✅ | kso_player 2065 ✅ | kso_sidecar 1838 ✅ | infra 227 ✅
+- Total: **4912 passed, 0 failed** (vs 4894 baseline — +18 new tests)
 
 ### 38.13.1 — Phase D Geometry Consistency Fix
 - **Critical fix:** test-dev-seed GatewayDevice was linked to shared landscape display_surface (1920×1080)

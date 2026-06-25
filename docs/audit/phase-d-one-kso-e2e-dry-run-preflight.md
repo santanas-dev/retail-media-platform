@@ -1,9 +1,9 @@
 # Phase D One-KSO E2E Dry Run — Preflight
 
-**Task:** 38.13 — Phase D Preflight
+**Task:** 38.13.2 — Phase D Preflight + D2.1 Fix
 **Date:** 2026-06-25
-**Status:** READY for manual approval (Phase D NOT started)
-**Depends on:** 38.12.2 (commit 5ab99d5, regression green)
+**Status:** ✅ D0–D2.1 complete. READY for D3 manual approval.
+**Depends on:** 38.13 (commit bae0e49), 38.13.1 (commit 4f7a5f4), 38.13.2 (commits 1534bc6, daf2969)
 
 ---
 
@@ -136,6 +136,19 @@ python3 -m kso_sidecar_agent.cli runner-preflight
 # Verify: no focus stolen from UKM5
 # Verify: UKM5 PID unchanged
 # Verify: mint.service active
+```
+
+### D2.1 — Fix Python 3.6 Compatibility + Fullscreen Runner Plan (38.13.2)
+Status: ✅ COMPLETE
+```
+# Verify: timestamp_utils.parse_iso_utc() works on Python 3.6
+python3.6 -c "from kso_player.timestamp_utils import parse_iso_utc; print(parse_iso_utc('2026-06-25T15:00:00Z'))"
+# Verify: fullscreen profile registered
+python3 -c "from kso_player.profiles.portrait_fullscreen_idle_screensaver_768 import PROFILE; print(PROFILE['window_geometry'])"
+# Verify: no fromisoformat anywhere in runtime code
+grep -r 'fromisoformat' apps/kso_player/kso_player/ apps/kso_sidecar_agent/kso_sidecar_agent/ || echo "OK: no fromisoformat"
+# Verify: all subprocess CLI tests pass with PYTHONPATH
+# Regression: 4912 passed, 0 failed ✅
 ```
 
 ### D3 — Controlled Visual Run (KSO, manual supervision)
