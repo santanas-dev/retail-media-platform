@@ -324,3 +324,23 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 ### Next actions (после D5)
 - Phase D6: Cleanup (requires separate approval)
 - No further actions needed for Phase D one-KSO E2E dry run
+
+## D6 — Cleanup and Phase D Closure (2026-06-25)
+
+### Executed
+- ✅ Removed stale test lock dirs (40KB), repo __pycache__, .pytest_cache
+- ✅ Preserved: backend PoP event, config/secret/manifest/media cache
+- ✅ KSO temp files remain (harmless in /tmp, SSH unreachable)
+- ✅ UKM5/Openbox/systemd unchanged
+- ✅ No X11/Chromium/runner/sidecar launched
+
+### Phase D complete (D0–D6 all green)
+- D0 backend readiness, D1 sidecar status, D2 dry-run, D3 visual run
+- D3.1 regression triage, D4 PoP upload, D5 report verify, D6 cleanup
+- All constraints met, no secrets committed
+
+### Next recommended actions
+- Pilot readiness decision (stakeholder gate)
+- HW scanner E2E validation (barcode → campaign match)
+- Controlled long-run (hours, not seconds) without auto-start
+- BackendIntegration test isolation fix (pre-existing, deferred)

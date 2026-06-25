@@ -32,7 +32,13 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 - All filters pass: device (2 events), campaign (2), creative (2), placement (2)
 - KPI count: 2 test_playback_completed events
 - Forbidden fields: **CLEAN** (no IDs, secrets, receipts, fiscal, payment, personal data)
-- **D5 not executed yet** — commit pending after regression
+
+**D6 — Cleanup and Phase D Closure:**
+- Removed: stale test lock dirs (`/tmp/tmp*` — 40KB), repo `__pycache__`, `.pytest_cache`
+- Preserved: backend PoP event (d4-synth-***-0de5dc), config, secret, manifest, media cache
+- KSO temp files (`/tmp/d3_evidence/`, `/tmp/d3_runner.py`) remain on KSO (unreachable via SSH) — harmless in /tmp
+- UKM5/Openbox/systemd unchanged, no X11/Chromium/runner/sidecar launched
+- **Phase D one-KSO E2E dry run: COMPLETE** (D0–D6 all green)
 
 **Stop criteria all met:**
 - D3 visual run NOT repeated, X11/Chromium/runner NOT launched

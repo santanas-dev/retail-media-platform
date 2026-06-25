@@ -295,7 +295,7 @@ During Phase D, all terminal output must be filtered:
 | Phase D3.1 (pre-D4 triage) | Manual approval after D3 | ✅ commit `dd64ab7` |
 | Phase D4 (PoP upload) | `--approval-token PHASE_D4_APPROVED` | ✅ D4: HTTP 200 accepted, commit `7146029` |
 | Phase D5 (report verify) | `--approval-token PHASE_D5_APPROVED` | ✅ D5: event visible, all filters pass |
-| Phase D6 (cleanup) | Separate approval | ⛔ pending |
+| Phase D6 (cleanup) | Separate approval | ✅ D6: cleanup complete, PoP preserved |
 
 ## 10. Regression Count Explanation
 

@@ -1116,3 +1116,25 @@ Real KSO is portrait 768×1024. Legacy `kso_devices` had correct 768×1024.
 
 ### D6
 - ⛔ NOT executed (awaiting separate approval)
+
+## D6 — Cleanup and Phase D Closure ✅ (2026-06-25)
+
+### Cleanup
+- Removed: stale test lock dirs (`/tmp/tmp*` — 40KB), repo `__pycache__`, `.pytest_cache`
+- Preserved: backend PoP event, config, secret, manifest, media cache
+- KSO temp files (`/tmp/d3_evidence/`) remain on KSO (SSH unreachable) — harmless in /tmp
+
+### Phase D complete
+- D0: Backend readiness ✅
+- D1: Sidecar local status ✅
+- D2: Dry-run / preflight ✅
+- D3: Visual run (768×1024 fullscreen, click-through) ✅
+- D3.1: Regression triage ✅
+- D4: PoP upload (HTTP 200 accepted, FK bug fixed) ✅
+- D5: Report verification (all filters pass) ✅
+- D6: Cleanup ✅
+- Backend PoP event preserved, test KSO config intact
+- No secrets/screenshots/tmp/logs committed
+
+### Next recommended step
+Pilot readiness decision / HW scanner E2E validation / controlled long-run (no auto-start)
