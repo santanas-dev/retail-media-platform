@@ -27,6 +27,17 @@ dependencies = [
 dev = [
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",
+    "jinja2>=3.0.0",
+    "itsdangerous>=2.0.0",
+    "python-multipart>=0.0.9",
+    "aiofiles>=24.0.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = [
+    ".",
+    "../apps/kso_player",
+    "../apps/kso_sidecar_agent",
 ]
 
 [build-system]
