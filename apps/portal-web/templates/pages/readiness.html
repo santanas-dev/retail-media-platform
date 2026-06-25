@@ -205,6 +205,39 @@
     </div>
   </div>
 
+  <!-- ═══ OPERATOR PREFLIGHT GUIDANCE ═══ -->
+  <div class="readiness-group">
+    <h2 class="group-title">📋 Operator Preflight (Phase A–C)</h2>
+    <p style="color:#94a3b8;font-size:12px;margin-bottom:8px;">
+      Read-only guidance. Никаких кнопок — все действия выполняются оператором вручную.
+      Подробный runbook: <code>docs/audit/test-kso-live-backend-seed-runbook.md</code>
+    </p>
+    <div class="component-list">
+      {% if readiness.required_operator_steps %}
+        {% for step in readiness.required_operator_steps %}
+        <div class="component-item" style="border-left: 3px solid #3b82f6;">
+          <p style="margin:0;color:#e2e8f0;font-size:13px;">
+            {{ "✅" if "✅" in step else "⬜" }} {{ step }}
+          </p>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="component-item">
+          <p style="color:#94a3b8;">Preflight steps loading…</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Guidance hints (read-only) -->
+    <div style="margin-top:12px;padding:10px;background:#1e293b;border-radius:6px;font-size:12px;color:#94a3b8;">
+      <p style="margin:4px 0;"><strong>⬜ Заполнить локальный sidecar config</strong> — <code>write-config</code> + <code>secret-store-set</code> на КСО</p>
+      <p style="margin:4px 0;"><strong>⬜ Запустить backend seed</strong> — через portal или <code>POST /api/test-kso/seed</code></p>
+      <p style="margin:4px 0;"><strong>⬜ Проверить media cache</strong> — <code>sidecar doctor</code> → <code>cache_missing == 0</code></p>
+      <p style="margin:4px 0;color:#ef4444;"><strong>⛔ Phase D только после manual approval</strong> — никакие кнопки не активны</p>
+      <p style="margin-top:8px;font-size:11px;">⚠️ Никаких кнопок «запуск X11», «deploy на КСО», «Phase D run», «SSH», «restart» на этой странице нет.</p>
+    </div>
+  </div>
+
   <!-- ═══ PHASE D GATE ═══ -->
   <div class="readiness-group" style="border-left: 3px solid #ef4444;">
     <h2 class="group-title" style="color:#ef4444;">⛔ Physical Phase D Gate</h2>

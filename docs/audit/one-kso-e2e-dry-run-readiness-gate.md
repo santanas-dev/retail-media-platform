@@ -457,3 +457,33 @@ KsoPlacement → GeneratedManifest (published)
 - `device_secret` не возвращается (только как field name)
 - Никаких token/path/URL в JSON ответе
 - Phase D всё ещё blocked
+
+## 14. Step 38.7 — Live Backend Seed Runbook + Operator Preflight (2026-06-25)
+
+### 14.1 Runbook
+
+`docs/audit/test-kso-live-backend-seed-runbook.md` — полный операторский runbook:
+
+- **Phase A:** Backend readiness — seed, verify manifest, Phase D gate check
+- **Phase B:** Sidecar config — заполнение на КСО, проверка без вывода значений
+- **Phase C:** Dry preflight — manifest sync, media cache, PoP, kill-switch checklist
+
+Placeholders: `<TEST_BACKEND_BASE_URL>`, `<TEST_KSO_DEVICE_CODE>`, `<DEVICE_SECRET_VALUE>`, `<AGENT_ROOT>` — без реальных значений.
+
+### 14.2 Backend
+
+- `required_operator_steps` — 12 шагов Phases A/B/C в readiness ответе
+- Safe: только имена действий, без URL/secrets/tokens
+
+### 14.3 Portal
+
+- Секция «Operator Preflight (Phase A–C)» с пошаговым guidance
+- 4 подсказки: config, seed, media cache, Phase D
+- Никаких кнопок: «запуск X11», «deploy», «SSH», «restart»
+
+### 14.4 Safety
+
+- Runbook: placeholders, не реальные URL/secrets
+- Backend: `required_operator_steps` — только safe action names
+- Portal: guidance hints без destructive buttons
+- Phase D: ⛔ blocked

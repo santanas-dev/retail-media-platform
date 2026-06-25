@@ -90,3 +90,9 @@ Never shows:
 - `sidecar_config_checklist` has full field-by-field breakdown (names + status only)
 - No config values in ANY response
 - No `backend_url`, `token`, `secret`, `device_secret` in JSON or HTML
+
+## Related Documents
+
+- **Operator Runbook:** [test-kso-live-backend-seed-runbook.md](test-kso-live-backend-seed-runbook.md) — Phase A/B/C preflight
+- **Readiness Gate:** [one-kso-e2e-dry-run-readiness-gate.md](one-kso-e2e-dry-run-readiness-gate.md)
+- **Pilot Plan:** [one-kso-pilot-readiness-plan.md](one-kso-pilot-readiness-plan.md)

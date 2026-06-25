@@ -139,5 +139,16 @@ Commit `cf9314d`: DDL fix в тестах (UNIQUE + advertisers/orders).
 имена visible, значения hidden. Docs: `test-kso-live-config-checklist.md`.
 
 ### Next actions (после 38.6)
-- Прогнать full regression (backend + portal + sidecar + player + infra)
-- Закоммитить: `🔧 Add test KSO live config readiness checklist`
+- ~~Прогнать full regression~~
+- ~~Закоммитить~~ → 38.6 done (1f9c56b)
+- 38.7: Runbook + operator preflight
+
+## 38.7 — Live Backend Seed Runbook + Operator Preflight (2026-06-25)
+
+Создан `test-kso-live-backend-seed-runbook.md`: Phase A/B/C preflight.
+Backend: `required_operator_steps` (12 шагов). Portal: Operator Preflight guidance.
+Placeholders без реальных URL/secrets.
+
+### Next actions (после 38.7)
+- Full regression + commit
+- 38.8: Phase D Manual Approval Gate

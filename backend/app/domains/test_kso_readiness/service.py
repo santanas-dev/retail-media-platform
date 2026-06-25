@@ -270,6 +270,32 @@ async def build_readiness_summary(
     # ── 6. Phase D ───────────────────────────────────────────────
     remaining.append("Get manual approval for Phase D (controlled physical window)")
 
+    # ── 7. Operator preflight steps (Phase A/B/C) ─────────────────
+    operator_steps: list[str] = []
+
+    # A: Backend
+    operator_steps.append("Phase A1: Verify backend health at /health")
+    if not status.overall_ready:
+        operator_steps.append("Phase A2: Run seed — POST /api/test-kso/seed")
+    else:
+        operator_steps.append("Phase A2: Seed already complete ✅")
+    operator_steps.append("Phase A3: Verify /api/test-kso/readiness → overall_ready: true")
+    operator_steps.append("Phase A4: Verify Phase D is blocked (gate check)")
+
+    # B: Sidecar config
+    operator_steps.append("Phase B1: Fill local sidecar config on KSO — write-config + secret-store-set")
+    operator_steps.append("Phase B2: Verify with sidecar config-status + secret-store-check (no values visible)")
+    operator_steps.append("Phase B3: Confirm no real values committed to git/chat/docs")
+
+    # C: Dry preflight
+    operator_steps.append("Phase C1: Check portal /readiness page — all backend ✅, config checklist visible")
+    operator_steps.append("Phase C2: Sync manifest on KSO — sidecar sync-manifest")
+    operator_steps.append("Phase C3: Check media cache — sidecar doctor → cache_missing == 0")
+    operator_steps.append("Phase C4: Verify PoP endpoint readiness")
+    operator_steps.append("Phase C5: Verify kill-switch and state paths exist (checklist only, no X11)")
+
+    status.required_operator_steps = operator_steps
+
     # ── 7. Overall readiness ─────────────────────────────────────
     status.overall_ready = all([
         status.device_registered and status.device_status == "active",

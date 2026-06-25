@@ -389,6 +389,7 @@ class TestReadinessEndpoint(unittest.TestCase):
             "phase_d_requires_approval", "phase_d_blocked",
             "phase_d_block_reason",
             "readiness_reasons", "remaining_steps", "checked_at",
+            "required_operator_steps",
         }
         for f in fields:
             self.assertIn(f, allowed, f"Unexpected field '{f}' in ReadinessStatus")
@@ -510,6 +511,7 @@ class TestReadinessEndpoint(unittest.TestCase):
             "phase_d_requires_approval", "phase_d_blocked",
             "phase_d_block_reason",
             "readiness_reasons", "remaining_steps", "checked_at",
+            "required_operator_steps",
         }
         for f in fields:
             self.assertIn(f, allowed, f"Unexpected field '{f}' in ReadinessStatus")

@@ -135,6 +135,9 @@ class ReadinessStatus(BaseModel):
     portal_report_ready: bool = True      # page exists
     portal_report_filter_creative_code: bool = True
 
+    # Operator preflight checklist (Phase A/B/C — safe action names only)
+    required_operator_steps: list[str] = Field(default_factory=list)
+
     # Phase D gate
     phase_d_requires_approval: bool = True
     phase_d_blocked: bool = True

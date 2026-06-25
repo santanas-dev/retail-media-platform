@@ -902,3 +902,9 @@ creative → campaign → placement → approval → manifest → publish → si
 Backend: `SidecarConfigField` модель, `sidecar_config_ready`/`missing_fields`/`checklist`.
 Portal: таблица полей — имена visible, значения hidden. Phase D blocked.
 Docs: `test-kso-live-config-checklist.md`, обновлены readiness-gate/tech-debt.
+
+## 38.7 — Live Backend Seed Runbook + Operator Preflight (2026-06-25)
+
+Runbook `test-kso-live-backend-seed-runbook.md`: Phase A (backend seed), Phase B (sidecar config),
+Phase C (dry preflight). Backend: `required_operator_steps`. Portal: Operator Preflight guidance.
+Placeholders `<TEST_...>` без реальных значений.
