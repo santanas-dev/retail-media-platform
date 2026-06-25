@@ -189,6 +189,13 @@ Preflight doc: `test-kso-sidecar-config-application-preflight.md`:
 Исправлено в: preflight doc, runbook, preparation doc.
 
 ### Next actions (после 38.11)
-- ⏳ Ожидание команды пользователя: «Применяй Phase B config»
+- ⏳ Phase B applied on KSO ✅ (2026-06-26)
 - 38.12: Phase D Manual Approval Gate
 - Controlled one-KSO E2E dry run (после approval)
+
+**Phase B deployment details (safe):**
+- AGENT_ROOT: `/home/ukm5/kso-agent` on KSO (192.168.110.223)
+- device_code: `test-dev-seed`
+- 9 subdirectories, agent_config.json (177 bytes), device_secret.dev (32 bytes, 0600)
+- Backend reachable: scheme+host verified, no full URL in output
+- Secret: present, 600 perms — value never printed

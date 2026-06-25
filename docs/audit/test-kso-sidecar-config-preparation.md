@@ -202,10 +202,13 @@ Backend readiness always returns `sidecar_config_ready: false` because:
 
 | # | Blocker | Phase |
 |---|---|---|
-| 1 | Config не заполнен на КСО (placeholder values) | B |
-| 2 | Secret не записан на КСО | B |
-| 3 | Media cache пуст | C |
-| 4 | Phase D manual approval | D |
+| 1 | ~~Config не заполнен на КСО~~ | B | ✅ Выполнено 2026-06-26 |
+| 2 | ~~Secret не записан на КСО~~ | B | ✅ Выполнено 2026-06-26 |
+| 3 | Media cache пуст | C | |
+| 4 | Phase D manual approval | D | |
+
+**AGENT_ROOT:** `/home/ukm5/kso-agent` (фактический, KSO)  
+**device_code:** `test-dev-seed` (synthetic, не секрет)
 
 ## 9. Controlled Application Preflight
 
