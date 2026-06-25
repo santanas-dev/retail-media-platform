@@ -1,6 +1,7 @@
 """Tests for run_cycle_runtime_config.py — fake HTTP server, no real backend."""
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -355,10 +356,15 @@ class TestRunOnceWithRC(unittest.TestCase):
         try:
             with tempfile.TemporaryDirectory() as root:
                 _setup_root_with_config(root, f"http://127.0.0.1:{port}")
+                env = {**os.environ}
+                player_path = str(PKG_DIR.parent / "kso_player")
+                existing = env.get("PYTHONPATH", "")
+                env["PYTHONPATH"] = f"{player_path}:{existing}" if existing else player_path
                 r = subprocess.run(
                     [sys.executable, "-m", "kso_sidecar_agent.cli",
                      "run-once", "--root", root, "--local-only"],
                     capture_output=True, text=True, cwd=str(PKG_DIR), timeout=15,
+                    env=env,
                 )
                 self.assertEqual(RCStepHandler.rc_calls, 0)
                 self.assertEqual(RCStepHandler.auth_calls, 0)
