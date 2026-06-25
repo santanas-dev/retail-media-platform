@@ -129,17 +129,14 @@ async def manifest_by_id(
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  KSO Test: Manifest from GeneratedManifest (Step 37.8)
-#
-#  ⚠️  TEST_ONLY — NO AUTH — NOT PRODUCTION SECURITY MODEL  ⚠️
-#  This endpoint is TEMPORARY for test KSO technical validation.
-#  Production MUST use /manifest/current with JWT device auth.
-#  Remove or harden before any production deployment.
+#  KSO Manifest from GeneratedManifest — device auth required.
+#  Production device gateway uses JWT bearer token from /device-auth.
 # ═══════════════════════════════════════════════════════════════════
 
 @device_router.get("/kso/{device_code}/manifest")
 async def kso_manifest_by_device(
     device_code: str,
+    request: Request,
     db=Depends(get_db),
 ):
     """Return latest published KSO manifest for a device_code.
@@ -147,7 +144,13 @@ async def kso_manifest_by_device(
     Reads from GeneratedManifest (test KSO pipeline), not the
     enterprise PublicationBatch → ManifestVersion pipeline.
     Returns sidecar-compatible body: {status, manifest, ...}
+
+    Requires valid device JWT from /device-auth.
+    Device in URL must match authenticated device.
     """
+    device, _session = await authenticate_device(request, db)
+    if device.device_code != device_code:
+        raise HTTPException(status_code=403, detail="Device code mismatch")
     from app.domains.manifests.models import GeneratedManifest
     from sqlalchemy import select as _select
 

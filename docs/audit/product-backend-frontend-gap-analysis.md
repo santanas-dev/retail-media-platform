@@ -87,14 +87,14 @@ Portal UI ──→ Backend API ──→ Manifest/Media ──→ KSO Player (7
 
 | # | Gap | Severity | Локация | Fix |
 |---|---|---|---|---|
-| SG1 | PoP ingest без аутентификации | 🔴 HIGH | `proof_of_play/router.py` | Device gateway auth / mTLS |
-| SG2 | Manifest delivery без аутентификации | 🔴 HIGH | `device_gateway/router.py` | Device credentials + token |
-| SG3 | Media delivery без аутентификации | 🔴 HIGH | `device_gateway/router.py` | Device credentials + token |
-| SG4 | Test KSO readiness без аутентификации | 🟡 MEDIUM | `test_kso_readiness/router.py` | RBAC guard или remove |
-| SG5 | Campaign/placement через test-kso wrapper | 🟡 MEDIUM | `campaigns/router.py`, `placements/router.py` | Production CRUD API |
-| SG6 | RLS enforcement частичный | 🟡 MEDIUM | `identity/rls.py` | Полный query-level RLS |
-| SG7 | In-memory portal session store | 🟡 LOW | `portal-web/portal_session.py` | Redis/persistent session |
-| SG8 | Portal session secret hardcoded default | 🟡 LOW | `portal-web/main.py:49` | Env-only, no default |
+| SG1 | PoP ingest без аутентификации | 🔴 HIGH → ✅ FIXED (39.1.1) | `proof_of_play/router.py` | Device JWT auth added |
+| SG2 | Manifest delivery (KSO path) без аутентификации | 🔴 HIGH → ✅ FIXED (39.1.1) | `device_gateway/router.py` | Device JWT auth added |
+| SG3 | Media delivery без аутентификации | 🔴 HIGH | `device_gateway/router.py` | Already protected ✅ |
+| SG4 | Test KSO readiness без аутентификации | 🟡 MEDIUM | `test_kso_readiness/router.py` | TEST-KSO only (explicit) |
+| SG5 | Campaign/placement через test-kso wrapper | 🟡 MEDIUM | `campaigns/router.py`, `placements/router.py` | Production CRUD API (future) |
+| SG6 | RLS enforcement частичный | 🟡 MEDIUM | `identity/rls.py` | Полный query-level RLS (future) |
+| SG7 | In-memory portal session store | 🟡 LOW | `portal-web/portal_session.py` | Redis/persistent session (future) |
+| SG8 | Portal session secret hardcoded default | 🟡 LOW | `portal-web/main.py:49` | Env-only, no default (future) |
 
 ---
 

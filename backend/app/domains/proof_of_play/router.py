@@ -7,10 +7,11 @@ GET list endpoint requires reports.read permission.
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db, require_permission
+from app.domains.device_gateway.auth import authenticate_device
 from app.domains.identity import models as identity_models
 from app.domains.proof_of_play.schemas import (
     KsoPoPIngestRequest,
@@ -23,9 +24,8 @@ router = APIRouter(prefix="/api", tags=["proof-of-play-kso"])
 
 
 # ══════════════════════════════════════════════════════════════════════
-# TEST_ONLY: unauthenticated KSO PoP ingest for technical validation.
-# Not a production security model.  Production must use device auth /
-# gateway credentials / mTLS.
+# KSO PoP ingest — device auth required (production path).
+# Production device gateway uses JWT bearer token from /device-auth.
 # ══════════════════════════════════════════════════════════════════════
 
 @router.post(
@@ -35,12 +35,17 @@ router = APIRouter(prefix="/api", tags=["proof-of-play-kso"])
 async def kso_pop_ingest(
     device_code: str,
     data: KsoPoPIngestRequest,
+    request: Request,
     db=Depends(get_db),
 ):
-    """Ingest PoP event for test KSO technical validation chain.
+    """Ingest PoP event for KSO — authenticated device gateway path.
 
-    TEST_ONLY: unauthenticated endpoint.  NOT production.
+    Requires valid device JWT from /device-auth.
+    Device in URL must match authenticated device.
     """
+    device, _session = await authenticate_device(request, db)
+    if device.device_code != device_code:
+        raise HTTPException(status_code=403, detail="Device code mismatch")
     response, error = await ingest_kso_pop(db, device_code, data)
     if error:
         status_map: dict[str, int] = {

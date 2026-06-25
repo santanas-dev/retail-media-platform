@@ -9,6 +9,23 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.1.1 — Device Gateway Auth Hardening
+
+**Auth foundation:** device gateway PoP ingest + KSO manifest endpoints now require valid device JWT.
+
+- `POST /api/device-gateway/kso/{code}/pop` — was TEST_ONLY → now JWT device auth + code match
+- `GET /kso/{device_code}/manifest` — was TEST_ONLY → now JWT device auth + code match
+- `GET /manifest/current` — already protected ✅
+- `GET /media/{id}` — already protected ✅
+- Device auth flow: device_code + secret → bcrypt verify → JWT (60 min)
+- Auth failures: uniform 401 "Invalid device credentials" (no info leakage)
+- Backend tests: +13 new auth tests, 305/305 OK
+- Security gap SG1 (PoP) and SG2 (manifest) → **CLOSED** ✅
+
+**Deferred:** mTLS, credential rotation, nonce/replay protection, rate limiting
+
+---
+
 ### 39.0 — Product Backend / Frontend Gap Analysis
 
 **Analysis document:** `docs/audit/product-backend-frontend-gap-analysis.md`

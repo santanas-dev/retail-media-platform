@@ -71,7 +71,8 @@ Portal ──→ Backend ──→ Manifest/Media ──→ KSO Player (768×102
 |---|---|---|---|
 | 1 | **HW scanner E2E validation** | ⚠️ PLAN CREATED (38.15), validation POSTPONED — scanner unavailable. | 🔴 HIGH |
 | 2 | **Controlled long-run** | D3 был 10 секунд. Нужен прогон ≥1 часа с реальным циклом рендера. | 🔴 HIGH |
-| 3 | **BackendIntegration test isolation fix** | 9 pre-existing failures блокируют чистый CI baseline для production. | 🟡 MEDIUM |
+| 3 | **BackendIntegration test isolation fix** | 9 pre-existing failures блокируют чистый CI baseline для production. FIXED (38.17). | 🟡 MEDIUM → ✅ FIXED |
+| 4 | **Device gateway TEST_ONLY auth gaps** | PoP ingest + KSO manifest были без аутентификации. FIXED (39.1.1). | 🔴 HIGH → ✅ FIXED |
 
 ### Желательно перед production
 

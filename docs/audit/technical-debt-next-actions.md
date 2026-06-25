@@ -386,3 +386,32 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - ❌ No PoP upload
 - ❌ No UKM5/Openbox/systemd modification
 - ❌ No barcode/key payload logged
+
+## 39.1.1 — Device Gateway Auth Hardening (2026-06-25)
+
+### Status
+- **Device gateway auth:** AUTH FOUNDATION DONE ✅
+- **PoP ingest:** now requires valid device JWT (was TEST_ONLY)
+- **KSO manifest:** now requires valid device JWT (was TEST_ONLY)
+- **Media endpoints:** already protected ✅
+- **Backend tests:** +13 new auth tests, 305/305 OK
+
+### Hardened endpoints
+| Endpoint | Before | After |
+|---|---|---|
+| `POST /api/device-gateway/kso/{code}/pop` | TEST_ONLY, no auth | JWT device auth + code match |
+| `GET /kso/{device_code}/manifest` | TEST_ONLY, no auth | JWT device auth + code match |
+| `GET /manifest/current` | Already auth ✅ | No change |
+| `GET /media/{id}` | Already auth ✅ | No change |
+| `POST /api/device-auth` | Already exists ✅ | No change |
+
+### Deferred (future production hardening)
+- mTLS for device identity
+- Credential rotation
+- Nonce/replay protection
+- Rate limiting on device-auth
+
+### Not executed
+- ❌ No physical KSO changes / SSH / X11 / Chromium / runner
+- ❌ No sidecar daemon / PoP upload
+- ❌ No secrets in git or output
