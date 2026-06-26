@@ -1,16 +1,34 @@
-"""Manifest & Publication Core: FastAPI router — 11 endpoints."""
+"""Manifest & Publication Core: FastAPI router — 11 endpoints.
+RLS: advertiser scope enforced via batch.campaign_id → campaign.advertiser_id.
+"""
 
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi import status as http_status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db, require_permission
 from app.domains.identity.models import User
+from app.domains.identity.rls import resolve_user_scope_context, assert_object_in_advertiser_scope
 from app.domains.publications import schemas, service
 
 router = APIRouter(prefix="/api", tags=["publications"])
+
+
+async def _resolve_batch_advertiser(db: AsyncSession, batch_id: UUID):
+    """Resolve batch → campaign → advertiser_id. Returns None if not found."""
+    from sqlalchemy import select as sa_select
+    from app.domains.publications.models import PublicationBatch
+    from app.domains.campaigns.models import Campaign
+    result = await db.execute(
+        sa_select(Campaign.advertiser_id)
+        .join(PublicationBatch, PublicationBatch.campaign_id == Campaign.id)
+        .where(PublicationBatch.id == batch_id)
+    )
+    row = result.first()
+    return row[0] if row else None
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -28,6 +46,7 @@ async def create_batch(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("publications.manage")),
 ):
+    """Create publication batch. campaign_id is derived server-side from schedule_run."""
     return await service.create_batch(db, data, current_user.id)
 
 
@@ -42,12 +61,24 @@ async def list_batches(
     status: Optional[str] = Query(None),
     current_user: User = Depends(require_permission("publications.read")),
 ):
-    return await service.list_batches(
+    """List batches. RLS: filtered to advertiser scope."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    batches = await service.list_batches(
         db,
         schedule_run_id=UUID(schedule_run_id) if schedule_run_id else None,
         campaign_id=UUID(campaign_id) if campaign_id else None,
         status=status,
     )
+    if scope_ctx.is_advertiser_scoped:
+        from uuid import UUID as _UUID
+        filtered = []
+        for b in batches:
+            bid = b.id if isinstance(b.id, _UUID) else _UUID(str(b.id))
+            adv_id = await _resolve_batch_advertiser(db, bid)
+            if adv_id and adv_id in scope_ctx.advertiser_ids:
+                filtered.append(b)
+        return filtered
+    return batches
 
 
 @router.get(
@@ -59,6 +90,11 @@ async def get_batch(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("publications.read")),
 ):
+    """Get batch. RLS: advertiser scope enforced."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_batch_advertiser(db, UUID(batch_id))
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "view publication batch")
     return await service.get_batch(db, UUID(batch_id))
 
 
@@ -76,7 +112,11 @@ async def request_batch_approval(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("publications.manage")),
 ):
-    """Request approval for a draft batch → creates ApprovalRequest (39.3.4)."""
+    """Request approval. RLS: advertiser scope enforced."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_batch_advertiser(db, UUID(batch_id))
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "request approval")
     batch = await service.get_batch(db, UUID(batch_id))
     return await service.request_batch_approval(db, batch, current_user.id)
 
@@ -90,6 +130,11 @@ async def generate_manifests(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("publications.manage")),
 ):
+    """Generate manifests. RLS: advertiser scope enforced."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_batch_advertiser(db, UUID(batch_id))
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "generate manifests")
     batch = await service.get_batch(db, UUID(batch_id))
     return await service.generate_manifests(db, batch, current_user.id)
 
@@ -103,6 +148,11 @@ async def approve_batch(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("publications.approve")),
 ):
+    """Approve batch. RLS: advertiser scope enforced."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_batch_advertiser(db, UUID(batch_id))
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "approve batch")
     batch = await service.get_batch(db, UUID(batch_id))
     return await service.approve_batch(db, batch, current_user.id)
 
@@ -116,6 +166,11 @@ async def publish_batch(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("publications.publish")),
 ):
+    """Publish batch. RLS: advertiser scope enforced."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_batch_advertiser(db, UUID(batch_id))
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "publish batch")
     batch = await service.get_batch(db, UUID(batch_id))
     return await service.publish_batch(db, batch, current_user.id)
 
@@ -129,6 +184,7 @@ async def cancel_batch(
     db=Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Cancel batch. RLS: advertiser scope NOT enforced (any authorized user can cancel)."""
     batch = await service.get_batch(db, UUID(batch_id))
     return await service.cancel_batch(
         db, batch, current_user.id, current_user.permissions,
@@ -149,6 +205,11 @@ async def get_targets(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("publications.read")),
 ):
+    """Get batch targets. RLS: inherited from parent batch."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_batch_advertiser(db, UUID(batch_id))
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "view targets")
     return await service.get_targets(db, UUID(batch_id))
 
 
@@ -161,6 +222,11 @@ async def get_manifests(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("publications.read")),
 ):
+    """Get batch manifests. RLS: inherited from parent batch."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_batch_advertiser(db, UUID(batch_id))
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "view manifests")
     return await service.get_manifests(db, UUID(batch_id))
 
 
@@ -173,6 +239,21 @@ async def get_manifest_version(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("publications.read")),
 ):
+    """Get manifest version. RLS: advertiser scope enforced via batch chain."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    from sqlalchemy import select as sa_select
+    from app.domains.publications.models import ManifestVersion, PublicationBatch
+    from app.domains.campaigns.models import Campaign
+    result = await db.execute(
+        sa_select(Campaign.advertiser_id)
+        .join(PublicationBatch, PublicationBatch.campaign_id == Campaign.id)
+        .join(ManifestVersion, ManifestVersion.publication_batch_id == PublicationBatch.id)
+        .where(ManifestVersion.id == UUID(version_id))
+    )
+    row = result.first()
+    adv_id = row[0] if row else None
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "view manifest version")
     return await service.get_manifest_version(db, UUID(version_id))
 
 
@@ -185,4 +266,9 @@ async def get_events(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("publications.read")),
 ):
+    """Get batch events. RLS: inherited from parent batch."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_batch_advertiser(db, UUID(batch_id))
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "view events")
     return await service.get_events(db, UUID(batch_id))

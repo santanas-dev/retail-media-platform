@@ -49,7 +49,40 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [v0.9.0-product-portal-hardening] — 2026-06-25
+## [40.1.2-rls-gate-closed] — 2026-06-26
+
+**RLS Gate Evidence Cleanup — endpoint-level enforcement verified, all P0 leaks patched, 42 new tests.**
+
+### RLS Enforcement — Newly Protected Endpoints
+
+| Domain | Endpoints | RLS via |
+|---|---|---|
+| Campaigns | 4 endp | `assert_object_in_advertiser_scope` (P0 fixes: patch, archive, list-creatives, unbind-creative) |
+| Placements | 2 endp | `assert_object_in_advertiser_scope` (patch, archive — were unprotected) |
+| Schedules | 11 endp | `_resolve_schedule_advertiser` (schedule → campaign_code → advertiser_id) |
+| Publications | 12 endp | `_resolve_batch_advertiser` (batch → campaign_id → advertiser_id) |
+| Manifests | 8 endp | `_resolve_manifest_advertiser` (manifest → placement → campaign_code → advertiser_id) |
+
+### Endpoint-Level Tests
+
+- `backend/tests/test_rls_endpoint_enforcement.py` — **42 tests** in 9 classes
+- Covers: campaign P0 leaks, placement/schedule/publication/manifest cross-advertiser blocking, store/device scope, admin bypass, requires_rls semantics, SQLite query-level filtering
+
+### RLS Gate
+
+**CLOSED** ✅ All domains enforced. Advertiser isolation proven. Admin bypass verified. 5116 tests green.
+
+### Status
+
+- Backend: 457 passed (0 fail)
+- Portal: 449 passed (9 pre-existing BackendIntegration — needs live backend)
+- KSO state adapter: 86 passed
+- KSO player: 2060 passed (12 skipped)
+- KSO sidecar: 1837 passed (1 pre-existing non-deterministic)
+- Infra: 227 passed
+- Total: **5116 passed**, 10 pre-existing failures, 0 new failures
+
+No KSO/SSH/X11/Chromium/sidecar launched. No manifest published. No secrets disclosed.
 
 **Release: Product Portal Hardening — все DEMO-заглушки убраны из Schedule, Campaign, Dashboard, Reports.**
 

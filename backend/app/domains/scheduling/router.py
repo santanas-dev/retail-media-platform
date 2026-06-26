@@ -99,9 +99,14 @@ async def patch_placement_prod(
     placement_code: str,
     data: schemas.KsoPlacementUpdate,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("scheduling.manage")),
+    current_user: identity_models.User = Depends(require_permission("scheduling.manage")),
 ):
-    """Update placement fields (production API)."""
+    """Update placement fields. RLS: advertiser scope enforced via campaign_code."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    placement = await service.get_placement(db, placement_code)
+    adv_id = await _resolve_campaign_advertiser(db, placement["campaign_code"])
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "modify placement")
     return await service.update_placement(db, placement_code, data)
 
 
@@ -112,9 +117,14 @@ async def patch_placement_prod(
 async def archive_placement_prod(
     placement_code: str,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("scheduling.manage")),
+    current_user: identity_models.User = Depends(require_permission("scheduling.manage")),
 ):
-    """Archive a placement (status → archived)."""
+    """Archive a placement. RLS: advertiser scope enforced via campaign_code."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    placement = await service.get_placement(db, placement_code)
+    adv_id = await _resolve_campaign_advertiser(db, placement["campaign_code"])
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "archive placement")
     return await service.archive_placement(db, placement_code)
 
 
@@ -168,7 +178,23 @@ async def get_placement(
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Schedule + ScheduleSlot production endpoints (39.1.3)
+# RLS: advertiser scope enforced via schedule.campaign_code → campaign.advertiser_id
 # ═══════════════════════════════════════════════════════════════════════════
+
+
+async def _resolve_schedule_advertiser(db: AsyncSession, schedule_code: str):
+    """Resolve schedule → campaign → advertiser_id. Returns None if not found."""
+    from sqlalchemy import select as sa_select
+    from app.domains.scheduling.models import Schedule as SchedModel
+    from app.domains.campaigns.models import Campaign as CampModel
+    result = await db.execute(
+        sa_select(CampModel.advertiser_id)
+        .join(SchedModel, SchedModel.campaign_code == CampModel.campaign_code)
+        .where(SchedModel.schedule_code == schedule_code)
+    )
+    row = result.first()
+    return row[0] if row else None
+
 
 @router.get(
     "/schedules",
@@ -178,9 +204,21 @@ async def list_schedules_prod(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("scheduling.read")),
+    current_user: identity_models.User = Depends(require_permission("scheduling.read")),
 ):
-    return await service.list_schedules(db, skip, limit)
+    """List schedules. RLS: filtered to advertiser scope via campaign_code join."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    schedules = await service.list_schedules(db, skip, limit)
+    if scope_ctx.is_advertiser_scoped:
+        filtered = []
+        for s in schedules:
+            adv_id = await _resolve_schedule_advertiser(db, s["schedule_code"])
+            if adv_id and adv_id in scope_ctx.advertiser_ids:
+                filtered.append(s)
+            elif s.get("campaign_code") is None:
+                filtered.append(s)  # unassigned — visible to all scoped users
+        return filtered
+    return schedules
 
 
 @router.post(
@@ -193,6 +231,12 @@ async def create_schedule_prod(
     db: AsyncSession = Depends(get_db),
     current_user: identity_models.User = Depends(require_permission("scheduling.manage")),
 ):
+    """Create schedule. RLS: if campaign_code provided, must be in advertiser scope."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    if data.campaign_code:
+        adv_id = await _resolve_campaign_advertiser(db, data.campaign_code)
+        if adv_id is not None:
+            assert_object_in_advertiser_scope(adv_id, scope_ctx, "create schedule")
     return await service.create_schedule(db, data, current_user.id)
 
 
@@ -203,8 +247,13 @@ async def create_schedule_prod(
 async def get_schedule_prod(
     schedule_code: str,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("scheduling.read")),
+    current_user: identity_models.User = Depends(require_permission("scheduling.read")),
 ):
+    """Get schedule by code. RLS: advertiser scope enforced."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_schedule_advertiser(db, schedule_code)
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "view schedule")
     return await service.get_schedule(db, schedule_code)
 
 
@@ -216,8 +265,13 @@ async def patch_schedule_prod(
     schedule_code: str,
     data: schemas.ScheduleUpdate,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("scheduling.manage")),
+    current_user: identity_models.User = Depends(require_permission("scheduling.manage")),
 ):
+    """Patch schedule. RLS: advertiser scope enforced."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_schedule_advertiser(db, schedule_code)
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "modify schedule")
     return await service.update_schedule(db, schedule_code, data)
 
 
@@ -228,8 +282,13 @@ async def patch_schedule_prod(
 async def archive_schedule_prod(
     schedule_code: str,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("scheduling.manage")),
+    current_user: identity_models.User = Depends(require_permission("scheduling.manage")),
 ):
+    """Archive schedule. RLS: advertiser scope enforced."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_schedule_advertiser(db, schedule_code)
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "archive schedule")
     return await service.archive_schedule(db, schedule_code)
 
 
@@ -242,8 +301,13 @@ async def archive_schedule_prod(
 async def list_slots_prod(
     schedule_code: str,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("scheduling.read")),
+    current_user: identity_models.User = Depends(require_permission("scheduling.read")),
 ):
+    """List slots for schedule. RLS: inherited from parent schedule."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_schedule_advertiser(db, schedule_code)
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "view schedule slots")
     return await service.list_schedule_slots(db, schedule_code)
 
 
@@ -256,8 +320,13 @@ async def create_slot_prod(
     schedule_code: str,
     data: schemas.ScheduleSlotCreate,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("scheduling.manage")),
+    current_user: identity_models.User = Depends(require_permission("scheduling.manage")),
 ):
+    """Create slot in schedule. RLS: inherited from parent schedule."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_schedule_advertiser(db, schedule_code)
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "create schedule slot")
     return await service.create_schedule_slot(db, schedule_code, data)
 
 
@@ -270,8 +339,13 @@ async def patch_slot_prod(
     slot_code: str,
     data: schemas.ScheduleSlotUpdate,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("scheduling.manage")),
+    current_user: identity_models.User = Depends(require_permission("scheduling.manage")),
 ):
+    """Patch schedule slot. RLS: inherited from parent schedule."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_schedule_advertiser(db, schedule_code)
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "modify schedule slot")
     return await service.update_schedule_slot(db, schedule_code, slot_code, data)
 
 
@@ -283,6 +357,11 @@ async def disable_slot_prod(
     schedule_code: str,
     slot_code: str,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("scheduling.manage")),
+    current_user: identity_models.User = Depends(require_permission("scheduling.manage")),
 ):
+    """Disable schedule slot. RLS: inherited from parent schedule."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_schedule_advertiser(db, schedule_code)
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "disable schedule slot")
     return await service.disable_schedule_slot(db, schedule_code, slot_code)
