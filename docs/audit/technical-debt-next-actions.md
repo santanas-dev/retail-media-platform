@@ -462,3 +462,58 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - ✅ All remaining campaign code-based endpoints now RLS-gated: get, patch, archive, bind, unbind, list_creatives
 - ✅ Placements now RLS-gated: list (post-filter), get (assert), create (assert)
 - ✅ Backend regression: 415 green, no regressions from RLS patches
+
+### 40.1.2 — RLS Endpoint Evidence & Gate Closure (2026-06-26)
+- ✅ Schedules RLS: `_resolve_schedule_advertiser()` → all 11 endpoints scoped
+- ✅ Placements: PATCH + archive scope check added
+- ✅ Publications: `_resolve_batch_advertiser()` → all 12 endpoints scoped
+- ✅ Manifests: `_resolve_manifest_advertiser()` → all 8 endpoints scoped
+- ✅ 42 endpoint-level tests in `test_rls_endpoint_enforcement.py`
+- ✅ Backend: 457 green; total 5116
+
+### 40.1.3 — Regression Baseline Cleanup (2026-06-26)
+- ✅ Portal BackendIntegration tests separated (`skipUnless` with `RUN_PORTAL_BACKEND_INTEGRATION=1`)
+- ✅ Sidecar non-deterministic test fixed (`test_client_repr_safe`)
+- ✅ All 6 suites green: **5106 passed, 32 skipped, 0 failed**
+- ✅ RLS gate closed, commits `67baca7` + `1b51894`
+
+## 40.2 — Admin Audit Hardening (2026-06-26)
+
+### Status
+- ✅ Centralized `audit_business_action()` with automatic forbidden-field stripping
+- ✅ Campaigns: create, update, archive, bind_creative, unbind_creative
+- ✅ Creatives: create, update, upload_version
+- ✅ Approvals: request, approve
+- ✅ Publications: create, request_approval, approve, generate_manifests, publish, cancel
+- ✅ Manifests: generate, publish
+- ✅ Identity (existing): create_user, block_user, archive_user, unblock_user, update_roles, update_rls_scopes
+- ✅ Device gateway (existing): manifest delivery audit
+- ✅ Audit endpoint enhanced: filters for action, target_type, target_ref, actor_id
+- ✅ Portal `/admin` page shows audit events (pre-existing, RBAC-guarded)
+- ✅ Payload redaction: strips passwords, secrets, tokens, backend URLs, barcodes, PII
+- ✅ 18 tests in `test_audit_hardening.py`
+- ✅ Regression: 5124 passed, 32 skipped, 0 failed
+- ✅ Commit: `8ff648a`
+
+### Deferred
+- Failed/security events (forbidden RLS, failed maker-checker) — requires middleware rewrite
+- Device credential create/revoke audit — already exists in device gateway
+
+## 40.3 — Pilot Readiness Gates Plan (2026-06-26)
+
+### Status
+- ✅ `docs/audit/pilot-readiness-gates-plan.md` created — comprehensive gates document
+- ✅ Gate A (HW scanner E2E): protocol documented, approval token defined, STOPPED (no scanner)
+- ✅ Gate B (Controlled long-run): 1h/8h/48h options, monitoring plan, success/fail criteria
+- ✅ Gate C (Pilot runbook): structure defined (10 sections), content after Gates A/B
+- ✅ Gate D (Go/No-Go): 11 criteria matrix, decision logic
+- ✅ Approval tokens: 7 tokens defined, lifecycle rules
+- ✅ Current verdict: **NO-GO** (scanner + long-run not done)
+- ❌ No physical actions executed
+- ❌ No KSO/SSH/X11/Chromium/runner/sidecar/PoP launched
+
+### Next
+- 40.3.1: HW scanner E2E — BLOCKED (no scanner hardware)
+- 40.3.2: Controlled 1h technical soak — ready, needs approval token
+- 40.3.3: Pilot runbook finalization — after Gates A/B
+- 40.4: v0.11.0 release tag — after gates green

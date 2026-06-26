@@ -37,15 +37,56 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 | Item | Status |
 |---|---|
-| Physical manifest delivery to KSO | Deferred — backend-only workflow
-| Sidecar sync | Deferred
-| Scanner (HW) validation | Deferred — no scanner hardware
-| Controlled long-run (≥48h) | Deferred
-| Pilot runbook | Deferred
-| mTLS/nonce/rate-limit credential rotation | Deferred
-| Charts/Excel/drill-down in Reports | Deferred
-| Full RLS enforcement | Deferred
-| Live pilot/fleet rollout | NOT APPROVED
+| Physical manifest delivery to KSO | Deferred — backend-only workflow |
+| Sidecar sync | Deferred |
+| Scanner (HW) validation | Deferred — no scanner hardware |
+| Controlled long-run (≥48h) | Deferred |
+| Pilot runbook | Deferred |
+| mTLS/nonce/rate-limit credential rotation | Deferred |
+| Charts/Excel/drill-down in Reports | Deferred |
+| Full RLS enforcement | Deferred |
+| Live pilot/fleet rollout | NOT APPROVED |
+
+---
+
+## [40.3-pilot-readiness-gates-plan] — 2026-06-26
+
+**Pilot Readiness Gates Plan — comprehensive gate definition, no physical execution.**
+
+### Document Created
+
+`docs/audit/pilot-readiness-gates-plan.md` — 8-section plan:
+
+### Gates Defined
+
+| Gate | Status | Detail |
+|---|---|---|
+| **A — HW Scanner E2E** | 🔴 POSTPONED | Scanner unavailable. Full protocol, 8 stop criteria, approval token `PHASE_SCANNER_E2E_APPROVED` |
+| **B — Controlled Long-Run** | 🔴 NOT EXECUTED | 1h/8h/48h options, 13-metric monitoring plan, 10 success/6 fail criteria, approval token `PHASE_LONG_RUN_APPROVED` |
+| **C — Pilot Runbook** | 🟡 STRUCTURE DEFINED | 10-section runbook: roles, comms, pre-check, start/monitor/stop, incident response, rollback, evidence, post-run template |
+| **D — Go/No-Go** | 🔴 NO-GO | 11 criteria matrix: scanner (not done), long-run (not done), regression (green), RLS (closed), audit (active), dashboard (healthy), operator (not present), rollback (ready), runbook (structure only), tokens (not issued) |
+
+### Approval Tokens Defined
+
+7 tokens: `PHASE_SCANNER_E2E_APPROVED`, `PHASE_LONG_RUN_APPROVED`, `PHASE_PHYSICAL_KSO_ACCESS_APPROVED`, `PHASE_MANIFEST_DELIVERY_APPROVED`, `PHASE_SIDECAR_SYNC_APPROVED`, `PHASE_POP_UPLOAD_APPROVED`, `PHASE_SYSTEMD_AUTOSTART_APPROVED`
+
+### Updated Docs
+
+- `docs/audit/technical-debt-next-actions.md` — added 40.1.2, 40.1.3, 40.2, 40.3
+- `docs/audit/release-versioning-policy.md` — added post-v0.10.0 hardening table + v0.11.0 gate conditions
+
+### No Physical Actions
+
+- ❌ No KSO/SSH/X11/Chromium/runner launched
+- ❌ No sidecar daemon started
+- ❌ No PoP upload
+- ❌ No manifest delivery to physical KSO
+- ❌ No sidecar sync
+- ❌ No scanner test (HW unavailable)
+- ❌ No long-run executed
+- ✅ RLS gate closed
+- ✅ Audit trail active
+- ✅ Regression green
 
 ---
 

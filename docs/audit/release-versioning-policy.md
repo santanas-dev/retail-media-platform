@@ -125,3 +125,30 @@ Patch release process:
 Target: `main` branch, commit `30ac341`.
 
 All Phase 39.3 approval/publication hardening items closed. Backend workflow complete — physical KSO delivery is the next gate.
+
+### Post-v0.10.0 Hardening (on main, not yet tagged)
+
+| Step | What | Commit | Regression |
+|---|---|---|---|
+| 39.4 | Device/Sidecar Dashboard (7 GAPs) | `5557563` | 5103 green |
+| 40.0 | TZ Alignment / Security & RLS Audit | `3628c3f` | 5079 green |
+| 40.1 | RLS Hardening P0 | `d00858d` | 5096 green |
+| 40.1.2 | RLS Gate Closure | `fabf13d` | 5116 green |
+| 40.1.3 | Regression Baseline Cleanup | `1b51894` | 5106 green |
+| 40.2 | Admin Audit Hardening | `8ff648a` | 5124 green |
+| 40.3 | Pilot Readiness Gates Plan | TBD | 5124 green |
+
+### v0.11.0 — Pilot Readiness Gates (next)
+
+Gate conditions:
+
+- HW scanner E2E validation completed
+- Controlled long-run (≥1h) completed
+- Full regression green (all suites)
+- RLS gate closed (confirmed)
+- Audit trail active (all domains)
+- Device dashboard healthy
+- Pilot runbook finalized
+- All approval tokens issued and consumed cleanly
+
+Target tag: `v0.11.0-pilot-readiness-gates`
