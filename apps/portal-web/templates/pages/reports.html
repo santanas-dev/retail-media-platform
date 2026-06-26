@@ -37,32 +37,66 @@
   </div>
 </div>
 
-<!-- BI Slicers / Filters Panel -->
+<!-- Filters Panel — server-side GET form (39.2.4.1) -->
+{% if date_error %}
+<div class="note-box" style="border-color: #f59e0b; background: #fffbeb;">
+  <span class="note-icon">⚠️</span>
+  <span class="note-text">{{ date_error }}</span>
+</div>
+{% endif %}
 <div class="requirements-box">
   <div class="requirements-title">Срезы и фильтры</div>
-  <div class="filter-toolbar" style="margin-bottom:0; box-shadow:none">
+  <form method="get" action="/reports" style="margin:0;">
+  <div class="filter-toolbar" style="margin-bottom:0; box-shadow:none; display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end;">
     <div class="filter-group">
-      <label class="filter-label">Период</label>
-      <select class="filter-select" disabled><option>Все периоды</option></select>
+      <label class="filter-label" for="f_campaign">Кампания</label>
+      <input type="text" id="f_campaign" name="campaign_code"
+             class="filter-select" style="width:140px"
+             value="{{ filters.campaign_code if filters.campaign_code else '' }}"
+             placeholder="camp_code" maxlength="64">
     </div>
     <div class="filter-group">
-      <label class="filter-label">Кампания</label>
-      <select class="filter-select" disabled><option>Все кампании</option></select>
+      <label class="filter-label" for="f_creative">Креатив</label>
+      <input type="text" id="f_creative" name="creative_code"
+             class="filter-select" style="width:140px"
+             value="{{ filters.creative_code if filters.creative_code else '' }}"
+             placeholder="cr_code" maxlength="64">
     </div>
     <div class="filter-group">
-      <label class="filter-label">Креатив</label>
-      <select class="filter-select" disabled><option>Все креативы</option></select>
+      <label class="filter-label" for="f_device">КСО</label>
+      <input type="text" id="f_device" name="device_code"
+             class="filter-select" style="width:140px"
+             value="{{ filters.device_code if filters.device_code else '' }}"
+             placeholder="dev_code" maxlength="64">
     </div>
     <div class="filter-group">
-      <label class="filter-label">КСО</label>
-      <select class="filter-select" disabled><option>Все КСО</option></select>
+      <label class="filter-label" for="f_placement">Плейсмент</label>
+      <input type="text" id="f_placement" name="placement_code"
+             class="filter-select" style="width:140px"
+             value="{{ filters.placement_code if filters.placement_code else '' }}"
+             placeholder="pl_code" maxlength="64">
     </div>
     <div class="filter-group">
-      <label class="filter-label">Статус PoP</label>
-      <select class="filter-select" disabled><option>Все</option></select>
+      <label class="filter-label" for="f_from">Дата с</label>
+      <input type="date" id="f_from" name="date_from"
+             class="filter-select" style="width:140px"
+             value="{{ filters.date_from if filters.date_from else '' }}">
+    </div>
+    <div class="filter-group">
+      <label class="filter-label" for="f_to">Дата по</label>
+      <input type="date" id="f_to" name="date_to"
+             class="filter-select" style="width:140px"
+             value="{{ filters.date_to if filters.date_to else '' }}">
+    </div>
+    <div class="filter-group" style="align-self:flex-end;">
+      <button type="submit" class="btn-disabled" style="padding:6px 16px; cursor:pointer; opacity:1; background:#1a56db; color:#fff; border:none; border-radius:6px; font-weight:600;">🔍 Применить</button>
+      {% if filters %}
+      <a href="/reports" class="btn-disabled" style="padding:6px 16px; cursor:pointer; opacity:1; background:#64748b; color:#fff; border:none; border-radius:6px; text-decoration:none; margin-left:4px;">Сбросить</a>
+      {% endif %}
     </div>
   </div>
-  <p class="drilldown-note" style="margin-top:12px">Фильтры по campaign_code, device_code, creative_code, placement_code, date_from/date_to поддерживаются backend API /api/reports/pop. UI-форма будет подключена позже.</p>
+  </form>
+  <p class="drilldown-note" style="margin-top:12px">Фильтры по campaign_code, device_code, creative_code, placement_code, date_from/date_to. Поддерживаются backend API /api/reports/pop.</p>
 </div>
 
 <!-- Report Table -->

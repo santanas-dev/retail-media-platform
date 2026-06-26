@@ -21,7 +21,7 @@ security gaps, которые необходимо закрыть перед pil
 1. 🔴 Device gateway / PoP ingest — TEST_ONLY без аутентификации (security gap)
 2. 🟡 Campaign/placement creation — test-kso wrapper'ы (не production API)
 3. 🟢 Schedule UI — production backend-driven (✅ 39.2.1)
-4. 🟢 Reports UI — production backend-driven (✅ 39.2.4)
+4. 🟢 Reports UI — production backend-driven with active filters (✅ 39.2.4.1)
 5. 🟢 Dashboard — backend-driven KPI (✅ 39.2.3)
 
 ### Уже исправлено в 39.2:
@@ -124,7 +124,7 @@ Portal UI ──→ Backend API ──→ Manifest/Media ──→ KSO Player (7
 | 10 | `/publications` | Publications | Backend-driven (list) | ✅ Generate + Publish | ✅ **DONE** |
 | 11 | `/approvals` | Approvals | Backend-driven (list) | ✅ Request + Decide | ✅ **DONE** |
 | 12 | `/proof-of-play` | PoP Reports | Backend-driven (list_pop_events) | ✅ Filters active | ✅ **DONE** |
-| 13 | `/reports` | Reports | **Backend-driven** (get_pop_report + get_pop_summary) | ✅ KPI cards + events table | ✅ **DONE (39.2.4)** |
+| 13 | `/reports` | Reports | **Backend-driven** (get_pop_report + get_pop_summary) | ✅ KPI cards + events table + **active filters** (39.2.4.1) | ✅ **DONE (39.2.4.1)** |
 | 14 | `/readiness` | Readiness | Backend-driven (get_test_kso_readiness) | — | ✅ **DONE** |
 | 15 | `/admin` | Admin | Backend-driven (users+roles+perms+audit) | ✅ CRUD + RLS forms | ✅ **DONE** |
 | 16 | `/deployment` | Deployment | Static page | — | 🟡 **STATIC** |

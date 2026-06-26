@@ -284,12 +284,29 @@ async def reports_page(request: Request):
     """Reports: backend-driven PoP report data (39.2.4).
 
     KPI cards and recent events table use production /api/reports/pop.
-    No demo/fake numbers. No test-kso as primary source.
+    Supports server-side filters: campaign_code, creative_code, device_code,
+    placement_code, date_from, date_to. No JS/CDN.
     """
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/reports")
     if guard is not None:
         return guard
+
+    # Parse query params for filters
+    qp = request.query_params
+    filters: dict[str, str] = {}
+    for key in ("campaign_code", "creative_code", "device_code",
+                 "placement_code", "date_from", "date_to"):
+        val = qp.get(key, "").strip()
+        if val:
+            filters[key] = val
+
+    # Validate date range
+    date_error = None
+    df = filters.get("date_from")
+    dt = filters.get("date_to")
+    if df and dt and df > dt:
+        date_error = "Дата «с» не может быть позже даты «по»"
 
     tokens = get_portal_tokens(request)
     at = tokens.get("access_token", "")
@@ -301,20 +318,24 @@ async def reports_page(request: Request):
                        "accepted": 0, "rejected": 0, "duplicate": 0,
                        "unknown_status": 0, "last_event_at": None}
         pop_summary_ok = False
-        sr = await client.get_pop_summary(at, filters={})
-        if sr["ok"]:
-            pop_summary = sr["data"]
-            pop_summary_ok = True
+        if not date_error:
+            sr = await client.get_pop_summary(at, filters=filters if filters else {})
+            if sr["ok"]:
+                pop_summary = sr["data"]
+                pop_summary_ok = True
 
         # Pop recent events (table)
         pop_events = []
         pop_events_ok = False
-        er = await client.get_pop_report(at, filters={"limit": 25})
-        if er["ok"]:
-            pop_events = er["data"]
-            pop_events_ok = True
+        if not date_error:
+            ev_filters = dict(filters)
+            ev_filters["limit"] = "25"
+            er = await client.get_pop_report(at, filters=ev_filters)
+            if er["ok"]:
+                pop_events = er["data"]
+                pop_events_ok = True
 
-        # Campaign & creative counts for supplemental KPI
+        # Campaign & creative counts for supplemental KPI (unfiltered)
         campaigns_count = 0
         cr = await client.list_campaigns_prod(at)
         if cr["ok"]:
@@ -330,7 +351,6 @@ async def reports_page(request: Request):
         if dr["ok"]:
             kso_count = len(dr.get("data", []))
 
-        # Manifest count
         manifests_count = 0
         mr = await client.list_manifests(at)
         if mr["ok"]:
@@ -355,7 +375,8 @@ async def reports_page(request: Request):
             "backend_available": backend_available,
             "backend_unavailable": not backend_available,
             "backend_message": "Данные временно недоступны. Попробуйте позже.",
-            "filters": {},
+            "filters": filters,
+            "date_error": date_error,
         })
     except Exception:
         return _reports_fallback(request, current_user,
@@ -385,6 +406,7 @@ def _reports_fallback(request: Request, current_user, *, reason: str = ""
         "backend_unavailable": True,
         "backend_message": reason or "Данные временно недоступны. Попробуйте позже.",
         "filters": {},
+        "date_error": None,
     })
 app.add_api_route("/deployment", _page("pages/deployment.html", "Развёртывание", "deployment"),
                   methods=["GET"], response_class=HTMLResponse)

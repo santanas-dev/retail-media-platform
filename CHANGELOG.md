@@ -9,6 +9,19 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.2.4.1 — Enable Reports UI Filters
+
+**Reports page GET form enabled with server-side filters.**
+
+- Filter inputs: campaign_code, creative_code, device_code, placement_code (text), date_from, date_to (date)
+- Server-side GET form — no JS/CDN/localStorage
+- Filter values retained after submit; «Сбросить» link clears all
+- Date validation: date_from > date_to → safe warning, no backend call
+- Handler extracts query params and passes to `BackendClient.get_pop_summary()` / `get_pop_report()`
+- Portal tests: +7 (filter rendering, query params, date validation, reset, no fake values)
+- Filters disabled → ENABLED ✅
+- Charts/Excel/drill-down remain deferred
+
 ### 39.2.4 — Reports Backend-Driven Integration
 
 **Reports page connected to production PoP backend — demo_data removed as primary source.**

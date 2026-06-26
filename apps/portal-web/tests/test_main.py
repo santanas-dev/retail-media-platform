@@ -911,14 +911,70 @@ class TestReportsPage(unittest.TestCase):
                           f"Reports page must render KPI card '{card}'")
 
     def test_has_filters(self):
-        """Filter labels present on production reports page."""
-        for slc in ("Период", "Кампания", "Креатив", "КСО",
-                     "Статус PoP"):
-            self.assertIn(slc, self.html,
-                          f"Reports page must have filter '{slc}'")
+        """Filter inputs are enabled on production reports page (39.2.4.1)."""
+        # Filter labels
+        for label in ("Кампания", "Креатив", "КСО", "Плейсмент",
+                       "Дата с", "Дата по"):
+            self.assertIn(label, self.html,
+                          f"Reports page must have filter label '{label}'")
+        # Filter inputs are enabled (not disabled selects)
+        self.assertIn('type="text"', self.html)
+        self.assertIn('type="date"', self.html)
+        self.assertIn('type="submit"', self.html)
+        self.assertIn('method="get"', self.html.lower())
 
-    def test_filters_disabled(self):
-        self.assertIn("disabled", self.html)
+    def test_filters_submit_button(self):
+        """Apply and reset buttons present."""
+        self.assertIn("Применить", self.html)
+        self.assertIn("/reports", self.html)
+
+    def test_filters_not_disabled(self):
+        """Filters are now enabled — verify no disabled select elements."""
+        self.assertNotIn('<select class="filter-select" disabled>', self.html)
+
+    def test_filters_default_empty(self):
+        """Default page (no query params) shows empty filter values."""
+        self.assertIn('value=""', self.html)
+
+    def test_filters_with_query_params(self):
+        """Filter inputs retain selected values from query params."""
+        resp = self.client.get(
+            "/reports?campaign_code=spring2026&device_code=kso-001"
+        )
+        html = resp.text
+        self.assertIn('value="spring2026"', html)
+        self.assertIn('value="kso-001"', html)
+        self.assertIn("Сбросить", html)  # reset link appears when filters active
+
+    def test_filters_reset_link(self):
+        """Reset link removes all filters."""
+        resp = self.client.get(
+            "/reports?campaign_code=test"
+        )
+        self.assertIn("Сбросить", resp.text)
+        self.assertIn('href="/reports"', resp.text)
+
+    def test_filters_no_fake_values(self):
+        """Filter inputs must not contain demo/fake values."""
+        for fake in ("DEMO:", "test-kso", "16 000", "Весенняя"):
+            self.assertNotIn(fake, self.html)
+
+    def test_filters_no_raw_ids(self):
+        """Filter form must not contain raw UUIDs or secrets."""
+        lower = self.html.lower()
+        for fb in ("access_token", "backend_url", "device_secret",
+                    "campaign_id=", "creative_id=", "manifest_version_id"):
+            self.assertNotIn(fb, lower)
+
+    def test_date_error_renders_warning(self):
+        """Invalid date range shows safe warning."""
+        resp = self.client.get(
+            "/reports?date_from=2026-12-31&date_to=2026-01-01"
+        )
+        self.assertIn("не может быть позже", resp.text)
+        self.assertIn("⚠️", resp.text)
+        # Must NOT contain backend errors or crash
+        self.assertEqual(resp.status_code, 200)
 
     def test_has_status_breakdown(self):
         self.assertIn("Принято", self.html)
