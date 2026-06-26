@@ -7,6 +7,56 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [v0.11.1-pre-pilot-access-integration-hotfix] — 2026-06-16
+
+**Patch hotfix on v0.11.0 — admin access fixed, portal-backend integration verified.**
+
+### What's included
+
+| Step | What | Regression |
+|---|---|---|
+| v0.11.0 | Pre-Pilot Security Baseline (full) | 5156 green |
+| 40.2.1 | Admin Portal Access Bootstrap Fix (PAGE_PERMISSION_MAP↔backend) | 5159 green |
+| 40.2.2 | Portal Backend Integration Gate (14 pages audited, 1 fix) | 5168 green |
+
+### Key Fixes
+
+- **40.2.1:** PAGE_PERMISSION_MAP aligned with real backend permissions (was using non-existent names causing 403)
+- **40.2.2:** `/proof-of-play` fixed from legacy `GET /api/proof-of-play/test-kso` → production `GET /api/reports/pop`
+
+### Regression
+
+| Suite | Passed | Skipped | Failed |
+|---|---|---|---|
+| Backend | 498 | 0 | 0 |
+| Portal | 459 | 32 | 0 |
+| KSO state adapter | 86 | 0 | 0 |
+| KSO player | 2060 | 12 | 0 |
+| KSO sidecar | 1838 | 0 | 0 |
+| Infra | 227 | 0 | 0 |
+| **Total** | **5168** | **44** | **0** |
+
+### Pilot Status: NO-GO 🔴
+
+- HW scanner E2E: postponed (no hardware available)
+- Controlled long-run (1h/8h/48h): not executed
+- Pilot runbook: structure defined, content after scanner + long-run
+- Go/No-Go decision matrix: 11 criteria, all pending
+
+### Known Remaining Non-Blockers
+
+- 7 legacy BackendClient methods (dead code, unused by portal): `list_campaigns`, `list_placements`, `create_placement`, `list_approvals`, `request_approval`, `decide_approval`, `get_test_kso_readiness`
+- `/deployment` page: demo-only documentation page, no backend data needed
+
+### Tags
+
+- `v0.11.1-pre-pilot-access-integration-hotfix` — annotated tag on 40.2.2 commit
+- `v0.11.0-pre-pilot-security-baseline` — previous baseline (NOT rewritten)
+- `v0.10.0-approval-publication-hardening` — unchanged
+- `v0.9.0-product-portal-hardening` — unchanged
+
+---
+
 ## [v0.10.0-approval-publication-hardening] — 2026-06-26
 
 **Release: Approval / Publication Workflow Hardening — production approval API, unified manifest generation, publication batch state machine, portal UX production-ready.**
