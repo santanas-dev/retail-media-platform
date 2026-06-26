@@ -258,7 +258,7 @@ class TestNavigation(unittest.TestCase):
 
 
 class TestDashboardContent(unittest.TestCase):
-    """Dashboard renders cards with safe content."""
+    """Dashboard — backend-driven KPI cards (39.2.3)."""
 
     def setUp(self):
         self.client = TestClient(app)
@@ -266,14 +266,20 @@ class TestDashboardContent(unittest.TestCase):
         self.html = resp.text
 
     def test_renders_metric_cards(self):
-        for card in ("КСО устройств", "Активных кампаний",
-                      "Опубликованных манифестов", "Proof of Play сегодня",
-                      "Устройств в hold", "Устройств с ошибками"):
-            self.assertIn(card, self.html,
-                          f"Dashboard must render card '{card}'")
+        """Dashboard renders either real KPI cards or safe fallback."""
+        # With mock auth but no backend token, shows fallback.
+        # Real KPI cards render when backend is reachable with valid token.
+        self.assertIn("Production Dashboard", self.html)
+        self.assertIn("Платформа запущена", self.html)
 
     def test_no_forbidden_content(self):
         _assert_safe(self, self.html)
+
+    def test_no_demo_fake_values(self):
+        """Dashboard must NOT contain fake demo numbers."""
+        for fake in ("12", "1 247", "DEMO:"):
+            self.assertNotIn(fake, self.html,
+                             f"Dashboard must NOT contain demo value '{fake}'")
 
 
 class TestDeploymentPage(unittest.TestCase):
@@ -1126,8 +1132,11 @@ class TestDemoData(unittest.TestCase):
                       f"{route}: must show demo disclaimer")
 
     def test_demo_banner_on_all_pages(self):
-        """Every page with demo data has the DEMO banner."""
-        routes = ["/dashboard", "/reports"]
+        """Every page with demo data has the DEMO banner.
+        
+        Dashboard is now backend-driven — no demo banner.
+        """
+        routes = ["/reports"]  # /dashboard removed: now production backend-driven
         for route in routes:
             resp = self.client.get(route)
             self.assertEqual(resp.status_code, 200,
@@ -1297,10 +1306,12 @@ class TestDemoData(unittest.TestCase):
     # ── Dashboard demo values ──────────────────────
 
     def test_dashboard_shows_demo_values(self):
+        """Dashboard is now backend-driven — no demo values, shows production KPI or fallback."""
         resp = self.client.get("/dashboard")
-        self.assertIn("12", resp.text)      # kso_devices
-        self.assertIn("1 247", resp.text)   # pop_today
-        self.assertIn("3", resp.text)       # active_campaigns
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Production Dashboard", resp.text)
+        self.assertNotIn("12", resp.text)       # no fake kso_devices
+        self.assertNotIn("1 247", resp.text)    # no fake pop_today
 
 
 class TestAuthPages(unittest.TestCase):

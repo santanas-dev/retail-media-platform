@@ -9,6 +9,22 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.2.3 — Portal Dashboard Real KPI Integration
+
+**Dashboard connected to backend — demo_data removed as primary KPI source.**
+
+- Dashboard handler: explicit async endpoint replacing `_page()` helper + `get_dashboard_data()`
+- KPI computed from 6 existing safe list endpoints: campaigns, creatives, devices, schedules, manifests, approvals
+- No new backend endpoints — aggregation happens in portal
+- KPI cards: total/active/draft campaigns, creatives, devices, schedules (active), publications, approvals pending
+- Fallback: safe empty state when backend unreachable, partial warning when some sources fail
+- Demo values ("12", "1 247", "3") removed from dashboard
+- Template: card names updated, demo wording removed, production note added
+- Portal tests: 425/425 OK (+1 test: `test_no_demo_fake_values`)
+- Dashboard DEMO gap → CLOSED ✅
+
+**Remaining:** Reports (39.5)
+
 ### 39.2.2.1 — Campaign Create Production API Fix
 
 **Campaign creation now uses production `POST /api/campaigns/by-code` — test-kso no longer primary path.**

@@ -1,45 +1,59 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Dashboard</h1>
-<p class="page-description">Обзор ключевых метрик Retail Media Platform. Данные появятся по мере подключения КСО.</p>
+<p class="page-description">Ключевые метрики Retail Media Platform — данные из production backend API.</p>
 
+<!-- Backend Warning -->
+{% if backend_warning %}
+<div class="note-box warning">
+  <span class="note-icon">⚠️</span>
+  <span class="note-text">{{ backend_warning }}</span>
+</div>
+{% endif %}
+
+<!-- KPI Cards -->
+{% if dashboard_backend %}
 <div class="cards">
   <div class="card">
+    <div class="card-title">Кампаний</div>
+    <div class="card-value">{{ kpi.total_campaigns }}</div>
+    <div class="card-hint">{{ kpi.active_campaigns }} активных, {{ kpi.draft_campaigns }} черновиков</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Креативов</div>
+    <div class="card-value">{{ kpi.total_creatives }}</div>
+    <div class="card-hint">Загружено в платформу</div>
+  </div>
+  <div class="card">
     <div class="card-title">КСО устройств</div>
-    <div class="card-value">{{ kso_devices if demo else "—" }}</div>
+    <div class="card-value">{{ kpi.total_devices }}</div>
     <div class="card-hint">Подключены к платформе</div>
   </div>
   <div class="card">
-    <div class="card-title">Активных кампаний</div>
-    <div class="card-value">{{ active_campaigns if demo else "—" }}</div>
-    <div class="card-hint">Кампании в статусе active</div>
+    <div class="card-title">Расписаний</div>
+    <div class="card-value">{{ kpi.total_schedules }}</div>
+    <div class="card-hint">{{ kpi.active_schedules }} активных</div>
   </div>
   <div class="card">
-    <div class="card-title">Опубликованных манифестов</div>
-    <div class="card-value">{{ published_manifests if demo else "—" }}</div>
-    <div class="card-hint">Текущие публикации на КСО</div>
+    <div class="card-title">Публикаций</div>
+    <div class="card-value">{{ kpi.total_publications }}</div>
+    <div class="card-hint">Сгенерированных манифестов</div>
   </div>
   <div class="card">
-    <div class="card-title">Proof of Play сегодня</div>
-    <div class="card-value">{{ pop_today if demo else "—" }}</div>
-    <div class="card-hint">Подтверждённых показов</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Устройств в hold</div>
-    <div class="card-value">{{ devices_hold if demo else "—" }}</div>
-    <div class="card-hint">КСО в не-idle состоянии</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Устройств с ошибками</div>
-    <div class="card-value">{{ devices_errors if demo else "—" }}</div>
-    <div class="card-hint">КСО с ошибками за 24ч</div>
+    <div class="card-title">На согласовании</div>
+    <div class="card-value">{{ kpi.approvals_pending }}</div>
+    <div class="card-hint">Ожидают решения</div>
   </div>
 </div>
-
-{% if not demo %}
+{% else %}
 <div class="empty-state">
   <div class="empty-state-title">Платформа запущена</div>
   <div class="empty-state-text">Backend работает. Метрики появятся после подключения первых КСО.</div>
 </div>
 {% endif %}
+
+<div class="note-box">
+  <span class="note-icon">📊</span>
+  <span class="note-text">Production Dashboard: все KPI вычисляются из реальных backend данных (campaigns, creatives, devices, schedules, publications, approvals). Демо-заглушки удалены.</span>
+</div>
 {% endblock %}

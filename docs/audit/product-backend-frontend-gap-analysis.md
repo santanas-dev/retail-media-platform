@@ -22,7 +22,7 @@ security gaps, которые необходимо закрыть перед pil
 2. 🟡 Campaign/placement creation — test-kso wrapper'ы (не production API)
 3. 🟢 Schedule UI — production backend-driven (✅ 39.2.1)
 4. 🟡 Reports UI — DEMO page (slicers disabled, charts placeholder)
-5. 🟡 Dashboard — DEMO page (использует demo_data.py)
+5. 🟢 Dashboard — backend-driven KPI (✅ 39.2.3)
 
 ### Уже исправлено в 39.2:
 - ✅ SG7 — Schedule backend (39.1.3)

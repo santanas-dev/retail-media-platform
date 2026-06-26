@@ -100,15 +100,106 @@ def _page(
 
 
 # ══════════════════════════════════════════════════════════════════════
-# Pages
+# Dashboard — Backend-Driven KPI Integration (39.2.3)
 # ══════════════════════════════════════════════════════════════════════
 
-app.add_api_route("/", _page("pages/dashboard.html", "Dashboard", "dashboard",
-                             get_dashboard_data()),
-                  methods=["GET"], response_class=HTMLResponse)
-app.add_api_route("/dashboard", _page("pages/dashboard.html", "Dashboard", "dashboard",
-                                      get_dashboard_data()),
-                  methods=["GET"], response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse)
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_page(request: Request):
+    """Dashboard: backend-driven KPI cards from real data (39.2.3).
+
+    Computes KPI from existing safe list endpoints — no new backend endpoint.
+    Shows real counts: campaigns, creatives, devices, schedules, publications,
+    approvals pending. Falls back safely on partial backend errors.
+    """
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/dashboard")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    if not access_token:
+        return _dashboard_fallback(request, current_user, "Нет доступа.")
+
+    # Fetch all KPI sources in parallel-style (sequential for simplicity)
+    campaigns_r = await backend.list_campaigns(access_token)
+    creatives_r = await backend.list_creatives(access_token)
+    devices_r = await backend.list_kso_devices(access_token)
+    schedules_r = await backend.list_schedules(access_token)
+    manifests_r = await backend.list_manifests(access_token)
+    approvals_r = await backend.list_approvals(access_token)
+
+    # Count unreachable backends
+    errors = 0
+    for r in (campaigns_r, creatives_r, devices_r, schedules_r, manifests_r, approvals_r):
+        if not r["ok"]:
+            errors += 1
+
+    if errors >= 4:
+        return _dashboard_fallback(request, current_user, "Backend недоступен.")
+
+    # ── KPI computation (safe, no UUIDs) ──
+    campaigns = campaigns_r.get("data", []) if campaigns_r["ok"] else []
+    creatives = creatives_r.get("data", []) if creatives_r["ok"] else []
+    devices = devices_r.get("data", []) if devices_r["ok"] else []
+    schedules = schedules_r.get("data", []) if schedules_r["ok"] else []
+    manifests = manifests_r.get("data", []) if manifests_r["ok"] else []
+    approvals = approvals_r.get("data", []) if approvals_r["ok"] else []
+
+    total_campaigns = len(campaigns)
+    active_campaigns = sum(1 for c in campaigns if c.get("status") == "active")
+    draft_campaigns = sum(1 for c in campaigns if c.get("status") == "draft")
+    total_creatives = len(creatives)
+    total_devices = len(devices)
+    total_schedules = len(schedules)
+    active_schedules = sum(1 for s in schedules if s.get("status") == "active")
+    total_publications = len(manifests)
+    approvals_pending = sum(
+        1 for a in approvals if a.get("status") in ("pending", "in_review")
+    )
+
+    # Build KPI dict
+    kpi = {
+        "total_campaigns": total_campaigns,
+        "active_campaigns": active_campaigns,
+        "draft_campaigns": draft_campaigns,
+        "total_creatives": total_creatives,
+        "total_devices": total_devices,
+        "total_schedules": total_schedules,
+        "active_schedules": active_schedules,
+        "total_publications": total_publications,
+        "approvals_pending": approvals_pending,
+    }
+
+    dashboard_backend = True
+    backend_warning = f"Часть данных недоступна ({errors} источников)." if errors > 0 else ""
+
+    return templates.TemplateResponse(request, "pages/dashboard.html", {
+        "request": request,
+        "title": "Dashboard",
+        "active": "dashboard",
+        "demo": False,
+        "current_user": current_user,
+        "kpi": kpi,
+        "dashboard_backend": dashboard_backend,
+        "backend_warning": backend_warning,
+    })
+
+
+def _dashboard_fallback(request: Request, current_user, reason: str = "") -> HTMLResponse:
+    return templates.TemplateResponse(request, "pages/dashboard.html", {
+        "request": request,
+        "title": "Dashboard",
+        "active": "dashboard",
+        "demo": False,
+        "current_user": current_user,
+        "kpi": {},
+        "dashboard_backend": False,
+        "backend_warning": reason or "Данные временно недоступны.",
+    })
 
 # ══════════════════════════════════════════════════════════════════════
 # Proof of Play — Backend API Integration (Step 37.11)
