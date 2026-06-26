@@ -575,6 +575,19 @@ class TestCreativesPage(unittest.TestCase):
         resp = self.client.get("/creatives")
         self.assertEqual(resp.status_code, 200)
 
+    def test_no_js_in_creative_page(self):
+        """41.1.1: no JS, no onclick, no <script> in creative template."""
+        lower = self.html.lower()
+        self.assertNotIn("onclick", lower, "Must NOT contain onclick")
+        self.assertNotIn("<script", lower, "Must NOT contain <script")
+        self.assertNotIn("confirm(", lower, "Must NOT contain confirm(")
+
+    def test_archive_button_is_pure_post_form(self):
+        """Archive button must be a plain POST form, no JS."""
+        self.assertIn('method="POST"', self.html)
+        self.assertIn("/archive", self.html)
+        self.assertIn("Архив", self.html)
+
 
 # ══════════════════════════════════════════════════════════════════════
 # Campaigns page tests
@@ -3237,6 +3250,14 @@ _MOCK_KSO = [{
     "last_seen_at": "2026-06-22T12:00:00+00:00",
 }]
 
+_MOCK_CREATIVE = {
+    "id": "cr1", "advertiser_id": "a1", "advertiser_name": "Тестовый рекламодатель",
+    "creative_code": "demo_creative_001", "name": "Тестовый креатив",
+    "status": "draft", "content_type": "image/png",
+    "width": 768, "height": 1024, "file_size_bytes": 204800,
+    "current_version": 1, "created_at": "2026-06-22T12:00:00Z",
+}
+
 
 class _FakeBackendClient:
     """Fake BackendClient for testing — never calls real backend."""
@@ -3257,7 +3278,7 @@ class _FakeBackendClient:
         return {"ok": True, "data": _MOCK_KSO}
 
     async def list_creatives(self, access_token: str) -> dict:
-        return {"ok": True, "data": []}  # Empty for testing
+        return {"ok": True, "data": [_MOCK_CREATIVE]}  # Single creative for testing
 
     async def list_advertisers(self, access_token: str) -> dict:
         return {"ok": True, "data": [{"id": "a1", "name": "Тестовый рекламодатель"}]}

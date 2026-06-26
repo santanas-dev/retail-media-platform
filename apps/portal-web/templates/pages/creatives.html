@@ -118,8 +118,7 @@
       <td>
         {% if c.status != 'archived' %}
         <form action="/creatives/{{ c.creative_code }}/archive" method="POST" style="display:inline;">
-          <button type="submit" style="font-size:11px;padding:2px 8px;border:1px solid #94a3b8;border-radius:4px;background:none;color:#64748b;cursor:pointer;"
-                  onclick="return confirm('Архивировать {{ c.creative_code }}?')">Архив</button>
+          <button type="submit" style="font-size:11px;padding:2px 8px;border:1px solid #94a3b8;border-radius:4px;background:none;color:#64748b;cursor:pointer;">Архив</button>
         </form>
         {% else %}
         <span style="font-size:11px;color:#94a3b8;">—</span>
