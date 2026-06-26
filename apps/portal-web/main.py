@@ -234,7 +234,7 @@ async def proof_of_play_page(request: Request):
     limit = 100
     filters["limit"] = limit
 
-    result = await backend.list_pop_events(access_token, filters)
+    result = await backend.get_pop_report(access_token, filters)
     if not result["ok"]:
         return _pop_fallback(request, current_user, "Backend unavailable")
 

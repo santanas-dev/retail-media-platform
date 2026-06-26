@@ -1,9 +1,9 @@
 """Portal ↔ Backend Live Integration Tests (40.2.2).
 
-Requires: RUN_PORTAL_BACKEND_LIVE_INTEGRATION=1 + running backend + running portal.
-
-Tests backend seed data visibility through portal pages.
-Uses real HTTP to portal — no mocks.
+Tests:
+- BackendClient endpoint mapping (runs in default regression — source inspection)
+- PAGE_PERMISSION_MAP consistency (runs in default regression — seed import)
+- Live HTTP integration (requires RUN_PORTAL_BACKEND_LIVE_INTEGRATION=1 + running portal)
 """
 import os
 import sys
@@ -12,13 +12,9 @@ import inspect
 
 import pytest
 
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("RUN_PORTAL_BACKEND_LIVE_INTEGRATION"),
-    reason="RUN_PORTAL_BACKEND_LIVE_INTEGRATION=1 required"
-)
-
-
-# ── BackendClient endpoint mapping checks ───────────────────────────
+# ═══════════════════════════════════════════════════════════════════════
+# BackendClient endpoint mapping checks (default regression)
+# ═══════════════════════════════════════════════════════════════════════
 
 class TestBackendClientEndpointMapping(unittest.TestCase):
     """Verify BackendClient methods use production (not test-kso) endpoints."""
@@ -78,8 +74,20 @@ class TestBackendClientEndpointMapping(unittest.TestCase):
             self.assertNotIn("test-kso", src,
                 f"{method.__name__} uses test-kso!")
 
+    def test_main_py_does_not_use_legacy_list_pop_events(self):
+        """40.2.2 fix: /proof-of-play must use get_pop_report, not list_pop_events."""
+        main_path = os.path.join(os.path.dirname(__file__), "..", "main.py")
+        with open(main_path) as f:
+            content = f.read()
+        self.assertNotIn("list_pop_events", content,
+            "main.py still references list_pop_events (legacy test-kso) — use get_pop_report")
+        self.assertIn("get_pop_report", content,
+            "main.py must use get_pop_report for /proof-of-play")
 
-# ── PAGE_PERMISSION_MAP consistency ────────────────────────────────
+
+# ═══════════════════════════════════════════════════════════════════════
+# PAGE_PERMISSION_MAP consistency (default regression)
+# ═══════════════════════════════════════════════════════════════════════
 
 class TestPermissionMapConsistency(unittest.TestCase):
     """PAGE_PERMISSION_MAP must only use permissions from backend seed."""
@@ -135,8 +143,14 @@ class TestPermissionMapConsistency(unittest.TestCase):
         self.assertEqual(self.page_map.get("/creatives"), "media.read")
 
 
-# ── Portal page live integration (requires running portal) ──────────
+# ═══════════════════════════════════════════════════════════════════════
+# Live HTTP integration (requires RUN_PORTAL_BACKEND_LIVE_INTEGRATION=1)
+# ═══════════════════════════════════════════════════════════════════════
 
+@pytest.mark.skipif(
+    not os.environ.get("RUN_PORTAL_BACKEND_LIVE_INTEGRATION"),
+    reason="RUN_PORTAL_BACKEND_LIVE_INTEGRATION=1 required"
+)
 class TestPortalBackendLiveIntegration(unittest.TestCase):
     """End-to-end: admin can access all protected portal pages via real HTTP.
 
@@ -156,7 +170,7 @@ class TestPortalBackendLiveIntegration(unittest.TestCase):
             raise unittest.SkipTest("backend/.env not found")
         result = subprocess.run(
             ["bash", "-c",
-             "grep '^INITIAL_ADMIN_PASSWORD=*** '" + env_path + "' | cut -d= -f2-"],
+             "grep '^INITIAL_ADMIN_PASSWORD=' '" + env_path + "' | cut -d= -f2-"],
             capture_output=True, text=True
         )
         password = result.stdout.strip()

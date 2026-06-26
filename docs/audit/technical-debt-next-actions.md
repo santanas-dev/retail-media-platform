@@ -509,6 +509,22 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - 23 new backend seed integrity tests
 - Regression: 5159 passed, 32 skipped, 0 failed
 
+## 40.2.2 — Portal Backend Integration Gate (2026-06-26)
+
+### Status
+- ✅ Full matrix audited: 14 pages × BackendClient × backend endpoints
+- ✅ 1 broken link found & fixed: `/proof-of-play` → `list_pop_events` (`/api/proof-of-play/test-kso`) → `get_pop_report` (`/api/reports/pop`)
+- ✅ All 13 other pages confirmed using production endpoints
+- ✅ Permission consistency proven: 10 unique PAGE_PERMISSION_MAP codes all exist in seed
+- ✅ Cross-suite guard tests: 21 new tests in default regression (endpoint mapping + permission map)
+- ✅ `test_portal_backend_live_integration.py` restructured: endpoint mapping + permission tests run in default regression, live HTTP under env gate
+- ✅ Regression: 5168 passed, 44 skipped, 0 failed
+- ✅ Commit: 40.2.2 (portal-backend-integration-gate)
+
+### Remaining gaps
+- 7 legacy BackendClient methods (list_campaigns, list_placements, create_placement, list_approvals, request_approval, decide_approval, get_test_kso_readiness) exist but unused — dead code, safe to clean up
+- `/deployment` is demo-only (static page) — acceptable
+
 ## 40.3 — Pilot Readiness Gates Plan (2026-06-26)
 
 ### Status

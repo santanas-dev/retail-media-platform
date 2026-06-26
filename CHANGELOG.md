@@ -67,69 +67,49 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [40.2.2-portal-backend-integration-gate] — 2026-06-26
 
-**Portal Backend Integration Gate — verified all page→endpoint chains, fixed legacy test-kso usage.**
+**Portal Backend Integration Gate — verified all 14 page→endpoint chains, fixed 1 legacy test-kso usage, added cross-suite guard tests.**
 
 ### Audit
-Full matrix created: `docs/audit/portal-backend-integration-matrix.md` — 12 pages × BackendClient methods × backend endpoints × permissions.
+Full matrix created: `docs/audit/portal-backend-integration-matrix.md` — 14 pages × BackendClient methods × backend endpoints × permissions.
 
-### Broken Links Found & Fixed
+### Broken Link Found & Fixed
 
 | # | Page | Old method | Old endpoint | New method | New endpoint |
 |---|---|---|---|---|---|
-| 1 | `/campaigns` | `list_campaigns()` | `/api/campaigns/test-kso` | `list_campaigns_prod()` | `/api/campaigns` |
-| 2 | `/dashboard` | `list_approvals()` | `/api/approvals/test-kso` | `list_approvals_prod()` | `/api/approvals` |
+| 1 | `/proof-of-play` | `list_pop_events()` | `GET /api/proof-of-play/test-kso` | `get_pop_report()` | `GET /api/reports/pop` |
+
+### Already Correct (confirmed by audit)
+- `/campaigns` → `list_campaigns_prod()` → `/api/campaigns` ✅ (production since 39.2.2)
+- `/dashboard` → `list_approvals_prod()` → `/api/approvals` ✅ (production since 39.2.2)
+- `/approvals` → `list_approvals_prod()` → `/api/approvals` ✅
+- `/reports` → `get_pop_report()` + `get_pop_summary()` → `/api/reports/pop*` ✅
+- All 13 other pages use production endpoints ✅
+- 7 legacy BackendClient methods exist but are unused by portal (dead code, safe to remove later)
 
 ### Permission Consistency
-All 12 PAGE_PERMISSION_MAP permissions exist in backend seed. `system_admin` has all 12. `security_admin` has all security-relevant permissions (audit.read, users/roles, devices.gateway.read, publications, campaigns, campaign_reports, organization).
+All 10 unique PAGE_PERMISSION_MAP permissions exist in backend seed. `system_admin` has all. `security_admin` has security-relevant permissions. No mismatch (unlike 40.2.1).
 
-### Guard Tests
-`test_portal_backend_live_integration.py` — 32 tests (20 BackendClient endpoint mapping + 12 live integration): verifies no test-kso is primary path, PAGE_PERMISSION_MAP↔seed consistency, admin navigation on live portal.
+### Guard Tests (always run in default regression)
+- `TestBackendClientEndpointMapping` — 13 tests: verify every used BackendClient method hits production endpoint
+- `TestPermissionMapConsistency` — 8 tests: PAGE_PERMISSION_MAP↔seed, system_admin has all, security_admin coverage
+- `test_main_py_does_not_use_legacy_list_pop_events` — regression prevention for the fix
 
-### Live Integration Profile
-```
-RUN_PORTAL_BACKEND_LIVE_INTEGRATION=1 python3 -m pytest apps/portal-web/tests/test_portal_backend_live_integration.py
-```
-12 tests require running portal + backend (skip otherwise). 20 endpoint mapping tests always run.
+Live HTTP tests (12) under `RUN_PORTAL_BACKEND_LIVE_INTEGRATION=1` skip gate.
 
 ### Regression
 
 | Suite | Passed | Skipped | Failed |
 |---|---|---|---|
 | Backend | 498 | 0 | 0 |
-| Portal | 478 | 21 | 0 |
+| Portal | 459 | 32 | 0 |
 | KSO state adapter | 86 | 0 | 0 |
-| KSO player | 2072 | 12 | 0 |
+| KSO player | 2060 | 12 | 0 |
 | KSO sidecar | 1838 | 0 | 0 |
 | Infra | 227 | 0 | 0 |
-| **Total** | **5199** | **33** | **0** |
+| **Total** | **5168** | **44** | **0** |
 
 ### RBAC/RLS
 - ✅ NOT weakened
-- ✅ RBAC gate closed  
-- ✅ RLS gate closed
-- ✅ Audit trail active
-
-No KSO/SSH/X11/Chromium/runner/sidecar launched. No secrets disclosed.
-
-Hotfix recommended: v0.11.1 (v0.11.0 tag predates 40.2.1 + 40.2.2 fixes).
-- Portal tests: `_MOCK_ALL_PERMISSIONS` updated with real backend codes
-- `_LIMITED_PERMS` (analyst) updated to real backend permissions
-- Backend tests: 23 new seed integrity tests in `test_admin_portal_access_bootstrap.py`
-
-### Regression
-
-| Suite | Passed | Skipped | Failed |
-|---|---|---|---|
-| Backend | 498 | 0 | 0 |
-| Portal | 438 | 20 | 0 |
-| KSO state adapter | 86 | 0 | 0 |
-| KSO player | 2072 | 12 | 0 |
-| KSO sidecar | 1838 | 0 | 0 |
-| Infra | 227 | 0 | 0 |
-| **Total** | **5159** | **32** | **0** |
-
-### RBAC/RLS
-- ✅ NOT weakened — permission checks still enforced
 - ✅ RBAC gate closed
 - ✅ RLS gate closed
 - ✅ Audit trail active

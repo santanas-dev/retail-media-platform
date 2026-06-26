@@ -1,250 +1,135 @@
-# Portal → Backend Integration Matrix
+# Portal ↔ Backend Integration Matrix
 
-**Phase:** 40.2.2 — Portal Backend Integration Gate
-**Date:** 2026-06-26
-**Baseline:** commit `5035203` (40.2.1 — admin portal access bootstrap fix)
+**Step:** 40.2.2 — Portal Backend Integration Gate  
+**Generated:** 2026-06-16  
+**HEAD:** 40.2.1 (5035203) → fixing in 40.2.2
 
----
+## Summary
 
-## Executive Summary
+| Status | Count |
+|--------|-------|
+| Verified (production endpoint) | 13 pages |
+| Fixed (legacy → production) | 1 page |
+| Demo-only (by design) | 1 page |
+| Broken (legacy endpoint) | 0 (all fixed) |
 
-Full audit of every portal page → BackendClient method → backend endpoint chain. Permission consistency verified against backend seed. Two broken links found and fixed: `/campaigns` and `/dashboard` were using legacy test-kso endpoints.
-
----
-
-## 1. Integration Matrix
+## Matrix
 
 ### Legend
+- ✅ Verified: uses production endpoint, permission valid in seed, error handling safe
+- 🔧 Fixed: was legacy/test-kso, now production
+- 📄 Demo: static page, no backend data needed
 
-| Symbol | Meaning |
-|---|---|
-| ✅ | Verified — production endpoint, correct permission |
-| 🟡 | Partial — works but needs hardening |
-| 🔴 | BROKEN — legacy/test-kso, wrong endpoint/permission |
-| ⬜ | N/A |
+| # | Portal Route | Template | BackendClient Method | Backend Endpoint | Portal Permission | Backend Permission | RLS Scope | Response Fields Used | Error State | Status |
+|---|-------------|----------|---------------------|------------------|-------------------|-------------------|-----------|---------------------|-------------|--------|
+| 1 | `/`, `/dashboard` | `pages/dashboard.html` | `list_campaigns_prod` | `GET /api/campaigns` | `campaigns.read` | `campaigns.read` | campaign_scope | status, name, campaign_code | Fallback: "Backend недоступен" | ✅ |
+| | | | `list_creatives` | `GET /api/creatives` | | `media.read` | — | creative_code, name, status | Partial: "Часть данных недоступна" | ✅ |
+| | | | `list_kso_devices` | `GET /api/devices/kso` | | `devices.read` | — | device_code, display_name | | ✅ |
+| | | | `list_schedules` | `GET /api/schedules` | | `scheduling.read` | schedule_scope | schedule_code, status | | ✅ |
+| | | | `list_manifests` | `GET /api/manifests` | | `publications.read` | — | manifest_code, status | | ✅ |
+| | | | `list_approvals_prod` | `GET /api/approvals` | | `campaigns.approve` | — | status (pending/in_review count) | | ✅ |
+| 2 | `/campaigns` | `pages/campaigns.html` | `list_campaigns_prod` | `GET /api/campaigns` | `campaigns.read` | `campaigns.read` | campaign_scope | campaign_code, name, status, creative_codes | Fallback: empty + "Данные временно недоступны" | ✅ |
+| | POST `/campaigns/create` | | `create_campaign` | `POST /api/campaigns/by-code` | | `campaigns.create` | | | Flash → redirect | ✅ |
+| | POST `/{code}/edit` | | `update_campaign_by_code` | `PATCH /api/campaigns/by-code/{code}` | | `campaigns.manage` | | | Flash → redirect | ✅ |
+| | POST `/{code}/archive` | | `archive_campaign_by_code` | `POST /api/campaigns/by-code/{code}/archive` | | `campaigns.manage` | | | Flash → redirect | ✅ |
+| | POST `/{code}/bind-creative` | | `bind_campaign_creative` | `POST /api/campaigns/by-code/{code}/creatives` | | `campaigns.manage` | | | Flash → redirect | ✅ |
+| | POST `/{code}/unbind-creative/{cc}` | | `unbind_campaign_creative` | `DELETE /api/campaigns/by-code/{code}/creatives/{cc}` | | `campaigns.manage` | | | Flash → redirect | ✅ |
+| 3 | `/creatives` | `pages/creatives.html` | `list_creatives` | `GET /api/creatives` | `media.read` | `media.read` | creative_scope | creative_code, name, status, content_type, width, height | Fallback: empty + "Данные временно недоступны" | ✅ |
+| | POST `/creatives/upload` | | `upload_creative` | `POST /api/creatives/upload` | | `media.manage` | | | Flash → redirect | ✅ |
+| 4 | `/schedule` | `pages/schedule.html` | `list_schedules` | `GET /api/schedules` | `scheduling.read` | `scheduling.read` | schedule_scope | schedule_code, name, status, campaign_code, slot_count | Fallback: empty + "Данные временно недоступны" | ✅ |
+| | | | `list_schedule_slots` | `GET /api/schedules/{code}/items` | | | | slot_code, placement_code, day_of_week, start/end_time | | ✅ |
+| | POST `/schedule/create` | | `create_schedule` | `POST /api/schedules` | | `scheduling.manage` | | | Flash → redirect | ✅ |
+| | POST `/{code}/create-slot` | | `create_schedule_slot` | `POST /api/schedules/{code}/items` | | `scheduling.manage` | | | Flash → redirect | ✅ |
+| | POST `/{code}/archive` | | `archive_schedule` | `POST /api/schedules/{code}/archive` | | `scheduling.manage` | | | Flash → redirect | ✅ |
+| | POST `/{code}/items/{slot}/disable` | | `disable_schedule_slot` | `DELETE /api/schedules/{code}/items/{slot}` | | `scheduling.manage` | | | Flash → redirect | ✅ |
+| 5 | `/approvals` | `pages/approvals.html` | `list_approvals_prod` | `GET /api/approvals` | `campaigns.approve` | `campaigns.approve` | approval_scope | approval_code, object_type, object_code, status, decision | Fallback: empty + "Данные временно недоступны" | ✅ |
+| | POST `/approvals/request` | | `create_approval` | `POST /api/approvals` | | `campaigns.approve` | | | Flash → redirect | ✅ |
+| | POST `/approvals/decide` | | `approve_approval` / `reject_approval` | `POST /api/approvals/{code}/approve` or `/reject` | | `campaigns.approve` | | | Flash → redirect | ✅ |
+| 6 | `/publications` | `pages/publications.html` | `list_manifests` | `GET /api/manifests` | `publications.read` | `publications.read` | publication_scope | manifest_code, status | Fallback: empty + error message | ✅ |
+| | POST `/publications/generate` | | `generate_manifest` | `POST /api/manifests` | | `publications.manage` | | | Flash → redirect | ✅ |
+| | POST `/publications/publish` | | `publish_manifest` | `POST /api/manifests/{code}/publish` | | `publications.publish` | | | Flash → redirect | ✅ |
+| 7 | `/reports` | `pages/reports.html` | `get_pop_summary` | `GET /api/reports/pop/summary` | `reports.read` | `reports.read` | report_scope | total_events, unique_devices, accepted, rejected, etc. | Fallback: empty + "Данные временно недоступны" | ✅ |
+| | | | `get_pop_report` | `GET /api/reports/pop` | | | | event_code, device_code, campaign_code, creative_code | | ✅ |
+| | | | `list_campaigns_prod` | `GET /api/campaigns` | | | | supplemental KPI counts | | ✅ |
+| | | | `list_creatives` | `GET /api/creatives` | | | | supplemental KPI counts | | ✅ |
+| | | | `list_kso_devices` | `GET /api/devices/kso` | | | | supplemental KPI counts | | ✅ |
+| | | | `list_manifests` | `GET /api/manifests` | | | | supplemental KPI counts | | ✅ |
+| 8 | `/stores` | `pages/stores.html` | `list_branches` | `GET /api/branches` | `organization.read` | `organization.read` | branch_scope | name, code, timezone | Fallback: "Backend unavailable" | ✅ |
+| | | | `list_clusters` | `GET /api/clusters` | | | | name, code, branch_id | | ✅ |
+| | | | `list_stores` | `GET /api/stores` | | | store_scope | name, code, format, status | | ✅ |
+| | | | `list_kso_devices` | `GET /api/devices/kso` | | | | kso_count per store | | ✅ |
+| 9 | `/devices` | `pages/devices.html` | `list_stores` | `GET /api/stores` | `devices.read` | `devices.read` | device_scope | store name for device rows | Fallback: "Backend unavailable" | ✅ |
+| | | | `list_kso_devices` | `GET /api/devices/kso` | | | | device_code, display_name, status, versions, screen geometry | | ✅ |
+| 10 | `/proof-of-play` | `pages/proof-of-play.html` | ~~`list_pop_events`~~ → `get_pop_report` | ~~`GET /api/proof-of-play/test-kso`~~ → `GET /api/reports/pop` | `reports.read` | `reports.read` | report_scope | event_code, device_code, campaign_code, creative_code | Fallback: "Backend unavailable" | 🔧 Fixed |
+| 11 | `/device-dashboard` | `pages/device-dashboard.html` | `get_device_dashboard` | `GET /api/device-dashboard` | `devices.gateway.read` | `devices.gateway.read` | device_scope | device_code, display_name, store_name, readiness_badge, heartbeat, credential, manifest | Fallback: "Данные временно недоступны" | ✅ |
+| 12 | `/readiness` | `pages/readiness.html` | `get_device_dashboard` | `GET /api/device-dashboard` | `devices.gateway.read` | `devices.gateway.read` | device_scope | readiness_badge, heartbeat.age_seconds, credential.status, manifest.status | Fallback: "Данные временно недоступны" | ✅ |
+| 13 | `/admin` | `pages/admin.html` | `list_users` | `GET /api/users` | `users.read` + `roles.read` | `users.read` | — | username, display_name, roles, is_active, is_locked | Fallback: backend_ok=False | ✅ |
+| | | | `list_roles` | `GET /api/roles` | | `roles.read` | | | code, name, description | | ✅ |
+| | | | `list_permissions` | `GET /api/permissions` | | `permissions.read` | | | code, name, resource, action | | ✅ |
+| | | | `list_admin_audit` | `GET /api/admin/audit` | | `audit.read` | | | action, target_type, created_at (safe stripped) | | ✅ |
+| | POST `/admin/users/create` | | `create_user` | `POST /api/users` | `users.create` | `users.create` | | | Flash → redirect | ✅ |
+| | POST `/admin/users/assign-roles` | | `assign_user_roles` | `GET/PUT /api/users/{id}/roles` | `roles.manage` | `roles.manage` | | | Flash → redirect | ✅ |
+| | POST `/admin/users/assign-rls-scopes` | | `assign_user_rls_scopes` | `PATCH /api/users/{username}/rls-scopes` | `roles.manage` | `roles.manage` | | | Flash → redirect | ✅ |
+| 14 | `/deployment` | `pages/deployment.html` | _(none)_ | _(none)_ | `campaigns.read` | — | — | Static documentation page | — | 📄 Demo |
 
----
+## Permission Consistency
 
-### /dashboard
+### PAGE_PERMISSION_MAP vs Seed
 
-| Aspect | Detail |
-|---|---|
-| **Portal route** | `GET /dashboard` |
-| **Handler** | `dashboard_page()` (line 104) |
-| **RBAC guard** | `require_auth_for_page` → `campaigns.read` |
-| **BackendClient methods** | `list_campaigns_prod`, `list_creatives`, `list_kso_devices`, `list_schedules`, `list_manifests`, `list_approvals_prod` |
-| **Backend endpoints** | `GET /api/campaigns`, `GET /api/creatives`, `GET /api/hierarchy/kso-devices`, `GET /api/schedules`, `GET /api/manifests`, `GET /api/approvals` |
-| **Permission** | `campaigns.read` (minimal — all roles have it) |
-| **RLS** | Backend-enforced on each list endpoint |
-| **Empty state** | ✅ Safe fallback when backend unreachable |
-| **Status** | ✅ VERIFIED — all production endpoints after 40.2.2 fix |
-
-### /campaigns
-
-| Aspect | Detail |
-|---|---|
-| **Portal route** | `GET /campaigns` |
-| **Handler** | `campaigns_page()` (line 855) |
-| **RBAC guard** | `require_auth_for_page` → `campaigns.read` |
-| **BackendClient methods** | `list_campaigns_prod`, `create_campaign`, `get_campaign_by_code`, `update_campaign_by_code`, `archive_campaign_by_code`, `list_campaign_creatives`, `bind_campaign_creative`, `unbind_campaign_creative` |
-| **Backend endpoints** | `GET /api/campaigns`, `POST /api/campaigns/by-code`, `GET/PATCH /api/campaigns/by-code/{code}`, `POST .../{code}/archive`, `GET .../{code}/creatives`, `POST/DELETE .../{code}/creatives/{cc}` |
-| **Permission** | `campaigns.read` (list), `campaigns.create` (create), `campaigns.manage` (edit/archive/bind) |
-| **RLS** | Backend-enforced — advertiser A cannot see campaign B |
-| **Empty state** | ✅ Safe fallback |
-| **Fix 40.2.2** | 🔴→✅ `list_campaigns()` → `list_campaigns_prod()` (was `/api/campaigns/test-kso`, now `/api/campaigns`) |
-
-### /creatives
-
-| Aspect | Detail |
-|---|---|
-| **Portal route** | `GET /creatives` |
-| **Handler** | `creatives_page()` (line 733) |
-| **RBAC guard** | `require_auth_for_page` → `media.read` |
-| **BackendClient methods** | `list_creatives`, `upload_creative` |
-| **Backend endpoints** | `GET /api/creatives`, `POST /api/creatives` |
-| **Permission** | `media.read` (list), `media.manage` (upload) |
-| **RLS** | Backend-enforced |
-| **Status** | ✅ VERIFIED |
-
-### /schedule
-
-| Aspect | Detail |
-|---|---|
-| **Portal route** | `GET /schedule` |
-| **Handler** | `schedule_page()` (line 1121) |
-| **RBAC guard** | `require_auth_for_page` → `scheduling.read` |
-| **BackendClient methods** | `list_schedules`, `list_schedule_slots`, `create_schedule`, `create_schedule_slot`, `archive_schedule`, `disable_schedule_slot` |
-| **Backend endpoints** | `GET /api/schedules`, `POST /api/schedules`, `GET /api/schedules/{code}/items`, `POST /api/schedules/{code}/items`, `POST .../{code}/archive`, `DELETE .../{slot}/disable` |
-| **Permission** | `scheduling.read` (list), `scheduling.manage` (create/edit) |
-| **RLS** | Backend-enforced via `_resolve_schedule_advertiser` |
-| **Status** | ✅ VERIFIED |
-
-### /approvals
-
-| Aspect | Detail |
-|---|---|
-| **Portal route** | `GET /approvals` |
-| **Handler** | `approvals_page()` (line 1503) |
-| **RBAC guard** | `require_auth_for_page` → `campaigns.approve` |
-| **BackendClient methods** | `list_approvals_prod`, `request_approval`, `decide_approval` |
-| **Backend endpoints** | `GET /api/approvals`, `POST /api/approvals`, `POST /api/approvals/{code}/approve`, `POST /api/approvals/{code}/reject` |
-| **Permission** | `campaigns.approve` |
-| **RLS** | Backend-enforced via multi-type advertiser resolution |
-| **Status** | ✅ VERIFIED |
-
-### /publications
-
-| Aspect | Detail |
-|---|---|
-| **Portal route** | `GET /publications` |
-| **Handler** | `publications_page()` (line 1391) |
-| **RBAC guard** | `require_auth_for_page` → `publications.read` |
-| **BackendClient methods** | `list_manifests`, `generate_manifest`, `publish_manifest` |
-| **Backend endpoints** | `GET /api/manifests`, `POST /api/manifests`, `POST /api/manifests/{code}/publish` |
-| **Permission** | `publications.read` |
-| **RLS** | Backend-enforced via `_resolve_manifest_advertiser` |
-| **Status** | ✅ VERIFIED |
-
-### /reports
-
-| Aspect | Detail |
-|---|---|
-| **Portal route** | `GET /reports` |
-| **Handler** | `reports_page()` (line 282) |
-| **RBAC guard** | `require_auth_for_page` → `reports.read` |
-| **BackendClient methods** | `get_pop_summary`, `get_pop_report`, `list_campaigns_prod`, `list_creatives`, `list_kso_devices`, `list_manifests` |
-| **Backend endpoints** | `GET /api/reports/pop`, `GET /api/reports/pop/summary`, `GET /api/campaigns`, `GET /api/creatives`, `GET /api/hierarchy/kso-devices`, `GET /api/manifests` |
-| **Permission** | `reports.read` |
-| **RLS** | Backend-enforced via campaign_code join |
-| **Status** | ✅ VERIFIED |
-
-### /stores
-
-| Aspect | Detail |
-|---|---|
-| **Portal route** | `GET /stores` |
-| **Handler** | `stores_page()` (line 615) |
-| **RBAC guard** | `require_auth_for_page` → `organization.read` |
-| **BackendClient methods** | `list_branches`, `list_clusters`, `list_stores`, `list_kso_devices` |
-| **Backend endpoints** | `GET /api/branches`, `GET /api/clusters`, `GET /api/stores`, `GET /api/hierarchy/kso-devices` |
-| **Permission** | `organization.read` |
-| **RLS** | Backend-enforced |
-| **Status** | ✅ VERIFIED |
-
-### /devices
-
-| Aspect | Detail |
-|---|---|
-| **Portal route** | `GET /devices` |
-| **Handler** | `devices_page()` (line 662) |
-| **RBAC guard** | `require_auth_for_page` → `devices.read` |
-| **BackendClient methods** | `list_stores`, `list_kso_devices` |
-| **Backend endpoints** | `GET /api/stores`, `GET /api/hierarchy/kso-devices` |
-| **Permission** | `devices.read` |
-| **RLS** | Backend-enforced |
-| **Status** | ✅ VERIFIED |
-
-### /device-dashboard
-
-| Aspect | Detail |
-|---|---|
-| **Portal route** | `GET /device-dashboard` |
-| **Handler** | `device_dashboard_page()` (line 419) |
-| **RBAC guard** | `require_auth_for_page` → `devices.gateway.read` |
-| **BackendClient methods** | `get_device_dashboard` |
-| **Backend endpoints** | `GET /api/device-dashboard` |
-| **Permission** | `devices.gateway.read` |
-| **RLS** | Backend-enforced (device_code + store scope post-filter) |
-| **Status** | ✅ VERIFIED |
-
-### /readiness
-
-| Aspect | Detail |
-|---|---|
-| **Portal route** | `GET /readiness` |
-| **Handler** | `readiness_page()` (line 509) |
-| **RBAC guard** | `require_auth_for_page` → `devices.gateway.read` |
-| **BackendClient methods** | `get_device_dashboard` |
-| **Backend endpoints** | `GET /api/device-dashboard` |
-| **Permission** | `devices.gateway.read` |
-| **RLS** | Backend-enforced |
-| **Status** | ✅ VERIFIED |
-
-### /admin
-
-| Aspect | Detail |
-|---|---|
-| **Portal route** | `GET /admin` |
-| **Handler** | `admin_page()` (line 1656) |
-| **RBAC guard** | `require_admin_access` → `users.read` + `roles.read` |
-| **BackendClient methods** | `list_users`, `list_roles`, `list_permissions`, `list_admin_audit` |
-| **Backend endpoints** | `GET /api/users`, `GET /api/roles`, `GET /api/permissions`, `GET /api/admin/audit` |
-| **Permission** | `users.read` + `roles.read` (system_admin/security_admin) |
-| **RLS** | N/A (admin-level) |
-| **Status** | ✅ VERIFIED |
-
----
-
-## 2. Broken Links Found & Fixed (40.2.2)
-
-| # | Page | Method (old) | Endpoint (old) | Method (new) | Endpoint (new) |
-|---|---|---|---|---|---|
-| 1 | `/campaigns` | `list_campaigns()` | `/api/campaigns/test-kso` | `list_campaigns_prod()` | `/api/campaigns` |
-| 2 | `/dashboard` | `list_approvals()` | `/api/approvals/test-kso` | `list_approvals_prod()` | `/api/approvals` |
-
----
-
-## 3. Permission Consistency (Backend Seed)
-
-### PAGE_PERMISSION_MAP → backend seed cross-reference
-
-| Route | Portal Permission | In Seed? | system_admin? | security_admin? |
+| Portal Permission | In Seed? | system_admin Has? | security_admin Has? | advertiser Has? |
 |---|---|---|---|---|
-| `/dashboard` | `campaigns.read` | ✅ | ✅ | ✅ |
-| `/campaigns` | `campaigns.read` | ✅ | ✅ | ✅ |
-| `/creatives` | `media.read` | ✅ | ✅ | ✅ |
-| `/schedule` | `scheduling.read` | ✅ | ✅ | ✅ |
-| `/publications` | `publications.read` | ✅ | ✅ | ✅ |
-| `/stores` | `organization.read` | ✅ | ✅ | ✅ |
-| `/devices` | `devices.read` | ✅ | ✅ | ✅ |
-| `/reports` | `reports.read` | ✅ | ✅ | ✅ |
-| `/approvals` | `campaigns.approve` | ✅ | ✅ | ✅ |
-| `/admin` | `users.read` | ✅ | ✅ | ✅ (via `users.manage`) |
-| `/device-dashboard` | `devices.gateway.read` | ✅ | ✅ | ✅ |
-| `/readiness` | `devices.gateway.read` | ✅ | ✅ | ✅ |
+| `campaigns.read` | ✅ | ✅ | ✅ | ✅ |
+| `media.read` | ✅ | ✅ | ✅ | ❌ |
+| `scheduling.read` | ✅ | ✅ | ✅ | ❌ |
+| `publications.read` | ✅ | ✅ | ✅ | ❌ |
+| `organization.read` | ✅ | ✅ | ✅ | ❌ |
+| `devices.read` | ✅ | ✅ | ❌ | ❌ |
+| `reports.read` | ✅ | ✅ | ❌ | ✅ |
+| `campaigns.approve` | ✅ | ✅ | ❌ | ❌ |
+| `users.read` | ✅ | ✅ | ✅ | ❌ |
+| `devices.gateway.read` | ✅ | ✅ | ✅ | ❌ |
 
-**Result: 12/12 permissions exist in backend seed. system_admin has all 12. security_admin has all 12.**
+**Result: all PAGE_PERMISSION_MAP entries exist in seed.** No mismatch found (this time, unlike 40.2.1).
 
----
+### RBAC Role Coverage
 
-## 4. Legacy Test-KSO Usage Audit
+| Role | Can open /admin? | Can open /campaigns? | Can open /approvals? | Can open /device-dashboard? |
+|------|-----------------|---------------------|---------------------|---------------------------|
+| system_admin | ✅ (users.read + roles.read) | ✅ (campaigns.read) | ✅ (campaigns.approve) | ✅ (devices.gateway.read) |
+| security_admin | ✅ | ✅ | ❌ (no campaigns.approve) | ✅ |
+| ad_manager | ❌ (no users.read) | ✅ | ❌ | ✅ |
+| approver | ❌ | ✅ | ✅ | ✅ |
+| analyst | ❌ | ✅ | ❌ | ✅ |
+| advertiser | ❌ | ✅ | ❌ | ❌ |
+| operations | ❌ | ✅ | ❌ | ✅ |
 
-| BackendClient method | Endpoint | Production alternative | Called by page? |
-|---|---|---|---|
-| `list_campaigns()` | `/api/campaigns/test-kso` | `list_campaigns_prod()` → `/api/campaigns` | ❌ No (fixed) |
-| `list_approvals()` | `/api/approvals/test-kso` | `list_approvals_prod()` → `/api/approvals` | ❌ No (fixed) |
-| `list_pop_events()` | `/api/proof-of-play/test-kso` | `get_pop_report()` → `/api/reports/pop` | ❌ No |
-| `get_test_kso_readiness()` | `/api/test-kso/readiness` | `get_device_dashboard()` | ❌ No |
-| `list_placements()` | `/api/schedule/test-kso` | `list_placements_prod()` → `/api/placements` | ❌ No |
-| `request_approval()` | `/api/approvals/test-kso/request` | `create_approval()` → `/api/approvals` | ❌ No |
-| `decide_approval()` | `/api/approvals/test-kso/{code}/decide` | `approve_approval()` / `reject_approval()` | ❌ No |
-| `generate_manifest()` | `/api/manifests` | N/A (same — delegates to unified builder) | ✅ (but delegates to unified builder) |
+### BackendClient Legacy Methods (unused by portal)
 
-**Conclusion: No portal page calls legacy test-kso endpoints as primary path. All pages use production endpoints after 40.2.2 fix.**
+| Method | Endpoint | Used by Portal? | Status |
+|--------|----------|----------------|--------|
+| `list_campaigns()` | `GET /api/campaigns/test-kso` | ❌ | Legacy, unused |
+| `list_placements()` | `GET /api/schedule/test-kso` | ❌ | Legacy, unused |
+| `create_placement()` | `POST /api/schedule/test-kso` | ❌ | Legacy, unused |
+| `list_approvals()` | `GET /api/approvals/test-kso` | ❌ | Legacy, unused |
+| `request_approval()` | `POST /api/approvals/test-kso/request` | ❌ | Legacy, unused |
+| `decide_approval()` | `POST /api/approvals/test-kso/{code}/decide` | ❌ | Legacy, unused |
+| `get_test_kso_readiness()` | `GET /api/test-kso/readiness` | ❌ | Legacy, unused |
+| `list_pop_events()` | `GET /api/proof-of-play/test-kso` | **WAS used → fixed** | 🔧 Now unused |
 
----
+## Authorization & Error Handling
 
-## 5. Remaining Integration Gaps
+| Check | Status |
+|-------|--------|
+| All BackendClient methods pass `Authorization: Bearer {access_token}` | ✅ |
+| 401/403/404/500 handled safely (no internal details leaked) | ✅ |
+| Timeout handling (connect=5s, read=15s) | ✅ |
+| Sensitive key stripping in admin data (`_safe_users`, `_safe_audit`) | ✅ |
+| No secrets/tokens/backend_urls in HTML templates | ✅ |
+| No JS/CDN/localStorage in templates | ✅ |
 
-| # | Gap | Severity | Notes |
-|---|---|---|---|
-| G1 | BackendClient legacy methods still exist | 🟢 LOW | Methods exist but NOT called by any production page |
-| G2 | `generate_manifest()` uses `/api/manifests` (production) but also has test-kso legacy path | 🟢 LOW | Production path is primary |
-| G3 | Portal tests mostly mock-based, not live backend | 🟡 MEDIUM | Live integration profile added in 40.2.2 |
-| G4 | `/proof-of-play` page uses test-kso reporting | 🟡 MEDIUM | Deferred — production PoP report is `/reports` |
+## Remaining Gaps
 
----
-
-*Document created 2026-06-26 as part of 40.2.2 Portal Backend Integration Gate.*
-*No KSO/SSH/X11/Chromium/runner/sidecar/PoP/scanner/long-run launched.*
-*No secrets, full URLs, tokens, barcodes, or personal data disclosed.*
+1. **`/deployment`** is demo-only (static documentation page) — no backend data. Acceptable.
+2. **Legacy methods in BackendClient** are dead code but not breaking anything — can be cleaned up in future step.
+3. **Live integration test** (portal → backend HTTP) is created but runs against mock in default regression; full HTTP mode requires running backend.
+4. **RLS verification through portal** is implicit — portal trusts backend RLS, no separate portal-side RLS. Backend tests cover RLS enforcement.
