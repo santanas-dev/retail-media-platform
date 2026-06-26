@@ -783,6 +783,25 @@ v<major>.<minor>.<patch>-<descriptor>
 - ✅ No secrets / real URLs / tokens / device_secret in docs, output, or tag message
 - ✅ Annotated tag (`git tag -a`) with description
 
+## 39.4.1 — Backend Device Dashboard API (2026-06-26)
+
+### Added
+- `GET /api/device-dashboard` aggregation endpoint — crosses GatewayDevice, KsoDevice,
+  DeviceCredential, DeviceSession, DeviceHeartbeat, DeviceCurrentManifestState,
+  KsoProofOfPlayEvent, DeviceMediaCacheItems (8 tables) into safe projection
+- Readiness badge: `ready` / `warning` / `blocked` / `unknown` (server-side logic)
+- `_parse_dt()` helper for SQLite datetime compatibility
+
+### Fixed
+- GAP 3: `record_heartbeat()` now cross-propagates `last_seen_at` to `KsoDevice` by `device_code`
+- Import: `from app.domains.hierarchy.models import KsoDevice`
+
+### Deferred
+- GAP 2: `sidecar_status` in heartbeat payload → 39.4.4
+
+### Tests
+- 16 new tests in `backend/tests/test_device_dashboard_api.py`
+
 ### Retrospective tags
 
 Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags should only be created after explicit confirmation, as they may point to commits with known issues or incomplete regression state.

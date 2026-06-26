@@ -349,3 +349,14 @@ python3 -m unittest discover -s infra/kso-linux/tests -v   # 227/227 OK
 
 *Document created 2026-06-25 as part of 39.0 Product Backend / Frontend Gap Analysis.
 No KSO modifications. No physical tests. No secrets disclosed. Regression green baseline preserved.*
+
+## 11. 39.4.1 Update — Device Dashboard API
+
+**GAP 1 (Blocker): No device dashboard aggregation endpoint** — ✅ CLOSED.
+`GET /api/device-dashboard` aggregates 8 tables into safe projection.
+Permission: `devices.gateway.read`. 16 tests green.
+
+**GAP 3 (Blocker): KsoDevice.last_seen_at not updated by heartbeat** — ✅ CLOSED.
+`record_heartbeat()` cross-propagates to KsoDevice.
+
+**GAP 2: sidecar_status in heartbeat** — deferred to 39.4.4.

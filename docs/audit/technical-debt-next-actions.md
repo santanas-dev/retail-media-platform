@@ -415,3 +415,9 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - ❌ No physical KSO changes / SSH / X11 / Chromium / runner
 - ❌ No sidecar daemon / PoP upload
 - ❌ No secrets in git or output
+
+### 39.4.1 — Device Dashboard API (2026-06-26)
+- ✅ `GET /api/device-dashboard` aggregation endpoint (8 tables cross-referenced)
+- ✅ GAP 3: `record_heartbeat()` cross-propagates `last_seen_at` to KsoDevice
+- ⏸ GAP 2: sidecar_status in heartbeat deferred to 39.4.4
+- ✅ 16 tests green

@@ -268,3 +268,33 @@ For all dashboard endpoints:
 - ❌ Sidecar sync не запускался
 - ❌ Secrets/full URLs/tokens/barcodes не выводились
 - ✅ v0.9.0 и v0.10.0 tags не переписывались
+
+
+## 8. 39.4.1 Status — Backend Device Dashboard API
+
+**Date:** 2026-06-26
+**Commit:** `c6f504a`
+
+### GAP 1 — CLOSED ✅
+
+`GET /api/device-dashboard` aggregation endpoint created.
+
+- **Router:** `backend/app/domains/device_dashboard/router.py`
+- **Service:** `backend/app/domains/device_dashboard/service.py`
+- **Schemas:** `backend/app/domains/device_dashboard/schemas.py`
+- **Permission:** `devices.gateway.read` (reuse existing)
+- **Cross-references:** GatewayDevice + KsoDevice + DeviceCredential + DeviceSession
+  + DeviceHeartbeat + DeviceCurrentManifestState + KsoProofOfPlayEvent
+  + DeviceMediaCacheItems (8 tables).
+- **Readiness badge:** ready / warning / blocked / unknown.
+  Staleness threshold: 15 minutes.
+- **Safe projection:** NO raw UUIDs, secrets, tokens, backend URLs, IPs, MACs, serials, paths, personal data.
+- **Tests:** 16 added, all green.
+
+### GAP 3 — CLOSED ✅
+
+`record_heartbeat()` in `device_gateway/service.py` now cross-propagates `last_seen_at` to `KsoDevice` by `device_code` (import `from app.domains.hierarchy.models import KsoDevice`).
+
+### GAP 2 — DEFERRED to 39.4.4
+
+`sidecar_status` in heartbeat payload remains deferred.

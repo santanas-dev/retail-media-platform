@@ -20,6 +20,7 @@ from starlette.background import BackgroundTask
 
 from app.core.config import get_settings
 from app.domains.device_gateway import models, schemas
+from app.domains.hierarchy.models import KsoDevice
 from app.domains.media.storage import _get_client as _get_minio_client
 from app.domains.publications.models import (
     ManifestItem, ManifestVersion, PublicationBatch, PublicationTarget,
@@ -550,6 +551,17 @@ async def record_heartbeat(
         db, "heartbeat_received",
         f"Heartbeat from {device.device_code}", device.id,
     )
+
+    # GAP 3 fix — cross-propagate last_seen_at to KsoDevice if one exists
+    _kso_result = await db.execute(
+        select(KsoDevice).where(
+            KsoDevice.device_code == device.device_code,
+        )
+    )
+    _kso = _kso_result.scalar_one_or_none()
+    if _kso:
+        _kso.last_seen_at = _now()
+
     await db.commit()
     await db.refresh(heartbeat)
     return heartbeat
