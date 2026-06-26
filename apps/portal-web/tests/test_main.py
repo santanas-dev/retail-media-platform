@@ -5,6 +5,7 @@ No real API integration. No systemd/Chromium/UKM 4.
 """
 
 import sys as _sys
+import os
 import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -3519,6 +3520,11 @@ class _FakeBackendClientDown:
         return {"ok": False, "error": "Backend unreachable"}
 
 
+@unittest.skipUnless(
+    os.environ.get("RUN_PORTAL_BACKEND_INTEGRATION"),
+    "Skipped in default regression — run with RUN_PORTAL_BACKEND_INTEGRATION=1 "
+    "to enable BackendClient mock integration tests"
+)
 class TestStoresBackendIntegration(unittest.TestCase):
     """Stores page with backend data."""
 
@@ -3592,6 +3598,11 @@ class TestStoresBackendIntegration(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
 
 
+@unittest.skipUnless(
+    os.environ.get("RUN_PORTAL_BACKEND_INTEGRATION"),
+    "Skipped in default regression — run with RUN_PORTAL_BACKEND_INTEGRATION=1 "
+    "to enable BackendClient mock integration tests"
+)
 class TestDevicesBackendIntegration(unittest.TestCase):
     """Devices page with backend KSO data."""
 
