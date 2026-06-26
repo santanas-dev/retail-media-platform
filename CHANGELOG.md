@@ -87,7 +87,23 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
+## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-26)
+
+### 39.4.0 — Device / Sidecar Dashboard Analysis
+
+**Comprehensive audit of device registry, gateway, sidecar status, and portal pages. 7 gaps identified.**
+
+- Analysis document: `docs/audit/device-sidecar-dashboard-analysis.md`
+- **What exists:** rich device model layer (KsoDevice, GatewayDevice, DeviceHeartbeat, DeviceCredential, DeviceSession, DeviceEvent, DeviceManifestRequest, DeviceMediaRequest). Gateway admin endpoints for per-device detail. Sidecar `agent_status.json` (running/warning/error) and `player_readiness.py`. Portal `/devices` page (KSO registry only) and `/readiness` page (test-kso only).
+- 🔴 **GAP 1:** No device dashboard aggregation endpoint — `GET /api/device-dashboard` needed
+- 🔴 **GAP 2:** Heartbeat does not carry sidecar agent status (`running`/`warning`/`error`)
+- 🔴 **GAP 3:** `KsoDevice.last_seen_at` not updated by heartbeat handler
+- 🟡 **GAP 4:** Portal `/readiness` is test-kso-only, hardcoded device_code
+- 🟡 **GAP 5:** Portal `/devices` shows no gateway data (heartbeat, credential, manifest, PoP)
+- 🟢 **GAP 6:** No per-device manifest/media readiness surfaced
+- 🟢 **GAP 7:** No error aggregation endpoint for device events
+- Plan: 39.4.1 Backend API → 39.4.2 Portal page → 39.4.3 Readiness hardening → 39.4.4 Sidecar contract → 39.4.5 Polish
+- No code changes — docs only
 
 ### 39.3.4 — Publication Batch Workflow Hardening
 
