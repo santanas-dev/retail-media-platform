@@ -49,6 +49,61 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [v0.11.0-pre-pilot-security-baseline] — 2026-06-26
+
+**Release: Pre-Pilot Security Baseline — RLS gate closed, audit hardened, device dashboard complete, pilot gates documented.**
+
+### What's included
+
+| Step | What | Regression |
+|---|---|---|
+| 39.4 | Device/Sidecar Dashboard (7 GAPs: aggregation endpoint, portal page, sidecar_status, readiness hardening) | 5103 green |
+| 40.0 | TZ Alignment / Security & RLS Audit (34 requirements traced, gap analysis) | 5079 green |
+| 40.1 | RLS Hardening P0 (foundation: UserScopeContext, apply_advertiser_rls, 17 unit tests) | 5096 green |
+| 40.1.2 | RLS Gate Closure (schedules/publications/manifests enforced, 42 endpoint tests) | 5116 green |
+| 40.1.3 | Regression Baseline Cleanup (all suites green, integration tests separated, sidecar flaky fix) | 5106 green |
+| 40.2 | Admin Audit Hardening (business-audit trail, payload redaction, 18 tests) | 5124 green |
+| 40.3 | Pilot Readiness Gates Plan (4 gates, 7 approval tokens, decision matrix) | 5156 green |
+
+### Default Regression
+
+| Suite | Passed | Skipped | Failed |
+|---|---|---|---|
+| Backend | 475 | 0 | 0 |
+| Portal | 458 | 20 | 0 |
+| KSO state adapter | 86 | 0 | 0 |
+| KSO player | 2072 | 12 | 0 |
+| KSO sidecar | 1838 | 0 | 0 |
+| Infra | 227 | 0 | 0 |
+| **Total** | **5156** | **32** | **0** |
+
+### Pilot Status
+
+**NO-GO 🔴** — physical pilot remains NOT approved.
+
+Required for GO:
+- HW scanner E2E validation (scanner unavailable)
+- Controlled long-run (≥1h)
+- Physical operator + approval tokens
+
+### Commits
+
+| Commit | Description |
+|---|---|
+| `5557563` | 📡 Close all device/sidecar dashboard GAPs (39.4.3) |
+| `3628c3f` | 🔍 TZ alignment / Security & RLS audit gate (40.0) |
+| `d00858d` | 🔐 Add RLS enforcement layer — campaigns/creatives/approvals/reports/dashboard (40.1) |
+| `f04ba67` | 🔐 Verify RLS enforcement — fix P0 campaign leaks (40.1.1) |
+| `fabf13d` | 🔐 Add RLS endpoint evidence and close gate (40.1.2) |
+| `67baca7` | 🧪 Stabilize regression baseline after RLS hardening (40.1.3) |
+| `1b51894` | 📋 Update audit doc with clean regression baseline (40.1.3) |
+| `8ff648a` | 🧾 Harden admin audit trail (40.2) |
+| `793266d` | 📋 Define pilot readiness gates (40.3) |
+
+No KSO/SSH/X11/Chromium/runner/sidecar launched. No manifest delivery. No scanner test. No PoP upload. No secrets committed.
+
+---
+
 ## [40.3-pilot-readiness-gates-plan] — 2026-06-26
 
 **Pilot Readiness Gates Plan — comprehensive gate definition, no physical execution.**

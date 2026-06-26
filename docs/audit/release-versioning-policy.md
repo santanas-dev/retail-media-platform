@@ -136,11 +136,46 @@ All Phase 39.3 approval/publication hardening items closed. Backend workflow com
 | 40.1.2 | RLS Gate Closure | `fabf13d` | 5116 green |
 | 40.1.3 | Regression Baseline Cleanup | `1b51894` | 5106 green |
 | 40.2 | Admin Audit Hardening | `8ff648a` | 5124 green |
-| 40.3 | Pilot Readiness Gates Plan | TBD | 5124 green |
+| 40.3 | Pilot Readiness Gates Plan | `793266d` | 5156 green |
 
-### v0.11.0 — Pilot Readiness Gates (next)
+### v0.11.0-pre-pilot-security-baseline (2026-06-26)
 
-Gate conditions:
+**Release: Pre-Pilot Security Baseline — RLS gate closed, audit hardened, device dashboard complete, pilot gates documented.**
+
+Gate conditions met for tagging:
+
+- Full regression green: 5156 passed, 32 skipped, 0 failed
+- RLS gate closed (all domains enforced, 42 endpoint-level tests)
+- Audit trail active (all critical workflows, payload redaction)
+- Device/Sidecar dashboard complete (7 GAPs closed)
+- Pilot readiness gates documented (4 gates, 7 approval tokens)
+- TZ alignment audit completed
+
+#### What is included
+
+| Step | What |
+|---|---|
+| 39.4 | Device/Sidecar Dashboard — aggregation endpoint + portal page, 7 GAPs closed |
+| 40.0 | TZ Alignment / Security & RLS Audit — 34 requirements traced |
+| 40.1 | RLS Hardening P0 — foundation layer, 17 unit tests |
+| 40.1.2 | RLS Gate Closure — schedules/publications/manifests enforced, 42 endpoint tests |
+| 40.1.3 | Regression Baseline Cleanup — all 6 suites green, integration tests separated |
+| 40.2 | Admin Audit Hardening — business-audit trail, payload redaction, 18 tests |
+| 40.3 | Pilot Readiness Gates Plan — 4 gates documented, approval tokens defined |
+
+#### Pilot Status
+
+**NO-GO 🔴** — physical pilot remains NOT approved. Required for GO:
+
+- HW scanner E2E validation (scanner unavailable)
+- Controlled long-run (≥1h)
+- Physical operator + approval tokens
+
+Target: `main` branch, commit `793266d`.
+
+### v0.11.0-pilot-readiness-gates (future)
+
+Gate conditions for this tag:
 
 - HW scanner E2E validation completed
 - Controlled long-run (≥1h) completed
@@ -151,4 +186,4 @@ Gate conditions:
 - Pilot runbook finalized
 - All approval tokens issued and consumed cleanly
 
-Target tag: `v0.11.0-pilot-readiness-gates`
+This tag will be created AFTER Gates A+B are green.
