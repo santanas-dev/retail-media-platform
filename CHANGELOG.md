@@ -9,6 +9,19 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.2.2.1 — Campaign Create Production API Fix
+
+**Campaign creation now uses production `POST /api/campaigns/by-code` — test-kso no longer primary path.**
+
+- Backend: new `POST /api/campaigns/by-code` endpoint + `CampaignCreateByCode` schema + `create_campaign_by_code` service
+- `BackendClient.create_campaign` now calls `/api/campaigns/by-code` (production) instead of `/api/campaigns/test-kso`
+- Portal `/campaigns/create` uses production API exclusively
+- Template: test-kso reference removed from UI text
+- Test-kso endpoints (`POST /api/campaigns/test-kso`, `GET /api/campaigns/test-kso`) retained as legacy/dev helpers
+- Backend tests: 314/314 OK
+- Portal tests: 424/424 OK
+- Campaign UI production gap → FULLY CLOSED ✅
+
 ### 39.2.2 — Portal Campaign Create/Edit UI Backend Integration
 
 **Campaign page connected to production Campaign API — create, edit, archive, creative binding.**

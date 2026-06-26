@@ -560,7 +560,7 @@ async def campaigns_create(
     description: str = Form("", max_length=500),
     creative_code: str = Form("", max_length=64),
 ):
-    """Create campaign via POST /campaigns/create → backend test-kso."""
+    """Create campaign via POST /campaigns/create → production API."""
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/campaigns")
     if guard is not None:

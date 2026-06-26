@@ -351,13 +351,12 @@ class BackendClient:
         )
 
     async def create_campaign(self, access_token: str, payload: dict) -> dict:
-        """POST /api/campaigns/test-kso → {ok, data: {campaign_code, name, ...}}
-        
-        Uses test-kso create — accepts campaign_code + name + creative_codes
-        without requiring order_id UUID.
+        """POST /api/campaigns/by-code → {ok, data: {campaign_code, name, ...}}
+
+        Production-safe code-based campaign creation — no UUIDs required.
         """
         return await self._request(
-            "POST", "/api/campaigns/test-kso",
+            "POST", "/api/campaigns/by-code",
             json_data=payload,
             headers={"Authorization": f"Bearer {access_token}"},
         )

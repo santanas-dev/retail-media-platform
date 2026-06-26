@@ -263,6 +263,24 @@ async def create_test_kso_campaign(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Production campaign creation by code (39.2.2.1)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.post(
+    "/campaigns/by-code",
+    response_model=schemas.CampaignSafeResponse,
+    status_code=201,
+)
+async def create_campaign_by_code(
+    data: schemas.CampaignCreateByCode,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("campaigns.create")),
+):
+    """Create a campaign via production-safe code-based input (no UUIDs)."""
+    return await service.create_campaign_by_code(db, data, current_user.id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Code-based campaign lookups (production API)
 # Lookup by campaign_code instead of raw UUID — safe for frontend.
 # ═══════════════════════════════════════════════════════════════════════════

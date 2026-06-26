@@ -902,3 +902,38 @@ async def unbind_campaign_creative(
         "is_active": binding.is_active,
         "created_at": binding.created_at,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Production campaign creation by code (39.2.2.1)
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def create_campaign_by_code(
+    db: AsyncSession,
+    data: schemas.CampaignCreateByCode,
+    user_id: UUID,
+) -> schemas.CampaignSafeResponse:
+    """Create a standard Campaign via production-safe code-based input.
+
+    Uses the same internal technical context as test-kso but presents
+    as a production endpoint.  Caller never sees UUIDs.
+    """
+    test_kso_data = schemas.CampaignTestKsoCreate(
+        campaign_code=data.campaign_code,
+        name=data.name,
+        description=data.description,
+        creative_codes=data.creative_codes or [],
+    )
+    campaign = await create_test_kso_campaign(db, test_kso_data, user_id)
+    creative_codes = sorted([
+        cc.creative_code for cc in (campaign.creatives or [])
+    ])
+    return schemas.CampaignSafeResponse(
+        campaign_code=campaign.campaign_code,
+        name=campaign.name,
+        status=campaign.status,
+        description=campaign.comment,
+        creative_codes=creative_codes,
+        created_at=campaign.created_at,
+        updated_at=campaign.updated_at,
+    )

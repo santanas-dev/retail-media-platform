@@ -194,6 +194,24 @@ class CampaignTestKsoCreate(BaseModel):
     creative_codes: list[str] = Field(min_length=1, max_length=20)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Production campaign creation by code (safe — no UUIDs required)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CampaignCreateByCode(BaseModel):
+    """Production-safe campaign creation — code-based, no UUIDs.
+
+    Creates a standard Campaign using internal technical context.
+    Frontend never sees order_id/advertiser_id/brand_id.
+    """
+    campaign_code: str = Field(
+        min_length=3, max_length=64, pattern=CAMPAIGN_CODE_PATTERN,
+    )
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(None, max_length=500)
+    creative_codes: list[str] = Field(default_factory=list, max_length=20)
+
+
 class CampaignSafeResponse(BaseModel):
     """Safe read-only view of a Campaign for test KSO vertical slice.
 
