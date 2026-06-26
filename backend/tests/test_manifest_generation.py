@@ -159,6 +159,20 @@ class TestManifestServiceLogic(unittest.TestCase):
                            "minio", "backend_url", "token", "secret"):
             self.assertIn(forbidden, FORBIDDEN_RESPONSE_KEYS)
 
+    def test_unified_builder_exported(self):
+        """build_manifest_from_placement is importable from service."""
+        from app.domains.manifests.service import build_manifest_from_placement
+        import asyncio
+        self.assertTrue(callable(build_manifest_from_placement))
+        self.assertTrue(asyncio.iscoroutinefunction(build_manifest_from_placement))
+
+    def test_unified_builder_used_by_generate_manifest(self):
+        """generate_manifest calls the unified builder (logic check)."""
+        import inspect
+        from app.domains.manifests.service import generate_manifest
+        source = inspect.getsource(generate_manifest)
+        self.assertIn("build_manifest_from_placement", source)
+
 
 class TestManifestProjectionIntegration(unittest.TestCase):
     """Test that the projection builder produces sidecar-compatible output."""

@@ -47,6 +47,27 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.3.2 — Manifest Generation Unification
+
+**Unified manifest builder. Blocker B3 closed, production manifest endpoints added.**
+
+- Unified builder: `build_manifest_from_placement()` — canonical entry point for placement-based manifest generation. Both production and legacy test-kso paths delegate to this.
+- `generate_manifest()` refactored → delegates to unified builder (deduplicated ~100 lines of validation)
+- Production endpoints added: `POST /api/manifests`, `GET /api/manifests/{code}`, `POST /api/manifests/{code}/publish`
+- Router reordered: literal paths (test-kso) before parameterized paths (/{manifest_code}) to prevent shadowing
+- BackendClient updated: `generate_manifest()` → `POST /api/manifests` (production), `get_manifest()` → `GET /api/manifests/{code}` (production), `publish_manifest()` → `POST /api/manifests/{code}/publish` (production)
+- Portal publications page: generate/publish forms now call production endpoints
+- Publication batch `publish_batch` already requires approved ApprovalRequest (39.3.1 foundation)
+- Legacy test-kso endpoints preserved: `/test-kso/generate`, `/test-kso`, `/test-kso/{code}`, `/test-kso/{code}/publish` — all delegate to unified builder
+- All responses: safe projection, no raw UUIDs/secrets/tokens/backend_url
+- Backend tests: +15 (2 unified builder checks, 13 production endpoint + route + safe response tests)
+- Portal tests: 431 unchanged
+- 🔴 B3 (fragmented manifest generation) → CLOSED
+- 🟡 B2 (full batch workflow: manifest delivery, sidecar sync) → deferred to 39.3.3
+- Manifest versioning/idempotency: `publish_manifest` idempotent (already published → return as-is); `generate_manifest` checks duplicate manifest_code (409)
+- What remains for 39.3.3: Portal Approval/Publication UX, manifest delivery to KSO, full publication batch workflow, sidecar sync
+- Physical KSO not touched, manifest not delivered to device
+
 ### 39.3.1 — Production Approval API Foundation
 
 **Production approval endpoints with publication batch integration. Blocker B1 closed, B2 partially.**

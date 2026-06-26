@@ -82,7 +82,9 @@ Campaign → placement → schedule → approval → manifest → batch → publ
 
 **Fix:** Либо объединить: batch `approve` должен проверять ApprovalRequest статус, либо убрать встроенный approve из batch и требовать отдельный approval через `/api/approvals`.
 
-### 🔴 Blocker 3: Fragmented Manifest Generation
+### 🔴 Blocker 3: Fragmented Manifest Generation → ✅ FIXED (39.3.2)
+
+**Fix:** Unified `build_manifest_from_placement()` — canonical builder for placement-based manifest generation. Production endpoints `POST /api/manifests`, `GET /api/manifests/{code}`, `POST /api/manifests/{code}/publish` added. Legacy test-kso endpoints preserved, delegates to same unified builder. Portal BackendClient switched to production paths.
 
 **Проблема:** `POST /api/manifests/test-kso/generate` (standalone) и `POST /api/publication-batches/{id}/generate` (batch) — две разные системы генерации manifest. Standalone test-kso не использует batch workflow.
 

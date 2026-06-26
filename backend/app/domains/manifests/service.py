@@ -1,4 +1,11 @@
-"""Manifest generation service — test KSO minimal."""
+"""Manifest generation service — unified KSO-safe manifest builder.
+
+Both production and legacy test-kso paths use the same
+build_manifest_from_placement() function for placement-based generation.
+The Publication Batch system uses a separate schedule-item-based pipeline
+in publications/service.py which also feeds into the same
+build_kso_safe_manifest_projection() core.
+"""
 
 import json
 from datetime import datetime, timezone
@@ -11,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domains.manifests import models, schemas
 from app.domains.publications.kso_manifest_projection import (
     ManifestSourceItem,
+    KsoSafeManifestProjectionResult,
     build_kso_safe_manifest_projection,
 )
 
@@ -25,49 +33,24 @@ def _now():
     return datetime.now(timezone.utc)
 
 
-def _safe_response(manifest: models.GeneratedManifest) -> dict:
-    """Build safe dict from GeneratedManifest — no IDs, secrets, paths."""
-    return {
-        "manifest_code": manifest.manifest_code,
-        "device_code": manifest.device_code,
-        "placement_code": manifest.placement_code,
-        "campaign_code": manifest.campaign_code,
-        "status": manifest.status,
-        "schema_version": manifest.schema_version,
-        "item_count": manifest.item_count,
-        "preview_body": manifest.manifest_body_json,
-        "media_ref_format": manifest.media_ref_format,
-        "generated_at": manifest.generated_at.isoformat() if manifest.generated_at else None,
-        "published_at": manifest.published_at.isoformat() if manifest.published_at else None,
-        "created_at": manifest.created_at.isoformat() if manifest.created_at else None,
-        "updated_at": manifest.updated_at.isoformat() if manifest.updated_at else None,
-    }
-
-
-async def generate_manifest(
+async def build_manifest_from_placement(
     db: AsyncSession,
-    data: schemas.ManifestGenerateRequest,
-    user_id: UUID,
-) -> models.GeneratedManifest:
-    """Generate a KSO-safe manifest from approved placement."""
+    placement_code: str,
+) -> KsoSafeManifestProjectionResult:
+    """Unified manifest builder from placement — the canonical entry point.
 
-    # ── Validate manifest_code unique ──
-    existing = await db.execute(
-        select(models.GeneratedManifest).where(
-            models.GeneratedManifest.manifest_code == data.manifest_code
-        )
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(
-            status_code=409,
-            detail=f"Manifest code '{data.manifest_code}' already exists",
-        )
+    Both production and legacy test-kso generation paths call this function.
+    It validates placement, campaign, creative, and device, then builds
+    a KSO-safe manifest projection via build_kso_safe_manifest_projection().
 
+    Returns KsoSafeManifestProjectionResult with ok/errors/manifest.
+    Raises HTTPException(404) if placement not found.
+    """
     # ── Validate placement exists and status=approved ──
     from app.domains.scheduling.models import KsoPlacement
     placement_result = await db.execute(
         select(KsoPlacement).where(
-            KsoPlacement.placement_code == data.placement_code
+            KsoPlacement.placement_code == placement_code
         )
     )
     placement = placement_result.scalar_one_or_none()
@@ -115,7 +98,6 @@ async def generate_manifest(
     creative = creative_result.scalar_one_or_none()
     if not creative:
         raise HTTPException(status_code=400, detail="Creative not found")
-    # Accept approved or active creative
     if creative.status not in ("approved", "active"):
         raise HTTPException(
             status_code=409,
@@ -160,20 +142,65 @@ async def generate_manifest(
         channel_code="kso",
         campaign_status=campaign.status,
         creative_status=creative.status,
-        rendition_status="valid",  # test KSO: assume valid
-        publication_status="published",  # must pass projection filter
+        rendition_status="valid",
+        publication_status="published",
         device_status=device.status,
         store_is_active=store.is_active if store else True,
         store_code=store_code,
         device_code=device.device_code,
         content_type=content_type,
-        duration_ms=5000,  # safe default for image
+        duration_ms=5000,
         slot_order=placement.slot_order or 0,
         valid_from=placement.starts_at,
         valid_to=placement.ends_at,
     )
 
-    projection = build_kso_safe_manifest_projection([source_item], generated_at=_now())
+    return build_kso_safe_manifest_projection([source_item], generated_at=_now())
+
+
+def _safe_response(manifest: models.GeneratedManifest) -> dict:
+    """Build safe dict from GeneratedManifest — no IDs, secrets, paths."""
+    return {
+        "manifest_code": manifest.manifest_code,
+        "device_code": manifest.device_code,
+        "placement_code": manifest.placement_code,
+        "campaign_code": manifest.campaign_code,
+        "status": manifest.status,
+        "schema_version": manifest.schema_version,
+        "item_count": manifest.item_count,
+        "preview_body": manifest.manifest_body_json,
+        "media_ref_format": manifest.media_ref_format,
+        "generated_at": manifest.generated_at.isoformat() if manifest.generated_at else None,
+        "published_at": manifest.published_at.isoformat() if manifest.published_at else None,
+        "created_at": manifest.created_at.isoformat() if manifest.created_at else None,
+        "updated_at": manifest.updated_at.isoformat() if manifest.updated_at else None,
+    }
+
+
+async def generate_manifest(
+    db: AsyncSession,
+    data: schemas.ManifestGenerateRequest,
+    user_id: UUID,
+) -> models.GeneratedManifest:
+    """Generate a KSO-safe manifest from approved placement.
+
+    Uses the unified build_manifest_from_placement() builder —
+    same code path as production and legacy test-kso endpoints.
+    """
+    # ── Validate manifest_code unique ──
+    existing = await db.execute(
+        select(models.GeneratedManifest).where(
+            models.GeneratedManifest.manifest_code == data.manifest_code
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail=f"Manifest code '{data.manifest_code}' already exists",
+        )
+
+    # ── Use unified builder for placement validation + projection ──
+    projection = await build_manifest_from_placement(db, data.placement_code)
 
     if not projection.ok:
         raise HTTPException(
@@ -181,11 +208,24 @@ async def generate_manifest(
             detail=f"Manifest projection failed: {'; '.join(projection.errors)}",
         )
 
+    # ── Derive safe codes from projection output ──
+    device_code = projection.manifest.get("deviceCode", "")
+    store_code = projection.manifest.get("storeCode", "unknown")
+
+    # ── Get campaign_code for the manifest record ──
+    from app.domains.scheduling.models import KsoPlacement
+    placement_result = await db.execute(
+        select(KsoPlacement).where(
+            KsoPlacement.placement_code == data.placement_code
+        )
+    )
+    placement = placement_result.scalar_one_or_none()
+
     manifest = models.GeneratedManifest(
         manifest_code=data.manifest_code,
-        device_code=device.device_code,
-        placement_code=placement.placement_code,
-        campaign_code=campaign.campaign_code,
+        device_code=device_code,
+        placement_code=data.placement_code,
+        campaign_code=placement.campaign_code if placement else "unknown",
         status="generated",
         schema_version=1,
         manifest_body_json=projection.manifest,

@@ -623,24 +623,28 @@ class BackendClient:
         )
 
     async def generate_manifest(self, access_token: str, payload: dict) -> dict:
-        """POST /api/manifests/test-kso/generate → {ok, data: {manifest_code, ...}}"""
+        """POST /api/manifests → {ok, data: {manifest_code, ...}} (production).
+
+        Uses the unified build_manifest_from_placement() builder.
+        Legacy /api/manifests/test-kso/generate delegates to the same code.
+        """
         return await self._request(
-            "POST", "/api/manifests/test-kso/generate",
+            "POST", "/api/manifests",
             json_data=payload,
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
     async def get_manifest(self, access_token: str, manifest_code: str) -> dict:
-        """GET /api/manifests/test-kso/{code} → {ok, data}"""
+        """GET /api/manifests/{code} → {ok, data} (production)."""
         return await self._request(
-            "GET", f"/api/manifests/test-kso/{manifest_code}",
+            "GET", f"/api/manifests/{manifest_code}",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
     async def publish_manifest(self, access_token: str, manifest_code: str) -> dict:
-        """POST /api/manifests/test-kso/{code}/publish → {ok, data}"""
+        """POST /api/manifests/{code}/publish → {ok, data} (production, idempotent)."""
         return await self._request(
-            "POST", f"/api/manifests/test-kso/{manifest_code}/publish",
+            "POST", f"/api/manifests/{manifest_code}/publish",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
