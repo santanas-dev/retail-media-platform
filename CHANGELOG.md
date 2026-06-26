@@ -7,6 +7,44 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [v0.9.0-product-portal-hardening] — 2026-06-25
+
+**Release: Product Portal Hardening — все DEMO-заглушки убраны из Schedule, Campaign, Dashboard, Reports.**
+
+### What's included
+
+- ✅ **Phase D** — one-KSO E2E dry run D0–D6 completed (physical KSO 192.168.110.223, 768×1024 portrait)
+- ✅ **Device auth** — JWT/bcrypt device gateway foundation (39.1.1)
+- ✅ **Campaign/placement production APIs** — code-based endpoints, creative binding (39.1.2)
+- ✅ **Schedule backend API** — Schedule + ScheduleSlot models, code-based CRUD (39.1.3)
+- ✅ **Schedule UI** — backend-driven, remove demo/stub, production API (39.2.1)
+- ✅ **Campaign UI** — production API: create (by-code), edit, archive, creative bind/unbind (39.2.2, 39.2.2.1)
+- ✅ **Dashboard** — real KPI from 6 backend list endpoints, remove demo (39.2.3, 39.2.3.1)
+- ✅ **Reports** — production PoP backend + server-side filters enabled (39.2.4, 39.2.4.1)
+- ✅ **RBAC** — schedule/campaign/reports permissions aligned with backend
+- ✅ **Full regression** — 4976 tests green (backend 322, portal 431, state 86, player 2072, sidecar 1838, infra 227)
+
+### Known deferred (not blocking v0.9.0)
+
+| Item | Status |
+|---|---|
+| HW scanner E2E validation | Postponed (scanner not available) |
+| Controlled long-run (≥48h) | Required before pilot |
+| Charts / Excel export / drill-down | UI deferred |
+| mTLS / nonce / rate-limit / rotation | Device gateway deferred |
+| RLS full enforcement | Later phase |
+| Live pilot / fleet rollout | NOT approved |
+| BackendIntegration failures (9) | Pre-existing, not blocking |
+
+### Previous releases
+
+- **v0.8.0** — Device gateway / backend API hardening
+- **v0.7.0** — One-KSO E2E dry run
+- **v0.6.0** — Sidecar config readiness
+- **v0.5.0** — Test KSO Phase A readiness
+
+---
+
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
 ### 39.2.4.1 — Enable Reports UI Filters
