@@ -54,6 +54,6 @@
 
 <div class="note-box">
   <span class="note-icon">📊</span>
-  <span class="note-text">Production Dashboard: все KPI вычисляются из реальных backend данных (campaigns, creatives, devices, schedules, publications, approvals). Демо-заглушки удалены.</span>
+  <span class="note-text">Production Dashboard: KPI из production backend API (GET /api/campaigns, /api/creatives, /api/devices/kso, /api/schedules, /api/manifests, /api/approvals/test-kso). Test-kso endpoints не используются как primary KPI источники.</span>
 </div>
 {% endblock %}

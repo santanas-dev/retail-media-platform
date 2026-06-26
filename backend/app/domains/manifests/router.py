@@ -10,6 +10,38 @@ from app.domains.manifests import schemas, service
 router = APIRouter(prefix="/api/manifests", tags=["manifests"])
 
 # ═══════════════════════════════════════════════════════════════════
+#  Production endpoints (39.2.3.1)
+# ═══════════════════════════════════════════════════════════════════
+
+@router.get(
+    "",
+    response_model=list[schemas.ManifestListItem],
+)
+async def list_manifests_prod(
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("publications.read")),
+):
+    """List all manifests — safe projection, no UUIDs (production)."""
+    manifests = await service.list_manifests(db)
+    return [
+        schemas.ManifestListItem(
+            manifest_code=m.manifest_code,
+            device_code=m.device_code,
+            placement_code=m.placement_code,
+            campaign_code=m.campaign_code,
+            status=m.status,
+            schema_version=m.schema_version,
+            item_count=m.item_count,
+            generated_at=m.generated_at,
+            published_at=m.published_at,
+            created_at=m.created_at,
+            updated_at=m.updated_at,
+        )
+        for m in manifests
+    ]
+
+
+# ═══════════════════════════════════════════════════════════════════
 #  Test KSO endpoints
 # ═══════════════════════════════════════════════════════════════════
 

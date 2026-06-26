@@ -124,12 +124,12 @@ async def dashboard_page(request: Request):
     if not access_token:
         return _dashboard_fallback(request, current_user, "Нет доступа.")
 
-    # Fetch all KPI sources in parallel-style (sequential for simplicity)
-    campaigns_r = await backend.list_campaigns(access_token)
+    # Fetch all KPI sources
+    campaigns_r = await backend.list_campaigns_prod(access_token)  # production
     creatives_r = await backend.list_creatives(access_token)
     devices_r = await backend.list_kso_devices(access_token)
     schedules_r = await backend.list_schedules(access_token)
-    manifests_r = await backend.list_manifests(access_token)
+    manifests_r = await backend.list_manifests(access_token)  # production /api/manifests
     approvals_r = await backend.list_approvals(access_token)
 
     # Count unreachable backends

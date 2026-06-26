@@ -9,6 +9,18 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.2.3.1 — Dashboard Production KPI Source Fix
+
+**Dashboard KPI sources switched from test-kso to production endpoints.**
+
+- `list_campaigns_prod()` → `GET /api/campaigns` (production) for campaign KPI counting
+- `list_manifests()` → `GET /api/manifests` (new production endpoint) for publications KPI
+- Backend: new `GET /api/manifests` production endpoint (safe projection, `publications.read`)
+- `GET /api/manifests/test-kso` retained as legacy
+- Dashboard no longer uses test-kso as primary KPI source
+- Backend tests: 314/314 OK | Portal tests: 425/425 OK
+- Dashboard test-kso dependency → GONE ✅
+
 ### 39.2.3 — Portal Dashboard Real KPI Integration
 
 **Dashboard connected to backend — demo_data removed as primary KPI source.**

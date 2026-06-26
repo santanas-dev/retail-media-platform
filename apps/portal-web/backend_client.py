@@ -350,6 +350,17 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    async def list_campaigns_prod(self, access_token: str) -> dict:
+        """GET /api/campaigns → {ok, data: [{id, name, status, ...}]} (production).
+
+        Returns full CampaignResponse with UUIDs — use for counting/KPI only.
+        Portal must strip UUIDs before rendering.
+        """
+        return await self._request(
+            "GET", "/api/campaigns",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
     async def create_campaign(self, access_token: str, payload: dict) -> dict:
         """POST /api/campaigns/by-code → {ok, data: {campaign_code, name, ...}}
 
@@ -552,9 +563,9 @@ class BackendClient:
     # ── Manifest Generation & Publication (Steps 37.7, 37.8) ─────────
 
     async def list_manifests(self, access_token: str) -> dict:
-        """GET /api/manifests/test-kso → {ok, data: [{manifest_code, ...}]}"""
+        """GET /api/manifests → {ok, data: [{manifest_code, ...}]} (production)."""
         return await self._request(
-            "GET", "/api/manifests/test-kso",
+            "GET", "/api/manifests",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
