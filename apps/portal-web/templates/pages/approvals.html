@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Согласования</h1>
-<p class="page-description">Минимальный approval gate для test KSO vertical slice. Запрос и принятие решений по кампаниям и размещениям.</p>
+<p class="page-description">Production approval workflow. Запрос и принятие решений по кампаниям, размещениям и публикационным пакетам.</p>
 
 <!-- Flash Messages -->
 {% if flash_msg %}
@@ -18,20 +18,21 @@
         <select id="object_type" name="object_type" required>
           <option value="campaign">Кампания</option>
           <option value="placement">Размещение</option>
+          <option value="publication_batch">Публикационный пакет</option>
         </select>
       </div>
       <div class="form-group">
         <label for="object_code">Код объекта*</label>
         <input type="text" id="object_code" name="object_code"
-               placeholder="demo_campaign_001" minlength="1" maxlength="64" required>
-        <span class="form-hint">campaign_code или placement_code.</span>
+               placeholder="campaign_code или placement_code" minlength="1" maxlength="64" required>
+        <span class="form-hint">campaign_code, placement_code или batch UUID.</span>
       </div>
     </div>
     <div class="form-row">
       <div class="form-group">
         <label for="req_comment">Комментарий</label>
         <input type="text" id="req_comment" name="comment"
-               placeholder="Ready for technical validation" maxlength="500">
+               placeholder="Причина запроса" maxlength="500">
       </div>
     </div>
     <button type="submit" class="btn-primary">Отправить на согласование</button>
@@ -46,7 +47,7 @@
       <div class="form-group">
         <label for="approval_code">Код согласования*</label>
         <input type="text" id="approval_code" name="approval_code"
-               placeholder="appr_campaign_demo_campaign_001" minlength="1" maxlength="64" required>
+               placeholder="approval_code" minlength="1" maxlength="64" required>
         <span class="form-hint">approval_code из списка ниже.</span>
       </div>
       <div class="form-group">
@@ -61,7 +62,7 @@
       <div class="form-group">
         <label for="dec_comment">Комментарий</label>
         <input type="text" id="dec_comment" name="comment"
-               placeholder="Approved for test KSO" maxlength="500">
+               placeholder="Комментарий к решению" maxlength="500">
       </div>
     </div>
     <button type="submit" class="btn-primary">Принять решение</button>
@@ -127,10 +128,6 @@
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Maker-checker: пользователь не может принять решение по собственному запросу. Публикация на КСО — следующий шаг после approval.</span>
-</div>
-<div class="note-box">
-  <span class="note-icon">🧪</span>
-  <span class="note-text">Test KSO technical validation: минимальный approval gate. Маршруты, SLA, уведомления — в следующих итерациях.</span>
+  <span class="note-text">Maker-checker: пользователь не может принять решение по собственному запросу. Публикация манифеста — следующий шаг после approval (backend status only, без доставки на КСО).</span>
 </div>
 {% endblock %}

@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Публикации</h1>
-<p class="page-description">Генерация и публикация manifest для test KSO — от approved placement до sidecar-compatible manifest.</p>
+<p class="page-description">Генерация и публикация manifest — от approved placement до production манифеста (backend status only, без доставки на КСО).</p>
 
 <!-- Flash messages -->
 {% if pub_flash and pub_flash.startswith('ok:') %}
 <div class="flash-ok">
-  {% if pub_flash == 'ok:generated' %}✅ Manifest сгенерирован.{% elif pub_flash == 'ok:published' %}🚀 Manifest опубликован.{% else %}✅ Успешно.{% endif %}
+  {% if pub_flash == 'ok:generated' %}✅ Manifest сгенерирован.{% elif pub_flash == 'ok:published' %}✅ Manifest опубликован (backend status).{% else %}✅ Успешно.{% endif %}
 </div>
 {% elif pub_flash == 'error' %}
 <div class="flash-error">❌ Ошибка: {{ pub_flash_msg }}</div>
@@ -19,12 +19,12 @@
     <div class="form-row">
       <label>Placement Code:</label>
       <input type="text" name="placement_code" required minlength="1" maxlength="64"
-             placeholder="demo_placement_001">
+             placeholder="placement_code">
     </div>
     <div class="form-row">
       <label>Manifest Code:</label>
       <input type="text" name="manifest_code" required minlength="1" maxlength="64"
-             placeholder="demo_manifest_001">
+             placeholder="manifest_code">
     </div>
     <button type="submit" class="btn-primary">Сгенерировать</button>
   </form>
@@ -32,12 +32,12 @@
 
 <!-- Publish Manifest Form -->
 <div class="form-panel">
-  <h2>Опубликовать Manifest</h2>
+  <h2>Опубликовать Manifest (backend status)</h2>
   <form method="POST" action="/publications/publish">
     <div class="form-row">
       <label>Manifest Code:</label>
       <input type="text" name="manifest_code" required minlength="1" maxlength="64"
-             placeholder="demo_manifest_001">
+             placeholder="manifest_code">
     </div>
     <button type="submit" class="btn-primary">Опубликовать</button>
   </form>
@@ -101,10 +101,10 @@
 {% endif %}
 <div class="note-box">
   <span class="note-icon">📦</span>
-  <span class="note-text">Manifest генерируется только из <strong>approved placement</strong> с approved campaign и active устройством. Публикация меняет статус generated → published и делает manifest доступным для sidecar.</span>
+  <span class="note-text">Manifest генерируется только из <strong>approved placement</strong> с approved campaign и active устройством. Публикация меняет статус generated → published (backend status only, без доставки на КСО).</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Все ответы safe: токены, backend URL, raw UUID не отображаются. Publication/delivery — минимальный gate для test KSO technical validation.</span>
+  <span class="note-text">Безопасная проекция: токены, backend URL, raw UUID не отображаются. Доставка манифеста на физическую КСО — следующий этап.</span>
 </div>
 {% endblock %}

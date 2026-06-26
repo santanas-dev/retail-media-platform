@@ -648,6 +648,36 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Publication Batches (39.3.3) ──────────────────────────────────
+
+    async def list_publication_batches(self, access_token: str) -> dict:
+        """GET /api/publication-batches → {ok, data: [...]} (production)."""
+        return await self._request(
+            "GET", "/api/publication-batches",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_publication_batch(
+        self, access_token: str, batch_id: str,
+    ) -> dict:
+        """GET /api/publication-batches/{id} → {ok, data} (production)."""
+        return await self._request(
+            "GET", f"/api/publication-batches/{batch_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def publish_batch(
+        self, access_token: str, batch_id: str,
+    ) -> dict:
+        """POST /api/publication-batches/{id}/publish → {ok, data} (production).
+
+        Requires approved ApprovalRequest for the batch.
+        """
+        return await self._request(
+            "POST", f"/api/publication-batches/{batch_id}/publish",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
     # ── Proof of Play KSO List (Step 37.11) ───────────────────────────
 
     async def list_pop_events(

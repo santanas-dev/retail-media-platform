@@ -47,6 +47,25 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.3.3 — Portal Approval / Publication UX Hardening
+
+**Portal approvals and publications pages fully converted to production backend endpoints. All test-kso/demo wording removed from production UI.**
+
+- Approvals page (`/approvals`): description updated to "production approval workflow", no test-kso mentions
+- Approvals form: added `publication_batch` object type (aligns with 39.3.1 backend)
+- Approvals notes: replaced "Test KSO technical validation" with "без доставки на КСО"
+- Publications page (`/publications`): description updated to "backend status only, без доставки на КСО"
+- Publications form: placeholders changed from `demo_placement_001`/`demo_manifest_001` to generic `placement_code`/`manifest_code`
+- Publications notes: removed "test KSO" wording, added "backend status only" clarification
+- Publications flash: "Опубликован" changed to "Опубликован (backend status)" —  to clarify no KSO delivery
+- BackendClient: added `list_publication_batches()`, `get_publication_batch()`, `publish_batch()` — production batch methods
+- All BackendClient manifest/approval methods already switched to production in 39.3.1–39.3.2
+- RBAC unchanged: `/approvals` → `approvals.read`, `/publications` → `publications.read`
+- No JS/CDN/localStorage added — all server-side rendering
+- Portal tests: +9 (no test-kso wording, production workflow checks, publication_batch form, backend-only notes, no raw IDs)
+- 🟡 B2 (approval-batch integration) → portal supports publication_batch approval; full batch workflow remains deferred
+- What remains for pilot gates: full publication batch workflow, sidecar sync, physical KSO delivery, scanner validation, long-run test
+
 ### 39.3.2 — Manifest Generation Unification
 
 **Unified manifest builder. Blocker B3 closed, production manifest endpoints added.**

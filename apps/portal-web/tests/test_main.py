@@ -702,7 +702,7 @@ class TestApprovalsPage(unittest.TestCase):
 
     def test_has_safe_notes(self):
         self.assertIn("Maker-checker", self.html)
-        self.assertIn("Test KSO technical validation", self.html)
+        self.assertIn("без доставки", self.html)
 
     def test_backend_unavailable_fallback(self):
         self.assertIn("временно недоступны", self.html.lower())
@@ -786,6 +786,70 @@ class TestPublicationsPage(unittest.TestCase):
     def test_publications_route_returns_200(self):
         resp = self.client.get("/publications")
         self.assertEqual(resp.status_code, 200)
+
+
+class TestProductionApprovalsPortal(unittest.TestCase):
+    """Production approval portal hardening (39.3.3)."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_approvals_page_no_test_kso_wording(self):
+        """Approvals page must NOT mention 'test KSO' in production."""
+        resp = self.client.get("/approvals")
+        self.assertNotIn("test KSO", resp.text)
+        self.assertNotIn("test-kso", resp.text)
+
+    def test_approvals_page_has_production_wording(self):
+        """Approvals page uses production workflow description."""
+        resp = self.client.get("/approvals")
+        self.assertIn("production", resp.text.lower())
+
+    def test_approvals_form_has_publication_batch(self):
+        """Publication batch is available as approval object type."""
+        resp = self.client.get("/approvals")
+        self.assertIn("publication_batch", resp.text)
+        self.assertIn("Публикационный пакет", resp.text)
+
+    def test_publications_page_no_test_kso_wording(self):
+        """Publications page must NOT mention 'test KSO' in production."""
+        resp = self.client.get("/publications")
+        self.assertNotIn("test KSO", resp.text)
+        self.assertNotIn("test-kso", resp.text)
+        self.assertNotIn("demo_placement_001", resp.text)
+        self.assertNotIn("demo_manifest_001", resp.text)
+
+    def test_publications_page_has_backend_only_note(self):
+        """Publications clarifies backend status only, no KSO delivery."""
+        resp = self.client.get("/publications")
+        self.assertIn("без доставки", resp.text)
+        self.assertIn("backend status", resp.text.lower())
+
+    def test_no_raw_ids_in_approvals(self):
+        resp = self.client.get("/approvals")
+        lower = resp.text.lower()
+        for f in ("access_token", "device_secret", "backend_url",
+                   "campaign_id\"", "user_id\""):
+            self.assertNotIn(f, lower)
+
+    def test_no_raw_ids_in_publications(self):
+        resp = self.client.get("/publications")
+        lower = resp.text.lower()
+        for f in ("access_token", "device_secret", "backend_url",
+                   "campaign_id\"", "placement_id\""):
+            self.assertNotIn(f, lower)
+
+    def test_approvals_no_js_cdn(self):
+        resp = self.client.get("/approvals")
+        self.assertNotIn("<script", resp.text.lower())
+        self.assertNotIn("onclick", resp.text.lower())
+        self.assertNotIn("cdn.", resp.text.lower())
+
+    def test_publications_no_js_cdn(self):
+        resp = self.client.get("/publications")
+        self.assertNotIn("<script", resp.text.lower())
+        self.assertNotIn("onclick", resp.text.lower())
+        self.assertNotIn("cdn.", resp.text.lower())
 
 
 # ══════════════════════════════════════════════════════════════════════

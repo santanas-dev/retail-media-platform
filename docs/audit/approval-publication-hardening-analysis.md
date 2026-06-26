@@ -76,7 +76,7 @@ Campaign → placement → schedule → approval → manifest → batch → publ
 
 ### 🔴 Blocker 2: Approvals Not Integrated with Publication Batch → 🟡 PARTIALLY FIXED (39.3.1)
 
-**Fix:** `publication_batch` object_type added to approval system. `publish_batch` now checks for approved ApprovalRequest. Schema updated to allow `publication_batch`.
+**Fix:** `publication_batch` object_type added to approval system. `publish_batch` now checks for approved ApprovalRequest. Schema updated to allow `publication_batch`. Portal UI (39.3.3): approvals page supports `publication_batch` object type. Full batch workflow (batch creation → generation → approval → publish → KSO delivery) remains deferred.
 
 **Impact:** Непонятно, какой approval нужен для публикации — через `/api/approvals` или через batch `approve`. Двойной approval — confusion.
 
