@@ -19,6 +19,12 @@ _DECISION_STATUS_MAP = {
     "reject": "rejected",
 }
 
+# Decision → approval record status
+_DECISION_TO_APPROVAL_STATUS = {
+    "approve": "approved",
+    "reject": "rejected",
+}
+
 
 async def _get_object_or_404(
     db: AsyncSession, object_type: str, object_code: str,
@@ -89,6 +95,15 @@ async def request_approval(
     """
     # 1. Validate object exists
     obj = await _get_object_or_404(db, data.object_type, data.object_code)
+
+    # 1.5 Validate object is in a state that allows approval
+    if obj.status not in ("draft", "pending_approval"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot request approval for {data.object_type} "
+                   f"'{data.object_code}' in status '{obj.status}' "
+                   f"(expected 'draft' or 'pending_approval')",
+        )
 
     # 2. Check no active pending approval
     await _check_no_active_pending(db, data.object_type, data.object_code)
@@ -164,7 +179,7 @@ async def decide_approval(
         )
 
     # 4. Update approval
-    approval.status = data.decision + "d" if data.decision == "approve" else data.decision
+    approval.status = _DECISION_TO_APPROVAL_STATUS[data.decision]
     approval.decision = data.decision
     approval.decided_by = user_id
     approval.decided_at = datetime.now(timezone.utc)

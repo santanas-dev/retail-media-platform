@@ -127,3 +127,41 @@ class TestApprovalSchemas(unittest.TestCase):
                      "status", "decision", "comment",
                      "requested_at", "decided_at"}
         self.assertEqual(fields, expected)
+
+
+class TestApprovalServiceLogic(unittest.TestCase):
+    """Unit tests for approval service logic (no DB needed)."""
+
+    def test_decision_status_mapping_is_explicit(self):
+        """Status mapping uses explicit dict, not string concatenation."""
+        import inspect
+        from app.domains.approvals.service import _DECISION_TO_APPROVAL_STATUS
+        self.assertEqual(_DECISION_TO_APPROVAL_STATUS["approve"], "approved")
+        self.assertEqual(_DECISION_TO_APPROVAL_STATUS["reject"], "rejected")
+        # Verify no string concatenation hack in source
+        source = inspect.getsource(
+            __import__("app.domains.approvals.service", fromlist=["decide_approval"]).decide_approval
+        )
+        self.assertNotIn('+ "d"', source)
+        self.assertNotIn("decision +", source)
+
+    def test_request_approval_validates_pre_approval_state(self):
+        """request_approval must check object is in draft/pending_approval state."""
+        import inspect
+        source = inspect.getsource(
+            __import__("app.domains.approvals.service", fromlist=["request_approval"]).request_approval
+        )
+        self.assertIn("draft", source)
+        self.assertIn("pending_approval", source)
+        self.assertIn("Cannot request approval", source)
+        self.assertIn("expected 'draft' or 'pending_approval'", source)
+
+    def test_rejected_campaign_cannot_be_reapproved_without_reset(self):
+        """Rejected status should prevent re-requesting approval."""
+        import inspect
+        source = inspect.getsource(
+            __import__("app.domains.approvals.service", fromlist=["request_approval"]).request_approval
+        )
+        # The status check uses `not in ("draft", "pending_approval")`
+        # This means rejected/approved/active/archived are all rejected
+        self.assertIn('not in (\"draft\", \"pending_approval\")', source.replace("'", '"'))

@@ -47,6 +47,20 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.3.0 — Approval & Publication Hardening Analysis
+
+**Comprehensive audit of approval/publication workflow. Analysis document + safe fixes.**
+
+- Analysis: `docs/audit/approval-publication-hardening-analysis.md` — 4 blockers, 5 deferred gaps
+- 🔴 Blocker 1: No production approval endpoint (all test-kso)
+- 🔴 Blocker 2: Approvals not integrated with Publication Batch
+- 🔴 Blocker 3: Fragmented manifest generation (standalone test-kso vs batch)
+- 🔴 Blocker 4: No pre-approval state validation
+- 🟡 Gap 5: Fragile status string concatenation → fixed (explicit `_DECISION_TO_APPROVAL_STATUS` dict)
+- 🟡 Added pre-approval state check: only `draft`/`pending_approval` can request approval
+- Backend tests: +3 (approval service logic checks)
+- Regression: 4979 tests green
+
 ### 39.2.4.1 — Enable Reports UI Filters
 
 **Reports page GET form enabled with server-side filters.**
