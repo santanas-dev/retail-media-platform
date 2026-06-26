@@ -22,8 +22,6 @@ from demo_data import (
     get_schedules_data,
     get_publications_data,
     get_approvals_data,
-    get_report_kpi,
-    get_report_table,
     get_users_data,
 )
 from backend_client import backend_login, backend_me, backend_logout, BackendClient
@@ -277,10 +275,117 @@ def _pop_fallback(request: Request, current_user, reason: str = "") -> HTMLRespo
         "backend_unavailable": True,
         "backend_message": "Данные временно недоступны. Попробуйте позже.",
     })
-app.add_api_route("/reports", _page("pages/reports.html", "Отчёты", "reports",
-                                    {"report_kpi": get_report_kpi(),
-                                     "report_table": get_report_table()}),
-                  methods=["GET"], response_class=HTMLResponse)
+# ══════════════════════════════════════════════════════════════════════
+# Reports — Backend-Driven PoP Integration (39.2.4)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/reports", response_class=HTMLResponse)
+async def reports_page(request: Request):
+    """Reports: backend-driven PoP report data (39.2.4).
+
+    KPI cards and recent events table use production /api/reports/pop.
+    No demo/fake numbers. No test-kso as primary source.
+    """
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/reports")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    client = BackendClient()
+    try:
+        # Pop summary (KPI cards)
+        pop_summary = {"total_events": 0, "unique_devices": 0,
+                       "unique_campaigns": 0, "unique_creatives": 0,
+                       "accepted": 0, "rejected": 0, "duplicate": 0,
+                       "unknown_status": 0, "last_event_at": None}
+        pop_summary_ok = False
+        sr = await client.get_pop_summary(at, filters={})
+        if sr["ok"]:
+            pop_summary = sr["data"]
+            pop_summary_ok = True
+
+        # Pop recent events (table)
+        pop_events = []
+        pop_events_ok = False
+        er = await client.get_pop_report(at, filters={"limit": 25})
+        if er["ok"]:
+            pop_events = er["data"]
+            pop_events_ok = True
+
+        # Campaign & creative counts for supplemental KPI
+        campaigns_count = 0
+        cr = await client.list_campaigns_prod(at)
+        if cr["ok"]:
+            campaigns_count = len(cr.get("data", []))
+
+        creatives_count = 0
+        cr2 = await client.list_creatives(at)
+        if cr2["ok"]:
+            creatives_count = len(cr2.get("data", []))
+
+        kso_count = 0
+        dr = await client.list_kso_devices(at)
+        if dr["ok"]:
+            kso_count = len(dr.get("data", []))
+
+        # Manifest count
+        manifests_count = 0
+        mr = await client.list_manifests(at)
+        if mr["ok"]:
+            manifests_count = len(mr.get("data", []))
+
+        backend_available = pop_summary_ok or pop_events_ok
+
+        return templates.TemplateResponse(request, "pages/reports.html", {
+            "request": request,
+            "title": "Отчёты",
+            "active": "reports",
+            "current_user": current_user,
+            "demo": False,
+            "pop_summary": pop_summary,
+            "pop_summary_ok": pop_summary_ok,
+            "pop_events": pop_events,
+            "pop_events_ok": pop_events_ok,
+            "campaigns_count": campaigns_count,
+            "creatives_count": creatives_count,
+            "kso_count": kso_count,
+            "manifests_count": manifests_count,
+            "backend_available": backend_available,
+            "backend_unavailable": not backend_available,
+            "backend_message": "Данные временно недоступны. Попробуйте позже.",
+            "filters": {},
+        })
+    except Exception:
+        return _reports_fallback(request, current_user,
+                                 reason="Backend communication error")
+    finally:
+        await client.close()
+
+
+def _reports_fallback(request: Request, current_user, *, reason: str = ""
+                      ) -> HTMLResponse:
+    """Safe fallback when backend is unreachable for reports."""
+    return templates.TemplateResponse(request, "pages/reports.html", {
+        "request": request,
+        "title": "Отчёты",
+        "active": "reports",
+        "current_user": current_user,
+        "demo": False,
+        "pop_summary": {},
+        "pop_summary_ok": False,
+        "pop_events": [],
+        "pop_events_ok": False,
+        "campaigns_count": 0,
+        "creatives_count": 0,
+        "kso_count": 0,
+        "manifests_count": 0,
+        "backend_available": False,
+        "backend_unavailable": True,
+        "backend_message": reason or "Данные временно недоступны. Попробуйте позже.",
+        "filters": {},
+    })
 app.add_api_route("/deployment", _page("pages/deployment.html", "Развёртывание", "deployment"),
                   methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/admin", _page("pages/admin.html", "Администрирование", "admin",

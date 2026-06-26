@@ -9,6 +9,26 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.2.4 — Reports Backend-Driven Integration
+
+**Reports page connected to production PoP backend — demo_data removed as primary source.**
+
+- Backend: new production endpoints `GET /api/reports/pop` (list) and `GET /api/reports/pop/summary` (aggregation)
+- Both endpoints require `reports.read` permission, safe projection (no raw UUIDs/secrets)
+- `get_pop_summary` aggregates: total_events, unique_devices/campaigns/creatives/placements, accepted/rejected/duplicate/unknown_status, last_event_at
+- `BackendClient`: new `get_pop_report()` and `get_pop_summary()` methods (production)
+- `list_pop_events()` retained as legacy test-kso
+- `/reports` handler: async backend-driven endpoint replacing `_page()` + demo_data
+- Template: KPI cards (PoP events, unique devices/creatives, rejected, campaigns, KSO/manifests), events table, status breakdown, chart placeholders (deferred), Excel export (deferred)
+- Charts/slicers/drill-down deferred until backend metrics mature
+- `get_report_kpi()` / `get_report_table()` imports removed from `main.py`
+- RBAC: `/reports` → `reports.read` (was `view_reports`)
+- Backend tests: +8 (PoPSummarySchema, endpoint safety) → 322 total
+- Portal tests: 424/424 OK (updated TestReportsPage for production template)
+- Fake/demo numbers → GONE, Power BI mentions → removed, test-kso not primary source
+- `GET /api/proof-of-play/test-kso` retained as legacy
+- B4 Reports UI → ✅ CLOSED
+
 ### 39.2.3.1 — Dashboard Production KPI Source Fix
 
 **Dashboard KPI sources switched from test-kso to production endpoints.**

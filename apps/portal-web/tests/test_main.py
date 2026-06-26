@@ -47,6 +47,7 @@ _MOCK_ALL_PERMISSIONS = frozenset({
     "roles.manage", "audit.read",
     "scheduling.read", "scheduling.manage",
     "campaigns.read", "campaigns.manage", "campaigns.create",
+    "reports.read",
 })
 
 # ── Global mock auth for existing page-content tests ────────────────────
@@ -895,7 +896,7 @@ class TestProofOfPlayPage(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class TestReportsPage(unittest.TestCase):
-    """KSO Reports / BI page — KPI, slicers, drill-down, charts, table, Excel, notes."""
+    """KSO Reports page — production PoP-driven KPIs and events table."""
 
     def setUp(self):
         self.client = TestClient(app)
@@ -903,37 +904,35 @@ class TestReportsPage(unittest.TestCase):
         self.html = resp.text
 
     def test_renders_kpi_cards(self):
-        for card in ("Показы план", "Показы факт", "Выполнение",
-                      "КСО онлайн", "Кампании без факта",
-                      "Ошибки публикации / PoP"):
+        for card in ("PoP событий всего", "Уникальных устройств",
+                      "Уникальных креативов", "Отклонено",
+                      "Кампаний (всего)", "КСО / манифестов"):
             self.assertIn(card, self.html,
                           f"Reports page must render KPI card '{card}'")
 
-    def test_has_bi_slicers(self):
-        for slc in ("Период", "Кампания", "Креатив", "Филиал",
-                     "КСО", "Статус публикации", "Статус PoP",
-                     "Статус согласования"):
+    def test_has_filters(self):
+        """Filter labels present on production reports page."""
+        for slc in ("Период", "Кампания", "Креатив", "КСО",
+                     "Статус PoP"):
             self.assertIn(slc, self.html,
-                          f"Reports page must have slicer '{slc}'")
+                          f"Reports page must have filter '{slc}'")
 
-    def test_slicers_disabled(self):
+    def test_filters_disabled(self):
         self.assertIn("disabled", self.html)
 
-    def test_has_drill_down_block(self):
-        for level in ("Сеть", "Филиал", "Магазин", "КСО",
-                       "Кампания", "Креатив", "День"):
-            self.assertIn(level, self.html,
-                          f"Drill-down must contain level '{level}'")
+    def test_has_status_breakdown(self):
+        self.assertIn("Принято", self.html)
+        self.assertIn("Отклонено", self.html)
+        self.assertIn("Дубликатов", self.html)
 
-    def test_drill_down_mentions_aggregated_data(self):
-        self.assertIn("агрегированным данным", self.html)
-        self.assertIn("raw ID", self.html)
-        self.assertIn("hash", self.html.lower())
+    def test_no_power_bi(self):
+        """Production reports don't mention Power BI — not a BI tool."""
+        self.assertNotIn("Power BI", self.html)
 
     def test_has_chart_placeholders(self):
-        for chart in ("План / факт показов", "Показы по дням",
-                       "Показы по магазинам", "Ошибки по КСО",
-                       "Статусы публикаций", "Статусы согласований"):
+        for chart in ("Показы по кампаниям", "Показы по дням",
+                       "Показы по устройствам", "Статусы событий",
+                       "Тренд показов", "Ошибки публикаций"):
             self.assertIn(chart, self.html,
                           f"Reports page must have chart placeholder '{chart}'")
 
@@ -943,15 +942,17 @@ class TestReportsPage(unittest.TestCase):
         self.assertNotIn("recharts", self.html.lower())
 
     def test_has_report_table_columns(self):
-        for col in ("Кампания", "Период", "Магазины", "Креативы",
-                     "Показы план", "Показы факт", "Выполнение",
-                     "PoP", "Публикация", "Approval"):
+        for col in ("Event code", "Кампания", "Креатив", "КСО",
+                     "Плейсмент", "Тип", "Статус",
+                     "Сыграно", "Длит.", "Получено"):
             self.assertIn(col, self.html,
                           f"Reports table must have column '{col}'")
 
-    def test_table_shows_demo_data(self):
-        self.assertIn("DEMO: Весенняя акция", self.html)
-        self.assertIn("24.9%", self.html)
+    def test_table_shows_empty_state(self):
+        """When no PoP data, table shows empty state — not demo data."""
+        self.assertNotIn("DEMO: Весенняя акция", self.html)
+        self.assertNotIn("24.9%", self.html)
+        self.assertIn("Пока нет данных Proof of Play", self.html)
 
     def test_has_excel_export_block(self):
         self.assertIn("Выгрузка в Excel", self.html)
@@ -960,7 +961,7 @@ class TestReportsPage(unittest.TestCase):
     def test_has_excel_export_requirements(self):
         for req in ("несколько листов", "выбранные срезы",
                      "Дата формирования", "Агрегированные KPI",
-                     "Plan/fact", "raw ID"):
+                     "raw ID"):
             self.assertIn(req, self.html,
                           f"Excel block must contain '{req}'")
 
@@ -969,16 +970,13 @@ class TestReportsPage(unittest.TestCase):
         self.assertIn("btn-disabled", self.html)
         self.assertIn("disabled", self.html)
 
-    def test_mentions_power_bi(self):
-        self.assertIn("Power BI", self.html)
+    def test_mentions_production_backend(self):
+        """Must mention production backend as data source."""
+        self.assertIn("/api/reports/pop", self.html)
+        self.assertIn("production", self.html.lower())
 
-    def test_mentions_plan_fact(self):
-        self.assertIn("план/факт", self.html.lower())
-
-    def test_mentions_aggregated_data_only(self):
-        self.assertIn("агрегированные данные", self.html.lower())
-        self.assertIn("raw pop payload", self.html.lower())
-        self.assertIn("технические hash", self.html)
+    def test_mentions_aggregated_data(self):
+        self.assertIn("агрегированные", self.html.lower())
 
     def test_no_forbidden_content(self):
         _assert_safe(self, self.html)
@@ -1134,9 +1132,9 @@ class TestDemoData(unittest.TestCase):
     def test_demo_banner_on_all_pages(self):
         """Every page with demo data has the DEMO banner.
         
-        Dashboard is now backend-driven — no demo banner.
+        Dashboard and Reports are now backend-driven — no demo banner.
         """
-        routes = ["/reports"]  # /dashboard removed: now production backend-driven
+        routes = []  # Reports /reports removed: now production backend-driven
         for route in routes:
             resp = self.client.get(route)
             self.assertEqual(resp.status_code, 200,
@@ -1193,11 +1191,17 @@ class TestDemoData(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Запросить согласование", resp.text)
 
-    def test_reports_has_demo_kpi(self):
+    def test_reports_has_backend_driven_kpi(self):
+        """Reports page is now production backend-driven — no fake numbers."""
         resp = self.client.get("/reports")
-        self.assertIn("16 000", resp.text)
-        self.assertIn("1 247", resp.text)
-        self.assertIn("7.8%", resp.text)
+        self.assertEqual(resp.status_code, 200)
+        # Must NOT contain fake demo numbers
+        self.assertNotIn("16 000", resp.text)
+        self.assertNotIn("1 247", resp.text)
+        self.assertNotIn("7.8%", resp.text)
+        # Must show production KPI structure (cards with заголовки)
+        self.assertIn("PoP событий всего", resp.text)
+        self.assertIn("Уникальных устройств", resp.text)
 
     # ── No raw IDs/secrets/hash ────────────────────
 

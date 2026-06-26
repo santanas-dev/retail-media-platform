@@ -21,12 +21,13 @@ security gaps, которые необходимо закрыть перед pil
 1. 🔴 Device gateway / PoP ingest — TEST_ONLY без аутентификации (security gap)
 2. 🟡 Campaign/placement creation — test-kso wrapper'ы (не production API)
 3. 🟢 Schedule UI — production backend-driven (✅ 39.2.1)
-4. 🟡 Reports UI — DEMO page (slicers disabled, charts placeholder)
+4. 🟢 Reports UI — production backend-driven (✅ 39.2.4)
 5. 🟢 Dashboard — backend-driven KPI (✅ 39.2.3)
 
 ### Уже исправлено в 39.2:
 - ✅ SG7 — Schedule backend (39.1.3)
 - ✅ B2 — Schedule UI (39.2.1)
+- ✅ B4 — Reports UI (39.2.4)
 - ✅ Campaign/placement production API (39.1.2)
 - ✅ Campaign UI — production backend-driven (39.2.2)
 
@@ -123,7 +124,7 @@ Portal UI ──→ Backend API ──→ Manifest/Media ──→ KSO Player (7
 | 10 | `/publications` | Publications | Backend-driven (list) | ✅ Generate + Publish | ✅ **DONE** |
 | 11 | `/approvals` | Approvals | Backend-driven (list) | ✅ Request + Decide | ✅ **DONE** |
 | 12 | `/proof-of-play` | PoP Reports | Backend-driven (list_pop_events) | ✅ Filters active | ✅ **DONE** |
-| 13 | `/reports` | Reports | **DEMO** (demo_data.py) | 🔴 Slicers disabled, charts placeholder | 🔴 **DEMO STUB** |
+| 13 | `/reports` | Reports | **Backend-driven** (get_pop_report + get_pop_summary) | ✅ KPI cards + events table | ✅ **DONE (39.2.4)** |
 | 14 | `/readiness` | Readiness | Backend-driven (get_test_kso_readiness) | — | ✅ **DONE** |
 | 15 | `/admin` | Admin | Backend-driven (users+roles+perms+audit) | ✅ CRUD + RLS forms | ✅ **DONE** |
 | 16 | `/deployment` | Deployment | Static page | — | 🟡 **STATIC** |
@@ -134,7 +135,7 @@ Portal UI ──→ Backend API ──→ Manifest/Media ──→ KSO Player (7
 |---|---|---|---|---|
 | FG1 | Dashboard — DEMO данные | 🟡 MEDIUM | `main.py:/` | Backend-driven KPI + real data |
 | FG2 | Schedule — DEMO form | 🔴 HIGH | `main.py:/schedule` | Backend API + real form |
-| FG3 | Reports — DEMO page | 🟡 MEDIUM | `main.py:/reports` | Backend-driven reports + active slicers |
+| FG3 | Reports — DEMO page | 🟡 MEDIUM | `main.py:/reports` | ✅ FIXED 39.2.4 — Production PoP-driven |
 | FG4 | Campaign create — test-kso wrapper | 🟡 MEDIUM | `main.py:/campaigns/create` | Production campaign CRUD |
 | FG5 | Excel export — disabled | 🟢 LOW | `main.py:/reports` | RLS-aware export (deferred) |
 | FG6 | SSO button — disabled | 🟢 LOW | `main.py:/login` | Future SSO/AD integration |
@@ -184,7 +185,7 @@ Portal UI ──→ Backend API ──→ Manifest/Media ──→ KSO Player (7
 
 | # | Gap | Severity | Fix |
 |---|---|---|---|
-| RG1 | Reports page (/reports) — DEMO | 🟡 MEDIUM | Backend-driven с активными slicers |
+| RG1 | Reports page (/reports) — DEMO | 🟡 MEDIUM | ✅ FIXED (39.2.4) — Production PoP endpoints + summary |
 | RG2 | Chart placeholders (3 шт) | 🟢 LOW | Реальные графики (deferred) |
 | RG3 | Excel export disabled | 🟢 LOW | RLS-aware export (deferred) |
 | RG4 | No drill-down в PoP reports | 🟢 LOW | Детализация по времени/КСО |

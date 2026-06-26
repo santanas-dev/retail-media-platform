@@ -598,8 +598,7 @@ class BackendClient:
     ) -> dict:
         """GET /api/proof-of-play/test-kso → {ok, data: [{event_code, ...}]}
 
-        Filters (all optional): device_code, campaign_code, creative_code,
-        placement_code, date_from, date_to, limit, offset.
+        Legacy test-kso endpoint. Prefer get_pop_report() for production use.
         """
         from urllib.parse import urlencode
         params = {}
@@ -615,6 +614,55 @@ class BackendClient:
         query = ("?" + urlencode(params)) if params else ""
         return await self._request(
             "GET", f"/api/proof-of-play/test-kso{query}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_pop_report(
+        self, access_token: str, filters: dict | None = None,
+    ) -> dict:
+        """GET /api/reports/pop → {ok, data: [{event_code, ...}]} (production).
+
+        Safe projection — no raw UUIDs, tokens, secrets.
+        """
+        from urllib.parse import urlencode
+        params = {}
+        if filters:
+            for key in (
+                "device_code", "campaign_code", "creative_code",
+                "placement_code", "date_from", "date_to",
+                "limit", "offset",
+            ):
+                if key in filters and filters[key] is not None:
+                    params[key] = filters[key]
+
+        query = ("?" + urlencode(params)) if params else ""
+        return await self._request(
+            "GET", f"/api/reports/pop{query}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_pop_summary(
+        self, access_token: str, filters: dict | None = None,
+    ) -> dict:
+        """GET /api/reports/pop/summary → {ok, data: {total_events, ...}} (production).
+
+        Aggregated counts: total_events, unique_devices, unique_campaigns,
+        unique_creatives, unique_placements, accepted, rejected, duplicate,
+        unknown_status, last_event_at.
+        """
+        from urllib.parse import urlencode
+        params = {}
+        if filters:
+            for key in (
+                "device_code", "campaign_code", "creative_code",
+                "placement_code", "date_from", "date_to",
+            ):
+                if key in filters and filters[key] is not None:
+                    params[key] = filters[key]
+
+        query = ("?" + urlencode(params)) if params else ""
+        return await self._request(
+            "GET", f"/api/reports/pop/summary{query}",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 

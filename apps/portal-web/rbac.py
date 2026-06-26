@@ -145,7 +145,7 @@ PAGE_PERMISSION_MAP: dict[str, str] = {
     "/stores": "view_stores",
     "/devices": "view_devices",
     "/proof-of-play": "view_proof_of_play",
-    "/reports": "view_reports",
+    "/reports": "reports.read",
     "/deployment": "view_deployment",
     "/approvals": "view_approvals",
     "/admin": "view_admin",
