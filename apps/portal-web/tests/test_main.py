@@ -3259,6 +3259,12 @@ class _FakeBackendClient:
     async def list_creatives(self, access_token: str) -> dict:
         return {"ok": True, "data": []}  # Empty for testing
 
+    async def list_advertisers(self, access_token: str) -> dict:
+        return {"ok": True, "data": [{"id": "a1", "name": "Тестовый рекламодатель"}]}
+
+    async def archive_creative(self, access_token: str, creative_code: str) -> dict:
+        return {"ok": True, "creative_code": creative_code, "status": "archived"}
+
     async def list_campaigns(self, access_token: str) -> dict:
         return {"ok": True, "data": []}  # Empty for testing
 
@@ -3520,6 +3526,12 @@ class _FakeBackendClientDown:
         return {"ok": False, "error": "Backend unreachable"}
 
     async def list_creatives(self, access_token: str) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def list_advertisers(self, access_token: str) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def archive_creative(self, access_token: str, creative_code: str) -> dict:
         return {"ok": False, "error": "Backend unreachable"}
 
     async def list_campaigns(self, access_token: str) -> dict:

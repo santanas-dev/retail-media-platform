@@ -732,7 +732,7 @@ def _devices_fallback(request: Request, current_user, reason: str = "") -> HTMLR
 
 @app.get("/creatives", response_class=HTMLResponse)
 async def creatives_page(request: Request):
-    """Creatives page: list from backend + upload form (Step 37.3)."""
+    """Creatives page: list from backend + upload form + archive (41.1)."""
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/creatives")
     if guard is not None:
@@ -750,17 +750,31 @@ async def creatives_page(request: Request):
         return _creatives_fallback(request, current_user)
 
     creatives = result.get("data", [])
-    # Build safe rows for template
+
+    # Fetch advertisers for dropdown
+    advertisers = []
+    adv_result = await backend.list_advertisers(access_token)
+    if adv_result["ok"]:
+        advertisers = adv_result.get("data", [])
+
+    # Build safe rows — no raw UUIDs, no storage paths, no sha256
     safe_rows = []
     for c in creatives:
+        dims = ""
+        if c.get("width") and c.get("height"):
+            dims = f"{c['width']}×{c['height']}"
         safe_rows.append({
             "creative_code": c.get("creative_code", ""),
             "name": c.get("name", ""),
+            "advertiser_name": c.get("advertiser_name") or c.get("advertiser_code") or "—",
             "status": c.get("status", "—"),
+            "status_label": _status_label(c.get("status", "")),
             "content_type": c.get("content_type") or "—",
             "width": c.get("width"),
             "height": c.get("height"),
+            "dimensions": dims,
             "file_size_bytes": c.get("file_size_bytes"),
+            "current_version": c.get("current_version"),
             "created_at": _fmt_dt(c.get("created_at")),
         })
 
@@ -771,9 +785,12 @@ async def creatives_page(request: Request):
     if raw == "ok:uploaded":
         flash_type = "success"
         flash_msg = "Креатив успешно загружен."
+    elif raw == "ok:archived":
+        flash_type = "success"
+        flash_msg = "Креатив архивирован."
     elif raw == "error":
         flash_type = "error"
-        flash_msg = request.session.pop("creative_flash_msg", "Ошибка загрузки.")
+        flash_msg = request.session.pop("creative_flash_msg", "Ошибка.")
 
     return templates.TemplateResponse(request, "pages/creatives.html", {
         "request": request,
@@ -782,6 +799,7 @@ async def creatives_page(request: Request):
         "demo": False,
         "current_user": current_user,
         "creatives": safe_rows,
+        "advertisers": advertisers,
         "flash_type": flash_type,
         "flash_msg": flash_msg,
     })
@@ -824,6 +842,36 @@ async def creatives_upload(
     return RedirectResponse(url="/creatives", status_code=303)
 
 
+@app.post("/creatives/{creative_code}/archive", response_class=HTMLResponse)
+async def creatives_archive(
+    request: Request,
+    creative_code: str,
+):
+    """Archive creative via POST /creatives/{code}/archive → backend (41.1)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/creatives")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["creative_flash"] = "error"
+        request.session["creative_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/creatives", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.archive_creative(access_token, creative_code.strip())
+
+    if result["ok"]:
+        request.session["creative_flash"] = "ok:archived"
+    else:
+        request.session["creative_flash"] = "error"
+        request.session["creative_flash_msg"] = result.get("error", "Ошибка архивирования")[:200]
+
+    return RedirectResponse(url="/creatives", status_code=303)
+
+
 def _creatives_fallback(request: Request, current_user) -> HTMLResponse:
     return templates.TemplateResponse(request, "pages/creatives.html", {
         "request": request,
@@ -846,6 +894,19 @@ def _fmt_dt(val) -> str:
         if len(s) > 16:
             s = s[:16]
     return s
+
+
+def _status_label(status: str) -> str:
+    """Human-readable Russian status label."""
+    labels = {
+        "draft": "Черновик",
+        "in_review": "На проверке",
+        "approved": "Одобрен",
+        "rejected": "Отклонён",
+        "archived": "Архив",
+        "ready": "Готов",
+    }
+    return labels.get(status, status)
 
 
 # ══════════════════════════════════════════════════════════════════════

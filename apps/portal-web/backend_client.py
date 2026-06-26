@@ -337,6 +337,29 @@ class BackendClient:
             detail = detail[:200]
         return {"ok": False, "error": detail, "status": resp.status_code}
 
+    # ── Advertiser list for creative form ─────────────────────────────
+
+    async def list_advertisers(self, access_token: str) -> dict:
+        """GET /api/advertisers → {ok, data: [{id, name, ...}]}"""
+        return await self._request(
+            "GET", "/api/advertisers",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    # ── Creative Archive (41.1) ────────────────────────────────────────
+
+    async def archive_creative(
+        self, access_token: str, creative_code: str,
+    ) -> dict:
+        """POST /api/creatives/by-code/{code}/archive → {ok, data}.
+
+        Sets creative status to 'archived'.
+        """
+        return await self._request(
+            "POST", f"/api/creatives/by-code/{creative_code}/archive",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
     # ── Campaign Production API (39.2.2) ─────────────────────────────────
 

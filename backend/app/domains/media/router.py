@@ -47,7 +47,8 @@ async def list_creatives(
     current_user: identity_models.User = Depends(require_permission("media.read")),
 ):
     scope_ctx = await resolve_user_scope_context(db, current_user)
-    return await service.list_creatives(db, skip, limit, advertiser_id, status, scope_ctx)
+    creatives = await service.list_creatives(db, skip, limit, advertiser_id, status, scope_ctx)
+    return await _enrich_creatives(db, creatives)
 
 
 @router.post(
@@ -269,3 +270,90 @@ async def upload_creative(
     if creative is not None and creative.advertiser_id is not None:
         assert_object_in_advertiser_scope(creative.advertiser_id, scope_ctx, "upload")
     return result
+
+
+
+async def _enrich_creatives(db: AsyncSession, creatives: list) -> list[schemas.CreativeResponse]:
+    """Enrich creative list with advertiser_name and version metadata."""
+    from sqlalchemy import select
+    from app.domains.advertisers.models import Advertiser
+
+    # Collect unique advertiser IDs
+    adv_ids = {c.advertiser_id for c in creatives if c.advertiser_id}
+    advertisers = {}
+    if adv_ids:
+        result = await db.execute(
+            select(Advertiser).where(Advertiser.id.in_(adv_ids))
+        )
+        advertisers = {a.id: a.name for a in result.scalars().all()}
+
+    # Build enriched responses
+    enriched = []
+    for c in creatives:
+        latest = None
+        if c.versions:
+            latest = max(c.versions, key=lambda v: v.version)
+
+        enriched.append(schemas.CreativeResponse(
+            id=c.id,
+            advertiser_id=c.advertiser_id,
+            advertiser_code=advertisers.get(c.advertiser_id) if c.advertiser_id else None,
+            advertiser_name=advertisers.get(c.advertiser_id) if c.advertiser_id else None,
+            brand_id=c.brand_id,
+            creative_code=c.creative_code,
+            name=c.name,
+            status=c.status,
+            comment=c.comment,
+            content_type=latest.mime_type if latest else None,
+            width=latest.width if latest else None,
+            height=latest.height if latest else None,
+            duration_ms=int(latest.duration_seconds * 1000) if (latest and latest.duration_seconds) else None,
+            file_size_bytes=latest.file_size if latest else None,
+            current_version=latest.version if latest else None,
+            created_by=c.created_by,
+            created_at=c.created_at,
+            updated_at=c.updated_at,
+        ))
+    return enriched
+
+# ── By-Code Access & Archive (41.1) ──────────────────────────────────────
+
+@router.get("/creatives/by-code/{creative_code}", response_model=schemas.CreativeResponse)
+async def get_creative_by_code_ep(
+    creative_code: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("media.read")),
+):
+    creative = await service.get_creative_by_code(db, creative_code)
+    if not creative:
+        raise HTTPException(status_code=404, detail="Creative not found")
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    if creative.advertiser_id is not None:
+        assert_object_in_advertiser_scope(creative.advertiser_id, scope_ctx, "access")
+    return creative
+
+
+@router.post("/creatives/by-code/{creative_code}/archive")
+async def archive_creative_by_code(
+    creative_code: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("media.manage")),
+):
+    creative = await service.get_creative_by_code(db, creative_code)
+    if not creative:
+        raise HTTPException(status_code=404, detail="Creative not found")
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    if creative.advertiser_id is not None:
+        assert_object_in_advertiser_scope(creative.advertiser_id, scope_ctx, "archive")
+
+    creative.status = "archived"
+    await db.commit()
+    await db.refresh(creative)
+
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="creative.archive", target_type="creative",
+        target_ref=creative_code,
+        details={"name": creative.name},
+    )
+    return {"ok": True, "creative_code": creative_code, "status": "archived"}

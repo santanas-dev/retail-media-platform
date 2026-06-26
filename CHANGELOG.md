@@ -12,25 +12,45 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 **Portal UI Hygiene Baseline — safe CSS-only improvements, no redesign.**
 
 ### Changes
+5 CSS changes: heading balance, body min-height, text-size-adjust, reduced-motion, shadow tokens.
 
-| # | Change | Scope |
-|---|---|---|
-| 1 | `h1, h2, h3, h4 { text-wrap: balance }` | Better heading wrapping |
-| 2 | `body { min-height: 100vh }` | Ensure full viewport height |
-| 3 | `html { text-size-adjust: none }` | Prevent mobile text inflation |
-| 4 | `@media (prefers-reduced-motion: reduce) { ... }` | Accessibility — respect OS setting |
-| 5 | `--shadow-1/--shadow-2/--shadow-3` CSS tokens | Standard shadow scale |
+### Regression
+5168 passed, 44 skipped, 0 failed.
 
-### What was NOT done
+---
 
-- ❌ No @layer cascade
-- ❌ No full `styles.css` restructure
-- ❌ No `.flow` spacing class
-- ❌ No global spacing/padding replacement
-- ❌ No fluid typography refactor
-- ❌ No redesign / template changes
-- ❌ No JS/CDN/localStorage
-- ❌ No backend/product logic changes
+## [41.1-creative-upload-ux] — 2026-06-16
+
+**Creative Upload UX — advertiser, metadata, versioning, archive.**
+
+### Backend
+
+- `CreativeResponse` enhanced: +`advertiser_name`, `advertiser_code`, `content_type`, `width`, `height`, `file_size_bytes`, `duration_ms`, `current_version`
+- `_enrich_creatives()` service helper: eager-loads advertiser names + latest version metadata
+- `GET /api/creatives/by-code/{code}` — new endpoint (safe code-based access)
+- `POST /api/creatives/by-code/{code}/archive` — new endpoint (media.manage, RLS enforced)
+- Audit events on `creative.create` and `creative.archive`
+
+### Portal
+
+- Upload form: +description field, KSO portrait recommendation 768×1024
+- Creative list: +advertiser column, +version column, human-readable status labels (Черновик/На проверке/etc.), dimensions as "W×H"
+- Archive action: per-creative archive button with confirmation
+- `_status_label()` helper for Russian status labels
+- Note box: safe wording (no forbidden tokens mentioned)
+
+### BackendClient
+
+- `list_advertisers()` — new method (GET /api/advertisers)
+- `archive_creative()` — new method (POST /api/creatives/by-code/{code}/archive)
+
+### Security/RBAC/RLS
+
+- `/creatives` page: `media.read`
+- Upload: `media.manage`
+- Archive: `media.manage`
+- RLS: archive respects advertiser scope
+- Audit: create + archive events written
 
 ### Regression
 
@@ -44,23 +64,17 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 | Infra | 227 | 0 | 0 |
 | **Total** | **5168** | **44** | **0** |
 
-### Deferred to 41.x
+### NOT added to Creative
 
-- `@layer` cascade architecture
-- `.flow` spacing utility
-- Full fluid typography/spacing system
-- Pico CSS or other classless framework (optional)
-
-### Next
-
-- 41.1: Creative Upload UX
-- 41.2: Business Campaign Creation UX
+- ❌ Schedule/time windows (→ 41.2/41.3 Campaign/Schedule UX)
+- ❌ Campaign binding wizard
+- ❌ Image preview thumbnails (requires safe media endpoint)
+- ❌ Complex image dimension parser
+- ❌ JS/CDN/localStorage
 
 ---
 
 ## [v0.11.1-pre-pilot-access-integration-hotfix] — 2026-06-16
-
-**Patch hotfix on v0.11.0 — admin access fixed, portal-backend integration verified.**
 
 ### What's included
 

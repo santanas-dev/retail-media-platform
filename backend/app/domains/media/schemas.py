@@ -27,11 +27,20 @@ class CreativeUpdate(BaseModel):
 class CreativeResponse(BaseModel):
     id: UUID
     advertiser_id: UUID | None
+    advertiser_code: str | None = None  # populated from advertiser relationship
+    advertiser_name: str | None = None  # human-readable advertiser name
     brand_id: UUID | None
     creative_code: str
     name: str
     status: str
     comment: str | None
+    # Latest version metadata (populated from versions relationship)
+    content_type: str | None = None
+    width: int | None = None
+    height: int | None = None
+    duration_ms: int | None = None
+    file_size_bytes: int | None = None
+    current_version: int | None = None
     created_by: UUID
     created_at: datetime
     updated_at: datetime | None
