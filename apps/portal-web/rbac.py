@@ -138,7 +138,7 @@ from portal_session import get_session_permissions as _get_perms
 PAGE_PERMISSION_MAP: dict[str, str] = {
     "/": "view_dashboard",
     "/dashboard": "view_dashboard",
-    "/campaigns": "view_campaigns",
+    "/campaigns": "campaigns.read",
     "/creatives": "view_creatives",
     "/schedule": "scheduling.read",
     "/publications": "view_publications",

@@ -338,20 +338,84 @@ class BackendClient:
         return {"ok": False, "error": detail, "status": resp.status_code}
 
 
-    # ── Campaign Test KSO (Step 37.4) ──────────────────────────────────
+    # ── Campaign Production API (39.2.2) ─────────────────────────────────
 
     async def list_campaigns(self, access_token: str) -> dict:
-        """GET /api/campaigns/test-kso → {ok, data: [{campaign_code, name, ...}]}"""
+        """GET /api/campaigns/test-kso → {ok, data: [{campaign_code, name, ...}]}
+        
+        Uses test-kso list for safe projection — no raw UUIDs in response.
+        """
         return await self._request(
             "GET", "/api/campaigns/test-kso",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
     async def create_campaign(self, access_token: str, payload: dict) -> dict:
-        """POST /api/campaigns/test-kso → {ok, data: {campaign_code, name, ...}}"""
+        """POST /api/campaigns/test-kso → {ok, data: {campaign_code, name, ...}}
+        
+        Uses test-kso create — accepts campaign_code + name + creative_codes
+        without requiring order_id UUID.
+        """
         return await self._request(
             "POST", "/api/campaigns/test-kso",
             json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_campaign_by_code(
+        self, access_token: str, campaign_code: str,
+    ) -> dict:
+        """GET /api/campaigns/by-code/{code} → {ok, data} (production)."""
+        return await self._request(
+            "GET", f"/api/campaigns/by-code/{campaign_code}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def update_campaign_by_code(
+        self, access_token: str, campaign_code: str, payload: dict,
+    ) -> dict:
+        """PATCH /api/campaigns/by-code/{code} → {ok, data} (production)."""
+        return await self._request(
+            "PATCH", f"/api/campaigns/by-code/{campaign_code}",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def archive_campaign_by_code(
+        self, access_token: str, campaign_code: str,
+    ) -> dict:
+        """POST /api/campaigns/by-code/{code}/archive → {ok, data} (production)."""
+        return await self._request(
+            "POST", f"/api/campaigns/by-code/{campaign_code}/archive",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def list_campaign_creatives(
+        self, access_token: str, campaign_code: str,
+    ) -> dict:
+        """GET /api/campaigns/by-code/{code}/creatives → {ok, data}."""
+        return await self._request(
+            "GET", f"/api/campaigns/by-code/{campaign_code}/creatives",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def bind_campaign_creative(
+        self, access_token: str, campaign_code: str, creative_code: str,
+    ) -> dict:
+        """POST /api/campaigns/by-code/{code}/creatives → {ok, data}."""
+        return await self._request(
+            "POST", f"/api/campaigns/by-code/{campaign_code}/creatives",
+            json_data={"creative_code": creative_code},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def unbind_campaign_creative(
+        self, access_token: str, campaign_code: str, creative_code: str,
+    ) -> dict:
+        """DELETE /api/campaigns/by-code/{code}/creatives/{cc} → {ok, data}."""
+        return await self._request(
+            "DELETE",
+            f"/api/campaigns/by-code/{campaign_code}/creatives/{creative_code}",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 

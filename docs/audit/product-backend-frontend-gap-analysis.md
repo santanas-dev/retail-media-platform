@@ -24,6 +24,12 @@ security gaps, которые необходимо закрыть перед pil
 4. 🟡 Reports UI — DEMO page (slicers disabled, charts placeholder)
 5. 🟡 Dashboard — DEMO page (использует demo_data.py)
 
+### Уже исправлено в 39.2:
+- ✅ SG7 — Schedule backend (39.1.3)
+- ✅ B2 — Schedule UI (39.2.1)
+- ✅ Campaign/placement production API (39.1.2)
+- ✅ Campaign UI — production backend-driven (39.2.2)
+
 **Что НЕ блокирует pilot:**
 - RBAC/RLS enforcement (базовый уровень достаточен для pilot)
 - Admin audit log (базовый audit есть)

@@ -476,12 +476,15 @@ def _fmt_dt(val) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# Campaigns — Backend API Integration (Step 37.4)
+# Campaigns — Production Backend API Integration (39.2.2)
 # ══════════════════════════════════════════════════════════════════════
 
 @app.get("/campaigns", response_class=HTMLResponse)
 async def campaigns_page(request: Request):
-    """Campaigns page: list from backend + create form (Step 37.4)."""
+    """Campaigns page: list + create + edit + archive + creative binding (39.2.2).
+
+    Uses test-kso for safe list/create, production code-based for update/archive/binding.
+    """
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/campaigns")
     if guard is not None:
@@ -501,12 +504,15 @@ async def campaigns_page(request: Request):
     campaigns = result.get("data", [])
     safe_rows = []
     for c in campaigns:
+        code = c.get("campaign_code", "")
+        creative_codes = c.get("creative_codes", [])
         safe_rows.append({
-            "campaign_code": c.get("campaign_code", ""),
+            "campaign_code": code,
             "name": c.get("name", ""),
             "status": c.get("status", "—"),
             "description": c.get("description") or "—",
-            "creative_codes": ", ".join(c.get("creative_codes", [])),
+            "creative_codes": ", ".join(creative_codes),
+            "creative_count": len(creative_codes),
             "created_at": _fmt_dt(c.get("created_at")),
             "updated_at": _fmt_dt(c.get("updated_at")),
         })
@@ -514,13 +520,25 @@ async def campaigns_page(request: Request):
     # Consume flash messages
     flash_type = ""
     flash_msg = ""
-    raw = request.session.pop("campaign_flash", "")
+    raw = request.session.pop("camp_flash", "")
     if raw == "ok:created":
         flash_type = "success"
-        flash_msg = "Кампания успешно создана."
+        flash_msg = "Кампания создана."
+    elif raw == "ok:updated":
+        flash_type = "success"
+        flash_msg = "Кампания обновлена."
+    elif raw == "ok:archived":
+        flash_type = "success"
+        flash_msg = "Кампания архивирована."
+    elif raw == "ok:bound":
+        flash_type = "success"
+        flash_msg = "Креатив привязан."
+    elif raw == "ok:unbound":
+        flash_type = "success"
+        flash_msg = "Креатив отвязан."
     elif raw == "error":
         flash_type = "error"
-        flash_msg = request.session.pop("campaign_flash_msg", "Ошибка создания кампании.")
+        flash_msg = request.session.pop("camp_flash_msg", "Ошибка.")[:200]
 
     return templates.TemplateResponse(request, "pages/campaigns.html", {
         "request": request,
@@ -540,9 +558,9 @@ async def campaigns_create(
     campaign_code: str = Form(..., min_length=3, max_length=64),
     name: str = Form(..., min_length=1, max_length=255),
     description: str = Form("", max_length=500),
-    creative_code: str = Form(..., min_length=1, max_length=64),
+    creative_code: str = Form("", max_length=64),
 ):
-    """Handle campaign create — POST /campaigns/create → backend (Step 37.4)."""
+    """Create campaign via POST /campaigns/create → backend test-kso."""
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/campaigns")
     if guard is not None:
@@ -550,27 +568,162 @@ async def campaigns_create(
 
     tokens = get_portal_tokens(request)
     access_token = tokens.get("access_token", "")
-
     if not access_token:
-        request.session["campaign_flash"] = "error"
-        request.session["campaign_flash_msg"] = "Нет доступа."
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = "Нет доступа."
         return RedirectResponse(url="/campaigns", status_code=303)
 
     payload = {
         "campaign_code": campaign_code.strip(),
         "name": name.strip(),
         "description": description.strip() if description.strip() else None,
-        "creative_codes": [creative_code.strip()],
+        "creative_codes": [creative_code.strip()] if creative_code.strip() else [],
     }
 
     backend = BackendClient()
     result = await backend.create_campaign(access_token, payload)
 
     if result["ok"]:
-        request.session["campaign_flash"] = "ok:created"
+        request.session["camp_flash"] = "ok:created"
     else:
-        request.session["campaign_flash"] = "error"
-        request.session["campaign_flash_msg"] = result.get("error", "Ошибка создания")[:200]
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = result.get("error", "Ошибка создания")[:200]
+
+    return RedirectResponse(url="/campaigns", status_code=303)
+
+
+@app.post("/campaigns/{campaign_code}/edit", response_class=HTMLResponse)
+async def campaigns_edit(
+    request: Request,
+    campaign_code: str,
+    name: str = Form(..., min_length=1, max_length=255),
+    description: str = Form("", max_length=500),
+):
+    """Update campaign via PATCH /campaigns/by-code/{code} (production)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/campaigns", status_code=303)
+
+    payload = {
+        "name": name.strip(),
+        "comment": description.strip() if description.strip() else None,
+    }
+
+    backend = BackendClient()
+    result = await backend.update_campaign_by_code(access_token, campaign_code, payload)
+
+    if result["ok"]:
+        request.session["camp_flash"] = "ok:updated"
+    else:
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = result.get("error", "Ошибка обновления")[:200]
+
+    return RedirectResponse(url="/campaigns", status_code=303)
+
+
+@app.post("/campaigns/{campaign_code}/archive", response_class=HTMLResponse)
+async def campaigns_archive(
+    request: Request,
+    campaign_code: str,
+):
+    """Archive campaign via POST /campaigns/by-code/{code}/archive (production)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/campaigns", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.archive_campaign_by_code(access_token, campaign_code)
+
+    if result["ok"]:
+        request.session["camp_flash"] = "ok:archived"
+    else:
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = result.get("error", "Ошибка архивирования")[:200]
+
+    return RedirectResponse(url="/campaigns", status_code=303)
+
+
+@app.post("/campaigns/{campaign_code}/bind-creative", response_class=HTMLResponse)
+async def campaigns_bind_creative(
+    request: Request,
+    campaign_code: str,
+    creative_code: str = Form(..., min_length=1, max_length=64),
+):
+    """Bind creative to campaign via POST /campaigns/by-code/{code}/creatives."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/campaigns", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.bind_campaign_creative(
+        access_token, campaign_code, creative_code.strip(),
+    )
+
+    if result["ok"]:
+        request.session["camp_flash"] = "ok:bound"
+    else:
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = result.get("error", "Ошибка привязки")[:200]
+
+    return RedirectResponse(url="/campaigns", status_code=303)
+
+
+@app.post(
+    "/campaigns/{campaign_code}/unbind-creative/{creative_code}",
+    response_class=HTMLResponse,
+)
+async def campaigns_unbind_creative(
+    request: Request,
+    campaign_code: str,
+    creative_code: str,
+):
+    """Unbind creative via DELETE /campaigns/by-code/{code}/creatives/{cc}."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/campaigns", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.unbind_campaign_creative(
+        access_token, campaign_code, creative_code,
+    )
+
+    if result["ok"]:
+        request.session["camp_flash"] = "ok:unbound"
+    else:
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = result.get("error", "Ошибка отвязки")[:200]
 
     return RedirectResponse(url="/campaigns", status_code=303)
 

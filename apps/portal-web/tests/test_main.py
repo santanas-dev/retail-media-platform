@@ -46,6 +46,7 @@ _MOCK_ALL_PERMISSIONS = frozenset({
     "users.read", "roles.read", "users.create", "users.manage",
     "roles.manage", "audit.read",
     "scheduling.read", "scheduling.manage",
+    "campaigns.read", "campaigns.manage", "campaigns.create",
 })
 
 # ── Global mock auth for existing page-content tests ────────────────────
@@ -536,7 +537,7 @@ class TestCreativesPage(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class TestCampaignsPage(unittest.TestCase):
-    """KSO Campaigns page — form + safe table (Step 37.4 backend-driven)."""
+    """Campaigns page — production CRUD + creative binding (39.2.2 backend-driven)."""
 
     def setUp(self):
         self.client = TestClient(app)
@@ -557,9 +558,9 @@ class TestCampaignsPage(unittest.TestCase):
         self.assertIn('type="submit"', self.html)
 
     def test_has_safe_notes(self):
-        """Safe projection note present, no forbidden field names exposed."""
+        """Safe projection note present, production API note."""
         self.assertIn("Безопасная проекция", self.html)
-        self.assertIn("Test KSO technical validation", self.html)
+        self.assertIn("Production Campaign API", self.html)
 
     def test_backend_unavailable_fallback(self):
         """When no token, shows fallback message."""

@@ -9,6 +9,21 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.2.2 — Portal Campaign Create/Edit UI Backend Integration
+
+**Campaign page connected to production Campaign API — create, edit, archive, creative binding.**
+
+- `BackendClient`: 8 new/updated methods — list_campaigns (test-kso safe), create_campaign (test-kso), get_campaign_by_code, update_campaign_by_code, archive_campaign_by_code, list_campaign_creatives, bind_campaign_creative, unbind_campaign_creative
+- Portal `/campaigns` page: campaign list + create form + inline edit + archive + creative binding
+- Portal POST endpoints: `/campaigns/create`, `/campaigns/{code}/edit`, `/campaigns/{code}/archive`, `/campaigns/{code}/bind-creative`, `/campaigns/{code}/unbind-creative/{cc}`
+- RBAC fix: PAGE_PERMISSION_MAP `/campaigns` → `campaigns.read` (match backend permission)
+- Template: campaigns table + create/edit/bind forms + archive button; test-kso note replaced with production API note
+- All forms server-side POST, no JS/CDN/localStorage
+- Portal tests: 424/424 OK
+- Campaign UI test-kso dependency → GONE ✅
+
+**Remaining:** Dashboard (39.2.3), Reports (39.5)
+
 ### 39.2.1 — Portal Schedule UI Backend Integration
 
 **Schedule page connected to production Schedule Backend API.**

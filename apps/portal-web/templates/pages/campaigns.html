@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Кампании</h1>
-<p class="page-description">Управление рекламными кампаниями — создание и просмотр. Связь с загруженными креативами для test KSO technical validation.</p>
+<p class="page-description">Управление рекламными кампаниями — создание, редактирование, архивация и привязка креативов. Production Campaign API.</p>
 
 <!-- Flash Messages -->
 {% if flash_msg %}
@@ -16,28 +16,28 @@
       <div class="form-group">
         <label for="campaign_code">Код кампании*</label>
         <input type="text" id="campaign_code" name="campaign_code"
-               placeholder="demo_campaign_001" minlength="3" maxlength="64"
+               placeholder="winter_promo_2026" minlength="3" maxlength="64"
                pattern="[a-z0-9_-]+" required>
-        <span class="form-hint">Строчные латинские буквы, цифры, дефис, подчёркивание. 3–64 символа.</span>
+        <span class="form-hint">Строчные латинские буквы, цифры, дефис, подчёркивание. 3–64.</span>
       </div>
       <div class="form-group">
         <label for="name">Название*</label>
         <input type="text" id="name" name="name"
-               placeholder="Demo KSO Campaign" minlength="1" maxlength="255" required>
+               placeholder="Зимняя промо-кампания" minlength="1" maxlength="255" required>
       </div>
     </div>
     <div class="form-row">
       <div class="form-group">
         <label for="description">Описание</label>
         <input type="text" id="description" name="description"
-               placeholder="Synthetic technical validation campaign" maxlength="500">
+               placeholder="Описание кампании" maxlength="500">
       </div>
       <div class="form-group">
-        <label for="creative_code">Код креатива*</label>
+        <label for="creative_code">Код креатива</label>
         <input type="text" id="creative_code" name="creative_code"
                placeholder="demo_creative_001" minlength="1" maxlength="64"
-               pattern="[a-z0-9_-]+" required>
-        <span class="form-hint">creative_code ранее загруженного креатива.</span>
+               pattern="[a-z0-9_-]+">
+        <span class="form-hint">Необязательно. creative_code ранее загруженного креатива.</span>
       </div>
     </div>
     <button type="submit" class="btn-primary">Создать кампанию</button>
@@ -52,7 +52,7 @@
 </div>
 {% endif %}
 
-<!-- Safe Fields Only — no raw UUIDs, no order_id, no advertiser_id, no budget -->
+<!-- Campaigns Table -->
 <div class="table-container">
 <table class="data-table">
   <thead>
@@ -63,7 +63,7 @@
       <th>Описание</th>
       <th>Креативы</th>
       <th>Создана</th>
-      <th>Обновлена</th>
+      <th>Действия</th>
     </tr>
   </thead>
   <tbody>
@@ -76,8 +76,34 @@
       <td>{{ c.description }}</td>
       <td>{{ c.creative_codes }}</td>
       <td>{{ c.created_at }}</td>
-      <td>{{ c.updated_at }}</td>
+      <td>
+        {% if c.status != 'archived' %}
+        <form method="post" action="/campaigns/{{ c.campaign_code }}/archive" style="display:inline" onsubmit="return confirm('Архивировать кампанию {{ c.campaign_code }}?')">
+          <button type="submit" class="btn-sm btn-danger">Архив</button>
+        </form>
+        {% endif %}
+      </td>
     </tr>
+    <!-- Edit + Binding row -->
+    {% if c.status != 'archived' %}
+    <tr class="inline-actions-row">
+      <td colspan="7">
+        <!-- Edit Form -->
+        <form method="post" action="/campaigns/{{ c.campaign_code }}/edit" class="inline-form">
+          <span class="form-title-sm">Редактировать {{ c.campaign_code }}:</span>
+          <input type="text" name="name" value="{{ c.name }}" minlength="1" maxlength="255" required style="width:180px">
+          <input type="text" name="description" value="{{ c.description if c.description != '—' else '' }}" placeholder="Описание" maxlength="500" style="width:180px">
+          <button type="submit" class="btn-sm btn-primary">Сохранить</button>
+        </form>
+        <!-- Bind Creative Form -->
+        <form method="post" action="/campaigns/{{ c.campaign_code }}/bind-creative" class="inline-form">
+          <span class="form-title-sm">Привязать креатив:</span>
+          <input type="text" name="creative_code" placeholder="Код креатива*" minlength="1" maxlength="64" pattern="[a-z0-9_-]+" required style="width:140px">
+          <button type="submit" class="btn-sm btn-primary">+ Привязать</button>
+        </form>
+      </td>
+    </tr>
+    {% endif %}
   {% endfor %}
   {% else %}
     <tr class="empty-row">
@@ -85,7 +111,7 @@
         <div class="table-empty-state">
           <div class="table-empty-icon">📢</div>
           <div class="table-empty-title">Пока нет рекламных кампаний</div>
-          <div class="table-empty-text">Создайте кампанию через форму выше, чтобы связать её с загруженным креативом.</div>
+          <div class="table-empty-text">Создайте кампанию через форму выше, чтобы связать её с загруженными креативами.</div>
         </div>
       </td>
     </tr>
@@ -100,7 +126,7 @@
   <span class="note-text">Безопасная проекция: отображаются только код кампании, название, статус, описание, связанные креативы и даты. Внутренние идентификаторы, коммерческие поля и пути к файлам не отображаются.</span>
 </div>
 <div class="note-box">
-  <span class="note-icon">🧪</span>
-  <span class="note-text">Test KSO technical validation: используется временный test-kso endpoint для создания стандартных Campaign через synthetic dev technical context. Расписание, согласование, публикация и manifest — в следующих шагах.</span>
+  <span class="note-icon">📋</span>
+  <span class="note-text">Production Campaign API: создание через test-kso (safe projection), редактирование/архивация/привязка креативов через production code-based endpoints. Test KSO placement endpoints сохранены как legacy.</span>
 </div>
 {% endblock %}
