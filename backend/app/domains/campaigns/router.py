@@ -30,6 +30,7 @@ from app.domains.identity.rls import (
     apply_advertiser_rls,
 )
 from app.domains.campaigns import schemas, service, models as campaign_models
+from app.domains.audit.service import audit_business_action
 
 router = APIRouter(prefix="/api", tags=["campaigns"])
 
@@ -70,7 +71,14 @@ async def create_campaign(
     db: AsyncSession = Depends(get_db),
     current_user: identity_models.User = Depends(require_permission("campaigns.create")),
 ):
-    return await service.create_campaign(db, data, current_user.id)
+    result = await service.create_campaign(db, data, current_user.id)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="campaign.create", target_type="campaign",
+        target_ref=result.campaign_code if hasattr(result, 'campaign_code') else "unknown",
+        details={"name": data.name},
+    )
+    return result
 
 
 @router.get("/campaigns/{campaign_id}", response_model=schemas.CampaignResponse)
@@ -89,7 +97,14 @@ async def update_campaign(
     db: AsyncSession = Depends(get_db),
     _: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
-    return await service.update_campaign(db, campaign_id, data)
+    result = await service.update_campaign(db, campaign_id, data)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id) if 'current_user' in dir() else "unknown",
+        action="campaign.update", target_type="campaign",
+        target_ref=str(campaign_id),
+        details={"updated_fields": list(data.dict(exclude_unset=True).keys()) if hasattr(data, 'dict') else []},
+    )
+    return result
 
 
 # ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -328,7 +343,14 @@ async def patch_campaign_by_code(
         raise HTTPException(status_code=404, detail="Campaign not found")
     scope_ctx = await resolve_user_scope_context(db, current_user)
     assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "modify campaign")
-    return await service.update_campaign(db, campaign.id, data)
+    result = await service.update_campaign(db, campaign.id, data)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="campaign.update", target_type="campaign",
+        target_ref=campaign_code,
+        details={"status": result.status if hasattr(result, 'status') else "updated"},
+    )
+    return result
 
 
 @router.post(
@@ -347,7 +369,13 @@ async def archive_campaign_by_code(
         raise HTTPException(status_code=404, detail="Campaign not found")
     scope_ctx = await resolve_user_scope_context(db, current_user)
     assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "archive campaign")
-    return await service.archive_campaign(db, campaign.id)
+    result = await service.archive_campaign(db, campaign.id)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="campaign.archive", target_type="campaign",
+        target_ref=campaign_code,
+    )
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -395,7 +423,14 @@ async def bind_campaign_creative(
     creative_adv = await service.get_creative_advertiser(db, data.creative_code)
     if creative_adv is not None:
         assert_object_in_advertiser_scope(creative_adv, scope_ctx, "bind creative")
-    return await service.bind_campaign_creative(db, campaign.id, data.creative_code)
+    result = await service.bind_campaign_creative(db, campaign.id, data.creative_code)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="campaign.bind_creative", target_type="campaign",
+        target_ref=campaign_code,
+        details={"creative_code": data.creative_code},
+    )
+    return result
 
 
 @router.delete(
@@ -415,4 +450,11 @@ async def unbind_campaign_creative(
         raise HTTPException(status_code=404, detail="Campaign not found")
     scope_ctx = await resolve_user_scope_context(db, current_user)
     assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "modify campaign")
-    return await service.unbind_campaign_creative(db, campaign.id, creative_code)
+    result = await service.unbind_campaign_creative(db, campaign.id, creative_code)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="campaign.unbind_creative", target_type="campaign",
+        target_ref=campaign_code,
+        details={"creative_code": creative_code},
+    )
+    return result

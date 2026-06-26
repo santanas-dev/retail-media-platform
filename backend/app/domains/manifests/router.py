@@ -13,6 +13,7 @@ from app.core.deps import get_current_user, get_db, require_permission
 from app.domains.identity.models import User
 from app.domains.identity.rls import resolve_user_scope_context, assert_object_in_advertiser_scope
 from app.domains.manifests import schemas, service
+from app.domains.audit.service import audit_business_action
 
 router = APIRouter(prefix="/api/manifests", tags=["manifests"])
 

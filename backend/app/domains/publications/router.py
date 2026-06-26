@@ -13,6 +13,7 @@ from app.core.deps import get_current_user, get_db, require_permission
 from app.domains.identity.models import User
 from app.domains.identity.rls import resolve_user_scope_context, assert_object_in_advertiser_scope
 from app.domains.publications import schemas, service
+from app.domains.audit.service import audit_business_action
 
 router = APIRouter(prefix="/api", tags=["publications"])
 
@@ -47,7 +48,13 @@ async def create_batch(
     current_user: User = Depends(require_permission("publications.manage")),
 ):
     """Create publication batch. campaign_id is derived server-side from schedule_run."""
-    return await service.create_batch(db, data, current_user.id)
+    result = await service.create_batch(db, data, current_user.id)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="publication_batch.create", target_type="publication_batch",
+        target_ref=str(result.id),
+    )
+    return result
 
 
 @router.get(
@@ -118,7 +125,13 @@ async def request_batch_approval(
     if adv_id is not None:
         assert_object_in_advertiser_scope(adv_id, scope_ctx, "request approval")
     batch = await service.get_batch(db, UUID(batch_id))
-    return await service.request_batch_approval(db, batch, current_user.id)
+    result = await service.request_batch_approval(db, batch, current_user.id)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="publication_batch.request_approval", target_type="publication_batch",
+        target_ref=batch_id,
+    )
+    return result
 
 
 @router.post(
@@ -136,7 +149,13 @@ async def generate_manifests(
     if adv_id is not None:
         assert_object_in_advertiser_scope(adv_id, scope_ctx, "generate manifests")
     batch = await service.get_batch(db, UUID(batch_id))
-    return await service.generate_manifests(db, batch, current_user.id)
+    result = await service.generate_manifests(db, batch, current_user.id)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="publication_batch.generate_manifests", target_type="publication_batch",
+        target_ref=batch_id,
+    )
+    return result
 
 
 @router.post(
@@ -154,7 +173,13 @@ async def approve_batch(
     if adv_id is not None:
         assert_object_in_advertiser_scope(adv_id, scope_ctx, "approve batch")
     batch = await service.get_batch(db, UUID(batch_id))
-    return await service.approve_batch(db, batch, current_user.id)
+    result = await service.approve_batch(db, batch, current_user.id)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="publication_batch.approve", target_type="publication_batch",
+        target_ref=batch_id,
+    )
+    return result
 
 
 @router.post(
@@ -172,7 +197,13 @@ async def publish_batch(
     if adv_id is not None:
         assert_object_in_advertiser_scope(adv_id, scope_ctx, "publish batch")
     batch = await service.get_batch(db, UUID(batch_id))
-    return await service.publish_batch(db, batch, current_user.id)
+    result = await service.publish_batch(db, batch, current_user.id)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="publication_batch.publish", target_type="publication_batch",
+        target_ref=batch_id,
+    )
+    return result
 
 
 @router.post(
@@ -186,10 +217,15 @@ async def cancel_batch(
 ):
     """Cancel batch. RLS: advertiser scope NOT enforced (any authorized user can cancel)."""
     batch = await service.get_batch(db, UUID(batch_id))
-    return await service.cancel_batch(
+    result = await service.cancel_batch(
         db, batch, current_user.id, current_user.permissions,
     )
-
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="publication_batch.cancel", target_type="publication_batch",
+        target_ref=batch_id,
+    )
+    return result
 
 # ═══════════════════════════════════════════════════════════════════
 #  Targets, Manifests, Events

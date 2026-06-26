@@ -227,11 +227,19 @@ async def update_user_rls_scopes(
 async def list_admin_audit(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
+    action: str | None = Query(None, description="Filter by action"),
+    target_type: str | None = Query(None, description="Filter by target type"),
+    target_ref: str | None = Query(None, description="Filter by target ref"),
+    actor_id: str | None = Query(None, description="Filter by actor user ID"),
     db: AsyncSession = Depends(get_db),
     _: models.User = Depends(require_permission("audit.read")),
 ):
-    """List admin audit events. Requires audit.read."""
-    events = await service.list_admin_audit(db, skip=skip, limit=limit)
+    """List admin audit events with optional filters. Requires audit.read."""
+    events = await service.list_admin_audit(
+        db, skip=skip, limit=limit,
+        action=action, target_type=target_type,
+        target_ref=target_ref, actor_id=actor_id,
+    )
     return [
         schemas.AdminAuditResponse(
             id=e.id,

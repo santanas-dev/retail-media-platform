@@ -49,7 +49,45 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [40.1.3-regression-baseline-cleanup] — 2026-06-26
+## [40.2-admin-audit-hardening] — 2026-06-26
+
+**Admin Audit Hardening — business-audit trail for all critical workflows.**
+
+### Audit Coverage Matrix
+
+| Domain | Actions Logged |
+|---|---|
+| Campaigns | create, update, archive, bind_creative, unbind_creative |
+| Creatives | create, update, upload_version |
+| Approvals | request, approve |
+| Publications | create, request_approval, approve, generate_manifests, publish, cancel |
+| Manifests | generate, publish |
+| Identity (existing) | create_user, block_user, archive_user, unblock_user, update_roles, update_rls_scopes |
+| Device gateway (existing) | manifest delivery audit |
+
+### Added
+
+- `backend/app/domains/audit/service.py` — centralized `audit_business_action()` with automatic forbidden-field stripping (secrets/tokens/passwords/URLs)
+- Audit calls injected into campaigns, media (creatives), approvals, publications, manifests routers
+- Enhanced audit endpoint with filters: `action`, `target_type`, `target_ref`, `actor_id`
+- `backend/tests/test_audit_hardening.py` — 18 tests (payload safety + action naming)
+- Portal `/admin` page already shows audit events (pre-existing) — secure, RBAC-guarded, no secrets
+
+### Payload Redaction
+
+Fields stripped from audit details_json: password, password_hash, secret, device_secret, access_token, token, token_hash, backend_url, minio_endpoint, private_key, barcode, receipt, payment, fiscal, card, customer_id, phone, file_path, sha256 — plus any key containing "secret", "password", "token", or "key".
+
+### Regression
+
+| Suite | Passed | Skipped | Failed |
+|---|---|---|---|
+| Backend | 475 | 0 | 0 |
+| Portal | 438 | 20 | 0 |
+| KSO state adapter | 86 | 0 | 0 |
+| KSO player | 2060 | 12 | 0 |
+| KSO sidecar | 1838 | 0 | 0 |
+| Infra | 227 | 0 | 0 |
+| **Total** | **5124** | **32** | **0** |
 
 **Regression Baseline Cleanup — all suites green in default profile, integration tests separated.**
 

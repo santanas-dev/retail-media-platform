@@ -12,6 +12,7 @@ from app.core.deps import get_db, require_permission
 from app.domains.identity import models as identity_models
 from app.domains.identity.rls import resolve_user_scope_context
 from app.domains.approvals import schemas, service
+from app.domains.audit.service import audit_business_action
 
 router = APIRouter(prefix="/api/approvals", tags=["approvals"])
 
@@ -67,7 +68,14 @@ async def request_approval_prod(
     Transitions object status to 'pending_approval'.
     """
     scope_ctx = await resolve_user_scope_context(db, current_user)
-    return await service.request_approval(db, data, current_user.id, scope_ctx=scope_ctx)
+    result = await service.request_approval(db, data, current_user.id, scope_ctx=scope_ctx)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="approval.request", target_type="approval",
+        target_ref=result.approval_code if hasattr(result, 'approval_code') else "requested",
+        details={"object_type": data.object_type, "object_code": data.object_code},
+    )
+    return result
 
 
 @router.post(
@@ -91,7 +99,14 @@ async def approve_approval_prod(
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Use /reject endpoint to reject")
     scope_ctx = await resolve_user_scope_context(db, current_user)
-    return await service.decide_approval(db, approval_code, data, current_user.id, scope_ctx=scope_ctx)
+    result = await service.decide_approval(db, approval_code, data, current_user.id, scope_ctx=scope_ctx)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="approval.approve", target_type="approval",
+        target_ref=approval_code,
+        details={"decision": data.decision} if hasattr(data, 'decision') else None,
+    )
+    return result
 
 
 @router.post(
@@ -115,7 +130,14 @@ async def reject_approval_prod(
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Use /approve endpoint to approve")
     scope_ctx = await resolve_user_scope_context(db, current_user)
-    return await service.decide_approval(db, approval_code, data, current_user.id, scope_ctx=scope_ctx)
+    result = await service.decide_approval(db, approval_code, data, current_user.id, scope_ctx=scope_ctx)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="approval.approve", target_type="approval",
+        target_ref=approval_code,
+        details={"decision": data.decision} if hasattr(data, 'decision') else None,
+    )
+    return result
 
 
 # ══════════════════════════════════════════════════════════════════════

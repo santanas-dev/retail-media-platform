@@ -755,14 +755,26 @@ async def list_admin_audit(
     db: AsyncSession,
     skip: int = 0,
     limit: int = 50,
+    action: str | None = None,
+    target_type: str | None = None,
+    target_ref: str | None = None,
+    actor_id: str | None = None,
 ) -> list[models.AdminAuditEvent]:
-    """List admin audit events, newest first."""
-    result = await db.execute(
-        select(models.AdminAuditEvent)
-        .order_by(models.AdminAuditEvent.occurred_at.desc())
-        .offset(skip)
-        .limit(limit)
-    )
+    """List admin audit events with optional filters, newest first."""
+    from uuid import UUID as _UUID
+    stmt = select(models.AdminAuditEvent)
+
+    if action:
+        stmt = stmt.where(models.AdminAuditEvent.action == action)
+    if target_type:
+        stmt = stmt.where(models.AdminAuditEvent.target_type == target_type)
+    if target_ref:
+        stmt = stmt.where(models.AdminAuditEvent.target_ref == target_ref)
+    if actor_id:
+        stmt = stmt.where(models.AdminAuditEvent.actor_user_id == _UUID(actor_id))
+
+    stmt = stmt.order_by(models.AdminAuditEvent.occurred_at.desc()).offset(skip).limit(limit)
+    result = await db.execute(stmt)
     return list(result.scalars().all())
 
 

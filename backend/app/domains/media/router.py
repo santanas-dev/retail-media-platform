@@ -29,6 +29,7 @@ from app.domains.identity.rls import (
     assert_object_in_advertiser_scope,
 )
 from app.domains.media import schemas, service
+from app.domains.audit.service import audit_business_action
 
 router = APIRouter(prefix="/api", tags=["media"])
 
@@ -62,7 +63,14 @@ async def create_creative(
     scope_ctx = await resolve_user_scope_context(db, current_user)
     if data.advertiser_id is not None:
         assert_object_in_advertiser_scope(data.advertiser_id, scope_ctx, "create")
-    return await service.create_creative(db, data, current_user.id)
+    result = await service.create_creative(db, data, current_user.id)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="creative.create", target_type="creative",
+        target_ref=result.creative_code if hasattr(result, 'creative_code') else str(result.id),
+        details={"name": data.name},
+    )
+    return result
 
 
 @router.get("/creatives/{creative_id}", response_model=schemas.CreativeResponse)
@@ -109,7 +117,14 @@ async def update_creative(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="media.approve only allows status changes",
             )
-    return await service.update_creative(db, creative_id, data)
+    result = await service.update_creative(db, creative_id, data)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="creative.update", target_type="creative",
+        target_ref=str(creative_id),
+        details={"status": data.status} if data.status else None,
+    )
+    return result
 
 
 # ── Creative Versions ─────────────────────────────────────────────────────
@@ -125,7 +140,13 @@ async def upload_version(
     db: AsyncSession = Depends(get_db),
     current_user: identity_models.User = Depends(require_permission("media.manage")),
 ):
-    return await service.upload_version(db, creative_id, file, current_user.id)
+    result = await service.upload_version(db, creative_id, file, current_user.id)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="creative.upload_version", target_type="creative",
+        target_ref=str(creative_id),
+    )
+    return result
 
 
 @router.get(
