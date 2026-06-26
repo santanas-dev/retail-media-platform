@@ -15,6 +15,9 @@ class DashboardHeartbeatSummary(BaseModel):
     current_manifest_hash: Optional[str] = Field(
         None, max_length=64, description="SHA-256 hex — safe for display"
     )
+    sidecar_status: Optional[str] = Field(
+        None, description="Extracted from details_json: stopped/starting/running/warning/error/unknown"
+    )
 
 
 class DashboardCredentialSummary(BaseModel):

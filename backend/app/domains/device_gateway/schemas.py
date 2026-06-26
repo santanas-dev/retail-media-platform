@@ -90,6 +90,9 @@ class DeviceHeartbeatRequest(BaseModel):
         None, min_length=64, max_length=64,
         pattern=r"^[0-9a-fA-F]{64}$",
     )
+    sidecar_status: Optional[str] = Field(
+        None, description="Sidecar agent status: stopped/starting/running/warning/error/unknown",
+    )
     details_json: dict[str, Any] = Field(default_factory=dict)
 
 

@@ -38,10 +38,35 @@ def _parse_dt(val) -> datetime | None:
         return val
     if isinstance(val, str):
         try:
-            # Try ISO format with/without timezone
             return datetime.fromisoformat(val.replace("Z", "+00:00"))
         except (ValueError, TypeError):
             return None
+    return None
+
+
+ALLOWED_SIDECAR_STATUSES = frozenset({
+    "stopped", "starting", "running", "warning", "error", "unknown",
+})
+
+
+def _extract_sidecar_status(hb_row) -> str | None:
+    """Extract sidecar_status from heartbeat details_json safely."""
+    details = None
+    try:
+        raw = getattr(hb_row, "details_json", None)
+        if raw is None:
+            return None
+        if isinstance(raw, dict):
+            details = raw
+        elif isinstance(raw, str):
+            import json
+            details = json.loads(raw)
+        if isinstance(details, dict):
+            val = details.get("sidecar_status")
+            if isinstance(val, str) and val in ALLOWED_SIDECAR_STATUSES:
+                return val
+    except Exception:
+        pass
     return None
 
 
@@ -111,7 +136,7 @@ async def get_device_dashboard(
     hb_in, hb_params = _in_clause("h.gateway_device_id", gw_ids, dialect_name)
     hb_sql = (
         f"SELECT h.gateway_device_id, h.status, h.created_at, h.app_version, "
-        f"h.cache_items_count, h.current_manifest_hash "
+        f"h.cache_items_count, h.current_manifest_hash, h.details_json "
         f"FROM device_heartbeats h "
         f"WHERE {hb_in} "
         f"ORDER BY h.created_at DESC"
@@ -121,7 +146,7 @@ async def get_device_dashboard(
         hb_sql = (
             f"SELECT DISTINCT ON (h.gateway_device_id) "
             f"h.gateway_device_id, h.status, h.created_at, h.app_version, "
-            f"h.cache_items_count, h.current_manifest_hash "
+            f"h.cache_items_count, h.current_manifest_hash, h.details_json "
             f"FROM device_heartbeats h "
             f"WHERE {hb_in} "
             f"ORDER BY h.gateway_device_id, h.created_at DESC"
@@ -236,15 +261,19 @@ async def get_device_dashboard(
 
         # ── Heartbeat summary ──────────────────────────────────
         heartbeat_summary = None
+        _hb_sidecar = None
         if hb:
             hb_dt = _parse_dt(hb.created_at)
             age_seconds = int((now_val - hb_dt).total_seconds()) if hb_dt else None
+            # Extract sidecar_status from details_json if present
+            _hb_sidecar = _extract_sidecar_status(hb)
             heartbeat_summary = DashboardHeartbeatSummary(
                 status=hb.status,
                 age_seconds=age_seconds,
                 app_version=hb.app_version,
                 cache_items_count=hb.cache_items_count,
                 current_manifest_hash=hb.current_manifest_hash,
+                sidecar_status=_hb_sidecar,
             )
 
         # ── Credential summary ─────────────────────────────────
@@ -322,7 +351,7 @@ async def get_device_dashboard(
             heartbeat=heartbeat_summary,
             last_seen_at=gw.gw_last_seen_at,
             sidecar_version=kso.sidecar_version if kso else None,
-            sidecar_status=None,  # Deferred to 39.4.4
+            sidecar_status=_hb_sidecar,  # GAP 2: from heartbeat details_json
             player_version=kso.player_version if kso else None,
             credential=credential_summary,
             session=session_summary,

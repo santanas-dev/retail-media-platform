@@ -318,3 +318,30 @@ For all dashboard endpoints:
 ### GAP 5 — PARTIALLY ADDRESSED
 
 `/device-dashboard` now shows gateway data (credential, sessions, heartbeat, manifest, PoP, media cache). The old `/devices` page still only shows KSO registry data — but the dashboard page closes this gap for pilot operators.
+
+
+## 10. 39.4.3 Status — All GAPs Closed
+
+**Date:** 2026-06-26
+**Commit:** `212ae83`
+
+### GAP 2 — CLOSED ✅
+- `DeviceHeartbeatRequest.sidecar_status` added
+- Stored in details_json, extracted in dashboard
+- Old payloads without it → None (safe)
+
+### GAP 4 — CLOSED ✅
+- /readiness now production, no test-kso
+- KPI from GET /api/device-dashboard
+- 14 tests
+
+### GAP 5 — CLOSED ✅
+- /devices links to /device-dashboard
+
+### Remaining deferred
+- GAP 6 (manifest/media readiness per device) — partially covered by dashboard manifest/media_cache columns
+- GAP 7 (error aggregation) — partially covered by readiness_reasons
+- Physical KSO delivery, sidecar sync, scanner — all deferred to pilot phase
+- Full operator dashboard polish → 39.4.5 deferred (can be lower priority)
+
+### Next: 40.0 TЗ Alignment / Security & RLS Audit Gate

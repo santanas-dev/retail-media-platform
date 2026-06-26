@@ -591,6 +591,78 @@ class TestDeviceDashboardAPI(unittest.TestCase):
                 self.assertIsNotNone(row[0], "KsoDevice.last_seen_at should be set after heartbeat propagation")
         asyncio.get_event_loop().run_until_complete(_run())
 
+
+    # ── 17. Sidecar status from heartbeat details_json ──────────
+
+    def test_sidecar_status_from_heartbeat(self):
+        """Heartbeat with sidecar_status in details_json → reflected in dashboard."""
+        async def _seed():
+            async with self.Session() as db:
+                future_val = (_now() + timedelta(hours=1)).isoformat()
+                cred_id = _uid()
+                await db.execute(text(
+                    """INSERT INTO device_credentials
+                       (id, gateway_device_id, credential_type, status, expires_at)
+                       VALUES (:id, :gw, :ct, :st, :exp)"""
+                ), {"id": cred_id, "gw": self.gw_id, "ct": "shared_secret",
+                    "st": "active", "exp": future_val})
+                await db.execute(text(
+                    """INSERT INTO device_heartbeats
+                       (id, gateway_device_id, status, created_at, details_json)
+                       VALUES (:id, :gw, :st, :ca, :dj)"""
+                ), {
+                    "id": _uid(), "gw": self.gw_id, "st": "ok",
+                    "ca": (_now() - timedelta(seconds=30)).isoformat(),
+                    "dj": '{"sidecar_status": "running"}',
+                })
+                await db.execute(text(
+                    """INSERT INTO device_current_manifest_states
+                       (id, gateway_device_id, status, manifest_hash)
+                       VALUES (:id, :gw, :st, :mh)"""
+                ), {"id": _uid(), "gw": self.gw_id, "st": "applied", "mh": "c" * 64})
+                await db.commit()
+        asyncio.get_event_loop().run_until_complete(_seed())
+        items = asyncio.get_event_loop().run_until_complete(self._dashboard())
+        self.assertEqual(items[0].sidecar_status, "running")
+        self.assertEqual(items[0].heartbeat.sidecar_status, "running")
+
+    def test_sidecar_status_unknown_when_missing(self):
+        """Heartbeat without sidecar_status → sidecar_status is None."""
+        async def _seed():
+            async with self.Session() as db:
+                await db.execute(text(
+                    """INSERT INTO device_heartbeats
+                       (id, gateway_device_id, status, created_at, details_json)
+                       VALUES (:id, :gw, :st, :ca, :dj)"""
+                ), {
+                    "id": _uid(), "gw": self.gw_id, "st": "ok",
+                    "ca": (_now() - timedelta(seconds=10)).isoformat(),
+                    "dj": '{}',  # No sidecar_status
+                })
+                await db.commit()
+        asyncio.get_event_loop().run_until_complete(_seed())
+        items = asyncio.get_event_loop().run_until_complete(self._dashboard())
+        self.assertIsNone(items[0].sidecar_status)
+        self.assertIsNone(items[0].heartbeat.sidecar_status)
+
+    def test_invalid_sidecar_status_normalized(self):
+        """Invalid sidecar_status value → not reflected (None)."""
+        async def _seed():
+            async with self.Session() as db:
+                await db.execute(text(
+                    """INSERT INTO device_heartbeats
+                       (id, gateway_device_id, status, created_at, details_json)
+                       VALUES (:id, :gw, :st, :ca, :dj)"""
+                ), {
+                    "id": _uid(), "gw": self.gw_id, "st": "ok",
+                    "ca": (_now() - timedelta(seconds=10)).isoformat(),
+                    "dj": '{"sidecar_status": "invalid_value!"}',
+                })
+                await db.commit()
+        asyncio.get_event_loop().run_until_complete(_seed())
+        items = asyncio.get_event_loop().run_until_complete(self._dashboard())
+        self.assertIsNone(items[0].sidecar_status)
+
     # ── 16. Media cache health ──────────────────────────────────
 
     def test_media_cache_health_reflected(self):

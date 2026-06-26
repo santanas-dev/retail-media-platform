@@ -526,6 +526,11 @@ async def record_heartbeat(
         )
         raise HTTPException(status_code=400, detail="Details too large")
 
+    # Inject sidecar_status into details_json for dashboard retrieval
+    _details = dict(data.details_json) if data.details_json else {}
+    if data.sidecar_status:
+        _details["sidecar_status"] = data.sidecar_status
+
     heartbeat = models.DeviceHeartbeat(
         gateway_device_id=device.id,
         status=data.status or "ok",
@@ -537,7 +542,7 @@ async def record_heartbeat(
         current_manifest_hash=data.current_manifest_hash,
         ip_address=client_ip,
         user_agent=user_agent,
-        details_json=data.details_json,
+        details_json=_details,
     )
     db.add(heartbeat)
 

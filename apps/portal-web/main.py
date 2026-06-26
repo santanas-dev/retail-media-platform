@@ -506,40 +506,108 @@ def _device_dashboard_fallback(
 
 
 # ══════════════════════════════════════════════════════════════════════
-# Test KSO Readiness — Backend API Integration (Step 38.4)
+# Readiness — Production Device Dashboard Integration (39.4.3)
 # ══════════════════════════════════════════════════════════════════════
 
 @app.get("/readiness", response_class=HTMLResponse)
 async def readiness_page(request: Request):
+    """Readiness: production device dashboard summary (39.4.3).
+
+    Uses GET /api/device-dashboard to compute readiness KPI.
+    Shows summary cards (ready/warning/blocked/unknown) and a filtered
+    device table with readiness_badge. Links to /device-dashboard for full detail.
+    """
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/readiness")
     if guard is not None:
         return guard
 
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
     backend = BackendClient()
-    device_code = request.query_params.get("device_code", "test-dev-readiness")
 
-    readiness_data = {
-        "overall_ready": False,
-        "backend_healthy": False,
-        "phase_d_requires_approval": True,
-        "phase_d_blocked": True,
-        "phase_d_block_reason": "Explicit manual approval required",
-        "device_code": device_code,
+    # Parse filter params
+    readiness_filter = request.query_params.get("readiness_badge", "").strip()
+
+    if not access_token:
+        return _readiness_fallback(request, current_user, "Session expired")
+
+    try:
+        result = await backend.get_device_dashboard(
+            access_token,
+            readiness_badge=readiness_filter if readiness_filter else None,
+            limit=200,
+        )
+    except Exception:
+        return _readiness_fallback(request, current_user,
+                                   "Данные временно недоступны. Попробуйте позже.")
+    finally:
+        await backend.close()
+
+    if not result.get("ok", False):
+        return _readiness_fallback(request, current_user,
+                                   "Данные временно недоступны. Попробуйте позже.")
+
+    devices = result.get("data", [])
+
+    # Compute KPI
+    total = len(devices)
+    ready = sum(1 for d in devices if d.get("readiness_badge") == "ready")
+    warning = sum(1 for d in devices if d.get("readiness_badge") == "warning")
+    blocked = sum(1 for d in devices if d.get("readiness_badge") == "blocked")
+    unknown = sum(1 for d in devices if d.get("readiness_badge") == "unknown")
+
+    stale_hb = sum(
+        1 for d in devices
+        if d.get("heartbeat") and d["heartbeat"].get("age_seconds", 0) > 900
+    )
+    expired_cred = sum(
+        1 for d in devices
+        if d.get("credential") and d["credential"].get("status") == "expired"
+    )
+    missing_manifest = sum(
+        1 for d in devices
+        if not d.get("manifest") or d["manifest"].get("status") != "applied"
+    )
+
+    kpi = {
+        "total": total,
+        "ready": ready,
+        "warning": warning,
+        "blocked": blocked,
+        "unknown": unknown,
+        "stale_heartbeat": stale_hb,
+        "expired_credential": expired_cred,
+        "missing_manifest": missing_manifest,
     }
-
-    result = await backend.get_test_kso_readiness(device_code)
-    if result.get("ok"):
-        readiness_data = result.get("data", readiness_data)
 
     return templates.TemplateResponse(request, "pages/readiness.html", {
         "request": request,
-        "title": "Test KSO Readiness",
+        "title": "Readiness — Pilot Gate",
         "active": "readiness",
         "demo": False,
         "current_user": current_user,
-        "readiness": readiness_data,
-        "backend_unavailable": not result.get("ok", False),
+        "kpi": kpi,
+        "devices": devices,
+        "filters": {"readiness_badge": readiness_filter} if readiness_filter else {},
+        "backend_unavailable": False,
+    })
+
+
+def _readiness_fallback(
+    request: Request, current_user, reason: str = "",
+) -> HTMLResponse:
+    return templates.TemplateResponse(request, "pages/readiness.html", {
+        "request": request,
+        "title": "Readiness — Pilot Gate",
+        "active": "readiness",
+        "demo": False,
+        "current_user": current_user,
+        "kpi": {},
+        "devices": [],
+        "filters": {},
+        "backend_unavailable": True,
+        "backend_message": reason,
     })
 
 

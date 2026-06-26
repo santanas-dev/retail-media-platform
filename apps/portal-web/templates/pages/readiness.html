@@ -1,296 +1,163 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">🧭 Test KSO Readiness</h1>
-<p class="page-description">Readiness gate для one-KSO E2E dry run. Read-only — никаких destructive actions.</p>
-
-<!-- Readiness Groups -->
-<div class="readiness-groups">
-
-  <!-- ═══ BACKEND ═══ -->
-  <div class="readiness-group">
-    <h2 class="group-title">🖥️ Backend</h2>
-    <div class="component-list">
-      <div class="component-item">
-        <h3>
-          <span class="component-status {{ 'status-active' if readiness.backend_healthy else 'status-blocked' }}"></span>
-          Backend Health
-          {{ "✅" if readiness.backend_healthy else "⏳" }}
-        </h3>
-        <p>Backend API доступен</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ DEVICE ═══ -->
-  <div class="readiness-group">
-    <h2 class="group-title">📱 Device</h2>
-    <div class="component-list">
-      <div class="component-item">
-        <h3>
-          <span class="component-status {{ 'status-active' if readiness.device_registered else 'status-blocked' }}"></span>
-          Device: {{ readiness.device_code or "—" }}
-          {{ "✅" if readiness.device_registered else "❌" }}
-        </h3>
-        <p>КСО устройство зарегистрировано в backend
-        {% if readiness.device_status %}· Статус: <strong>{{ readiness.device_status }}</strong>{% endif %}</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ CAMPAIGN / CREATIVE / PLACEMENT ═══ -->
-  <div class="readiness-group">
-    <h2 class="group-title">📋 Campaign · Creative · Placement</h2>
-    <div class="component-list">
-      <div class="component-item">
-        <h3>
-          <span class="component-status {{ 'status-active' if readiness.campaign_registered else 'status-blocked' }}"></span>
-          Campaign: {{ readiness.campaign_code or "—" }}
-          {{ "✅" if readiness.campaign_registered else "❌" }}
-        </h3>
-        <p>{% if readiness.campaign_status %}Статус: <strong>{{ readiness.campaign_status }}</strong>{% else %}Не найдена{% endif %}</p>
-      </div>
-      <div class="component-item">
-        <h3>
-          <span class="component-status {{ 'status-active' if readiness.creative_registered else 'status-blocked' }}"></span>
-          Creative: {{ readiness.creative_code or "—" }}
-          {{ "✅" if readiness.creative_registered else "❌" }}
-        </h3>
-        <p>{% if readiness.creative_status %}Статус: <strong>{{ readiness.creative_status }}</strong>{% endif %}
-        {% if readiness.creative_ready %}· Content: <strong>{{ readiness.creative_content_type }}</strong> ✅{% else %}· Content: ❌ не загружен{% endif %}</p>
-      </div>
-      <div class="component-item">
-        <h3>
-          <span class="component-status {{ 'status-active' if readiness.campaign_creative_linked else 'status-blocked' }}"></span>
-          Campaign ↔ Creative Link
-          {{ "✅" if readiness.campaign_creative_linked else "❌" }}
-        </h3>
-        <p>Creative привязан к Campaign</p>
-      </div>
-      <div class="component-item">
-        <h3>
-          <span class="component-status {{ 'status-active' if readiness.placement_registered else 'status-blocked' }}"></span>
-          Placement: {{ readiness.placement_code or "—" }}
-          {{ "✅" if readiness.placement_registered else "❌" }}
-        </h3>
-        <p>{% if readiness.placement_status %}Статус: <strong>{{ readiness.placement_status }}</strong>{% else %}Не создан{% endif %}</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ PUBLICATION / MANIFEST ═══ -->
-  <div class="readiness-group">
-    <h2 class="group-title">📦 Publication · Manifest</h2>
-    <div class="component-list">
-      <div class="component-item">
-        <h3>
-          <span class="component-status {{ 'status-active' if readiness.publication_exists else 'status-blocked' }}"></span>
-          Publication
-          {{ "✅" if readiness.publication_exists else "❌" }}
-        </h3>
-        <p>{% if readiness.publication_status %}Статус: <strong>{{ readiness.publication_status }}</strong>{% else %}Не опубликован{% endif %}</p>
-      </div>
-      <div class="component-item">
-        <h3>
-          <span class="component-status {{ 'status-active' if readiness.manifest_published else 'status-blocked' }}"></span>
-          Manifest: {{ readiness.manifest_code or "—" }}
-          {{ "✅" if readiness.manifest_published else "❌" }}
-        </h3>
-        <p>
-          Items: <strong>{{ readiness.manifest_item_count }}</strong> ·
-          creativeCode: {{ "✅" if readiness.manifest_has_creative_code else "❌" }} ·
-          mediaRef: {{ "✅" if readiness.manifest_has_media_ref else "❌" }}
-        </p>
-        {% if readiness.manifest_generated_at %}
-        <p style="font-size:11px;color:#64748b;">Generated: {{ readiness.manifest_generated_at }}
-        {% if readiness.manifest_published_at %}· Published: {{ readiness.manifest_published_at }}{% endif %}</p>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ SIDECAR CONFIG CHECKLIST ═══ -->
-  <div class="readiness-group">
-    <h2 class="group-title">🔧 Sidecar Config Checklist</h2>
-    <div class="component-list">
-      <div class="component-item" style="border-left: 3px solid {{ '#22c55e' if readiness.sidecar_config_ready else '#f59e0b' }};">
-        <h3>
-          <span class="component-status {{ 'status-active' if readiness.sidecar_config_ready else 'status-pending' }}"></span>
-          Config Readiness
-          {{ "✅" if readiness.sidecar_config_ready else "⚠️ Требуется оператор" }}
-        </h3>
-        <p>
-          Обязательных полей: <strong>{{ readiness.sidecar_config_required_fields | length }}</strong>
-          · Не заполнено: <strong>{{ readiness.sidecar_config_missing_fields | length }}</strong>
-        </p>
-      </div>
-
-      <!-- Field-by-field checklist — field names visible, values HIDDEN -->
-      {% if readiness.sidecar_config_checklist %}
-      <div class="config-checklist-table" style="margin-top:12px;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead>
-            <tr style="border-bottom:1px solid #334155;">
-              <th style="text-align:left;padding:6px 8px;color:#94a3b8;">Field</th>
-              <th style="text-align:center;padding:6px 8px;color:#94a3b8;">Required</th>
-              <th style="text-align:center;padding:6px 8px;color:#94a3b8;">Present</th>
-              <th style="text-align:left;padding:6px 8px;color:#94a3b8;">Filled By</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for field in readiness.sidecar_config_checklist %}
-            <tr style="border-bottom:1px solid #1e293b; {{ 'background:#451a03;' if field.required and not field.present else '' }}">
-              <td style="padding:6px 8px;">
-                <code style="color:#e2e8f0;">{{ field.name }}</code>
-                {% if field.description %}<br><span style="color:#64748b;font-size:11px;">{{ field.description }}</span>{% endif %}
-              </td>
-              <td style="text-align:center;padding:6px 8px;">
-                {{ "✅" if field.required else "—" }}
-              </td>
-              <td style="text-align:center;padding:6px 8px;">
-                <span style="color:{{ '#22c55e' if field.present else '#ef4444' }};">{{ "✅" if field.present else "❌" }}</span>
-              </td>
-              <td style="padding:6px 8px;color:#94a3b8;font-size:11px;">
-                {{ field.filled_by }}
-              </td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-        <p style="color:#64748b;font-size:11px;margin-top:6px;">
-          ⚠️ Значения полей НЕ показываются. Все поля заполняются оператором вручную на КСО.
-          <code>backend_base_url</code>, секретные поля и другие значения никогда не передаются в readiness endpoint.
-        </p>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- ═══ MEDIA CACHE ═══ -->
-  <div class="readiness-group">
-    <h2 class="group-title">💾 Media Cache</h2>
-    <div class="component-list">
-      <div class="component-item">
-        <h3>
-          <span class="component-status status-pending"></span>
-          Media Cache
-        </h3>
-        <p>Ожидается <strong>{{ readiness.media_cache_items_expected }}</strong> файлов на КСО</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ PoP / REPORT ═══ -->
-  <div class="readiness-group">
-    <h2 class="group-title">📊 PoP · Report</h2>
-    <div class="component-list">
-      <div class="component-item">
-        <h3>
-          <span class="component-status status-active"></span>
-          PoP Endpoint
-          ✅
-        </h3>
-        <p>
-          {{ readiness.pop_last_count }} событий для этого устройства ·
-          Report ready: {{ "✅" if readiness.pop_report_ready else "⏳ нет creative_code" }}
-        </p>
-      </div>
-      <div class="component-item">
-        <h3>
-          <span class="component-status status-active"></span>
-          Portal Report
-          ✅
-        </h3>
-        <p>Фильтр по creative_code: {{ "✅" if readiness.portal_report_filter_creative_code else "❌" }}</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ OPERATOR PREFLIGHT GUIDANCE ═══ -->
-  <div class="readiness-group">
-    <h2 class="group-title">📋 Operator Preflight (Phase A–C)</h2>
-    <p style="color:#94a3b8;font-size:12px;margin-bottom:8px;">
-      Read-only guidance. Никаких кнопок — все действия выполняются оператором вручную.
-      Подробный runbook: <code>docs/audit/test-kso-live-backend-seed-runbook.md</code>
-    </p>
-    <div class="component-list">
-      {% if readiness.required_operator_steps %}
-        {% for step in readiness.required_operator_steps %}
-        <div class="component-item" style="border-left: 3px solid #3b82f6;">
-          <p style="margin:0;color:#e2e8f0;font-size:13px;">
-            {{ "✅" if "✅" in step else "⬜" }} {{ step }}
-          </p>
-        </div>
-        {% endfor %}
-      {% else %}
-        <div class="component-item">
-          <p style="color:#94a3b8;">Preflight steps loading…</p>
-        </div>
-      {% endif %}
-    </div>
-
-    <!-- Guidance hints (read-only) -->
-    <div style="margin-top:12px;padding:10px;background:#1e293b;border-radius:6px;font-size:12px;color:#94a3b8;">
-      <p style="margin:4px 0;"><strong>⬜ Заполнить локальный sidecar config</strong> — <code>write-config</code> + <code>secret-store-set</code> на КСО</p>
-      <p style="margin:4px 0;"><strong>⬜ Запустить backend seed</strong> — через portal или <code>POST /api/test-kso/seed</code></p>
-      <p style="margin:4px 0;"><strong>⬜ Проверить media cache</strong> — <code>sidecar doctor</code> → <code>cache_missing == 0</code></p>
-      <p style="margin:4px 0;color:#ef4444;"><strong>⛔ Phase D только после manual approval</strong> — никакие кнопки не активны</p>
-      <p style="margin-top:8px;font-size:11px;">⚠️ Никаких кнопок «запуск X11», «deploy на КСО», «Phase D run», «SSH», «restart» на этой странице нет.</p>
-    </div>
-  </div>
-
-  <!-- ═══ PHASE D GATE ═══ -->
-  <div class="readiness-group" style="border-left: 3px solid #ef4444;">
-    <h2 class="group-title" style="color:#ef4444;">⛔ Physical Phase D Gate</h2>
-    <div class="component-list">
-      <div class="component-item" style="border-left: 3px solid #ef4444;">
-        <h3 style="color:#ef4444;">{{ readiness.phase_d_block_reason }}</h3>
-        <p style="color:#94a3b8;">
-          Phase D требует отдельного explicit manual approval.
-          Никакие кнопки для физического запуска, X11 render, или deploy на КСО не активны.
-        </p>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<!-- Overall Status Card -->
-<div class="cards" style="margin-top: 24px;">
-  <div class="card">
-    <div class="card-title">Общая готовность</div>
-    <div class="card-value" style="color:{% if readiness.overall_ready %}#22c55e{% else %}#ef4444{% endif %}">
-      {{ "✅ Готов" if readiness.overall_ready else "❌ Не готов" }}
-    </div>
-    <div class="card-hint">Backend prerequisites</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Phase D</div>
-    <div class="card-value" style="color:#ef4444">⛔ Заблокирован</div>
-    <div class="card-hint">Требуется manual approval</div>
-  </div>
-</div>
-
-<!-- Readiness Reasons -->
-{% if readiness.readiness_reasons %}
-<h2 style="margin-top:24px;margin-bottom:12px;font-size:16px;color:#f87171;">⚠️ Readiness Issues</h2>
-<ul style="color:#94a3b8;list-style:disc;padding-left:20px;">
-  {% for reason in readiness.readiness_reasons %}
-  <li style="margin-bottom:4px;">{{ reason }}</li>
-  {% endfor %}
-</ul>
-{% endif %}
-
-<!-- Что осталось сделать -->
-{% if readiness.remaining_steps %}
-<h2 style="margin-top:24px;margin-bottom:12px;font-size:16px;color:#fbbf24;">📝 Что осталось сделать</h2>
-<ol style="color:#94a3b8;padding-left:20px;">
-  {% for step in readiness.remaining_steps %}
-  <li style="margin-bottom:8px;">{{ step }}</li>
-  {% endfor %}
-</ol>
-{% endif %}
-
-<p style="margin-top:16px;color:#64748b;font-size:12px;">
-  Проверено: {{ readiness.checked_at }}
+<h1 class="page-title">🧭 Readiness — Pilot Gate</h1>
+<p class="page-description">
+  Сводка готовности устройств к пилоту. Данные из production API.
+  <a href="/device-dashboard">📡 Полный Device Dashboard →</a>
 </p>
+
+<!-- Summary Cards -->
+<div class="cards">
+  <div class="card">
+    <div class="card-title">Всего устройств</div>
+    <div class="card-value">{{ kpi.get('total', 0) }}</div>
+    <div class="card-hint">В системе</div>
+  </div>
+  <div class="card">
+    <div class="card-title">✅ Ready</div>
+    <div class="card-value">{{ kpi.get('ready', 0) }}</div>
+    <div class="card-hint">Готовы к пилоту</div>
+  </div>
+  <div class="card">
+    <div class="card-title">⚠️ Warning</div>
+    <div class="card-value">{{ kpi.get('warning', 0) }}</div>
+    <div class="card-hint">Требуют внимания</div>
+  </div>
+  <div class="card">
+    <div class="card-title">🚫 Blocked</div>
+    <div class="card-value">{{ kpi.get('blocked', 0) }}</div>
+    <div class="card-hint">Заблокированы</div>
+  </div>
+  <div class="card">
+    <div class="card-title">❓ Unknown</div>
+    <div class="card-value">{{ kpi.get('unknown', 0) }}</div>
+    <div class="card-hint">Недостаточно данных</div>
+  </div>
+</div>
+
+<!-- Detail Cards -->
+<div class="cards">
+  <div class="card">
+    <div class="card-title">Stale Heartbeat</div>
+    <div class="card-value">{{ kpi.get('stale_heartbeat', 0) }}</div>
+    <div class="card-hint">&gt; 15 min</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Expired Credential</div>
+    <div class="card-value">{{ kpi.get('expired_credential', 0) }}</div>
+    <div class="card-hint">Требуют обновления</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Missing Manifest</div>
+    <div class="card-value">{{ kpi.get('missing_manifest', 0) }}</div>
+    <div class="card-hint">Нет applied manifest</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar">
+  <form method="get" action="/readiness" class="filter-form">
+    <div class="filter-row">
+      <div class="filter-group">
+        <label for="f-readiness">Readiness</label>
+        <select id="f-readiness" name="readiness_badge">
+          <option value="">Все</option>
+          {% for badge in ['ready', 'warning', 'blocked', 'unknown'] %}
+          <option value="{{ badge }}" {% if filters.get('readiness_badge') == badge %}selected{% endif %}>{{ badge }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group filter-actions">
+        <button type="submit" class="btn btn-primary">🔍 Фильтр</button>
+        <a href="/readiness" class="action-link">Сбросить</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Device Table -->
+{% if devices %}
+<div class="table-wrap">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Device Code</th>
+      <th>Store</th>
+      <th>Heartbeat</th>
+      <th>Credential</th>
+      <th>Manifest</th>
+      <th>Sidecar</th>
+      <th>PoP</th>
+      <th>Readiness</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in devices %}
+    <tr>
+      <td class="cell-code"><strong>{{ d.device_code }}</strong></td>
+      <td>{{ d.get('store_code', '—') or '—' }}</td>
+      <td>
+        {% if d.get('heartbeat') %}
+        <span class="status-badge status-{{ d.heartbeat.status }}">{{ d.heartbeat.status }}</span>
+        {% if d.heartbeat.age_seconds is not none %}
+        <br><small>{{ d.heartbeat.age_seconds }}s</small>
+        {% endif %}
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if d.get('credential') %}
+        <span class="status-badge status-{{ d.credential.status }}">{{ d.credential.status }}</span>
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if d.get('manifest') %}
+        <span class="status-badge status-{{ d.manifest.status }}">{{ d.manifest.status }}</span>
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if d.get('sidecar_version') %}v{{ d.sidecar_version }}{% endif %}
+        {% if d.get('sidecar_status') %}
+        <br><small>{{ d.sidecar_status }}</small>
+        {% elif not d.get('sidecar_version') %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+      <td>
+        {% set pop_data = d.get('pop') %}
+        {% if pop_data is not none and pop_data is mapping %}
+        <span>{{ pop_data.get('events_count', 0) }} events</span>
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+      <td>
+        <span class="readiness-badge readiness-{{ d.readiness_badge }}">{{ d.readiness_badge }}</span>
+        {% if d.get('readiness_reasons') %}
+        <br><small class="text-warning">{{ d.readiness_reasons|join('; ') }}</small>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty-state">
+  {% if backend_unavailable %}
+  <div class="alert alert-warning">
+    <span class="alert-icon">⚠️</span>
+    <span>{{ backend_message or 'Данные временно недоступны. Попробуйте позже.' }}</span>
+  </div>
+  {% else %}
+  <p class="empty-text">Нет данных для отображения.</p>
+  <a href="/readiness" class="action-link">Сбросить фильтры</a>
+  {% endif %}
+</div>
+{% endif %}
 {% endblock %}

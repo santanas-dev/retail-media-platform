@@ -827,6 +827,35 @@ v<major>.<minor>.<patch>-<descriptor>
 - No raw UUIDs, secrets, tokens, backend URLs in rendered HTML
 - Backend down → safe fallback with "Данные временно недоступны" message
 
+## 39.4.3 — Close Device/Sidecar Dashboard Gaps (2026-06-26)
+
+### GAP 2 — CLOSED ✅ Sidecar status in heartbeat
+- `DeviceHeartbeatRequest.sidecar_status` optional field added (stopped/starting/running/warning/error/unknown)
+- Stored in `DeviceHeartbeat.details_json` via `record_heartbeat()`
+- `DashboardHeartbeatSummary.sidecar_status` schema field added
+- `_extract_sidecar_status()` extracts from JSON (handles PG JSONB + SQLite strings)
+- Device dashboard now returns `sidecar_status` from latest heartbeat
+- Old heartbeat payloads without sidecar_status → None (safe fallback)
+- Invalid values → normalized to None
+- 3 backend tests added
+
+### GAP 4 — CLOSED ✅ Readiness page hardened
+- `/readiness` route rewritten to use production `GET /api/device-dashboard`
+- KPI computed server-side: total, ready, warning, blocked, unknown, stale_hb, expired_cred, missing_manifest
+- Summary cards + detail cards + filter bar
+- Device table with readiness badges
+- Link to `/device-dashboard` for full detail
+- Template rewritten — no test-kso wording, no hardcoded data
+- 14 portal tests (replaced 26 old test-kso tests)
+
+### GAP 5 — CLOSED ✅ Devices page dashboard link
+- `/devices` page now has "📡 Открыть Device Dashboard →" link
+- 1 portal test added
+
+### Regression
+- Backend: 398 (+3), Portal: 458 (+...), KSO: 2845
+- Total: 5103 green
+
 ### Retrospective tags
 
 Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags should only be created after explicit confirmation, as they may point to commits with known issues or incomplete regression state.
