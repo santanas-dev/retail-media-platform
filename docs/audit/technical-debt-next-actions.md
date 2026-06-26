@@ -525,6 +525,24 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - 7 legacy BackendClient methods (list_campaigns, list_placements, create_placement, list_approvals, request_approval, decide_approval, get_test_kso_readiness) exist but unused — dead code, safe to clean up
 - `/deployment` is demo-only (static page) — acceptable
 
+## 41.0.0 — Portal UI Hygiene Baseline (2026-06-16)
+
+### Status
+- ✅ CSS-only changes, no redesign, no templates touched
+- ✅ 5 changes: heading balance, body min-height, text-size-adjust, reduced-motion, shadow tokens
+- ✅ `--shadow` preserved as backward-compatible alias for `--shadow-2`
+- ✅ All existing `box-shadow` references unchanged — auto-resolve through alias
+- ✅ Portal regression: 459 passed, 32 skipped
+- ✅ Full regression: 5168 passed, 44 skipped, 0 failed
+- ✅ No JS/CDN/localStorage added
+- ✅ No backend/product logic changed
+
+### Deferred
+- `@layer` cascade architecture
+- `.flow` spacing utility
+- Full fluid typography/spacing system
+- Pico CSS framework evaluation
+
 ## 40.3 — Pilot Readiness Gates Plan (2026-06-26)
 
 ### Status

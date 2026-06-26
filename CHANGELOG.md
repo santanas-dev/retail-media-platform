@@ -7,6 +7,57 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [41.0.0-portal-ui-hygiene-baseline] — 2026-06-16
+
+**Portal UI Hygiene Baseline — safe CSS-only improvements, no redesign.**
+
+### Changes
+
+| # | Change | Scope |
+|---|---|---|
+| 1 | `h1, h2, h3, h4 { text-wrap: balance }` | Better heading wrapping |
+| 2 | `body { min-height: 100vh }` | Ensure full viewport height |
+| 3 | `html { text-size-adjust: none }` | Prevent mobile text inflation |
+| 4 | `@media (prefers-reduced-motion: reduce) { ... }` | Accessibility — respect OS setting |
+| 5 | `--shadow-1/--shadow-2/--shadow-3` CSS tokens | Standard shadow scale |
+
+### What was NOT done
+
+- ❌ No @layer cascade
+- ❌ No full `styles.css` restructure
+- ❌ No `.flow` spacing class
+- ❌ No global spacing/padding replacement
+- ❌ No fluid typography refactor
+- ❌ No redesign / template changes
+- ❌ No JS/CDN/localStorage
+- ❌ No backend/product logic changes
+
+### Regression
+
+| Suite | Passed | Skipped | Failed |
+|---|---|---|---|
+| Backend | 498 | 0 | 0 |
+| Portal | 459 | 32 | 0 |
+| KSO state adapter | 86 | 0 | 0 |
+| KSO player | 2060 | 12 | 0 |
+| KSO sidecar | 1838 | 0 | 0 |
+| Infra | 227 | 0 | 0 |
+| **Total** | **5168** | **44** | **0** |
+
+### Deferred to 41.x
+
+- `@layer` cascade architecture
+- `.flow` spacing utility
+- Full fluid typography/spacing system
+- Pico CSS or other classless framework (optional)
+
+### Next
+
+- 41.1: Creative Upload UX
+- 41.2: Business Campaign Creation UX
+
+---
+
 ## [v0.11.1-pre-pilot-access-integration-hotfix] — 2026-06-16
 
 **Patch hotfix on v0.11.0 — admin access fixed, portal-backend integration verified.**
