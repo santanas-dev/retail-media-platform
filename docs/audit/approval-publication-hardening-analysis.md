@@ -66,17 +66,17 @@ Campaign → placement → schedule → approval → manifest → batch → publ
 
 ## 2. Gaps — Blocking Pilot
 
-### 🔴 Blocker 1: No Production Approval Endpoint
+### 🔴 Blocker 1: No Production Approval Endpoint → ✅ FIXED (39.3.1)
 
-**Проблема:** Все approval endpoints — `/api/approvals/test-kso`. Production workflow требует production approval.
+**Fix:** Production endpoints added. Legacy test-kso retained.
 
 **Impact:** Campaign/placement approval недоступен через production API. Portal использует test-kso.
 
 **Fix:** Создать production approval endpoints: `GET /api/approvals`, `POST /api/approvals/request`, `POST /api/approvals/{code}/decide`.
 
-### 🔴 Blocker 2: Approvals Not Integrated with Publication Batch
+### 🔴 Blocker 2: Approvals Not Integrated with Publication Batch → 🟡 PARTIALLY FIXED (39.3.1)
 
-**Проблема:** Publication Batch имеет свой встроенный approve step (`approve_batch`), не связанный с ApprovalRequest системой. Это два параллельных approval path.
+**Fix:** `publication_batch` object_type added to approval system. `publish_batch` now checks for approved ApprovalRequest. Schema updated to allow `publication_batch`.
 
 **Impact:** Непонятно, какой approval нужен для публикации — через `/api/approvals` или через batch `approve`. Двойной approval — confusion.
 

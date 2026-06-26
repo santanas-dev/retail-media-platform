@@ -533,19 +533,69 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-    # ── Approval (Step 37.6) ───────────────────────────────────────────
+    # ── Approval (Step 37.6 + 39.3.1 production) ────────────────────────
 
     async def list_approvals(self, access_token: str) -> dict:
-        """GET /api/approvals/test-kso → {ok, data: [{approval_code, ...}]}"""
+        """GET /api/approvals/test-kso → {ok, data: [{approval_code, ...}]}
+
+        Legacy test-kso endpoint. Prefer list_approvals_prod() for production.
+        """
         return await self._request(
             "GET", "/api/approvals/test-kso",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    async def list_approvals_prod(self, access_token: str) -> dict:
+        """GET /api/approvals → {ok, data: [{approval_code, ...}]} (production)."""
+        return await self._request(
+            "GET", "/api/approvals",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_approval(self, access_token: str, approval_code: str) -> dict:
+        """GET /api/approvals/{code} → {ok, data: {approval_code, ...}} (production)."""
+        return await self._request(
+            "GET", f"/api/approvals/{approval_code}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def create_approval(
+        self, access_token: str, payload: dict,
+    ) -> dict:
+        """POST /api/approvals → {ok, data: {approval_code, ...}} (production)."""
+        return await self._request(
+            "POST", "/api/approvals",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
     async def request_approval(self, access_token: str, payload: dict) -> dict:
-        """POST /api/approvals/test-kso/request → {ok, data: {approval_code, ...}}"""
+        """POST /api/approvals/test-kso/request → {ok, data: {approval_code, ...}}
+
+        Legacy test-kso endpoint. Prefer create_approval() for production.
+        """
         return await self._request(
             "POST", "/api/approvals/test-kso/request",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def approve_approval(
+        self, access_token: str, approval_code: str, payload: dict,
+    ) -> dict:
+        """POST /api/approvals/{code}/approve → {ok, data} (production)."""
+        return await self._request(
+            "POST", f"/api/approvals/{approval_code}/approve",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def reject_approval(
+        self, access_token: str, approval_code: str, payload: dict,
+    ) -> dict:
+        """POST /api/approvals/{code}/reject → {ok, data} (production)."""
+        return await self._request(
+            "POST", f"/api/approvals/{approval_code}/reject",
             json_data=payload,
             headers={"Authorization": f"Bearer {access_token}"},
         )
@@ -553,7 +603,10 @@ class BackendClient:
     async def decide_approval(
         self, access_token: str, approval_code: str, payload: dict,
     ) -> dict:
-        """POST /api/approvals/test-kso/{code}/decide → {ok, data}"""
+        """POST /api/approvals/test-kso/{code}/decide → {ok, data}
+
+        Legacy test-kso endpoint. Prefer approve_approval()/reject_approval().
+        """
         return await self._request(
             "POST", f"/api/approvals/test-kso/{approval_code}/decide",
             json_data=payload,

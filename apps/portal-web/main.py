@@ -1347,7 +1347,7 @@ async def publications_publish(
 
 @app.get("/approvals", response_class=HTMLResponse)
 async def approvals_page(request: Request):
-    """Approvals page: list from backend + request/decide forms (Step 37.6)."""
+    """Approvals page: production backend-driven (39.3.1)."""
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/approvals")
     if guard is not None:
@@ -1360,7 +1360,7 @@ async def approvals_page(request: Request):
     if not access_token:
         return _approvals_fallback(request, current_user)
 
-    result = await backend.list_approvals(access_token)
+    result = await backend.list_approvals_prod(access_token)
     if not result["ok"]:
         return _approvals_fallback(request, current_user)
 
@@ -1430,7 +1430,7 @@ async def approvals_request(
     }
 
     backend = BackendClient()
-    result = await backend.request_approval(access_token, payload)
+    result = await backend.create_approval(access_token, payload)
 
     if result["ok"]:
         request.session["approval_flash"] = "ok:requested"
@@ -1448,7 +1448,7 @@ async def approvals_decide(
     decision: str = Form(..., min_length=1, max_length=20),
     comment: str = Form("", max_length=500),
 ):
-    """Decide approval — POST /approvals/decide → backend."""
+    """Decide approval — POST /approvals/decide → production backend (39.3.1)."""
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/approvals")
     if guard is not None:
@@ -1467,7 +1467,10 @@ async def approvals_decide(
     }
 
     backend = BackendClient()
-    result = await backend.decide_approval(access_token, approval_code.strip(), payload)
+    if decision.strip() == "approve":
+        result = await backend.approve_approval(access_token, approval_code.strip(), payload)
+    else:
+        result = await backend.reject_approval(access_token, approval_code.strip(), payload)
 
     if result["ok"]:
         request.session["approval_flash"] = "ok:decided"

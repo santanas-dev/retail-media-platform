@@ -56,6 +56,27 @@ async def _get_object_or_404(
             )
         return obj
 
+    elif object_type == "publication_batch":
+        from app.domains.publications.models import PublicationBatch
+        from uuid import UUID
+        try:
+            batch_id = UUID(object_code)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid publication_batch id '{object_code}'",
+            )
+        result = await db.execute(
+            select(PublicationBatch).where(PublicationBatch.id == batch_id)
+        )
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Publication batch '{object_code}' not found",
+            )
+        return obj
+
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=f"Unknown object_type '{object_type}'",
@@ -194,6 +215,34 @@ async def decide_approval(
     await db.commit()
     await db.refresh(approval)
 
+    return {
+        "approval_code": approval.approval_code,
+        "object_type": approval.object_type,
+        "object_code": approval.object_code,
+        "status": approval.status,
+        "decision": approval.decision,
+        "comment": approval.comment,
+        "requested_at": approval.requested_at,
+        "decided_at": approval.decided_at,
+    }
+
+
+async def get_approval(
+    db: AsyncSession,
+    approval_code: str,
+) -> dict:
+    """Get a single approval request by code with safe projection."""
+    result = await db.execute(
+        select(models.ApprovalRequest).where(
+            models.ApprovalRequest.approval_code == approval_code,
+        )
+    )
+    approval = result.scalar_one_or_none()
+    if not approval:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Approval '{approval_code}' not found",
+        )
     return {
         "approval_code": approval.approval_code,
         "object_type": approval.object_type,

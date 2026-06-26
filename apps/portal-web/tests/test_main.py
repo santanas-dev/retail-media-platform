@@ -48,6 +48,7 @@ _MOCK_ALL_PERMISSIONS = frozenset({
     "scheduling.read", "scheduling.manage",
     "campaigns.read", "campaigns.manage", "campaigns.create",
     "reports.read",
+    "approvals.read", "approvals.manage", "approvals.approve",
 })
 
 # ── Global mock auth for existing page-content tests ────────────────────

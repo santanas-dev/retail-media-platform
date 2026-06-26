@@ -795,6 +795,24 @@ async def publish_batch(
             detail=f"Cannot publish batch in status '{batch.status}'. Approve first.",
         )
 
+    # Verify approval exists for this batch (39.3.1 — approval integration)
+    from app.domains.approvals.models import ApprovalRequest
+    batch_code = str(batch.id)
+    approval_result = await db.execute(
+        select(ApprovalRequest).where(
+            ApprovalRequest.object_type == "publication_batch",
+            ApprovalRequest.object_code == batch_code,
+            ApprovalRequest.status == "approved",
+        )
+    )
+    batch_approval = approval_result.scalar_one_or_none()
+    if not batch_approval:
+        raise HTTPException(
+            status_code=400,
+            detail="Publication batch requires approved approval request. "
+                   "Submit approval via POST /api/approvals first.",
+        )
+
     # Verify approved manifest_versions exist
     versions_result = await db.execute(
         select(models.ManifestVersion).where(

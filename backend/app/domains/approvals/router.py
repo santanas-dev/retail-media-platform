@@ -1,7 +1,8 @@
-"""Approvals domain: FastAPI router (Step 37.6).
+"""Approvals domain: FastAPI router (Step 37.6 + 39.3.1 production).
 
-Test KSO vertical slice — minimal approval gate.
+Test KSO vertical slice — minimal approval gate with maker-checker.
 Safe projection: NO raw UUIDs, backend_url, tokens.
+Production endpoints added in 39.3.1 — test-kso retained as legacy.
 """
 
 from fastapi import APIRouter, Depends, Query
@@ -14,6 +15,107 @@ from app.domains.approvals import schemas, service
 router = APIRouter(prefix="/api/approvals", tags=["approvals"])
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Production endpoints (39.3.1)
+# ══════════════════════════════════════════════════════════════════════
+
+@router.get(
+    "",
+    response_model=list[schemas.ApprovalResponse],
+)
+async def list_approvals_prod(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("approvals.read")),
+):
+    """List approval requests (production, safe projection)."""
+    return await service.list_approvals(db, skip, limit)
+
+
+@router.get(
+    "/{approval_code}",
+    response_model=schemas.ApprovalResponse,
+)
+async def get_approval_prod(
+    approval_code: str,
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("approvals.read")),
+):
+    """Get a single approval request by code (production, safe projection)."""
+    return await service.get_approval(db, approval_code)
+
+
+@router.post(
+    "",
+    response_model=schemas.ApprovalResponse,
+    status_code=201,
+)
+async def request_approval_prod(
+    data: schemas.ApprovalRequestCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(
+        require_permission("approvals.manage")
+    ),
+):
+    """Request approval for an object (production).
+
+    Supported object_types: campaign, placement, publication_batch.
+    Transitions object status to 'pending_approval'.
+    """
+    return await service.request_approval(db, data, current_user.id)
+
+
+@router.post(
+    "/{approval_code}/approve",
+    response_model=schemas.ApprovalResponse,
+)
+async def approve_approval_prod(
+    approval_code: str,
+    data: schemas.ApprovalDecide,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(
+        require_permission("approvals.approve")
+    ),
+):
+    """Approve an approval request (production).
+
+    Maker-checker: cannot approve own request.
+    Transitions object status to 'approved'.
+    """
+    if data.decision != "approve":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Use /reject endpoint to reject")
+    return await service.decide_approval(db, approval_code, data, current_user.id)
+
+
+@router.post(
+    "/{approval_code}/reject",
+    response_model=schemas.ApprovalResponse,
+)
+async def reject_approval_prod(
+    approval_code: str,
+    data: schemas.ApprovalDecide,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(
+        require_permission("approvals.approve")
+    ),
+):
+    """Reject an approval request (production).
+
+    Maker-checker: cannot reject own request.
+    Transitions object status to 'rejected'.
+    """
+    if data.decision != "reject":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Use /approve endpoint to approve")
+    return await service.decide_approval(db, approval_code, data, current_user.id)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Legacy test-kso endpoints (retained as dev helper)
+# ══════════════════════════════════════════════════════════════════════
+
 @router.get(
     "/test-kso",
     response_model=list[schemas.ApprovalResponse],
@@ -24,7 +126,7 @@ async def list_approvals(
     db: AsyncSession = Depends(get_db),
     _: identity_models.User = Depends(require_permission("campaigns.read")),
 ):
-    """List approval requests (safe projection)."""
+    """[LEGACY] List approval requests (safe projection)."""
     return await service.list_approvals(db, skip, limit)
 
 
@@ -33,17 +135,14 @@ async def list_approvals(
     response_model=schemas.ApprovalResponse,
     status_code=201,
 )
-async def request_approval(
+async def request_approval_legacy(
     data: schemas.ApprovalRequestCreate,
     db: AsyncSession = Depends(get_db),
     current_user: identity_models.User = Depends(
         require_permission("campaigns.manage")
     ),
 ):
-    """Request approval for a campaign or placement.
-
-    Transitions object status to 'pending_approval'.
-    """
+    """[LEGACY] Request approval for a campaign or placement."""
     return await service.request_approval(db, data, current_user.id)
 
 
@@ -59,9 +158,5 @@ async def decide_approval(
         require_permission("campaigns.approve")
     ),
 ):
-    """Decide on an approval request (approve/reject).
-
-    Maker-checker: cannot decide own request.
-    Transitions object status to 'approved' or 'rejected'.
-    """
+    """[LEGACY] Decide on an approval request (approve/reject)."""
     return await service.decide_approval(db, approval_code, data, current_user.id)

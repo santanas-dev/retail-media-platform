@@ -47,6 +47,26 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.3.1 — Production Approval API Foundation
+
+**Production approval endpoints with publication batch integration. Blocker B1 closed, B2 partially.**
+
+- New production endpoints: `GET /api/approvals`, `POST /api/approvals`, `GET /api/approvals/{code}`, `POST /api/approvals/{code}/approve`, `POST /api/approvals/{code}/reject`
+- Separate approve/reject endpoints with decision enforcement (cannot approve via reject, vice versa)
+- `publication_batch` object_type support in ApprovalRequestCreate schema
+- `_get_object_or_404` extended to support PublicationBatch lookup
+- `get_approval()` function added to service layer
+- `publish_batch` now requires approved ApprovalRequest for the batch
+- BackendClient: `list_approvals_prod()`, `get_approval()`, `create_approval()`, `approve_approval()`, `reject_approval()`
+- Legacy: `list_approvals()`, `request_approval()`, `decide_approval()` → production prefer-this methods
+- Portal approvals page switched to production endpoints
+- RBAC: `/approvals` → `approvals.read`
+- Backend tests: +16 (route structure, schema validation, service checks)
+- Portal tests: 431 unchanged
+- 🔴 B1 (no production approval) → CLOSED
+- 🟡 B2 (approval-batch integration) → foundation laid; full batch workflow remains for 39.3.2
+- 🔴 B3 (fragmented manifest generation) → deferred to 39.3.2
+
 ### 39.3.0 — Approval & Publication Hardening Analysis
 
 **Comprehensive audit of approval/publication workflow. Analysis document + safe fixes.**
