@@ -802,6 +802,31 @@ v<major>.<minor>.<patch>-<descriptor>
 ### Tests
 - 16 new tests in `backend/tests/test_device_dashboard_api.py`
 
+## 39.4.2 — Portal Device Dashboard (2026-06-26)
+
+### Added
+- `/device-dashboard` route — backend-driven page with server-side rendering
+- `BackendClient.get_device_dashboard()` method with filter params
+- Template `templates/pages/device-dashboard.html` — device table with 14 columns:
+  device_code, store, gateway/kSO status, heartbeat (status+age+app_version),
+  sidecar/player versions, credential status, sessions, manifest, media cache, PoP, readiness badge
+- Filter bar: keyword, channel_code, store_code, readiness_badge with reset link
+- Summary cards: total/ready/warning/blocked counts
+- Readiness legend
+- CSS: readiness badge colors, age freshness, cache health, filter bar layout
+- Nav link in sidebar under "КСО" section
+
+### Tests
+- 20 new portal tests in `test_main.py` (TestDeviceDashboardPage)
+- `_FakeBackendClient` extended with `get_device_dashboard()` + `close()`
+- `_FakeBackendClientDown` extended with `close()`
+- Mock dashboard data: 4 devices (ready/warning/blocked/unknown)
+
+### Safety
+- No JS, no CDN, no localStorage
+- No raw UUIDs, secrets, tokens, backend URLs in rendered HTML
+- Backend down → safe fallback with "Данные временно недоступны" message
+
 ### Retrospective tags
 
 Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags should only be created after explicit confirmation, as they may point to commits with known issues or incomplete regression state.

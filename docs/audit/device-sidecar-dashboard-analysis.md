@@ -298,3 +298,23 @@ For all dashboard endpoints:
 ### GAP 2 — DEFERRED to 39.4.4
 
 `sidecar_status` in heartbeat payload remains deferred.
+
+
+## 9. 39.4.2 Status — Portal Device Dashboard
+
+**Date:** 2026-06-26
+**Commit:** `767bf4f`
+
+### Portal Dashboard — DONE ✅
+
+- Route: `/device-dashboard` — backend-driven, server-side rendered
+- `BackendClient.get_device_dashboard()` method with 4 filter params
+- Template: 14-column device table + filter bar + summary cards + legend
+- CSS: readiness badges, age freshness, cache health, filter bar
+- Nav link in sidebar under "КСО"
+- 20 portal tests, all green. Portal regression 460 ✅
+- Backend + portal + KSO suites: 5078 green
+
+### GAP 5 — PARTIALLY ADDRESSED
+
+`/device-dashboard` now shows gateway data (credential, sessions, heartbeat, manifest, PoP, media cache). The old `/devices` page still only shows KSO registry data — but the dashboard page closes this gap for pilot operators.

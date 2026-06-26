@@ -3195,6 +3195,9 @@ _MOCK_KSO = [{
 class _FakeBackendClient:
     """Fake BackendClient for testing — never calls real backend."""
 
+    async def close(self):
+        pass
+
     async def list_branches(self, access_token: str) -> dict:
         return {"ok": True, "data": _MOCK_BRANCHES}
 
@@ -3342,8 +3345,121 @@ class _FakeBackendClient:
         }}
 
 
+    async def get_device_dashboard(
+        self, access_token: str,
+        keyword=None, channel_code=None, store_code=None,
+        readiness_badge=None, limit=100, offset=0,
+    ) -> dict:
+        """Fake device dashboard data for portal tests."""
+        return {"ok": True, "data": _MOCK_DEVICE_DASHBOARD}
+
+
+_MOCK_DEVICE_DASHBOARD = [
+    {
+        "device_code": "dev-ready-001",
+        "store_code": "store-01",
+        "store_name": "Test Store Alpha",
+        "kso_status": "active",
+        "gateway_status": "active",
+        "heartbeat": {
+            "status": "ok", "age_seconds": 18,
+            "app_version": "2.3.1", "cache_items_count": 5,
+            "current_manifest_hash": "a" * 64,
+        },
+        "last_seen_at": "2026-06-26T14:30:00",
+        "sidecar_version": "3.2.1",
+        "sidecar_status": None,
+        "player_version": "2.0.1",
+        "credential": {
+            "status": "active", "credential_type": "shared_secret",
+            "expires_at": "2027-01-01T00:00:00",
+        },
+        "session": {"active_count": 2, "last_used_at": "2026-06-26T14:29:00"},
+        "manifest": {"status": "applied", "manifest_hash": "b" * 64, "last_applied_at": "2026-06-26T13:00:00"},
+        "media_cache": {
+            "cache_items_count": 4, "missing_items": 0, "failed_items": 0,
+            "cache_health_status": "healthy",
+        },
+        "pop": {"last_pop_at": "2026-06-26T14:20:00", "events_count": 125},
+        "readiness_badge": "ready",
+        "readiness_reasons": [],
+    },
+    {
+        "device_code": "dev-warn-002",
+        "store_code": "store-02",
+        "store_name": "Test Store Beta",
+        "kso_status": "active",
+        "gateway_status": "active",
+        "heartbeat": {
+            "status": "ok", "age_seconds": 1200,
+            "app_version": "2.3.1", "cache_items_count": 2,
+            "current_manifest_hash": None,
+        },
+        "last_seen_at": "2026-06-26T14:10:00",
+        "sidecar_version": None,
+        "sidecar_status": None,
+        "player_version": "2.0.0",
+        "credential": {
+            "status": "active", "credential_type": "shared_secret",
+            "expires_at": None,
+        },
+        "session": {"active_count": 0, "last_used_at": None},
+        "manifest": None,
+        "media_cache": {
+            "cache_items_count": 1, "missing_items": 3, "failed_items": 1,
+            "cache_health_status": "critical",
+        },
+        "pop": {"last_pop_at": None, "events_count": 0},
+        "readiness_badge": "warning",
+        "readiness_reasons": ["Heartbeat stale (20 min ago)"],
+    },
+    {
+        "device_code": "dev-blocked-003",
+        "store_code": None,
+        "store_name": None,
+        "kso_status": "blocked",
+        "gateway_status": "disabled",
+        "heartbeat": None,
+        "last_seen_at": None,
+        "sidecar_version": None,
+        "sidecar_status": None,
+        "player_version": None,
+        "credential": None,
+        "session": {"active_count": 0, "last_used_at": None},
+        "manifest": None,
+        "media_cache": None,
+        "pop": None,
+        "readiness_badge": "blocked",
+        "readiness_reasons": ["Gateway device is disabled"],
+    },
+    {
+        "device_code": "dev-unknown-004",
+        "store_code": "store-03",
+        "store_name": "Test Store Gamma",
+        "kso_status": None,
+        "gateway_status": "pending",
+        "heartbeat": None,
+        "last_seen_at": None,
+        "sidecar_version": None,
+        "sidecar_status": None,
+        "player_version": None,
+        "credential": None,
+        "session": {"active_count": 0, "last_used_at": None},
+        "manifest": None,
+        "media_cache": None,
+        "pop": None,
+        "readiness_badge": "unknown",
+        "readiness_reasons": ["No heartbeat received", "No credential configured"],
+    },
+]
+
+
+
 class _FakeBackendClientDown:
     """Fake BackendClient that simulates backend being down."""
+
+    async def close(self):
+        pass
 
     async def list_branches(self, access_token: str) -> dict:
         return {"ok": False, "error": "Backend unreachable"}
@@ -3806,6 +3922,142 @@ class TestReadinessPage(unittest.TestCase):
         resp = self.client.get("/readiness")
         html = resp.text
         self.assertIn("published", html.lower())
+
+
+class TestDeviceDashboardPage(unittest.TestCase):
+    """Device Dashboard page — backend integration, readiness badges, filters, safety."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+        resp = self.client.get("/device-dashboard")
+        self.html = resp.text
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    # ── Route ─────────────────────────────────────────────────
+
+    def test_route_returns_200(self):
+        resp = self.client.get("/device-dashboard")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_page_renders_with_auth(self):
+        """Page renders successfully with authenticated session."""
+        resp = self.client.get("/device-dashboard")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Device Dashboard", resp.text)
+
+    # ── Content ───────────────────────────────────────────────
+
+    def test_shows_all_readiness_badges(self):
+        for badge in ("ready", "warning", "blocked", "unknown"):
+            self.assertIn(badge, self.html.lower(),
+                          f"Dashboard must show '{badge}' badge")
+
+    def test_shows_device_codes(self):
+        for code in ("dev-ready-001", "dev-warn-002", "dev-blocked-003", "dev-unknown-004"):
+            self.assertIn(code, self.html)
+
+    def test_shows_summary_cards(self):
+        for card in ("Всего устройств", "Ready", "Warning", "Blocked"):
+            self.assertIn(card, self.html)
+
+    def test_shows_filter_form(self):
+        self.assertIn('name="keyword"', self.html)
+        self.assertIn('name="channel_code"', self.html)
+        self.assertIn('name="store_code"', self.html)
+        self.assertIn('name="readiness_badge"', self.html)
+
+    def test_has_reset_link(self):
+        self.assertIn('Сбросить', self.html)
+        self.assertIn('href="/device-dashboard"', self.html)
+
+    def test_shows_legend(self):
+        self.assertIn("Readiness Legend", self.html)
+
+    def test_shows_store_names(self):
+        self.assertIn("Test Store Alpha", self.html)
+        self.assertIn("Test Store Beta", self.html)
+
+    def test_shows_heartbeat_data(self):
+        self.assertIn("2.3.1", self.html)  # app_version
+
+    def test_shows_credential_status(self):
+        self.assertIn("active", self.html)
+        self.assertIn("2027-01-01", self.html)  # expires_at date
+
+    def test_shows_manifest_status(self):
+        self.assertIn("applied", self.html)
+
+    def test_shows_pop_data(self):
+        self.assertIn("125", self.html)  # events_count for ready device
+
+    def test_shows_media_cache_health(self):
+        self.assertIn("healthy", self.html)
+        self.assertIn("critical", self.html)
+
+    # ── Safety ────────────────────────────────────────────────
+
+    def test_no_forbidden_content(self):
+        _assert_safe(self, self.html)
+
+    def test_no_raw_secrets_tokens(self):
+        lower = self.html.lower()
+        for forbidden in ("device_secret", "access_token", "client_secret",
+                           "secret_hash", "backend_url", "ip_address",
+                           "mac_address", "hostname", "serial_number",
+                           "file_path", "receipt_number", "card_number",
+                           "customer_id", "phone", "fiscal_data",
+                           "presigned", "minio", "private_key",
+                           "CHANGE_ME_SECRET"):
+            self.assertNotIn(forbidden, lower,
+                             f"Dashboard page must NOT contain '{forbidden}'")
+
+    def test_no_js_cdn_localstorage(self):
+        lower = self.html.lower()
+        self.assertNotIn("<script", lower)
+        self.assertNotIn("localstorage", lower)
+        self.assertNotIn("cdn", lower)
+
+    # ── Navigation ─────────────────────────────────────────────
+
+    def test_nav_link_exists(self):
+        self.assertIn('href="/device-dashboard"', self.html)
+        self.assertIn("Device Dashboard", self.html)
+
+    # ── Backend down — safe fallback ──────────────────────────
+
+    def test_backend_down_gives_safe_fallback(self):
+        import main
+        main.BackendClient = _FakeBackendClientDown
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at"}
+        resp = self.client.get("/device-dashboard")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Данные временно недоступны", resp.text)
+
+    # ── Empty state ───────────────────────────────────────────
+
+    def test_empty_state_when_no_devices(self):
+        """Empty data → empty state rendered."""
+        import main
+        # Override get_device_dashboard to return empty
+        class _EmptyClient:
+            async def get_device_dashboard(self, *args, **kwargs):
+                return {"ok": True, "data": []}
+            async def close(self): pass
+        main.BackendClient = _EmptyClient
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at"}
+        resp = self.client.get("/device-dashboard")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Нет данных", resp.text)
+
 
 
 if __name__ == "__main__":

@@ -767,6 +767,47 @@ class BackendClient:
         )
 
 
+    async def get_device_dashboard(
+        self, access_token: str,
+        keyword: str | None = None,
+        channel_code: str | None = None,
+        store_code: str | None = None,
+        readiness_badge: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict:
+        """GET /api/device-dashboard → {ok, data: [DeviceDashboardItem]}.
+
+        Cross-domain aggregation: GatewayDevice + KsoDevice + credentials
+        + sessions + heartbeats + manifests + PoP + media cache.
+
+        Safe projection: no raw UUIDs, secrets, tokens, backend URLs.
+        Requires devices.gateway.read permission.
+
+        Query params only included when non-empty.
+        """
+        from urllib.parse import urlencode
+        params = {}
+        if keyword:
+            params["keyword"] = keyword
+        if channel_code:
+            params["channel_code"] = channel_code
+        if store_code:
+            params["store_code"] = store_code
+        if readiness_badge:
+            params["readiness_badge"] = readiness_badge
+        if limit != 100:
+            params["limit"] = str(limit)
+        if offset:
+            params["offset"] = str(offset)
+
+        query = ("?" + urlencode(params)) if params else ""
+        return await self._request(
+            "GET", f"/api/device-dashboard{query}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+
 # ── Module-level convenience functions ───────────────────────────────
 
 _client: Optional[BackendClient] = None

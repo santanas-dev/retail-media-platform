@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">Device Dashboard — Pilot Readiness</h1>
+<p class="page-description">
+  Агрегированный статус устройств КСО и sidecar перед пилотом.
+  Данные из backend: heartbeat, auth, manifest, media cache, PoP.
+  Безопасная проекция — без паролей, токенов, IP, MAC.
+</p>
+
+<!-- Filters -->
+<div class="filter-bar">
+  <form method="get" action="/device-dashboard" class="filter-form">
+    <div class="filter-row">
+      <div class="filter-group">
+        <label for="f-keyword">Поиск</label>
+        <input type="text" id="f-keyword" name="keyword"
+               value="{{ filters.keyword or '' }}" maxlength="100"
+               placeholder="device_code или имя">
+      </div>
+      <div class="filter-group">
+        <label for="f-channel">Канал</label>
+        <input type="text" id="f-channel" name="channel_code"
+               value="{{ filters.channel_code or '' }}" maxlength="50"
+               placeholder="Код канала">
+      </div>
+      <div class="filter-group">
+        <label for="f-store">Магазин</label>
+        <input type="text" id="f-store" name="store_code"
+               value="{{ filters.store_code or '' }}" maxlength="50"
+               placeholder="Код магазина">
+      </div>
+      <div class="filter-group">
+        <label for="f-readiness">Readiness</label>
+        <select id="f-readiness" name="readiness_badge">
+          <option value="">Все</option>
+          {% for badge in ['ready', 'warning', 'blocked', 'unknown'] %}
+          <option value="{{ badge }}" {% if filters.readiness_badge == badge %}selected{% endif %}>{{ badge }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-group filter-actions">
+        <button type="submit" class="btn btn-primary">🔍 Фильтр</button>
+        <a href="/device-dashboard" class="action-link">Сбросить</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Summary -->
+<div class="cards">
+  <div class="card">
+    <div class="card-title">Всего устройств</div>
+    <div class="card-value">{{ devices|length }}</div>
+    <div class="card-hint">В dashboard</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Ready</div>
+    <div class="card-value">{{ devices|selectattr('readiness_badge', 'equalto', 'ready')|list|length }}</div>
+    <div class="card-hint">Готовы к пилоту</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Warning</div>
+    <div class="card-value">{{ devices|selectattr('readiness_badge', 'equalto', 'warning')|list|length }}</div>
+    <div class="card-hint">Требуют внимания</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Blocked</div>
+    <div class="card-value">{{ devices|selectattr('readiness_badge', 'equalto', 'blocked')|list|length }}</div>
+    <div class="card-hint">Заблокированы</div>
+  </div>
+</div>
+
+<!-- Device Table -->
+{% if devices %}
+<div class="table-wrap">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Device Code</th>
+      <th>Store</th>
+      <th>Gateway</th>
+      <th>KSO</th>
+      <th>Heartbeat</th>
+      <th>Age</th>
+      <th>Sidecar</th>
+      <th>Player</th>
+      <th>Credential</th>
+      <th>Sessions</th>
+      <th>Manifest</th>
+      <th>Cache</th>
+      <th>PoP</th>
+      <th>Readiness</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in devices %}
+    <tr>
+      <!-- Device Code -->
+      <td class="cell-code"><strong>{{ d.device_code }}</strong></td>
+
+      <!-- Store -->
+      <td>{{ d.store_code or '—' }}{% if d.store_name %}<br><small>{{ d.store_name }}</small>{% endif %}</td>
+
+      <!-- Gateway Status -->
+      <td><span class="status-badge status-{{ d.gateway_status }}">{{ d.gateway_status or '—' }}</span></td>
+
+      <!-- KSO Status -->
+      <td><span class="status-badge status-{{ d.kso_status }}">{{ d.kso_status or '—' }}</span></td>
+
+      <!-- Heartbeat -->
+      <td>
+        {% if d.heartbeat %}
+        <span class="status-badge status-{{ d.heartbeat.status }}">{{ d.heartbeat.status }}</span>
+        {% if d.heartbeat.app_version %}
+        <br><small>v{{ d.heartbeat.app_version }}</small>
+        {% endif %}
+        {% if d.heartbeat.cache_items_count is not none %}
+        <br><small>{{ d.heartbeat.cache_items_count }} items</small>
+        {% endif %}
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+
+      <!-- Age -->
+      <td>
+        {% if d.heartbeat and d.heartbeat.age_seconds is not none %}
+        {% if d.heartbeat.age_seconds < 60 %}
+        <span class="age-fresh">{{ d.heartbeat.age_seconds }}s</span>
+        {% elif d.heartbeat.age_seconds < 900 %}
+        <span class="age-warm">{{ (d.heartbeat.age_seconds // 60)|int }}m</span>
+        {% else %}
+        <span class="age-stale">{{ (d.heartbeat.age_seconds // 60)|int }}m</span>
+        {% endif %}
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+
+      <!-- Sidecar -->
+      <td>
+        {% if d.sidecar_version %}
+        <span>v{{ d.sidecar_version }}</span>
+        {% endif %}
+        {% if d.sidecar_status %}
+        <br><small>{{ d.sidecar_status }}</small>
+        {% else %}
+        <br><small class="muted">unknown</small>
+        {% endif %}
+      </td>
+
+      <!-- Player -->
+      <td>{% if d.player_version %}v{{ d.player_version }}{% else %}<span class="muted">—</span>{% endif %}</td>
+
+      <!-- Credential -->
+      <td>
+        {% if d.credential %}
+        <span class="status-badge status-{{ d.credential.status }}">{{ d.credential.status }}</span>
+        {% if d.credential.expires_at %}
+        <br><small>до {{ d.credential.expires_at[:10] }}</small>
+        {% endif %}
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+
+      <!-- Sessions -->
+      <td>
+        {% if d.session and d.session.active_count is not none %}
+        <span>{{ d.session.active_count }} active</span>
+        {% if d.session.last_used_at %}
+        <br><small>{{ d.session.last_used_at[:16] }}</small>
+        {% endif %}
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+
+      <!-- Manifest -->
+      <td>
+        {% if d.manifest %}
+        <span class="status-badge status-{{ d.manifest.status }}">{{ d.manifest.status }}</span>
+        {% if d.manifest.manifest_hash %}
+        <br><small class="mono">{{ d.manifest.manifest_hash[:8] }}…</small>
+        {% endif %}
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+
+      <!-- Cache -->
+      <td>
+        {% if d.media_cache %}
+        <span>{{ d.media_cache.cache_items_count }} cached</span>
+        {% if d.media_cache.missing_items %}
+        <br><span class="text-warning">{{ d.media_cache.missing_items }} missing</span>
+        {% endif %}
+        {% if d.media_cache.failed_items %}
+        <br><span class="text-error">{{ d.media_cache.failed_items }} failed</span>
+        {% endif %}
+        <br><small class="health-{{ d.media_cache.cache_health_status }}">{{ d.media_cache.cache_health_status }}</small>
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+
+      <!-- PoP -->
+      <td>
+        {% if d.get('pop') is not none %}
+        {% set pop = d.get('pop') %}
+        <span>{{ pop.get('events_count', 0) }} events</span>
+        {% if pop.get('last_pop_at') %}
+        <br><small>{{ pop.get('last_pop_at')[:16] }}</small>
+        {% endif %}
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+
+      <!-- Readiness -->
+      <td>
+        <span class="readiness-badge readiness-{{ d.readiness_badge }}">{{ d.readiness_badge }}</span>
+        {% if d.readiness_reasons %}
+        <br><small class="text-warning">{{ d.readiness_reasons|join('; ') }}</small>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty-state">
+  {% if backend_unavailable %}
+  <div class="alert alert-warning">
+    <span class="alert-icon">⚠️</span>
+    <span>{{ backend_message }}</span>
+  </div>
+  {% else %}
+  <p class="empty-text">Нет данных для отображения.</p>
+  <p class="empty-hint">Устройства не найдены или фильтры слишком строгие.</p>
+  <a href="/device-dashboard" class="action-link">Сбросить фильтры</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Legend -->
+<div class="legend">
+  <h3>Readiness Legend</h3>
+  <div class="legend-row">
+    <span class="readiness-badge readiness-ready">ready</span>
+    <span>— Active gateway, active credential, recent heartbeat, manifest applied</span>
+  </div>
+  <div class="legend-row">
+    <span class="readiness-badge readiness-warning">warning</span>
+    <span>— Active but stale heartbeat or missing optional data</span>
+  </div>
+  <div class="legend-row">
+    <span class="readiness-badge readiness-blocked">blocked</span>
+    <span>— Disabled/expired credential or disabled gateway</span>
+  </div>
+  <div class="legend-row">
+    <span class="readiness-badge readiness-unknown">unknown</span>
+    <span>— No heartbeat or no credential configured yet</span>
+  </div>
+</div>
+{% endblock %}
