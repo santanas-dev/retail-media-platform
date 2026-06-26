@@ -421,3 +421,21 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - ✅ GAP 3: `record_heartbeat()` cross-propagates `last_seen_at` to KsoDevice
 - ⏸ GAP 2: sidecar_status in heartbeat deferred to 39.4.4
 - ✅ 16 tests green
+
+### 39.4.2 — Portal Device Dashboard Page (2026-06-26)
+- ✅ Portal `/device-dashboard` page: 14 columns, summary cards, GET filters, readiness badges
+- ✅ 20 portal tests green
+
+### 39.4.3 — Close Device/Sidecar Dashboard Gaps (2026-06-26)
+- ✅ GAP 2: `sidecar_status` in heartbeat payload (allowed values: stopped/starting/running/warning/error/unknown)
+- ✅ GAP 4: `/readiness` page hardened — uses production `GET /api/device-dashboard` (no test-kso)
+- ✅ GAP 5: `/devices` → Device Dashboard CTA link
+- ✅ All 7 device/sidecar dashboard GAPs closed
+- ✅ Commit: `5557563`
+
+### 40.0 — TZ Alignment / Security & RLS Audit Gate (2026-06-26)
+- ✅ Full audit: docs/audit/tz-alignment-security-rls-audit.md (7 разделов)
+- ✅ TZ compliance: 27/34 DONE (79%), 4 PARTIAL, 2 MISSING, 1 OUT-OF-SCOPE
+- 🔴 Critical: RLS query-level NOT enforced (user_rls_scopes table + UI exist, no WHERE filter)
+- 🔴 Pilot blockers: HW scanner E2E (postponed), controlled long-run (decision needed)
+- ✅ Recommendation: 40.1 RLS hardening before pilot

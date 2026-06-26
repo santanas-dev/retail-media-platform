@@ -360,3 +360,28 @@ Permission: `devices.gateway.read`. 16 tests green.
 `record_heartbeat()` cross-propagates to KsoDevice.
 
 **GAP 2: sidecar_status in heartbeat** — deferred to 39.4.4.
+
+## 12. 39.4.2 Update — Portal Device Dashboard
+
+**GAP 5: Portal /devices shows no gateway data** — ✅ CLOSED.
+Portal `/device-dashboard` page created: 14 columns, summary cards, GET filters, readiness badges. 20 tests green.
+
+## 13. 39.4.3 Update — Close All Dashboard Gaps
+
+**All 7 device/sidecar GAPs closed:**
+- GAP 2: `sidecar_status` in heartbeat — ✅ CLOSED
+- GAP 4: `/readiness` page production (device dashboard) — ✅ CLOSED
+- GAP 5: `/devices` → Device Dashboard CTA — ✅ CLOSED
+- GAP 6: Manifest/media readiness → covered by dashboard columns
+- GAP 7: Error aggregation → covered by readiness_reasons
+
+## 14. 40.0 Update — TZ Alignment / Security & RLS Audit
+
+Full audit document: `docs/audit/tz-alignment-security-rls-audit.md`.
+
+**Key findings:**
+- TZ compliance: 27 of 34 requirements DONE (79%), 4 PARTIAL, 2 MISSING, 1 OUT-OF-SCOPE
+- RBAC: fully enforced (47 permissions, 8 roles, all endpoints guarded)
+- RLS: `user_rls_scopes` table + UI exist, but **query-level not enforced** — CRITICAL gap
+- Pilot blockers: HW scanner E2E (scanner unavailable), controlled long-run (decision needed)
+- Out of scope v1: fleet rollout, Android/LED/ESL, SSO/MFA, charts/Excel

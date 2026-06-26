@@ -856,6 +856,31 @@ v<major>.<minor>.<patch>-<descriptor>
 - Backend: 398 (+3), Portal: 458 (+...), KSO: 2845
 - Total: 5103 green
 
+## 40.0 — TZ Alignment / Security & RLS Audit Gate (2026-06-26)
+
+### Audit
+- Comprehensive audit: `docs/audit/tz-alignment-security-rls-audit.md` (7 разделов)
+- TZ traceability matrix: 34 requirements mapped to backend/frontend/RBAC/RLS/tests
+- RLS/RBAC endpoint audit: 28 endpoints/pages audited for scope enforcement and role bypass risk
+
+### Key findings
+- **TZ compliance:** 27/34 DONE (79%), 4 PARTIAL (RLS, audit, creative UX, charts), 2 MISSING (HW scanner, long-run), 1 OUT-OF-SCOPE (fleet)
+- **RBAC:** FULLY ENFORCED ✅ — 47 permissions, 8 roles, `require_permission()` on every backend endpoint, `require_auth_for_page()` on every portal route
+- **RLS:** PARTIAL 🟡 — `user_rls_scopes` table + UI assignment exist, but **query-level NOT enforced** (no `WHERE scope IN (user_scopes)` in SQLAlchemy)
+- **Critical RLS gaps:** 28 endpoints return unfiltered data across all scopes
+- **Pilot blockers:** HW scanner E2E (postponed), controlled long-run (decision needed)
+
+### Recommended next
+- 40.1: RLS query-level enforcement (P0 — before pilot)
+- 40.2: Admin/audit log hardening (P1 — post-pilot)
+- 40.3: Pilot readiness gates (HW scanner + controlled long-run)
+- 40.4: v0.11.0 release tag (after 40.1+40.3 green)
+
+### No code changes
+- Audit-only: no backend/frontend/KSO modifications
+- No physical tests, no SSH/X11/Chromium/runner/sidecar daemon/PoP
+- No secrets committed
+
 ### Retrospective tags
 
 Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags should only be created after explicit confirmation, as they may point to commits with known issues or incomplete regression state.
