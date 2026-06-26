@@ -250,10 +250,11 @@ async def generate_manifests(
     from app.domains.organization.models import Store
     from app.domains.channels.models import Channel
 
-    if batch.status not in ("draft", "generated"):
+    if batch.status not in ("approved",):
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot regenerate batch in status '{batch.status}'",
+            detail=f"Cannot generate manifests: batch is '{batch.status}' "
+                   f"(must be 'approved'). Request approval first.",
         )
 
     # Load schedule_run with items
@@ -663,7 +664,7 @@ async def generate_manifests(
 
         total_manifests += 1
 
-    batch.status = "generated"
+    batch.status = "manifest_generated"
     batch.updated_at = _now()
 
     await _log_event(
@@ -685,92 +686,113 @@ async def approve_batch(
     batch: models.PublicationBatch,
     user_id: UUID,
 ) -> models.PublicationBatch:
-    """Approve a generated publication batch."""
+    """Approve a pending batch — transitions pending_approval → approved.
 
-    if batch.status == "cancelled":
+    After approval, generate_manifests() can be called.
+    Must have an external ApprovalRequest approved first (checked separately).
+    """
+    from app.domains.publications.schemas import PublicationBatchStatus as S
+
+    if batch.status == S.CANCELLED:
         raise HTTPException(status_code=400, detail="Cannot approve cancelled batch")
-    if batch.status == "published":
+    if batch.status == S.PUBLISHED:
         raise HTTPException(status_code=400, detail="Cannot approve published batch")
-    if batch.status == "approved":
+    if batch.status == S.APPROVED:
         raise HTTPException(status_code=400, detail="Batch is already approved")
-    if batch.status == "failed":
+    if batch.status == S.MANIFEST_GENERATED:
+        raise HTTPException(status_code=400, detail="Batch already has manifests generated")
+    if batch.status == S.FAILED:
         raise HTTPException(status_code=400, detail="Cannot approve failed batch")
-    if batch.status != "generated":
+    if batch.status == S.REJECTED:
+        raise HTTPException(status_code=400, detail="Cannot approve rejected batch")
+    if batch.status != S.PENDING_APPROVAL:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot approve batch in status '{batch.status}'. Generate manifests first.",
+            detail=f"Cannot approve batch in status '{batch.status}'. "
+                   f"Request approval first (must be 'pending_approval').",
         )
 
-    # Verify we have targets, manifest_versions, manifest_items
-    targets_result = await db.execute(
-        select(models.PublicationTarget).where(
-            models.PublicationTarget.publication_batch_id == batch.id,
+    # Check external ApprovalRequest exists and is approved
+    from app.domains.approvals.models import ApprovalRequest
+    batch_code = str(batch.id)
+    approval_result = await db.execute(
+        select(ApprovalRequest).where(
+            ApprovalRequest.object_type == "publication_batch",
+            ApprovalRequest.object_code == batch_code,
+            ApprovalRequest.status == "approved",
         )
     )
-    targets = list(targets_result.scalars().all())
-    if not targets:
+    batch_approval = approval_result.scalar_one_or_none()
+    if not batch_approval:
         raise HTTPException(
             status_code=400,
-            detail="No publication targets found for this batch",
-        )
-
-    versions_result = await db.execute(
-        select(models.ManifestVersion).where(
-            models.ManifestVersion.publication_batch_id == batch.id,
-            models.ManifestVersion.status == "draft",
-        )
-    )
-    versions = list(versions_result.scalars().all())
-    if not versions:
-        raise HTTPException(
-            status_code=400,
-            detail="No manifest versions found — generate manifests first",
-        )
-
-    # Check each version has items
-    for mv in versions:
-        items_result = await db.execute(
-            select(models.ManifestItem).where(
-                models.ManifestItem.manifest_version_id == mv.id,
-            ).limit(1)
-        )
-        if not items_result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=400,
-                detail=f"Manifest version {mv.id} has no items",
-            )
-
-    # Check no validation_failed events
-    failed_events = await db.execute(
-        select(models.PublicationEvent).where(
-            models.PublicationEvent.publication_batch_id == batch.id,
-            models.PublicationEvent.event_type == "validation_failed",
-        ).limit(1)
-    )
-    if failed_events.scalar_one_or_none():
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot approve batch with validation failures",
+            detail="Publication batch requires approved approval request. "
+                   "Submit approval via POST /api/approvals first.",
         )
 
     now = _now()
-    for mv in versions:
-        mv.status = "approved"
-        mv.approved_at = now
-    for t in targets:
-        if t.status == "generated":
-            t.status = "pending"  # will be published later
-        t.updated_at = now
-
-    batch.status = "approved"
+    batch.status = S.APPROVED
     batch.approved_by = user_id
     batch.approved_at = now
     batch.updated_at = now
 
     await _log_event(
         db, batch.id, "batch_approved", user_id,
-        "Batch approved",
-        {"version_count": len(versions)},
+        "Batch approved (ready for manifest generation)",
+    )
+
+    await db.commit()
+    await db.refresh(batch)
+    return batch
+
+
+async def request_batch_approval(
+    db: AsyncSession,
+    batch: models.PublicationBatch,
+    user_id: UUID,
+) -> models.PublicationBatch:
+    """Request approval for a draft batch → creates ApprovalRequest, sets pending_approval.
+
+    State machine: draft → pending_approval.
+    """
+    from app.domains.publications.schemas import PublicationBatchStatus as S
+    from app.domains.publications.schemas import _VALID_BATCH_TRANSITIONS
+
+    if batch.status != S.DRAFT:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot request approval: batch is '{batch.status}' (must be 'draft')",
+        )
+
+    # Check no duplicate active approval
+    from app.domains.approvals.models import ApprovalRequest
+    batch_code = str(batch.id)
+    existing = await db.execute(
+        select(ApprovalRequest).where(
+            ApprovalRequest.object_type == "publication_batch",
+            ApprovalRequest.object_code == batch_code,
+            ApprovalRequest.status == "pending",
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail="Active pending approval already exists for this batch",
+        )
+
+    # Create ApprovalRequest via approvals service
+    from app.domains.approvals.service import _request_approval_internal
+    approval = await _request_approval_internal(
+        db, object_type="publication_batch", object_code=batch_code, user_id=user_id,
+    )
+
+    batch.status = S.PENDING_APPROVAL
+    batch.updated_at = _now()
+
+    await _log_event(
+        db, batch.id, "approval_requested", user_id,
+        f"Approval requested: {approval.approval_code}",
+        {"approval_code": approval.approval_code},
     )
 
     await db.commit()
@@ -789,10 +811,11 @@ async def publish_batch(
         raise HTTPException(status_code=400, detail="Cannot publish cancelled batch")
     if batch.status == "published":
         raise HTTPException(status_code=400, detail="Batch is already published")
-    if batch.status != "approved":
+    if batch.status != "manifest_generated":
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot publish batch in status '{batch.status}'. Approve first.",
+            detail=f"Cannot publish batch in status '{batch.status}'. "
+                   f"Generate manifests first (must be 'manifest_generated').",
         )
 
     # Verify approval exists for this batch (39.3.1 — approval integration)
@@ -869,10 +892,10 @@ async def cancel_batch(
         raise HTTPException(status_code=400, detail="Batch is already cancelled")
 
     # Permission check driven by batch status
-    if batch.status in ("approved", "published"):
+    if batch.status in ("approved", "published", "manifest_generated"):
         required = "publications.approve"
     else:
-        # draft, generated, failed
+        # draft, generated, failed, pending_approval, rejected
         required = "publications.manage"
 
     if required not in user_perms:

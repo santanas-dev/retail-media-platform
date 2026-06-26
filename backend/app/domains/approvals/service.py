@@ -102,6 +102,26 @@ async def _check_no_active_pending(
         )
 
 
+async def _request_approval_internal(
+    db: AsyncSession, object_type: str, object_code: str, user_id,
+) -> models.ApprovalRequest:
+    """Internal: create ApprovalRequest without FastAPI-level validation.
+
+    Caller MUST validate: object exists, valid state, no duplicate pending.
+    Used by publication batch workflow (39.3.4).
+    """
+    approval_code = f"appr_{object_type}_{object_code.replace('-', '')[:48]}"
+    approval = models.ApprovalRequest(
+        approval_code=approval_code,
+        object_type=object_type,
+        object_code=object_code,
+        status="pending",
+        requested_by=user_id,
+    )
+    db.add(approval)
+    return approval
+
+
 # ── Public API ──────────────────────────────────────────────────────────
 
 

@@ -74,9 +74,9 @@ Campaign → placement → schedule → approval → manifest → batch → publ
 
 **Fix:** Создать production approval endpoints: `GET /api/approvals`, `POST /api/approvals/request`, `POST /api/approvals/{code}/decide`.
 
-### 🔴 Blocker 2: Approvals Not Integrated with Publication Batch → 🟡 PARTIALLY FIXED (39.3.1)
+### 🔴 Blocker 2: Approvals Not Integrated with Publication Batch → 🟡 PARTIALLY FIXED (39.3.1+39.3.4)
 
-**Fix:** `publication_batch` object_type added to approval system. `publish_batch` now checks for approved ApprovalRequest. Schema updated to allow `publication_batch`. Portal UI (39.3.3): approvals page supports `publication_batch` object type. Full batch workflow (batch creation → generation → approval → publish → KSO delivery) remains deferred.
+**Fix:** `publication_batch` object_type added to approval system. `publish_batch` now checks for approved ApprovalRequest. Schema updated to allow `publication_batch`. Portal UI (39.3.3): approvals page supports `publication_batch` object type. Full batch workflow hardened (39.3.4): state machine draft → pending_approval → approved → manifest_generated → published. `POST /api/publication-batches/{id}/request-approval` creates ApprovalRequest. `approve_batch` requires approved ApprovalRequest. `generate_manifests` requires approved status. `publish_batch` requires manifest_generated. Physical KSO delivery deferred.
 
 **Impact:** Непонятно, какой approval нужен для публикации — через `/api/approvals` или через batch `approve`. Двойной approval — confusion.
 

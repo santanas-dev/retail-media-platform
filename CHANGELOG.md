@@ -47,6 +47,24 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ## [Unreleased] — Product Backend / Frontend Gap Analysis (39.0, 2026-06-25)
 
+### 39.3.4 — Publication Batch Workflow Hardening
+
+**Production batch workflow hardened: draft → pending_approval → approved → manifest_generated → published.**
+
+- New batch states: `pending_approval`, `manifest_generated`, `rejected` (old `generated` removed)
+- State machine + guardrails: valid transitions enforced in `_VALID_BATCH_TRANSITIONS`
+- `POST /api/publication-batches/{id}/request-approval` — creates ApprovalRequest, transitions draft→pending_approval
+- `approve_batch` rewritten: accepts pending_approval → approved (checks approved ApprovalRequest)
+- `generate_manifests` guard: must be approved (was draft/generated)
+- `publish_batch` guard: must be manifest_generated (was approved)
+- `_request_approval_internal()` added to approvals service — internal helper for batch workflow
+- Cancellation: handles all new statuses
+- All endpoints safe projection; no raw UUID/secrets/tokens/backend_url
+- Backend tests: +25 (state machine transitions, router structure, service guardrails, approval integration)
+- Portal tests: 440 unchanged
+- 🟡 B2 → foundation hardened: full workflow backend-complete, physical KSO delivery deferred
+- Deferred: sidecar sync, physical KSO delivery, scanner validation, controlled long-run
+
 ### 39.3.3 — Portal Approval / Publication UX Hardening
 
 **Portal approvals and publications pages fully converted to production backend endpoints. All test-kso/demo wording removed from production UI.**

@@ -68,6 +68,20 @@ async def get_batch(
 
 
 @router.post(
+    "/publication-batches/{batch_id}/request-approval",
+    response_model=schemas.PublicationBatchResponse,
+)
+async def request_batch_approval(
+    batch_id: str,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("publications.manage")),
+):
+    """Request approval for a draft batch → creates ApprovalRequest (39.3.4)."""
+    batch = await service.get_batch(db, UUID(batch_id))
+    return await service.request_batch_approval(db, batch, current_user.id)
+
+
+@router.post(
     "/publication-batches/{batch_id}/generate",
     response_model=schemas.PublicationBatchResponse,
 )

@@ -11,11 +11,50 @@ from pydantic import BaseModel, Field
 
 class PublicationBatchStatus:
     DRAFT = "draft"
-    GENERATED = "generated"
+    PENDING_APPROVAL = "pending_approval"
     APPROVED = "approved"
+    MANIFEST_GENERATED = "manifest_generated"
     PUBLISHED = "published"
+    REJECTED = "rejected"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+# ── Valid transitions ────────────────────────────────────────────
+# draft → pending_approval, cancelled
+# pending_approval → approved, rejected, cancelled
+# approved → manifest_generated, cancelled
+# manifest_generated → published, cancelled
+# published → (terminal, idempotent)
+# rejected → (terminal)
+# failed → cancelled (retry via new batch)
+# cancelled → (terminal)
+
+_VALID_BATCH_TRANSITIONS: dict[str, frozenset[str]] = {
+    PublicationBatchStatus.DRAFT: frozenset({
+        PublicationBatchStatus.PENDING_APPROVAL,
+        PublicationBatchStatus.CANCELLED,
+    }),
+    PublicationBatchStatus.PENDING_APPROVAL: frozenset({
+        PublicationBatchStatus.APPROVED,
+        PublicationBatchStatus.REJECTED,
+        PublicationBatchStatus.CANCELLED,
+    }),
+    PublicationBatchStatus.APPROVED: frozenset({
+        PublicationBatchStatus.MANIFEST_GENERATED,
+        PublicationBatchStatus.CANCELLED,
+    }),
+    PublicationBatchStatus.MANIFEST_GENERATED: frozenset({
+        PublicationBatchStatus.PUBLISHED,
+        PublicationBatchStatus.CANCELLED,
+    }),
+    PublicationBatchStatus.PUBLISHED: frozenset(),
+    PublicationBatchStatus.REJECTED: frozenset(),
+    PublicationBatchStatus.FAILED: frozenset({
+        PublicationBatchStatus.CANCELLED,
+    }),
+    PublicationBatchStatus.CANCELLED: frozenset(),
+}
 
 
 class PublicationTargetStatus:
