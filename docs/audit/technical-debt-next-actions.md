@@ -449,4 +449,16 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - ✅ Device dashboard: device_code scope + store scope post-filter
 - ✅ Test-KSO readiness: now requires authentication (was unauthenticated)
 - ✅ 17 new RLS unit tests: scope context, query filter, object assertion, admin bypass
-- ✅ Backend regression: 415 (was 398, +17 RLS tests), all green
+- ✅ Backend regression: 398 → 415 (+17 RLS tests), all green
+
+### 40.1.1 — RLS Endpoint Integration Verification & P0 Patch (2026-06-26)
+- 🔴 P0 FIXED: `patch_campaign_by_code` — added advertiser scope assertion (was unprotected)
+- 🔴 P0 FIXED: `archive_campaign_by_code` — added advertiser scope assertion (was unprotected)
+- 🔴 P0 FIXED: `list_campaign_creatives` — added advertiser scope assertion (was unprotected)
+- 🔴 P0 FIXED: `unbind_campaign_creative` — added advertiser scope assertion (was unprotected)
+- 🔴 P0 FIXED: Placements `list/get/create` — advertiser scope via campaign_code resolution
+- 🟡 DEFERRED: Schedule/ScheduleSlot query-level RLS join optimization (router-level scope check feasible, query-level join for lists deferred)
+- 🟡 DEFERRED: Manifests/publications RLS — not directly linked to advertiser, scope via campaign chain deferred
+- ✅ All remaining campaign code-based endpoints now RLS-gated: get, patch, archive, bind, unbind, list_creatives
+- ✅ Placements now RLS-gated: list (post-filter), get (assert), create (assert)
+- ✅ Backend regression: 415 green, no regressions from RLS patches

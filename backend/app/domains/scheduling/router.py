@@ -9,9 +9,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_permission
 from app.domains.identity import models as identity_models
+from app.domains.identity.rls import resolve_user_scope_context, assert_object_in_advertiser_scope
 from app.domains.scheduling import schemas, service
 
 router = APIRouter(prefix="/api", tags=["scheduling"])
+
+# ── RLS helper ─────────────────────────────────────────────────────────────
+
+async def _resolve_campaign_advertiser(db: AsyncSession, campaign_code: str):
+    """Resolve campaign_code → advertiser_id. Returns None if not found."""
+    from sqlalchemy import select as sa_select
+    from app.domains.campaigns.models import Campaign
+    result = await db.execute(
+        sa_select(Campaign.advertiser_id).where(Campaign.campaign_code == campaign_code)
+    )
+    row = result.first()
+    return row[0] if row else None
 
 # ── Production Placement API ───────────────────────────────────────────────
 
@@ -24,10 +37,20 @@ async def list_placements_prod(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("scheduling.read")),
+    current_user: identity_models.User = Depends(require_permission("scheduling.read")),
 ):
-    """List all placements with safe projection (production API)."""
-    return await service.list_placements(db, skip, limit)
+    """List all placements with safe projection (production API). RLS enforced."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    placements = await service.list_placements(db, skip, limit)
+    # RLS post-filter: only placements whose campaign is in advertiser scope
+    if scope_ctx.is_advertiser_scoped:
+        filtered = []
+        for p in placements:
+            adv_id = await _resolve_campaign_advertiser(db, p["campaign_code"])
+            if adv_id and adv_id in scope_ctx.advertiser_ids:
+                filtered.append(p)
+        return filtered
+    return placements
 
 
 @router.post(
@@ -42,7 +65,11 @@ async def create_placement_prod(
         require_permission("scheduling.manage")
     ),
 ):
-    """Create a placement linking campaign→creative→device (production API)."""
+    """Create a placement linking campaign→creative→device (production API). RLS enforced."""
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_campaign_advertiser(db, data.campaign_code)
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "create placement")
     return await service.create_placement(db, data, current_user.id)
 
 
@@ -53,10 +80,15 @@ async def create_placement_prod(
 async def get_placement_prod(
     placement_code: str,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("scheduling.read")),
+    current_user: identity_models.User = Depends(require_permission("scheduling.read")),
 ):
-    """Get a single placement by code (safe projection)."""
-    return await service.get_placement(db, placement_code)
+    """Get placement by code (production API). RLS enforced."""
+    placement = await service.get_placement(db, placement_code)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    adv_id = await _resolve_campaign_advertiser(db, placement["campaign_code"])
+    if adv_id is not None:
+        assert_object_in_advertiser_scope(adv_id, scope_ctx, "view placement")
+    return placement
 
 
 @router.patch(

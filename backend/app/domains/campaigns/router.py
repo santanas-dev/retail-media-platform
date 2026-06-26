@@ -319,13 +319,15 @@ async def patch_campaign_by_code(
     campaign_code: str,
     data: schemas.CampaignUpdate,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
-    """Update campaign by campaign_code."""
+    """Update campaign by campaign_code. RLS: advertiser scope enforced."""
     from fastapi import HTTPException
     campaign = await service.get_campaign_by_code(db, campaign_code)
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "modify campaign")
     return await service.update_campaign(db, campaign.id, data)
 
 
@@ -336,13 +338,15 @@ async def patch_campaign_by_code(
 async def archive_campaign_by_code(
     campaign_code: str,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
-    """Archive campaign by campaign_code."""
+    """Archive campaign by campaign_code. RLS: advertiser scope enforced."""
     from fastapi import HTTPException
     campaign = await service.get_campaign_by_code(db, campaign_code)
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "archive campaign")
     return await service.archive_campaign(db, campaign.id)
 
 
@@ -357,13 +361,15 @@ async def archive_campaign_by_code(
 async def list_campaign_creatives(
     campaign_code: str,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.read")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.read")),
 ):
-    """List creatives bound to a campaign (safe projection)."""
+    """List creatives bound to a campaign (safe projection). RLS enforced."""
     from fastapi import HTTPException
     campaign = await service.get_campaign_by_code(db, campaign_code)
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "view creatives")
     return await service.list_campaign_creatives(db, campaign.id)
 
 
@@ -400,11 +406,13 @@ async def unbind_campaign_creative(
     campaign_code: str,
     creative_code: str,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
-    """Remove a creative binding from a campaign (deactivate)."""
+    """Remove a creative binding from a campaign (deactivate). RLS enforced."""
     from fastapi import HTTPException
     campaign = await service.get_campaign_by_code(db, campaign_code)
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "modify campaign")
     return await service.unbind_campaign_creative(db, campaign.id, creative_code)
