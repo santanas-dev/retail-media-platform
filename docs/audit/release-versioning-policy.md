@@ -69,6 +69,22 @@
 - Regression baseline: 4976 tests
 - **NOT pilot-ready**: HW scanner, controlled long-run, charts/Excel/drill-down, mTLS/rotation deferred
 
+### v0.10.0 — Approval / Publication Workflow Hardening
+
+- Production approval endpoints: GET/POST /api/approvals, approve/reject per-code
+- Approval guardrails: maker-checker, state validation, duplicate prevention
+- Publication batch state machine: draft → pending_approval → approved → manifest_generated → published
+- Batch approval request: POST /api/publication-batches/{id}/request-approval creates ApprovalRequest
+- Approved ApprovalRequest required for batch approve/generate/publish
+- Unified manifest generation: build_manifest_from_placement() — single builder for production + legacy
+- Production manifest endpoints: POST /api/manifests, GET /api/manifests/{code}, POST /api/manifests/{code}/publish
+- Portal approvals page: production backend-driven, publication_batch support, no test-kso wording
+- Portal publications page: production endpoints, backend-status-only labels, no demo placeholders
+- All responses safe projection (no raw UUID/secrets/tokens/backend_url)
+- Regression baseline: 5042 tests (backend 379, portal 440, state 86, player 2072, sidecar 1838, infra 227)
+- Commits: 3fc003c → fe03de4 → 58735d9 → d16a14e → 30ac341
+- **Deferred**: physical manifest delivery to KSO, sidecar sync, scanner validation, controlled long-run, pilot runbook, mTLS/nonce/rate-limit, charts/Excel/drill-down, full RLS enforcement
+
 ### v1.0.0 — First Pilot Release (future)
 
 Gate conditions:
@@ -104,8 +120,8 @@ Patch release process:
 
 ## Current Release
 
-**v0.9.0-product-portal-hardening** (2026-06-25)
+**v0.10.0-approval-publication-hardening** (2026-06-26)
 
-Target: `main` branch, commit `0ed9622`.
+Target: `main` branch, commit `30ac341`.
 
-All Phase 39.2 portal hardening items closed. Ready for 39.3 pre-pilot preparation phase.
+All Phase 39.3 approval/publication hardening items closed. Backend workflow complete — physical KSO delivery is the next gate.

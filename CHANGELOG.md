@@ -7,6 +7,48 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [v0.10.0-approval-publication-hardening] — 2026-06-26
+
+**Release: Approval / Publication Workflow Hardening — production approval API, unified manifest generation, publication batch state machine, portal UX production-ready.**
+
+### What's included
+
+- ✅ **Production approval endpoints** — GET/POST /api/approvals, approve/reject per-code (39.3.1)
+- ✅ **Approval guardrails** — maker-checker, state validation, duplicate prevention, explicit decision mapping
+- ✅ **Publication batch state machine** — draft → pending_approval → approved → manifest_generated → published (39.3.4)
+- ✅ **Batch approval integration** — request-approval creates ApprovalRequest; batch approve/generate/publish require approved ApprovalRequest
+- ✅ **Unified manifest generation** — build_manifest_from_placement() single builder, production manifest endpoints (39.3.2)
+- ✅ **Portal approvals UX** — production backend-driven, publication_batch support, no test-kso/demo wording (39.3.3)
+- ✅ **Portal publications UX** — production endpoints, backend-status-only labels, no demo placeholders (39.3.3)
+- ✅ **Safe projection** — all responses: no raw UUID/secrets/tokens/backend_url
+- ✅ **Full regression** — 5042 tests green
+
+### Commits
+
+| Commit | Description |
+|---|---|
+| `3fc003c` | 🛡 Approval/publication hardening analysis + safe fixes |
+| `fe03de4` | 🛡 Production approval API foundation |
+| `58735d9` | 🧾 Unified manifest generation workflow |
+| `d16a14e` | 🛡 Portal approvals/publications → production workflow |
+| `30ac341` | 🧱 Publication batch workflow hardening |
+
+### Known deferred (not blocking v0.10.0)
+
+| Item | Status |
+|---|---|
+| Physical manifest delivery to KSO | Deferred — backend-only workflow
+| Sidecar sync | Deferred
+| Scanner (HW) validation | Deferred — no scanner hardware
+| Controlled long-run (≥48h) | Deferred
+| Pilot runbook | Deferred
+| mTLS/nonce/rate-limit credential rotation | Deferred
+| Charts/Excel/drill-down in Reports | Deferred
+| Full RLS enforcement | Deferred
+| Live pilot/fleet rollout | NOT APPROVED
+
+---
+
 ## [v0.9.0-product-portal-hardening] — 2026-06-25
 
 **Release: Product Portal Hardening — все DEMO-заглушки убраны из Schedule, Campaign, Dashboard, Reports.**
