@@ -128,7 +128,7 @@ async def dashboard_page(request: Request):
     devices_r = await backend.list_kso_devices(access_token)
     schedules_r = await backend.list_schedules(access_token)
     manifests_r = await backend.list_manifests(access_token)  # production /api/manifests
-    approvals_r = await backend.list_approvals(access_token)
+    approvals_r = await backend.list_approvals_prod(access_token)
 
     # Count unreachable backends
     errors = 0
@@ -870,7 +870,7 @@ async def campaigns_page(request: Request):
     if not access_token:
         return _campaigns_fallback(request, current_user)
 
-    result = await backend.list_campaigns(access_token)
+    result = await backend.list_campaigns_prod(access_token)
     if not result["ok"]:
         return _campaigns_fallback(request, current_user)
 

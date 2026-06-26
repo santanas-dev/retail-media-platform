@@ -54,14 +54,64 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 **Admin Portal Access Bootstrap Fix — PAGE_PERMISSION_MAP aligned with backend permissions.**
 
 ### Root Cause
-`PAGE_PERMISSION_MAP` in `apps/portal-web/rbac.py` used portal-local permission names (`view_dashboard`, `view_creatives`, `view_admin`…) that don't exist in the backend. Session stored real backend permissions from `/api/auth/me`, but `require_auth_for_page` checked against non-existent names → every page returned 403.
+`PAGE_PERMISSION_MAP` used portal-local permission names not in backend seed. Session stored real backend permissions but route guard checked non-existent names → every page returned 403.
 
 ### Fix
-- `PAGE_PERMISSION_MAP` aligned with real backend permission codes (`campaigns.read`, `media.read`, `users.read`, `devices.gateway.read`, etc.)
-- Added `/device-dashboard` and `/readiness` to PAGE_PERMISSION_MAP
-- Removed stale duplicate `/admin` `add_api_route` (overridden by `@app.get` handler)
-- `_setup_mock_auth` now patches `get_current_portal_user` (not just `_get_user`) for `require_admin_access` compatibility
-- Added global mock for `get_current_user_permissions` to fix admin page tests
+- PAGE_PERMISSION_MAP aligned with real backend codes
+- Added /device-dashboard + /readiness entries
+- Removed stale /admin add_api_route  
+- Mock auth patch extended (get_current_portal_user + get_current_user_permissions)
+- 23 new backend seed integrity tests
+
+---
+
+## [40.2.2-portal-backend-integration-gate] — 2026-06-26
+
+**Portal Backend Integration Gate — verified all page→endpoint chains, fixed legacy test-kso usage.**
+
+### Audit
+Full matrix created: `docs/audit/portal-backend-integration-matrix.md` — 12 pages × BackendClient methods × backend endpoints × permissions.
+
+### Broken Links Found & Fixed
+
+| # | Page | Old method | Old endpoint | New method | New endpoint |
+|---|---|---|---|---|---|
+| 1 | `/campaigns` | `list_campaigns()` | `/api/campaigns/test-kso` | `list_campaigns_prod()` | `/api/campaigns` |
+| 2 | `/dashboard` | `list_approvals()` | `/api/approvals/test-kso` | `list_approvals_prod()` | `/api/approvals` |
+
+### Permission Consistency
+All 12 PAGE_PERMISSION_MAP permissions exist in backend seed. `system_admin` has all 12. `security_admin` has all security-relevant permissions (audit.read, users/roles, devices.gateway.read, publications, campaigns, campaign_reports, organization).
+
+### Guard Tests
+`test_portal_backend_live_integration.py` — 32 tests (20 BackendClient endpoint mapping + 12 live integration): verifies no test-kso is primary path, PAGE_PERMISSION_MAP↔seed consistency, admin navigation on live portal.
+
+### Live Integration Profile
+```
+RUN_PORTAL_BACKEND_LIVE_INTEGRATION=1 python3 -m pytest apps/portal-web/tests/test_portal_backend_live_integration.py
+```
+12 tests require running portal + backend (skip otherwise). 20 endpoint mapping tests always run.
+
+### Regression
+
+| Suite | Passed | Skipped | Failed |
+|---|---|---|---|
+| Backend | 498 | 0 | 0 |
+| Portal | 478 | 21 | 0 |
+| KSO state adapter | 86 | 0 | 0 |
+| KSO player | 2072 | 12 | 0 |
+| KSO sidecar | 1838 | 0 | 0 |
+| Infra | 227 | 0 | 0 |
+| **Total** | **5199** | **33** | **0** |
+
+### RBAC/RLS
+- ✅ NOT weakened
+- ✅ RBAC gate closed  
+- ✅ RLS gate closed
+- ✅ Audit trail active
+
+No KSO/SSH/X11/Chromium/runner/sidecar launched. No secrets disclosed.
+
+Hotfix recommended: v0.11.1 (v0.11.0 tag predates 40.2.1 + 40.2.2 fixes).
 - Portal tests: `_MOCK_ALL_PERMISSIONS` updated with real backend codes
 - `_LIMITED_PERMS` (analyst) updated to real backend permissions
 - Backend tests: 23 new seed integrity tests in `test_admin_portal_access_bootstrap.py`
