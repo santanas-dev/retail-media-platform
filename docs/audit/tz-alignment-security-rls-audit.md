@@ -24,7 +24,8 @@ Retail Media Platform прошла путь от контрактного про
 | PoP pipeline | **DONE** | E2E: player→sidecar→backend→portal report |
 | Approval workflow | **DONE** | Maker-checker, state machine, publication batch integration |
 | Device dashboard | **DONE** | Aggregation endpoint + portal page, 7 GAP closed |
-|| RLS enforcement | **DONE** | All 4 P0 campaign leaks fixed, schedules + placements + publications + manifests enforced, 42 endpoint-level tests, admin bypass verified |
+|| RLS enforcement | **DONE** | All 4 P0 campaign leaks fixed, schedules + placements + publications + manifests enforced, 42 endpoint-level tests, admin bypass verified. Gate CLOSED (40.1.2) |
+| Regression baseline | **DONE** | 5106 passed, 32 skipped, 0 failed — all 6 suites green (40.1.3) |
 | Audit hardening | **PARTIAL** | Basic audit tables, login/admin audit. No PoP/manifest access audit |
 | Pilot readiness | **CONDITIONAL** | HW scanner E2E not done, controlled long-run not done |
 | Fleet rollout | **NOT APPROVED** | Out of scope for v1 |
@@ -465,17 +466,19 @@ Player: 12 skipped (pre-existing, long-running tests)
 - `TestRequiresRLS` (4): requires_rls helper semantics
 - `TestApplyAdvertiserRLS` (3): SQLite query-level filtering verification
 
-### 13.3 Regression (40.1.2)
+### 13.3 Regression (40.1.3 — CLEAN)
 
-| Suite | Passed | Failed | Skipped | Notes |
-|---|---|---|---|---|
-| Backend | 457 | 0 | 0 | +42 new RLS tests |
-| Portal | 449 | 9 | 0 | 9 pre-existing BackendIntegration |
-| KSO state adapter | 86 | 0 | 0 | |
-| KSO player | 2060 | 0 | 12 | |
-| KSO sidecar | 1837 | 1 | 0 | 1 pre-existing `test_client_repr_safe` (non-deterministic) |
-| Infra | 227 | 0 | 0 | |
-| **Total** | **5116** | **10** | **12** | **0 new failures** |
+| Suite | Passed | Skipped | Failed |
+|---|---|---|---|
+| Backend | 457 | 0 | 0 |
+| Portal | 438 | 20 | 0 |
+| KSO state adapter | 86 | 0 | 0 |
+| KSO player | 2060 | 12 | 0 |
+| KSO sidecar | 1838 | 0 | 0 |
+| Infra | 227 | 0 | 0 |
+| **Total** | **5106** | **32** | **0** |
+
+Portal: 20 skipped = BackendIntegration tests (`RUN_PORTAL_BACKEND_INTEGRATION=1` to enable).
 
 ### 13.4 RLS Gate Status
 
