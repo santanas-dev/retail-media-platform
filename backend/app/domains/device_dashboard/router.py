@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, get_db, require_permission
 from app.domains.device_dashboard import schemas, service
 from app.domains.identity import models as identity_models
+from app.domains.identity.rls import resolve_user_scope_context
 
 router = APIRouter(prefix="/api", tags=["device-dashboard"])
 
@@ -44,7 +45,9 @@ async def device_dashboard(
     limit: int = Query(200, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("devices.gateway.read")),
+    current_user: identity_models.User = Depends(
+        require_permission("devices.gateway.read")
+    ),
 ):
     """Aggregated device dashboard for pilot operator.
 
@@ -52,12 +55,13 @@ async def device_dashboard(
     + manifest state + PoP events into one safe projection.
 
     Requires ``devices.gateway.read`` permission.
+    RLS: scoped users see only devices in their store/device scope.
 
     Response contract (per device):
       - device_code, store_code, store_name
       - kso_status, gateway_status
       - heartbeat (status, age_seconds, app_version, cache_items_count, manifest_hash)
-      - sidecar_version, sidecar_status (deferred)
+      - sidecar_version, sidecar_status
       - credential (status, type, expires_at)
       - session (active_count, last_used_at)
       - manifest (status, hash, last_applied_at)
@@ -70,6 +74,7 @@ async def device_dashboard(
     tokens, full backend URL, IP, MAC, serial, filesystem paths, password,
     barcode, receipt, payment, fiscal, customer, card, personal data.
     """
+    scope_ctx = await resolve_user_scope_context(db, current_user)
     return await service.get_device_dashboard(
         db,
         keyword=keyword,
@@ -78,4 +83,5 @@ async def device_dashboard(
         readiness_badge=readiness_badge,
         limit=limit,
         offset=offset,
+        scope_ctx=scope_ctx,
     )

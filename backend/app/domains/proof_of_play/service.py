@@ -25,7 +25,8 @@ from app.domains.proof_of_play.schemas import (
 from app.domains.manifests.models import GeneratedManifest
 from app.domains.scheduling.models import KsoPlacement
 from app.domains.hierarchy.models import KsoDevice
-from app.domains.campaigns.models import CampaignCreative
+from app.domains.campaigns.models import Campaign, CampaignCreative
+from app.domains.identity.rls import UserScopeContext
 from app.domains.media.models import Creative  # FK resolution for PoP event commit
 from app.domains.identity.models import User  # FK resolution for GeneratedManifest relationships
 
@@ -194,6 +195,33 @@ async def ingest_kso_pop(
 
 
 # ══════════════════════════════════════════════════════════════════════
+# RLS helper — join PoP → Campaign to filter by advertiser scope
+# ══════════════════════════════════════════════════════════════════════
+
+def apply_pop_advertiser_rls(stmt, ctx: UserScopeContext):
+    """Join KsoProofOfPlayEvent → Campaign and filter by advertiser_scope.
+
+    PoP events are linked to campaigns via campaign_code (FK).
+    Since KsoProofOfPlayEvent doesn't have advertiser_id directly,
+    we join through the Campaigns table to apply advertiser RLS.
+
+    Returns the modified SELECT — with join + WHERE if scoped,
+    or unchanged if admin (no scope restriction).
+    """
+    if not ctx.is_advertiser_scoped:
+        return stmt
+    if not ctx.advertiser_ids:
+        # Scoped but no advertisers matched → return empty (always-false)
+        return stmt.where(KsoProofOfPlayEvent.campaign_code == None).where(
+            KsoProofOfPlayEvent.campaign_code != None
+        )
+    return (
+        stmt.join(Campaign, KsoProofOfPlayEvent.campaign_code == Campaign.campaign_code)
+        .where(Campaign.advertiser_id.in_(ctx.advertiser_ids))
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════
 # List (read-only, safe projection)
 # ══════════════════════════════════════════════════════════════════════
 
@@ -208,6 +236,7 @@ async def list_kso_pop_events(
     date_to: Optional[datetime] = None,
     limit: int = 100,
     offset: int = 0,
+    scope_ctx: UserScopeContext | None = None,
 ) -> list[KsoPoPListResponse]:
     """List KSO PoP events with optional filters (safe projection).
 
@@ -217,6 +246,10 @@ async def list_kso_pop_events(
     """
 
     stmt = _select(KsoProofOfPlayEvent)
+
+    # RLS — advertiser scope via join through Campaign
+    if scope_ctx is not None and scope_ctx.is_advertiser_scoped:
+        stmt = apply_pop_advertiser_rls(stmt, scope_ctx)
 
     if device_code:
         stmt = stmt.where(KsoProofOfPlayEvent.device_code == device_code)

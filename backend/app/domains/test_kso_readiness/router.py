@@ -1,9 +1,14 @@
-"""Test KSO Readiness router — read-only readiness + idempotent seed, no auth (TEST_ONLY)."""
+"""Test KSO Readiness router — read-only readiness + idempotent seed.
+
+DEV-ONLY / TEST-KSO endpoints. Require authentication (any valid user).
+Never returns secrets, URLs, tokens, or UUIDs.
+"""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db
+from app.core.deps import get_current_user, get_db
+from app.domains.identity import models as identity_models
 from app.domains.test_kso_readiness.schemas import ReadinessStatus, SeedRequest, SeedSummary
 from app.domains.test_kso_readiness import seed as seed_module, service
 
@@ -15,19 +20,21 @@ router = APIRouter(prefix="/api/test-kso", tags=["test-kso-readiness"])
     response_model=ReadinessStatus,
     summary="Test KSO E2E readiness",
     description="Safe read-only readiness check for a test KSO device. "
-    "No auth required (TEST_ONLY). Never returns secrets, URLs, tokens, or UUIDs.",
+    "Requires authentication. Never returns secrets, URLs, tokens, or UUIDs.",
 )
 async def get_readiness(
     device_code: str = Query(..., min_length=1, max_length=64),
     db: AsyncSession = Depends(get_db),
+    _current_user: identity_models.User = Depends(get_current_user),
 ) -> ReadinessStatus:
     """Return safe readiness summary for a test KSO device.
 
+    DEV-ONLY / TEST-KSO. Requires authentication.
     Checks: device registration, published manifest, creative_code/mediaRef
     in manifest, campaign/placement/creative chain, PoP events,
     publication status, remaining steps.
 
-    TEST_ONLY — no auth. Never exposes secrets.
+    Never exposes secrets.
     """
     if not device_code or not device_code.strip():
         raise HTTPException(status_code=400, detail="device_code is required")
@@ -41,13 +48,16 @@ async def get_readiness(
     status_code=201,
     summary="Seed synthetic test KSO chain",
     description="Create a complete synthetic one-KSO test chain (idempotent). "
-    "No auth required (TEST_ONLY). Never returns UUIDs, secrets, or paths.",
+    "Requires authentication. Never returns UUIDs, secrets, or paths.",
 )
 async def seed_test_chain(
     body: SeedRequest = SeedRequest(),
     db: AsyncSession = Depends(get_db),
+    _current_user: identity_models.User = Depends(get_current_user),
 ) -> SeedSummary:
     """Seed a complete synthetic one-KSO test chain.
+
+    DEV-ONLY / TEST-KSO. Requires authentication.
 
     Creates: User → Branch → Cluster → Store → KsoDevice →
     Campaign → Creative (with version) → CampaignCreative →

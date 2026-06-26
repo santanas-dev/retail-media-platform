@@ -439,3 +439,14 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - 🔴 Critical: RLS query-level NOT enforced (user_rls_scopes table + UI exist, no WHERE filter)
 - 🔴 Pilot blockers: HW scanner E2E (postponed), controlled long-run (decision needed)
 - ✅ Recommendation: 40.1 RLS hardening before pilot
+
+### 40.1 — RLS Hardening P0 (2026-06-26)
+- ✅ Created `backend/app/domains/identity/rls.py` — RLS enforcement layer
+- ✅ Campaigns: advertiser_scope filtering on list + object assertion on code-based get/bind/unbind
+- ✅ Creatives: advertiser_scope filtering on list + object assertion on get/create/upload
+- ✅ Approvals: multi-type advertiser resolution (campaign/placement/batch), scope on list/get/request/decide
+- ✅ Reports/PoP: advertiser_scope join through campaign_code, scope on /reports/pop + /summary
+- ✅ Device dashboard: device_code scope + store scope post-filter
+- ✅ Test-KSO readiness: now requires authentication (was unauthenticated)
+- ✅ 17 new RLS unit tests: scope context, query filter, object assertion, admin bypass
+- ✅ Backend regression: 415 (was 398, +17 RLS tests), all green

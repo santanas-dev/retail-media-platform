@@ -24,7 +24,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_permission
 from app.domains.identity import models as identity_models
-from app.domains.campaigns import schemas, service
+from app.domains.identity.rls import (
+    resolve_user_scope_context,
+    assert_object_in_advertiser_scope,
+    apply_advertiser_rls,
+)
+from app.domains.campaigns import schemas, service, models as campaign_models
 
 router = APIRouter(prefix="/api", tags=["campaigns"])
 
@@ -43,8 +48,9 @@ async def list_campaigns(
     planned_start_date_from: date | None = Query(None),
     planned_start_date_to: date | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.read")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.read")),
 ):
+    scope_ctx = await resolve_user_scope_context(db, current_user)
     return await service.list_campaigns(
         db, skip, limit,
         advertiser_id=advertiser_id,
@@ -54,6 +60,7 @@ async def list_campaigns(
         channel_id=channel_id,
         planned_start_date_from=planned_start_date_from,
         planned_start_date_to=planned_start_date_to,
+        scope_ctx=scope_ctx,
     )
 
 
@@ -292,13 +299,15 @@ async def create_campaign_by_code(
 async def get_campaign_by_code(
     campaign_code: str,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.read")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.read")),
 ):
     """Get campaign by campaign_code (safe external identifier)."""
     from fastapi import HTTPException
     campaign = await service.get_campaign_by_code(db, campaign_code)
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "view campaign")
     return campaign
 
 
@@ -367,13 +376,19 @@ async def bind_campaign_creative(
     campaign_code: str,
     data: schemas.CampaignCreativeBind,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
     """Bind a creative to a campaign."""
     from fastapi import HTTPException
     campaign = await service.get_campaign_by_code(db, campaign_code)
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "modify campaign")
+    # Also verify creative belongs to scope
+    creative_adv = await service.get_creative_advertiser(db, data.creative_code)
+    if creative_adv is not None:
+        assert_object_in_advertiser_scope(creative_adv, scope_ctx, "bind creative")
     return await service.bind_campaign_creative(db, campaign.id, data.creative_code)
 
 

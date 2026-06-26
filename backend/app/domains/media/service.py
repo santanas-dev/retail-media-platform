@@ -6,10 +6,11 @@ from uuid import UUID
 
 from fastapi import HTTPException, UploadFile, status
 from PIL import Image
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.domains.identity.rls import UserScopeContext, apply_advertiser_rls
 from app.domains.media import models, schemas, storage
 from app.domains.advertisers.models import Advertiser, Brand
 from app.domains.channels.models import Channel, CapabilityProfile
@@ -27,6 +28,14 @@ async def _get_creative_or_404(db: AsyncSession, creative_id: UUID) -> models.Cr
             status_code=status.HTTP_404_NOT_FOUND, detail="Creative not found"
         )
     return creative
+
+
+async def get_creative_by_code(db: AsyncSession, code: str) -> models.Creative | None:
+    """Fetch a creative by its creative_code, or return None."""
+    result = await db.execute(
+        select(models.Creative).where(models.Creative.creative_code == code)
+    )
+    return result.scalar_one_or_none()
 
 
 async def _get_version_or_404(db: AsyncSession, version_id: UUID) -> models.CreativeVersion:
@@ -97,8 +106,19 @@ async def list_creatives(
     limit: int = 100,
     advertiser_id: UUID | None = None,
     status_filter: str | None = None,
+    scope_ctx: UserScopeContext | None = None,
 ) -> list[models.Creative]:
     stmt = select(models.Creative).order_by(models.Creative.name)
+    # Apply RLS advertiser isolation before other filters
+    if scope_ctx is not None and scope_ctx.is_advertiser_scoped:
+        stmt = apply_advertiser_rls(stmt, scope_ctx, models.Creative.advertiser_id)
+        # Include creatives with NULL advertiser_id (unassigned) for scoped users
+        stmt = stmt.where(
+            or_(
+                models.Creative.advertiser_id.in_(scope_ctx.advertiser_ids),
+                models.Creative.advertiser_id.is_(None),
+            )
+        )
     if advertiser_id is not None:
         stmt = stmt.where(models.Creative.advertiser_id == advertiser_id)
     if status_filter is not None:

@@ -24,6 +24,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user, require_permission
 from app.domains.identity import models as identity_models
+from app.domains.identity.rls import (
+    resolve_user_scope_context,
+    assert_object_in_advertiser_scope,
+)
 from app.domains.media import schemas, service
 
 router = APIRouter(prefix="/api", tags=["media"])
@@ -39,9 +43,10 @@ async def list_creatives(
     advertiser_id: UUID | None = Query(None),
     status: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("media.read")),
+    current_user: identity_models.User = Depends(require_permission("media.read")),
 ):
-    return await service.list_creatives(db, skip, limit, advertiser_id, status)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    return await service.list_creatives(db, skip, limit, advertiser_id, status, scope_ctx)
 
 
 @router.post(
@@ -54,6 +59,9 @@ async def create_creative(
     db: AsyncSession = Depends(get_db),
     current_user: identity_models.User = Depends(require_permission("media.manage")),
 ):
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    if data.advertiser_id is not None:
+        assert_object_in_advertiser_scope(data.advertiser_id, scope_ctx, "create")
     return await service.create_creative(db, data, current_user.id)
 
 
@@ -61,9 +69,13 @@ async def create_creative(
 async def get_creative(
     creative_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("media.read")),
+    current_user: identity_models.User = Depends(require_permission("media.read")),
 ):
-    return await service.get_creative(db, creative_id)
+    creative = await service.get_creative(db, creative_id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    if creative.advertiser_id is not None:
+        assert_object_in_advertiser_scope(creative.advertiser_id, scope_ctx, "access")
+    return creative
 
 
 @router.put("/creatives/{creative_id}", response_model=schemas.CreativeResponse)
@@ -229,4 +241,10 @@ async def upload_creative(
         creative_code=creative_code,
         name=name,
     )
-    return await service.upload_creative_combined(db, data, file, current_user.id)
+    result = await service.upload_creative_combined(db, data, file, current_user.id)
+    # Assert advertiser scope on the created creative
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    creative = await service.get_creative_by_code(db, data.creative_code)
+    if creative is not None and creative.advertiser_id is not None:
+        assert_object_in_advertiser_scope(creative.advertiser_id, scope_ctx, "upload")
+    return result

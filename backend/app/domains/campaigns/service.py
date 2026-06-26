@@ -10,6 +10,11 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.domains.campaigns import models, schemas
+from app.domains.identity.rls import (
+    UserScopeContext,
+    apply_advertiser_rls,
+    assert_object_in_advertiser_scope,
+)
 from app.domains.advertisers.models import Order, Brand, Advertiser
 from app.domains.media.models import Rendition, CreativeVersion, Creative
 from app.domains.channels.models import Channel, LogicalCarrier, DisplaySurface
@@ -214,8 +219,13 @@ async def list_campaigns(
     channel_id: UUID | None = None,
     planned_start_date_from: date | None = None,
     planned_start_date_to: date | None = None,
+    scope_ctx: UserScopeContext | None = None,
 ) -> list[models.Campaign]:
     stmt = select(models.Campaign).order_by(models.Campaign.created_at.desc())
+
+    # RLS — advertiser scope (applied before other filters)
+    if scope_ctx is not None and scope_ctx.is_advertiser_scoped:
+        stmt = apply_advertiser_rls(stmt, scope_ctx, models.Campaign.advertiser_id)
 
     if advertiser_id is not None:
         stmt = stmt.where(models.Campaign.advertiser_id == advertiser_id)
@@ -790,6 +800,18 @@ async def archive_campaign(
     await db.commit()
     await db.refresh(campaign)
     return campaign
+
+
+async def get_creative_advertiser(
+    db: AsyncSession, creative_code: str,
+) -> UUID | None:
+    """Resolve creative_code → advertiser_id (None if not found or no advertiser)."""
+    from sqlalchemy import select as sa_select
+    result = await db.execute(
+        sa_select(Creative.advertiser_id).where(Creative.creative_code == creative_code)
+    )
+    row = result.first()
+    return row[0] if row else None
 
 
 # ═══════════════════════════════════════════════════════════════════════════

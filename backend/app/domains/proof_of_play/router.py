@@ -15,12 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, get_db, require_permission
 from app.domains.device_gateway.auth import authenticate_device
 from app.domains.identity import models as identity_models
+from app.domains.identity.rls import resolve_user_scope_context, UserScopeContext
 from app.domains.proof_of_play.schemas import (
     KsoPoPIngestRequest,
     KsoPoPIngestResponse,
     KsoPoPListResponse,
 )
-from app.domains.proof_of_play.service import ingest_kso_pop, list_kso_pop_events
+from app.domains.proof_of_play.service import ingest_kso_pop, list_kso_pop_events, apply_pop_advertiser_rls
 
 router = APIRouter(prefix="/api", tags=["proof-of-play-kso"])
 
@@ -57,16 +58,18 @@ async def list_pop_production(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("reports.read")),
+    current_user: identity_models.User = Depends(require_permission("reports.read")),
 ):
     """Production PoP event list — safe projection for portal reporting.
 
     Requires ``reports.read`` permission.
+    RLS: filtered by advertiser scope via campaign_code → Campaign.advertiser_id.
 
     Returns same safe fields as test-kso: event_code, device_code,
     placement_code, campaign_code, creative_code, media_ref, event_type,
     status, played_at, duration_ms, received_at.
     """
+    scope_ctx = await resolve_user_scope_context(db, current_user)
     return await list_kso_pop_events(
         db,
         device_code=device_code,
@@ -77,6 +80,7 @@ async def list_pop_production(
         date_to=date_to,
         limit=limit,
         offset=offset,
+        scope_ctx=scope_ctx,
     )
 
 
@@ -99,13 +103,16 @@ async def get_pop_summary(
     date_from: Optional[datetime] = Query(None),
     date_to: Optional[datetime] = Query(None),
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("reports.read")),
+    current_user: identity_models.User = Depends(require_permission("reports.read")),
 ):
     """Aggregated PoP summary — safe counts for portal report KPIs.
 
     Requires ``reports.read`` permission.
+    RLS: filtered by advertiser scope via campaign_code → Campaign.advertiser_id.
     Never returns: raw UUIDs, tokens, secrets, backend URLs, manifest internals.
     """
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+
     conditions = []
     if device_code:
         conditions.append(KsoProofOfPlayEvent.device_code == device_code)
@@ -122,6 +129,7 @@ async def get_pop_summary(
 
     # Total events
     q = _select(func.count()).select_from(KsoProofOfPlayEvent)
+    q = apply_pop_advertiser_rls(q, scope_ctx)
     if conditions:
         q = q.where(and_(*conditions))
     total = (await db.execute(q)).scalar() or 0
@@ -129,6 +137,7 @@ async def get_pop_summary(
     # Unique devices
     q = _select(func.count(_distinct(KsoProofOfPlayEvent.device_code)))
     q = q.select_from(KsoProofOfPlayEvent)
+    q = apply_pop_advertiser_rls(q, scope_ctx)
     if conditions:
         q = q.where(and_(*conditions))
     unique_devices = (await db.execute(q)).scalar() or 0
@@ -136,6 +145,7 @@ async def get_pop_summary(
     # Unique campaigns
     q = _select(func.count(_distinct(KsoProofOfPlayEvent.campaign_code)))
     q = q.select_from(KsoProofOfPlayEvent)
+    q = apply_pop_advertiser_rls(q, scope_ctx)
     if conditions:
         q = q.where(and_(*conditions))
     unique_campaigns = (await db.execute(q)).scalar() or 0
@@ -143,6 +153,7 @@ async def get_pop_summary(
     # Unique creatives
     q = _select(func.count(_distinct(KsoProofOfPlayEvent.creative_code)))
     q = q.select_from(KsoProofOfPlayEvent)
+    q = apply_pop_advertiser_rls(q, scope_ctx)
     if conditions:
         q = q.where(and_(*conditions))
     unique_creatives = (await db.execute(q)).scalar() or 0
@@ -150,6 +161,7 @@ async def get_pop_summary(
     # Unique placements
     q = _select(func.count(_distinct(KsoProofOfPlayEvent.placement_code)))
     q = q.select_from(KsoProofOfPlayEvent)
+    q = apply_pop_advertiser_rls(q, scope_ctx)
     if conditions:
         q = q.where(and_(*conditions))
     unique_placements = (await db.execute(q)).scalar() or 0
@@ -157,6 +169,7 @@ async def get_pop_summary(
     async def _count_status(status_val: str) -> int:
         s = _select(func.count())
         s = s.select_from(KsoProofOfPlayEvent)
+        s = apply_pop_advertiser_rls(s, scope_ctx)
         sc = KsoProofOfPlayEvent.status == status_val
         s = s.where(and_(sc, *conditions) if conditions else sc)
         return (await db.execute(s)).scalar() or 0
@@ -168,6 +181,7 @@ async def get_pop_summary(
     # Unknown status (not accepted/rejected/duplicate)
     uq = _select(func.count())
     uq = uq.select_from(KsoProofOfPlayEvent)
+    uq = apply_pop_advertiser_rls(uq, scope_ctx)
     unk = KsoProofOfPlayEvent.status.notin_(["accepted", "rejected", "duplicate"])
     uq = uq.where(and_(unk, *conditions) if conditions else unk)
     unknown_status = (await db.execute(uq)).scalar() or 0
@@ -175,6 +189,7 @@ async def get_pop_summary(
     # Last event
     lq = _select(KsoProofOfPlayEvent.received_at)
     lq = lq.select_from(KsoProofOfPlayEvent)
+    lq = apply_pop_advertiser_rls(lq, scope_ctx)
     if conditions:
         lq = lq.where(and_(*conditions))
     lq = lq.order_by(KsoProofOfPlayEvent.received_at.desc()).limit(1)
@@ -252,11 +267,13 @@ async def list_kso_pop(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("reports.read")),
+    current_user: identity_models.User = Depends(require_permission("reports.read")),
 ):
     """List PoP events for test KSO technical validation (safe projection).
 
+    DEV-ONLY / TEST-KSO endpoint.
     Requires ``reports.read`` permission.
+    RLS: filtered by advertiser scope via campaign_code -> Campaign.advertiser_id.
 
     Response contains ONLY safe fields: event_code, device_code,
     placement_code, campaign_code, creative_code, media_ref, event_type,
@@ -266,6 +283,7 @@ async def list_kso_pop(
     backend_url, tokens, file_path, sha256, storage_ref, minio,
     device_secret, client_secret, receipt, payment, fiscal, customer.
     """
+    scope_ctx = await resolve_user_scope_context(db, current_user)
     return await list_kso_pop_events(
         db,
         device_code=device_code,
@@ -276,4 +294,5 @@ async def list_kso_pop(
         date_to=date_to,
         limit=limit,
         offset=offset,
+        scope_ctx=scope_ctx,
     )

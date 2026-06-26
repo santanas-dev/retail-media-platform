@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_permission
 from app.domains.identity import models as identity_models
+from app.domains.identity.rls import resolve_user_scope_context
 from app.domains.approvals import schemas, service
 
 router = APIRouter(prefix="/api/approvals", tags=["approvals"])
@@ -27,10 +28,11 @@ async def list_approvals_prod(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("approvals.read")),
+    current_user: identity_models.User = Depends(require_permission("approvals.read")),
 ):
     """List approval requests (production, safe projection)."""
-    return await service.list_approvals(db, skip, limit)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    return await service.list_approvals(db, skip, limit, scope_ctx=scope_ctx)
 
 
 @router.get(
@@ -40,10 +42,11 @@ async def list_approvals_prod(
 async def get_approval_prod(
     approval_code: str,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("approvals.read")),
+    current_user: identity_models.User = Depends(require_permission("approvals.read")),
 ):
     """Get a single approval request by code (production, safe projection)."""
-    return await service.get_approval(db, approval_code)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    return await service.get_approval(db, approval_code, scope_ctx=scope_ctx)
 
 
 @router.post(
@@ -63,7 +66,8 @@ async def request_approval_prod(
     Supported object_types: campaign, placement, publication_batch.
     Transitions object status to 'pending_approval'.
     """
-    return await service.request_approval(db, data, current_user.id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    return await service.request_approval(db, data, current_user.id, scope_ctx=scope_ctx)
 
 
 @router.post(
@@ -86,7 +90,8 @@ async def approve_approval_prod(
     if data.decision != "approve":
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Use /reject endpoint to reject")
-    return await service.decide_approval(db, approval_code, data, current_user.id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    return await service.decide_approval(db, approval_code, data, current_user.id, scope_ctx=scope_ctx)
 
 
 @router.post(
@@ -109,7 +114,8 @@ async def reject_approval_prod(
     if data.decision != "reject":
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Use /approve endpoint to approve")
-    return await service.decide_approval(db, approval_code, data, current_user.id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    return await service.decide_approval(db, approval_code, data, current_user.id, scope_ctx=scope_ctx)
 
 
 # ══════════════════════════════════════════════════════════════════════
