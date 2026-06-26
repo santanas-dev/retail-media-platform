@@ -134,21 +134,23 @@ async def require_admin_access(request: Request) -> Response | None:
 from portal_session import get_current_portal_user as _get_user
 from portal_session import get_session_permissions as _get_perms
 
-# Mapping: route → required permission (from security_contract PAGE_ACCESS_MATRIX)
+# Mapping: route → required permission (real backend permission codes)
 PAGE_PERMISSION_MAP: dict[str, str] = {
-    "/": "view_dashboard",
-    "/dashboard": "view_dashboard",
+    "/": "campaigns.read",
+    "/dashboard": "campaigns.read",
     "/campaigns": "campaigns.read",
-    "/creatives": "view_creatives",
+    "/creatives": "media.read",
     "/schedule": "scheduling.read",
-    "/publications": "view_publications",
-    "/stores": "view_stores",
-    "/devices": "view_devices",
-    "/proof-of-play": "view_proof_of_play",
+    "/publications": "publications.read",
+    "/stores": "organization.read",
+    "/devices": "devices.read",
+    "/proof-of-play": "reports.read",
     "/reports": "reports.read",
-    "/deployment": "view_deployment",
-    "/approvals": "approvals.read",
-    "/admin": "view_admin",
+    "/deployment": "campaigns.read",
+    "/approvals": "campaigns.approve",
+    "/admin": "users.read",
+    "/device-dashboard": "devices.gateway.read",
+    "/readiness": "devices.gateway.read",
 }
 
 # Public routes — no auth required

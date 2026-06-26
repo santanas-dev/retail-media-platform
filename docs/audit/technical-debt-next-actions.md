@@ -495,9 +495,19 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - ✅ Regression: 5124 passed, 32 skipped, 0 failed
 - ✅ Commit: `8ff648a`
 
-### Deferred
-- Failed/security events (forbidden RLS, failed maker-checker) — requires middleware rewrite
-- Device credential create/revoke audit — already exists in device gateway
+## 40.2.1 — Admin Portal Access Bootstrap Fix (2026-06-26)
+
+### Root Cause
+`PAGE_PERMISSION_MAP` in `rbac.py` used portal-local permission names that didn't exist in backend. Session had real backend permissions, but route guard checked non-existent names → every page 403.
+
+### Fix
+- Aligned PAGE_PERMISSION_MAP with real backend permission codes
+- Added /device-dashboard + /readiness to the map
+- Removed stale duplicate /admin add_api_route
+- Fixed mock auth to patch get_current_portal_user + get_current_user_permissions
+- Updated _MOCK_ALL_PERMISSIONS + _LIMITED_PERMS with real codes
+- 23 new backend seed integrity tests
+- Regression: 5159 passed, 32 skipped, 0 failed
 
 ## 40.3 — Pilot Readiness Gates Plan (2026-06-26)
 

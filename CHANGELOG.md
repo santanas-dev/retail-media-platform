@@ -49,6 +49,45 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [40.2.1-admin-portal-access-bootstrap] — 2026-06-26
+
+**Admin Portal Access Bootstrap Fix — PAGE_PERMISSION_MAP aligned with backend permissions.**
+
+### Root Cause
+`PAGE_PERMISSION_MAP` in `apps/portal-web/rbac.py` used portal-local permission names (`view_dashboard`, `view_creatives`, `view_admin`…) that don't exist in the backend. Session stored real backend permissions from `/api/auth/me`, but `require_auth_for_page` checked against non-existent names → every page returned 403.
+
+### Fix
+- `PAGE_PERMISSION_MAP` aligned with real backend permission codes (`campaigns.read`, `media.read`, `users.read`, `devices.gateway.read`, etc.)
+- Added `/device-dashboard` and `/readiness` to PAGE_PERMISSION_MAP
+- Removed stale duplicate `/admin` `add_api_route` (overridden by `@app.get` handler)
+- `_setup_mock_auth` now patches `get_current_portal_user` (not just `_get_user`) for `require_admin_access` compatibility
+- Added global mock for `get_current_user_permissions` to fix admin page tests
+- Portal tests: `_MOCK_ALL_PERMISSIONS` updated with real backend codes
+- `_LIMITED_PERMS` (analyst) updated to real backend permissions
+- Backend tests: 23 new seed integrity tests in `test_admin_portal_access_bootstrap.py`
+
+### Regression
+
+| Suite | Passed | Skipped | Failed |
+|---|---|---|---|
+| Backend | 498 | 0 | 0 |
+| Portal | 438 | 20 | 0 |
+| KSO state adapter | 86 | 0 | 0 |
+| KSO player | 2072 | 12 | 0 |
+| KSO sidecar | 1838 | 0 | 0 |
+| Infra | 227 | 0 | 0 |
+| **Total** | **5159** | **32** | **0** |
+
+### RBAC/RLS
+- ✅ NOT weakened — permission checks still enforced
+- ✅ RBAC gate closed
+- ✅ RLS gate closed
+- ✅ Audit trail active
+
+No KSO/SSH/X11/Chromium/runner/sidecar launched. No secrets disclosed.
+
+---
+
 ## [v0.11.0-pre-pilot-security-baseline] — 2026-06-26
 
 **Release: Pre-Pilot Security Baseline — RLS gate closed, audit hardened, device dashboard complete, pilot gates documented.**

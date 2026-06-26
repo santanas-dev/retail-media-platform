@@ -39,16 +39,24 @@ FORBIDDEN = frozenset({
 # ── Test helpers for mock auth session ──────────────────────────────────
 
 _MOCK_ALL_PERMISSIONS = frozenset({
+    # Real backend permissions (used by PAGE_PERMISSION_MAP)
+    "campaigns.read", "media.read", "scheduling.read",
+    "publications.read", "organization.read", "devices.read",
+    "reports.read", "campaigns.approve", "users.read",
+    "devices.gateway.read",
+    # Additional permissions for full admin coverage
+    "users.create", "users.manage",
+    "roles.read", "roles.manage",
+    "audit.read",
+    "campaigns.manage", "campaigns.create",
+    "scheduling.manage",
+    "media.manage",
+    # Legacy portal permission names (backward compat)
     "view_dashboard", "view_stores", "view_devices",
     "view_creatives", "view_campaigns", "view_schedule",
     "view_publications", "view_proof_of_play",
     "view_approvals", "view_reports",
     "view_deployment", "view_admin",
-    "users.read", "roles.read", "users.create", "users.manage",
-    "roles.manage", "audit.read",
-    "scheduling.read", "scheduling.manage",
-    "campaigns.read", "campaigns.manage", "campaigns.create",
-    "reports.read",
     "approvals.read", "approvals.manage", "approvals.approve",
 })
 
@@ -62,6 +70,7 @@ import portal_session as _ps
 import rbac as _rbac_mod
 _ORIG_GET_USER = _rbac_mod._get_user
 _ORIG_GET_PERMS = _rbac_mod._get_perms
+_ORIG_GET_CURRENT_USER = getattr(_rbac_mod, "get_current_portal_user", None)
 
 _MOCK_SID = _ps._store.create(
     access_token="mock-at-for-tests",
@@ -84,18 +93,35 @@ def _mock_get_perms(request):
 
 _rbac_mod._get_user = _mock_get_user
 _rbac_mod._get_perms = _mock_get_perms
+if _ORIG_GET_CURRENT_USER is not None:
+    _rbac_mod.get_current_portal_user = _mock_get_user
+
+# Also mock get_current_user_permissions (used by require_admin_access)
+# to avoid real session/token lookup in admin page tests.
+_ORIG_GET_CURRENT_PERMS = _rbac_mod.get_current_user_permissions
+
+async def _mock_get_current_perms(request):
+    return _MOCK_ALL_PERMISSIONS
+
+_rbac_mod.get_current_user_permissions = _mock_get_current_perms
 
 
 def _enable_real_auth():
-    """Restore real auth functions for auth-specific tests."""
+    """Restore real auth functions for auth-specific tests.""" 
     _rbac_mod._get_user = _ORIG_GET_USER
     _rbac_mod._get_perms = _ORIG_GET_PERMS
+    if _ORIG_GET_CURRENT_USER is not None:
+        _rbac_mod.get_current_portal_user = _ORIG_GET_CURRENT_USER
+    _rbac_mod.get_current_user_permissions = _ORIG_GET_CURRENT_PERMS
 
 
 def _disable_real_auth():
     """Re-enable mock auth after auth-specific tests."""
     _rbac_mod._get_user = _mock_get_user
     _rbac_mod._get_perms = _mock_get_perms
+    if _ORIG_GET_CURRENT_USER is not None:
+        _rbac_mod.get_current_portal_user = _mock_get_user
+    _rbac_mod.get_current_user_permissions = _mock_get_current_perms
 
 
 def _setup_mock_auth():
@@ -114,17 +140,20 @@ def _setup_mock_auth():
     )
 
     # Patch get_current_portal_user to return mock admin
-    original_get_user = rbac._get_user
+    from portal_session import PortalUser
 
     def mock_get_user(request):
-        from portal_session import PortalUser
         return PortalUser(
             username="demo_admin",
             display_name="Demo Admin",
             roles=["system_admin"],
         )
 
+    # Patch all three references used by different rbac functions
+    original_get_user_alias = rbac._get_user
+    original_get_user_direct = rbac.get_current_portal_user  # used by require_admin_access
     rbac._get_user = mock_get_user
+    rbac.get_current_portal_user = mock_get_user
 
     # Patch get_session_permissions to return all permissions
     original_get_perms = rbac._get_perms
@@ -134,15 +163,16 @@ def _setup_mock_auth():
 
     rbac._get_perms = mock_get_perms
 
-    return sid, original_get_user, original_get_perms
+    return sid, original_get_user_alias, original_get_user_direct, original_get_perms
 
 
-def _teardown_mock_auth(sid, original_get_user, original_get_perms):
+def _teardown_mock_auth(sid, original_get_user_alias, original_get_user_direct, original_get_perms):
     """Restore original session functions."""
     import portal_session
     import rbac
     portal_session._store.delete(sid)
-    rbac._get_user = original_get_user
+    rbac._get_user = original_get_user_alias
+    rbac.get_current_portal_user = original_get_user_direct
     rbac._get_perms = original_get_perms
 
 
@@ -3117,10 +3147,11 @@ class TestRouteAuthForbidden(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         _enable_real_auth()
-        # Set up a limited-permission user (analyst — no admin/deployment)
+        # Set up a limited-permission user (analyst — no admin/approvals)
         import rbac as _r
         _ORIG_GET_USER2 = _r._get_user
         _ORIG_GET_PERMS2 = _r._get_perms
+        _ORIG_GET_CURRENT_USER2 = getattr(_r, "get_current_portal_user", None)
 
         from portal_session import PortalUser
         def _limited_user(req):
@@ -3128,10 +3159,13 @@ class TestRouteAuthForbidden(unittest.TestCase):
                               roles=["analyst"])
 
         _LIMITED_PERMS = frozenset({
-            "view_dashboard", "view_stores", "view_devices",
-            "view_creatives", "view_campaigns", "view_schedule",
-            "view_publications", "view_proof_of_play",
-            "view_reports",
+            # Analyst permissions from seed (real backend codes)
+            "channels.read", "devices.read", "organization.read",
+            "advertisers.read", "brands.read", "contracts.read", "orders.read",
+            "campaigns.read", "media.read", "inventory.read",
+            "bookings.read", "scheduling.read", "publications.read",
+            "devices.gateway.read", "reports.read", "reports.export",
+            "campaign_reports.read", "campaign_reports.manage",
         })
 
         def _limited_perms_fn(req):
@@ -3139,9 +3173,12 @@ class TestRouteAuthForbidden(unittest.TestCase):
 
         _r._get_user = _limited_user
         _r._get_perms = _limited_perms_fn
+        if _ORIG_GET_CURRENT_USER2 is not None:
+            _r.get_current_portal_user = _limited_user
 
         cls._orig_user = _ORIG_GET_USER2
         cls._orig_perms = _ORIG_GET_PERMS2
+        cls._orig_get_current_user = _ORIG_GET_CURRENT_USER2
 
     @classmethod
     def tearDownClass(cls):
@@ -3149,6 +3186,8 @@ class TestRouteAuthForbidden(unittest.TestCase):
         import rbac as _r
         _r._get_user = cls._orig_user
         _r._get_perms = cls._orig_perms
+        if getattr(cls, "_orig_get_current_user", None) is not None:
+            _r.get_current_portal_user = cls._orig_get_current_user
 
     def setUp(self):
         from main import app
@@ -3161,9 +3200,10 @@ class TestRouteAuthForbidden(unittest.TestCase):
         self.assertIn("Доступ запрещён", resp.text)
         self.assertNotIn("view_approvals", resp.text.lower())
 
-    def test_no_deployment_gets_403(self):
+    def test_no_deployment_gets_200(self):
+        """Analyst has campaign.read → can access /deployment (static help page)."""
         resp = self.client.get("/deployment", follow_redirects=False)
-        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.status_code, 200)
 
     def test_no_admin_gets_403(self):
         resp = self.client.get("/admin", follow_redirects=False)
