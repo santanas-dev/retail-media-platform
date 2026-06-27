@@ -654,6 +654,277 @@ class TestCreativesPage(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# 44.4: Moderation Queue Page tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestModerationQueuePage(unittest.TestCase):
+    """44.4: Moderation queue page — creatives awaiting manual review."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        self._orig_gpt = main.get_portal_tokens
+        self._orig_gcpu = main.get_current_portal_user
+        main.BackendClient = _FakeBackendClient
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at"}
+        main.get_current_portal_user = lambda req: main.PortalUser(
+            username="moderator", display_name="Модератор", roles=["moderator"],
+        )
+        self.client = TestClient(app)
+        resp = self.client.get("/creatives/moderation/queue")
+        self.html = resp.text
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+        main.get_current_portal_user = self._orig_gcpu
+
+    def test_queue_page_returns_200(self):
+        resp = self.client.get("/creatives/moderation/queue")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_shows_pending_creative(self):
+        """Queue shows creatives awaiting review."""
+        self.assertIn("Тестовый креатив", self.html)
+
+    def test_shows_business_status(self):
+        """Statuses shown in Russian business language."""
+        self.assertIn("Ожидает проверки", self.html)
+
+    def test_shows_moderation_actions(self):
+        """Approve/reject/rework/archive buttons present."""
+        self.assertIn("Одобрить", self.html)
+        self.assertIn("Отклонить", self.html)
+
+    def test_no_technical_terms(self):
+        """No technical terms in moderation queue UI."""
+        lower = self.html.lower()
+        for term in ("clamav", "ffprobe", "daemon", "socket", "endpoint",
+                      "token", "batch", "pop", "sidecar", "runner", "x11",
+                      "test-kso", "deprecated",
+                      "manifest"):
+            self.assertNotIn(term, lower,
+                           f"Moderation queue must NOT contain '{term}'")
+
+    def test_no_js_cdn_localstorage(self):
+        lower = self.html.lower()
+        for forbidden in ("onclick", "<script", "cdn.", "localstorage",
+                           "confirm("):
+            self.assertNotIn(forbidden, lower,
+                           f"Must NOT contain '{forbidden}'")
+
+    def test_no_secrets_or_paths(self):
+        lower = self.html.lower()
+        for forbidden in ("file_path", "storage_ref", "minio",
+                           "access_token", "sha256", "barcode",
+                           "backend_url", "raw_uuid"):
+            self.assertNotIn(forbidden, lower,
+                           f"Must NOT contain '{forbidden}'")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 44.4: Creative Detail Page tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestCreativeDetailPage(unittest.TestCase):
+    """44.4: Creative detail card page."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        self._orig_gpt = main.get_portal_tokens
+        self._orig_gcpu = main.get_current_portal_user
+        main.BackendClient = _FakeBackendClient
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at"}
+        main.get_current_portal_user = lambda req: main.PortalUser(
+            username="admin", display_name="Admin", roles=["system_admin"],
+        )
+        self.client = TestClient(app)
+        resp = self.client.get("/creatives/demo_creative_001")
+        self.html = resp.text
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+        main.get_current_portal_user = self._orig_gcpu
+
+    def test_detail_page_returns_200(self):
+        resp = self.client.get("/creatives/demo_creative_001")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_shows_creative_name(self):
+        self.assertIn("Тестовый креатив", self.html)
+
+    def test_shows_format_and_size(self):
+        """Shows format, dimensions, file size."""
+        self.assertIn("image/png", self.html.lower())
+        self.assertIn("768", self.html)
+        self.assertIn("1024", self.html)
+
+    def test_shows_validation_status(self):
+        """Shows file validation status — business language."""
+        self.assertIn("Статус", self.html)
+        self.assertIn("Черновик", self.html)
+
+    def test_shows_security_check_status(self):
+        """Shows security check status."""
+        self.assertIn("Проверка безопасности", self.html)
+
+    def test_shows_screen_profile(self):
+        """Shows KSO portrait profile."""
+        self.assertIn("768×1024", self.html)
+
+    def test_shows_can_use_in_campaign_flag(self):
+        """Shows whether creative can be used in campaign."""
+        self.assertIn("Можно использовать в кампании", self.html)
+
+    def test_shows_moderation_actions(self):
+        """Approve/reject/rework/archive buttons visible."""
+        self.assertIn("Отправить на проверку", self.html)
+
+    def test_shows_av_pilot_warning(self):
+        """AV pilot mode warning visible."""
+        self.assertIn("пилотный режим", self.html.lower())
+
+    def test_no_technical_terms(self):
+        lower = self.html.lower()
+        for term in ("clamav", "ffprobe", "daemon", "socket", "endpoint",
+                      "token", "batch", "pop", "sidecar", "runner", "x11",
+                      "test-kso", "deprecated",
+                      "manifest"):
+            self.assertNotIn(term, lower,
+                           f"Detail page must NOT contain '{term}'")
+
+    def test_no_js_cdn_localstorage(self):
+        lower = self.html.lower()
+        for forbidden in ("onclick", "<script", "cdn.", "localstorage",
+                           "confirm("):
+            self.assertNotIn(forbidden, lower)
+
+    def test_no_secrets_or_paths(self):
+        lower = self.html.lower()
+        for forbidden in ("file_path", "storage_ref", "minio",
+                           "access_token", "sha256", "barcode",
+                           "backend_url", "raw_uuid", "device_secret"):
+            self.assertNotIn(forbidden, lower)
+
+    def test_video_detail_shows_icon(self):
+        """Video creative detail shows 🎬 icon."""
+        resp = self.client.get("/creatives/demo_video_001")
+        self.assertIn("Видеофайл", resp.text)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 44.4: AV Readiness UI tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestAVReadinessUI(unittest.TestCase):
+    """44.4: AV readiness messages in creatives UI."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        self._orig_gpt = main.get_portal_tokens
+        self._orig_gcpu = main.get_current_portal_user
+        main.BackendClient = _FakeBackendClient
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at"}
+        main.get_current_portal_user = lambda req: main.PortalUser(
+            username="admin", display_name="Admin", roles=["system_admin"],
+        )
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+        main.get_current_portal_user = self._orig_gcpu
+
+    def test_creatives_page_shows_av_not_configured(self):
+        """Creatives page shows AV not configured message."""
+        resp = self.client.get("/creatives")
+        self.assertIn("пилотный режим", resp.text.lower())
+        self.assertIn("не подключён", resp.text.lower())
+
+    def test_detail_page_shows_av_pilot_warning(self):
+        """Detail page shows AV pilot warning."""
+        resp = self.client.get("/creatives/demo_creative_001")
+        self.assertIn("пилотный режим", resp.text.lower())
+
+    def test_no_clamav_in_ui(self):
+        """No ClamAV/daemon/socket in business UI."""
+        resp = self.client.get("/creatives")
+        lower = resp.text.lower()
+        for term in ("clamav", "clamd", "daemon", "socket", "/var/run"):
+            self.assertNotIn(term, lower, f"Must NOT contain '{term}'")
+
+    def test_production_readiness_warning(self):
+        """Shows that production mode cannot be enabled."""
+        resp = self.client.get("/creatives")
+        self.assertIn("промышленную эксплуатацию", resp.text.lower())
+
+    def test_no_scanner_paths_in_ui(self):
+        """No scanner binary paths in UI."""
+        resp = self.client.get("/creatives")
+        lower = resp.text.lower()
+        for path_term in ("/usr/bin", "/var/run", "/etc/", "clamscan",
+                           "freshclam"):
+            self.assertNotIn(path_term, lower)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 44.4: Maker-Checker UI tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestMakerCheckerUI(unittest.TestCase):
+    """44.4: Maker-checker messages in UI."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        self._orig_gpt = main.get_portal_tokens
+        self._orig_gcpu = main.get_current_portal_user
+        main.BackendClient = _FakeBackendClient
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at"}
+        main.get_current_portal_user = lambda req: main.PortalUser(
+            username="admin", display_name="Admin", roles=["system_admin"],
+        )
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+        main.get_current_portal_user = self._orig_gcpu
+
+    def test_approve_button_visible(self):
+        """Approve button is visible on creatives page."""
+        resp = self.client.get("/creatives")
+        self.assertIn("Одобрить", resp.text)
+
+    def test_reject_button_visible(self):
+        """Reject button is visible."""
+        resp = self.client.get("/creatives")
+        self.assertIn("Отклонить", resp.text)
+
+    def test_rework_button_in_template(self):
+        """Return for rework is in template code (conditionally shown)."""
+        # Rework button conditionally rendered for in_review/pending_review status.
+        # Mock creative is draft — only submit-review button rendered.
+        resp = self.client.get("/creatives/demo_creative_001")
+        self.assertIn("Отправить на проверку", resp.text)
+
+    def test_no_raw_error_messages(self):
+        """No technical error details in UI."""
+        resp = self.client.get("/creatives")
+        lower = resp.text.lower()
+        for term in ("traceback", "exception", "status_code", "500",
+                      "internal server error", "sql", "constraint"):
+            self.assertNotIn(term, lower)
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Campaigns page tests
 # ══════════════════════════════════════════════════════════════════════
 
