@@ -1,36 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Отчёты</h1>
-<p class="page-description">Отчётность Proof of Play — данные с production backend /api/reports/pop.</p>
+<p class="page-description">Плановая отчётность и выгрузки. This is planned reporting — PoP fact unavailable until physical gate.</p>
 
 <!-- Next Action -->
 <div class="next-action">
   <span class="next-action-icon">📊</span>
-  <span class="next-action-text"><strong>Отчёты Proof of Play:</strong> физический PoP недоступен до physical delivery gate. Плановая отчётность доступна. Physical PoP ещё не выполнялся.</span>
+  <span class="next-action-text"><strong>Плановая отчётность:</strong> физический PoP недоступен до physical delivery gate. Дашборд показывает backend-only плановые данные. Факт показов PoP появится только после physical gate.</span>
+</div>
+
+<!-- Planned reporting disclaimer -->
+<div class="note-box" style="border-color: #f59e0b; background: #fffbeb;">
+  <span class="note-icon">⚠️</span>
+  <span class="note-text"><strong>Это плановая отчётность.</strong> Факт показов (Proof of Play) появится только после physical gate. Все данные — плановые, backend-only.</span>
+</div>
+
+<!-- Pilot NO-GO Summary (42.3) -->
+<div class="requirements-box" style="border-color: #ef4444; background: #fef2f2;">
+  <div class="requirements-title">🔴 Готовность к физическому пилоту: {{ pilot_nogo.status }}</div>
+  <div class="lifecycle-flow" style="margin-bottom:8px;">
+    <span class="lifecycle-step lifecycle-rejected">Блокеров: {{ pilot_nogo.blockers }}</span>
+  </div>
+  <ul style="margin:0;padding-left:20px;font-size:13px;color:#991b1b;">
+    {% for reason in pilot_nogo.reasons %}
+    <li>{{ reason }}</li>
+    {% endfor %}
+  </ul>
+  <p style="font-size:11px;color:#991b1b;margin-top:8px;">Pilot GO/NO-GO: <strong>NO-GO</strong> — необходим физический delivery gate для перехода к live пилоту.</p>
 </div>
 
 <!-- KPI Summary Cards -->
 <div class="cards">
-  <div class="card">
-    <div class="card-title">PoP событий всего</div>
-    <div class="card-value">{{ pop_summary.total_events if pop_summary_ok else "—" }}</div>
-    <div class="card-hint">{{ "Принято: " ~ pop_summary.accepted if pop_summary_ok else "Нет данных" }}</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Уникальных устройств</div>
-    <div class="card-value">{{ pop_summary.unique_devices if pop_summary_ok else "—" }}</div>
-    <div class="card-hint">{{ "Кампаний: " ~ pop_summary.unique_campaigns if pop_summary_ok else "Нет данных" }}</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Уникальных креативов</div>
-    <div class="card-value">{{ pop_summary.unique_creatives if pop_summary_ok else "—" }}</div>
-    <div class="card-hint">{{ "Плейсментов: " ~ pop_summary.unique_placements if pop_summary_ok else "Нет данных" }}</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Отклонено</div>
-    <div class="card-value">{{ pop_summary.rejected if pop_summary_ok else "—" }}</div>
-    <div class="card-hint">{{ "Дубликатов: " ~ pop_summary.duplicate if pop_summary_ok else "Нет данных" }}</div>
-  </div>
   <div class="card">
     <div class="card-title">Кампаний (всего)</div>
     <div class="card-value">{{ campaigns_count if campaigns_count > 0 else "—" }}</div>
@@ -41,9 +41,81 @@
     <div class="card-value">{{ kso_count if kso_count > 0 else "—" }}</div>
     <div class="card-hint">{{ "Манифестов: " ~ manifests_count if manifests_count > 0 else "Нет данных" }}</div>
   </div>
+  <div class="card">
+    <div class="card-title">PoP событий всего</div>
+    <div class="card-value">{{ pop_summary.total_events if pop_summary_ok else "—" }}</div>
+    <div class="card-hint">{{ "Принято: " ~ pop_summary.accepted if pop_summary_ok else "Нет данных" }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Уникальных устройств</div>
+    <div class="card-value">{{ pop_summary.unique_devices if pop_summary_ok else "—" }}</div>
+    <div class="card-hint">{{ "Кампаний: " ~ pop_summary.unique_campaigns if pop_summary_ok else "Нет данных" }}</div>
+  </div>
 </div>
 
-<!-- Filters Panel — server-side GET form (39.2.4.1) -->
+<!-- ═══ Campaigns by Status (42.3) ═══ -->
+<div class="requirements-box">
+  <div class="requirements-title">📋 Кампании по статусам</div>
+  {% if campaign_statuses %}
+  <div class="lifecycle-flow" style="margin-bottom:12px;">
+    {% for status, count in campaign_statuses.items() %}
+    <span class="lifecycle-step lifecycle-{{ status }}">{{ status }}: {{ count }}</span>
+    {% if not loop.last %}<span class="lifecycle-arrow">|</span>{% endif %}
+    {% endfor %}
+  </div>
+  <a href="/reports/export/campaigns" class="btn-primary" style="display:inline-block;padding:6px 16px;font-size:13px;text-decoration:none;border-radius:6px;">📥 Скачать campaigns_export.csv</a>
+  {% else %}
+  <div class="table-empty-state">
+    <div class="table-empty-icon">📋</div>
+    <div class="table-empty-title">Нет данных о кампаниях</div>
+    <div class="table-empty-text">Данные появятся после создания кампаний.</div>
+  </div>
+  {% endif %}
+  <p class="drilldown-note">CSV содержит: campaign_code, name, status, planned_start, planned_end. RLS enforced — advertiser видит только свои кампании.</p>
+</div>
+
+<!-- ═══ Publication Batches by Status (42.3) ═══ -->
+<div class="requirements-box">
+  <div class="requirements-title">📦 Publication Batches по статусам</div>
+  {% if pub_batch_statuses %}
+  <div class="lifecycle-flow" style="margin-bottom:12px;">
+    {% for status, count in pub_batch_statuses.items() %}
+    <span class="lifecycle-step lifecycle-{{ status }}">{{ status }}: {{ count }}</span>
+    {% if not loop.last %}<span class="lifecycle-arrow">|</span>{% endif %}
+    {% endfor %}
+  </div>
+  <a href="/reports/export/publications" class="btn-primary" style="display:inline-block;padding:6px 16px;font-size:13px;text-decoration:none;border-radius:6px;">📥 Скачать publication_batches_export.csv</a>
+  {% else %}
+  <div class="table-empty-state">
+    <div class="table-empty-icon">📦</div>
+    <div class="table-empty-title">Нет publication batches</div>
+    <div class="table-empty-text">Batches появятся после создания публикаций из одобренных кампаний.</div>
+  </div>
+  {% endif %}
+  <p class="drilldown-note">CSV содержит: status, created_at, updated_at. Batch ID/campaign ID — только для admin. RLS enforced.</p>
+</div>
+
+<!-- ═══ Manifest Publish Status (42.3) ═══ -->
+<div class="requirements-box">
+  <div class="requirements-title">📜 Manifest publish status</div>
+  {% if manifest_statuses %}
+  <div class="lifecycle-flow" style="margin-bottom:12px;">
+    {% for status, count in manifest_statuses.items() %}
+    <span class="lifecycle-step lifecycle-{{ status }}">{{ status }}: {{ count }}</span>
+    {% if not loop.last %}<span class="lifecycle-arrow">|</span>{% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="table-empty-state">
+    <div class="table-empty-icon">📜</div>
+    <div class="table-empty-title">Нет манифестов</div>
+    <div class="table-empty-text">Manifest генерируются при публикации batch.</div>
+  </div>
+  {% endif %}
+  <p class="drilldown-note">Manifest status отражает backend publish status — не physical KSO delivery.</p>
+</div>
+
+<!-- PoP Filters Panel -->
 {% if date_error %}
 <div class="note-box" style="border-color: #f59e0b; background: #fffbeb;">
   <span class="note-icon">⚠️</span>
@@ -51,7 +123,7 @@
 </div>
 {% endif %}
 <div class="requirements-box">
-  <div class="requirements-title">Срезы и фильтры</div>
+  <div class="requirements-title">Срезы и фильтры PoP</div>
   <form method="get" action="/reports" style="margin:0;">
   <div class="filter-toolbar" style="margin-bottom:0; box-shadow:none; display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end;">
     <div class="filter-group">
@@ -102,10 +174,9 @@
     </div>
   </div>
   </form>
-  <p class="drilldown-note" style="margin-top:12px">Фильтры по campaign_code, device_code, creative_code, placement_code, date_from/date_to. Поддерживаются backend API /api/reports/pop.</p>
 </div>
 
-<!-- Report Table -->
+<!-- PoP Report Table -->
 <div class="table-container">
 <table class="data-table">
   <thead>
@@ -137,7 +208,7 @@
         <div class="table-empty-state">
           <div class="table-empty-icon">📈</div>
           <div class="table-empty-title">Пока нет данных Proof of Play</div>
-          <div class="table-empty-text">После публикации manifest и поступления Proof of Play событий здесь появится таблица с фильтрацией по кампаниям, креативам, устройствам и плейсментам.</div>
+          <div class="table-empty-text">После публикации manifest и поступления PoP событий здесь появится таблица.</div>
         </div>
       </td>
     </tr>
@@ -148,7 +219,7 @@
 
 <!-- Status breakdown -->
 <div class="requirements-box">
-  <div class="requirements-title">Статусы событий</div>
+  <div class="requirements-title">Статусы событий PoP</div>
   <div class="lifecycle-flow">
     <span class="lifecycle-step lifecycle-completed">Принято: {{ pop_summary.accepted if pop_summary_ok else "—" }}</span>
     <span class="lifecycle-arrow">|</span>
@@ -163,81 +234,13 @@
   {% endif %}
 </div>
 
-<!-- BI chart placeholders (deferred) -->
-<div class="requirements-box">
-  <div class="requirements-title">Графики и визуализации (будут доступны позже)</div>
-  <div class="chart-grid">
-    <div class="chart-placeholder">
-      <div class="chart-placeholder-title">Показы по кампаниям</div>
-      <div class="chart-placeholder-body">—</div>
-      <div class="chart-placeholder-hint">Будет доступно позже</div>
-    </div>
-    <div class="chart-placeholder">
-      <div class="chart-placeholder-title">Показы по дням</div>
-      <div class="chart-placeholder-body">—</div>
-      <div class="chart-placeholder-hint">Будет доступно позже</div>
-    </div>
-    <div class="chart-placeholder">
-      <div class="chart-placeholder-title">Показы по устройствам</div>
-      <div class="chart-placeholder-body">—</div>
-      <div class="chart-placeholder-hint">Будет доступно позже</div>
-    </div>
-    <div class="chart-placeholder">
-      <div class="chart-placeholder-title">Статусы событий</div>
-      <div class="chart-placeholder-body">—</div>
-      <div class="chart-placeholder-hint">Будет доступно позже</div>
-    </div>
-    <div class="chart-placeholder">
-      <div class="chart-placeholder-title">Тренд показов</div>
-      <div class="chart-placeholder-body">—</div>
-      <div class="chart-placeholder-hint">Будет доступно позже</div>
-    </div>
-    <div class="chart-placeholder">
-      <div class="chart-placeholder-title">Ошибки публикаций</div>
-      <div class="chart-placeholder-body">—</div>
-      <div class="chart-placeholder-hint">Будет доступно позже</div>
-    </div>
-  </div>
-</div>
-
-<!-- Excel Export Block -->
-<div class="requirements-box">
-  <div class="requirements-title">Выгрузка в Excel</div>
-  <div class="requirements-grid">
-    <div class="requirements-item">
-      <span class="requirements-label">Формат</span>
-      <span class="requirements-value">.xlsx — несколько листов</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Фильтры</span>
-      <span class="requirements-value">Применяются выбранные срезы</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Дата</span>
-      <span class="requirements-value">Дата формирования отчёта</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Итоги</span>
-      <span class="requirements-value">Агрегированные KPI и сводки</span>
-    </div>
-    <div class="requirements-item">
-      <span class="requirements-label">Безопасность</span>
-      <span class="requirements-value">Без raw ID, hash и секретов</span>
-    </div>
-  </div>
-  <div class="export-action">
-    <button class="btn-disabled" disabled aria-disabled="true">📥 Выгрузить в Excel</button>
-  </div>
-</div>
-
-<!-- Planned Airtime (42.1.1) ─────────────────────────────────────── -->
+<!-- Planned Airtime (42.1.1 + 42.3 export) -->
 <div class="requirements-box">
   <div class="requirements-title">📊 Плановая занятость эфира</div>
   <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;">
     Backend-only плановая занятость по расписанию. <strong>Не факт показа PoP</strong> — физический PoP недоступен до delivery gate.
   </p>
 
-  <!-- Check form -->
   <form method="get" action="/reports" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:16px;">
     <div style="display:flex;flex-direction:column;gap:3px;">
       <label style="font-size:11px;color:#64748b;">КСО</label>
@@ -286,6 +289,13 @@
     </div>
   </div>
 
+  {% if at_device %}
+  <div style="display:flex;gap:8px;margin-bottom:12px;">
+    <a href="/reports/export/airtime?device_codes={{ at_device }}" class="btn-primary" style="display:inline-block;padding:6px 16px;font-size:13px;text-decoration:none;border-radius:6px;">📥 airtime_occupancy_export.csv</a>
+    <a href="/reports/export/conflicts?device_codes={{ at_device }}" class="btn-primary" style="display:inline-block;padding:6px 16px;font-size:13px;text-decoration:none;border-radius:6px;">📥 conflicts_export.csv</a>
+  </div>
+  {% endif %}
+
   {% if planned_airtime.conflicts %}
   <div class="table-container" style="margin-top:12px;">
   <table class="data-table">
@@ -317,18 +327,14 @@
 <!-- Notes -->
 <div class="note-box">
   <span class="note-icon">📊</span>
-  <span class="note-text">Отчёты используют данные из <strong>production backend</strong>: /api/reports/pop (список) и /api/reports/pop/summary (агрегация). Test-kso endpoints не используются как primary source.</span>
-</div>
-<div class="note-box">
-  <span class="note-icon">ℹ️</span>
-  <span class="note-text">Отображаются только <strong>безопасные поля</strong>: event_code, campaign_code, creative_code, device_code, placement_code, event_type, status, played_at, duration_ms, received_at. Raw UUID, токены, секреты, backend URL, чеки, оплаты, фискальные и персональные данные не выводятся.</span>
+  <span class="note-text">Отчёты используют данные из <strong>production backend</strong>. Test-kso endpoints не используются как primary source.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">BI-отчёты и Excel export должны учитывать <strong>роль пользователя</strong> и <strong>RLS-фильтры</strong>. Доступ к /api/reports/pop требует permission <code>reports.read</code>. RLS enforced на уровне backend/DB/API.</span>
+  <span class="note-text">RLS применяется <strong>до</strong> построения отчётов и CSV export. Advertiser видит только свои данные, конфликты анонимизированы. Admin/security видят полную детализацию.</span>
 </div>
 <div class="note-box">
-  <span class="note-icon">🔍</span>
-  <span class="note-text">RLS применяется <strong>до</strong> построения KPI, drill-down и Excel export. Фильтрация по scope выполняется на уровне БД/API до агрегации. Out-of-scope данные не попадают в totals, графики и выгрузки.</span>
+  <span class="note-icon">🔒</span>
+  <span class="note-text">CSV содержит только безопасные поля: без raw UUID (для non-admin), без токенов, секретов, backend URL, storage paths, чеков, оплат, фискальных и персональных данных.</span>
 </div>
 {% endblock %}

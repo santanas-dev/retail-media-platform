@@ -381,6 +381,41 @@ async def reports_page(request: Request):
                     planned_airtime["conflicts"] = ct_result.get("data", [])
                     planned_airtime["conflict_count"] = len(planned_airtime["conflicts"])
 
+        # ── Campaign status breakdown (42.3) ──────────────────────
+        campaign_statuses = {}
+        cr_all = await client.list_campaigns_prod(at)
+        if cr_all["ok"]:
+            for c in cr_all.get("data", []):
+                st = c.get("status", "unknown")
+                campaign_statuses[st] = campaign_statuses.get(st, 0) + 1
+
+        # ── Publication batches by status (42.3) ─────────────────
+        pub_batch_statuses = {}
+        pb_result = await client.list_publication_batches(at)
+        if pb_result["ok"]:
+            for pb in pb_result.get("data", []):
+                st = pb.get("status", "unknown")
+                pub_batch_statuses[st] = pub_batch_statuses.get(st, 0) + 1
+
+        # ── Manifest publish status (42.3) ───────────────────────
+        manifest_statuses = {}
+        mf_result = await client.list_manifests(at)
+        if mf_result["ok"]:
+            for m in mf_result.get("data", []):
+                st = m.get("status", "unknown")
+                manifest_statuses[st] = manifest_statuses.get(st, 0) + 1
+
+        # ── Pilot NO-GO summary (42.3) ───────────────────────────
+        pilot_nogo = {
+            "status": "NO-GO",
+            "reasons": [
+                "HW scanner E2E не выполнен",
+                "Controlled long-run не выполнен",
+                "Physical KSO delivery gate не approved",
+            ],
+            "blockers": 3,
+        }
+
         return templates.TemplateResponse(request, "pages/reports.html", {
             "request": request,
             "title": "Отчёты",
@@ -404,6 +439,10 @@ async def reports_page(request: Request):
             "at_device": at_device,
             "at_from": at_from,
             "at_to": at_to,
+            "campaign_statuses": campaign_statuses,
+            "pub_batch_statuses": pub_batch_statuses,
+            "manifest_statuses": manifest_statuses,
+            "pilot_nogo": pilot_nogo,
         })
     except Exception:
         return _reports_fallback(request, current_user,
@@ -438,9 +477,110 @@ def _reports_fallback(request: Request, current_user, *, reason: str = ""
         "at_device": "",
         "at_from": "",
         "at_to": "",
+        "campaign_statuses": {},
+        "pub_batch_statuses": {},
+        "manifest_statuses": {},
+        "pilot_nogo": {"status": "NO-GO", "reasons": ["Backend offline"], "blockers": -1},
     })
 app.add_api_route("/deployment", _page("pages/deployment.html", "Развёртывание", "deployment"),
                   methods=["GET"], response_class=HTMLResponse)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Reports Export (42.3) — CSV downloads via portal proxy
+# ══════════════════════════════════════════════════════════════════════
+
+from fastapi.responses import PlainTextResponse
+
+
+@app.get("/reports/export/campaigns")
+async def reports_export_campaigns(request: Request):
+    """Download campaigns CSV via portal proxy (RLS applied)."""
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    if not at:
+        raise HTTPException(status_code=401)
+    client = BackendClient()
+    try:
+        result = await client.export_campaigns_csv(at)
+        if result["ok"]:
+            return PlainTextResponse(
+                result["text"],
+                media_type="text/csv; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="campaigns_export.csv"'},
+            )
+        raise HTTPException(status_code=502, detail="Backend export failed")
+    finally:
+        await client.close()
+
+
+@app.get("/reports/export/airtime")
+async def reports_export_airtime(request: Request, device_codes: str = ""):
+    """Download airtime occupancy CSV via portal proxy (RLS applied)."""
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    if not at:
+        raise HTTPException(status_code=401)
+    codes = [c.strip() for c in device_codes.split(",") if c.strip()]
+    if not codes:
+        raise HTTPException(status_code=400, detail="device_codes required")
+    client = BackendClient()
+    try:
+        result = await client.export_airtime_csv(at, codes)
+        if result["ok"]:
+            return PlainTextResponse(
+                result["text"],
+                media_type="text/csv; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="airtime_occupancy_export.csv"'},
+            )
+        raise HTTPException(status_code=502, detail="Backend export failed")
+    finally:
+        await client.close()
+
+
+@app.get("/reports/export/conflicts")
+async def reports_export_conflicts(request: Request, device_codes: str = ""):
+    """Download conflicts CSV via portal proxy (RLS + anonymization)."""
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    if not at:
+        raise HTTPException(status_code=401)
+    codes = [c.strip() for c in device_codes.split(",") if c.strip()]
+    if not codes:
+        raise HTTPException(status_code=400, detail="device_codes required")
+    client = BackendClient()
+    try:
+        result = await client.export_conflicts_csv(at, codes)
+        if result["ok"]:
+            return PlainTextResponse(
+                result["text"],
+                media_type="text/csv; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="conflicts_export.csv"'},
+            )
+        raise HTTPException(status_code=502, detail="Backend export failed")
+    finally:
+        await client.close()
+
+
+@app.get("/reports/export/publications")
+async def reports_export_publications(request: Request):
+    """Download publication batches CSV via portal proxy (RLS applied)."""
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    if not at:
+        raise HTTPException(status_code=401)
+    client = BackendClient()
+    try:
+        result = await client.export_publications_csv(at)
+        if result["ok"]:
+            return PlainTextResponse(
+                result["text"],
+                media_type="text/csv; charset=utf-8",
+                headers={"Content-Disposition": 'attachment; filename="publication_batches_export.csv"'},
+            )
+        raise HTTPException(status_code=502, detail="Backend export failed")
+    finally:
+        await client.close()
 
 
 # ══════════════════════════════════════════════════════════════════════

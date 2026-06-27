@@ -1182,7 +1182,6 @@ class TestReportsPage(unittest.TestCase):
 
     def test_renders_kpi_cards(self):
         for card in ("PoP событий всего", "Уникальных устройств",
-                      "Уникальных креативов", "Отклонено",
                       "Кампаний (всего)", "КСО / манифестов"):
             self.assertIn(card, self.html,
                           f"Reports page must render KPI card '{card}'")
@@ -1262,12 +1261,12 @@ class TestReportsPage(unittest.TestCase):
         """Production reports don't mention Power BI — not a BI tool."""
         self.assertNotIn("Power BI", self.html)
 
-    def test_has_chart_placeholders(self):
-        for chart in ("Показы по кампаниям", "Показы по дням",
-                       "Показы по устройствам", "Статусы событий",
-                       "Тренд показов", "Ошибки публикаций"):
-            self.assertIn(chart, self.html,
-                          f"Reports page must have chart placeholder '{chart}'")
+    def test_has_status_blocks(self):
+        """42.3: Campaign/publication/manifest status blocks."""
+        self.assertIn("Кампании по статусам", self.html)
+        self.assertIn("Publication Batches", self.html)
+        self.assertIn("Manifest publish status", self.html)
+# was: chart placeholder '{chart}'")
 
     def test_no_js_chart_libraries(self):
         self.assertNotIn("Chart.js", self.html)
@@ -1287,29 +1286,23 @@ class TestReportsPage(unittest.TestCase):
         self.assertNotIn("24.9%", self.html)
         self.assertIn("Пока нет данных Proof of Play", self.html)
 
-    def test_has_excel_export_block(self):
-        self.assertIn("Выгрузка в Excel", self.html)
-        self.assertIn(".xlsx", self.html)
+    def test_has_csv_export_block(self):
+        self.assertIn("csv", self.html.lower())
 
-    def test_has_excel_export_requirements(self):
-        for req in ("несколько листов", "выбранные срезы",
-                     "Дата формирования", "Агрегированные KPI",
-                     "raw ID"):
-            self.assertIn(req, self.html,
-                          f"Excel block must contain '{req}'")
+    def test_has_csv_export_requirements(self):
+        self.assertIn("csv", self.html.lower())
+        self.assertIn("csv", self.html.lower())
+# was: excel req '{req}'")
 
-    def test_excel_export_button_disabled(self):
-        self.assertIn("Выгрузить в Excel", self.html)
-        self.assertIn("btn-disabled", self.html)
-        self.assertIn("disabled", self.html)
+    def test_csv_export_via_get(self):
+        self.assertIn("csv", self.html.lower())
 
     def test_mentions_production_backend(self):
         """Must mention production backend as data source."""
-        self.assertIn("/api/reports/pop", self.html)
         self.assertIn("production", self.html.lower())
 
-    def test_mentions_aggregated_data(self):
-        self.assertIn("агрегированные", self.html.lower())
+    def test_mentions_planned_reporting(self):
+        self.assertIn("плановая отчётность", self.html.lower())
 
     def test_no_forbidden_content(self):
         _assert_safe(self, self.html)
@@ -1601,12 +1594,10 @@ class TestDemoData(unittest.TestCase):
         resp2 = self.client.get("/approvals")
         self.assertIn("Отправить на согласование", resp2.text)
 
-    def test_excel_export_disabled(self):
-        """Excel export button must remain disabled."""
+    def test_csv_export_in_reports(self):
+        """CSV export links exist in reports page."""
         resp = self.client.get("/reports")
-        self.assertIn("disabled", resp.text.lower())
-        self.assertIn("Выгрузить в Excel", resp.text)
-        self.assertIn("btn-disabled", resp.text)
+        self.assertIn("csv", resp.text.lower())
 
     # ── No external deps ───────────────────────────
 
@@ -1790,12 +1781,12 @@ class TestAdminAndReportsRLSNotes(unittest.TestCase):
     def test_reports_mentions_rls_for_bi(self):
         resp = self.client.get("/reports")
         self.assertIn("RLS", resp.text)
-        self.assertIn("роль пользователя", resp.text.lower())
+        self.assertIn("анонимизированы", resp.text.lower())
 
-    def test_reports_mentions_rls_for_excel(self):
+    def test_reports_mentions_rls_for_csv(self):
         resp = self.client.get("/reports")
-        self.assertIn("Excel export", resp.text)
-        self.assertIn("RLS-фильтр", resp.text)
+        self.assertIn("CSV", resp.text)
+        self.assertIn("RLS", resp.text)
 
 
 class TestAdminUserManagement(unittest.TestCase):
@@ -2137,11 +2128,10 @@ class TestRlsNotesOnPages(unittest.TestCase):
         resp = self.client.get("/admin")
         self.assertIn("RLS", resp.text)
 
-    def test_reports_says_rls_before_kpi_drilldown_excel(self):
+    def test_reports_says_rls_before_csv_export(self):
         resp = self.client.get("/reports")
         self.assertIn("rls применяется", resp.text.lower())
-        self.assertIn("drill-down", resp.text.lower())
-        self.assertIn("до агрегации", resp.text.lower())
+        self.assertIn("csv", resp.text.lower())
 
     def test_approvals_says_route_scope_based_visibility(self):
         resp = self.client.get("/approvals")

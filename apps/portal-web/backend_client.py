@@ -97,6 +97,39 @@ class BackendClient:
                 detail = "Backend error"
             return {"ok": False, "error": detail, "status": resp.status_code}
 
+    async def _request_raw(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: dict | None = None,
+    ) -> dict:
+        """Make a backend API call returning raw text (for CSV etc.).
+        Returns {"ok": True, "text": str, "content_type": str}
+        or {"ok": False, "error": str, "status": int}.
+        """
+        url = f"{self._base_url}{path}"
+        try:
+            resp = await self._client.request(
+                method, path, headers=headers,
+            )
+        except httpx.TimeoutException:
+            return {"ok": False, "error": "Backend request timed out", "status": 504}
+        except httpx.ConnectError:
+            return {"ok": False, "error": "Backend unreachable", "status": 502}
+        except Exception:
+            return {"ok": False, "error": "Backend communication error", "status": 502}
+
+        if resp.is_success:
+            return {
+                "ok": True,
+                "text": resp.text,
+                "content_type": resp.headers.get("content-type", "text/plain"),
+                "status": resp.status_code,
+            }
+        else:
+            return {"ok": False, "error": "Backend error", "status": resp.status_code}
+
     # ── Auth helpers ─────────────────────────────────────────────────
 
     async def login(self, username: str, password: str) -> dict:
@@ -942,6 +975,45 @@ class BackendClient:
             params["campaign_code"] = campaign_code
         return await self._request(
             "GET", f"/api/airtime/conflicts?{urlencode(params)}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+
+    # ── Reports Export (42.3) ─────────────────────────────────────────
+
+    async def export_campaigns_csv(self, access_token: str) -> dict:
+        """GET /api/reports/campaigns/export → CSV text response."""
+        return await self._request_raw(
+            "GET", "/api/reports/campaigns/export",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def export_airtime_csv(
+        self, access_token: str, device_codes: list[str],
+    ) -> dict:
+        """GET /api/reports/airtime/export → CSV text response."""
+        from urllib.parse import urlencode
+        params = urlencode({"device_codes": ",".join(device_codes)})
+        return await self._request_raw(
+            "GET", f"/api/reports/airtime/export?{params}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def export_conflicts_csv(
+        self, access_token: str, device_codes: list[str],
+    ) -> dict:
+        """GET /api/reports/conflicts/export → CSV text response."""
+        from urllib.parse import urlencode
+        params = urlencode({"device_codes": ",".join(device_codes)})
+        return await self._request_raw(
+            "GET", f"/api/reports/conflicts/export?{params}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def export_publications_csv(self, access_token: str) -> dict:
+        """GET /api/reports/publications/export → CSV text response."""
+        return await self._request_raw(
+            "GET", "/api/reports/publications/export",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 

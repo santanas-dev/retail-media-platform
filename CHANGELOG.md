@@ -7,6 +7,50 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [42.3-planned-reports-export] — 2026-06-16
+
+**Planned Reports Export — CSV выгрузки по кампаниям, занятости эфира, конфликтам и publication batches.**
+
+### Backend
+- New domain: `backend/app/domains/reports/`
+  - `router.py` — `GET /api/reports/campaigns/export`, `/airtime/export`, `/conflicts/export`, `/publications/export`
+  - `service.py` — CSV generation with RLS and `Content-Disposition: attachment`
+- Permission: `reports.read`
+- RLS via `resolve_user_scope_context()`: advertiser sees only own data, admin sees full
+- Conflict CSV: anonymized for advertiser (no foreign campaign names)
+- Safe CSV headers: no raw UUIDs (non-admin), no token/secret/backend URL/storage paths
+- Content-Type: `text/csv; charset=utf-8`
+
+### Portal
+- BackendClient: `_request_raw()` for text responses; `export_campaigns_csv()`, `export_airtime_csv()`, `export_conflicts_csv()`, `export_publications_csv()`
+- Portal export routes: `GET /reports/export/campaigns`, `/airtime`, `/conflicts`, `/publications`
+- `/reports` template (42.3 UX):
+  - Campaign status breakdown block
+  - Publication batch status block  
+  - Manifest publish status block
+  - Pilot NO-GO summary (🔴 3 blockers)
+  - Planned reporting disclaimer («Это плановая отчётность»)
+  - CSV download links (conditionally shown)
+- No JS/CDN/localStorage — all server-side `<a href>` GET links
+
+### Tests
+| Suite | Passed |
+|---|---|
+| Backend | **603** (+28: 13 reports export + 15 portal template) |
+| Portal | 522 |
+| KSO State | 86 |
+| KSO Player | 2060 (12 skipped) |
+| KSO Sidecar | 1838 |
+| Infra | 227 |
+| Simulator | 19 |
+
+### Policy
+- Pilot remains NO-GO 🔴 (HW scanner, long-run, physical delivery)
+- Reports are planned/backend-only — PoP fact unavailable until physical gate
+- CSV only — no XLSX dependency
+
+---
+
 ## [42.2-safe-creative-preview] — 2026-06-16
 
 **Safe Creative Preview — backend-proxied image thumbnails with no storage internals in HTML.**
