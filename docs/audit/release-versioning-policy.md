@@ -24,6 +24,47 @@ v<MAJOR>.<MINOR>.<PATCH>-<descriptor>
 
 ## Release History
 
+### v0.12.0-product-workflow-backend-manifest (2026-06-16)
+
+**Type:** Minor release.
+
+**Includes:**
+- 41.0.0 — Portal UI Hygiene Baseline (CSS-only, no redesign)
+- 41.1 — Creative Upload UX (multipart form, server-side POST)
+- 41.1.1 — Remove JS confirm (pure POST forms, no inline scripts)
+- 41.2 — Business Campaign Creation UX (orchestrated campaign + placement + schedule + slots)
+- 41.2.1 — Campaign Submit Approval Integration (Production ApprovalRequest flow, completeness guards)
+- 41.3 — Approval Decision UX (campaign summary, per-row approve/reject, maker-checker)
+- 41.3.1 — CampaignCreative is_active Compatibility Guard (safe helper, no ORM column)
+- 41.4 — Approved Campaign to Publication Batch (code-based endpoint, backend-only warning)
+- 41.4.1 — Full Publication Batch Workflow & Manifest Generation
+  - ScheduleRun ORM model (table existed, ORM was missing)
+  - Batch lifecycle: draft → pending_approval → approved → manifest_generated → published
+  - Manifest version N+1 generation (full playlist, campaign material included)
+  - Previous manifest preserved (old draft versions → cancelled on regenerate)
+  - Backend publish status only — **no physical KSO delivery**
+
+**Regression:** 5260 passed, 32 skipped, 0 failed (5292 total, 0 failed).
+
+**Pilot Status:** NO-GO 🔴
+- HW scanner E2E: not executed (no hardware)
+- Controlled long-run: not executed
+- Physical KSO delivery gate: not approved
+- Gates B, C, D: documented, not executed
+
+**Remaining Blockers:**
+- HW scanner E2E validation (barcode → campaign match)
+- Controlled long-run (1h/8h/48h options, monitoring)
+- Explicit physical KSO approval gate
+
+**Non-Blocking Technical Debt:**
+- `ScheduleRun` raw SQL in `create_batch_from_campaign` (ORM exists, can migrate later)
+- `CampaignCreative.is_active` ORM/schema mismatch (deferred to migration track)
+- 7 legacy BackendClient methods (dead code, unused by portal)
+- `/deployment` page: demo-only (documentation, no backend data)
+
+---
+
 ### v0.11.1-pre-pilot-access-integration-hotfix (2026-06-16)
 
 **Type:** Patch hotfix on v0.11.0.

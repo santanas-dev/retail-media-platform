@@ -632,3 +632,31 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 ### Remaining
 - Physical KSO delivery gate
 - Controlled long-run with manifest delivery
+
+## v0.12.0 Baseline — Technical Debt Split (2026-06-16)
+
+### A. Non-Blocking Technical Debt (can be addressed later)
+
+| # | Item | Status |
+|---|---|---|
+| 1 | ScheduleRun raw SQL in create_batch_from_campaign | ORM exists, can migrate later |
+| 2 | CampaignCreative.is_active ORM/schema mismatch | Deferred to migration track |
+| 3 | 7 legacy BackendClient methods | Dead code, unused by portal |
+| 4 | /deployment page demo-only | Documentation, no backend data |
+| 5 | _is_campaign_creative_active compat helper | Temporary, remove after migration |
+
+### B. Pilot Blockers (must be resolved before physical delivery)
+
+| # | Blocker | Status |
+|---|---|---|
+| 1 | HW scanner E2E | 🔴 Not executed (no hardware) |
+| 2 | Controlled long-run (1h/8h/48h) | 🔴 Not executed |
+| 3 | Physical KSO delivery approval gate | 🔴 Not approved |
+| 4 | Pilot runbook finalization | 🟡 After Gates A/B |
+| 5 | Fleet rollout | 🟡 Not planned |
+
+### Current Verdict
+
+**NO-GO** for physical KSO delivery. Backend-only product workflow is green
+(5260 passed, 32 skipped, 0 failed). All critical RBAC/RLS/audit gates passed.
+No secrets, no JS/CDN/localStorage.

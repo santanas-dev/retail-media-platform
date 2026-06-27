@@ -7,6 +7,33 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## Release v0.12.0 — Product Workflow Backend Manifest Baseline (2026-06-16)
+
+**Full backend product workflow: creative upload → campaign creation → approval → publication batch → manifest generation N+1. Backend-only — no physical KSO delivery.**
+
+### Included steps
+- 41.0.0 — Portal UI Hygiene Baseline (CSS-only)
+- 41.1 — Creative Upload UX
+- 41.1.1 — Remove JS confirm
+- 41.2 — Business Campaign Creation UX
+- 41.2.1 — Campaign Submit Approval Integration
+- 41.3 — Approval Decision UX
+- 41.3.1 — CampaignCreative is_active Compatibility Guard
+- 41.4 — Approved Campaign to Publication Batch
+- 41.4.1 — Full Publication Batch Workflow & Manifest Generation
+
+### Regression
+Backend 551, Portal 498 (+20 skipped), KSO SA 86, Player 2060 (+12 skipped), Sidecar 1838, Infra 227
+**Total: 5260 passed, 32 skipped, 0 failed (5292 total).**
+
+### Pilot status
+**NO-GO** 🔴 — physical KSO delivery not approved.
+Blockers: HW scanner E2E, controlled long-run, explicit physical delivery gate.
+
+### Commit
+990d046 — tag v0.12.0-product-workflow-backend-manifest
+
+---
 ## [41.4-approved-campaign-publication-manifest-ux] — 2026-06-16
 
 **Approved Campaign Publication / Manifest UX — batch creation from approved campaigns.**
