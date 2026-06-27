@@ -2177,3 +2177,19 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 - MP4/WebM video validation (codec, duration, audio)
 - GIF validation (duration, CPU)
 - Real AV scanner integration
+- Audio track removal/re-encode pipeline
+
+## 44.3 — Production Media Validation Foundation (2026-06-16)
+
+### Added
+- **Video validation (MP4/WebM):** ffprobe-based — container, codec (h264/vp8/vp9/av1), dimensions, duration ≤30s, FPS ≤30, audio prohibited
+- **GIF validation:** Pillow-based — signature, frame count ≤300, duration ≤15s, dimensions 768×1024
+- **AV scanner foundation:** `AVScanner` interface, `ClamAVScanner` (clamd socket + clamscan fallback), `NoScanner` (explicit placeholder, no fake clean)
+- AV policy enforcement in approve flow: pilot_dev (audit warning), production (block without clean)
+- Type-specific size limits: 50MB (image), 100MB (video), 20MB (GIF)
+- 27 backend tests (`test_media_validation_443.py`), 8 portal tests
+- Business-language errors for all video/GIF validation failures
+
+### Module
+- `backend/app/domains/media/media_validator.py` (411 lines)
+- `backend/app/domains/media/av_scanner.py` (358 lines)

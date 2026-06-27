@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Креативы</h1>
-<p class="page-description">Библиотека рекламных материалов. Загрузка изображений PNG/JPEG, портрет 768×1024 для КСО. Видео отложено до отдельного шага.</p>
+<p class="page-description">Библиотека рекламных материалов. Загрузка изображений (PNG/JPEG/GIF) и видео (MP4/WebM), портрет 768×1024 для КСО.</p>
 
 <!-- Flow breadcrumbs -->
 <div class="flow-breadcrumbs">
@@ -65,12 +65,12 @@
 </div>
 {% endif %}
 
-<!-- Safety notice -->
+<!-- AV Safety notice (pilot mode) -->
 <div class="banner banner-warning">
   <span class="banner-icon">🛡️</span>
   <div class="banner-body">
-    <div class="banner-title">Проверка безопасности не настроена</div>
-    <div class="banner-text">Антивирусный сканер не подключён. Креатив может использоваться после ручной модерации. HTML5/JS/ZIP/исполняемые файлы запрещены.</div>
+    <div class="banner-title">Проверка безопасности — пилотный режим</div>
+    <div class="banner-text">Антивирусный сканер не подключён. Креатив проходит ручную модерацию. Для запуска в промышленную эксплуатацию потребуется обязательная проверка файлов. HTML5/JS/ZIP/исполняемые файлы запрещены.</div>
   </div>
 </div>
 
@@ -80,7 +80,7 @@
   <div class="section-card-header">
     <span class="section-card-icon">⬆</span>
     <span class="section-card-title">Загрузить креатив</span>
-    <span class="text-xs text-muted">Требования: PNG/JPEG, 768×1024 портрет, до 50 МБ</span>
+    <span class="text-xs text-muted">Требования: PNG/JPEG/GIF/MP4/WebM, 768×1024 портрет, изображения до 50 МБ, видео до 100 МБ, GIF до 20 МБ</span>
   </div>
   <div class="section-card-body">
     <form action="/creatives/upload" method="POST" enctype="multipart/form-data" class="form-inline">
@@ -96,9 +96,9 @@
       </div>
       <div class="form-group">
         <label class="form-label">Файл <span class="form-hint">*</span></label>
-        <input type="file" name="file" required accept="image/png,image/jpeg"
+        <input type="file" name="file" required accept="image/png,image/jpeg,image/gif,video/mp4,video/webm"
                style="padding:7px 0;">
-        <span class="form-hint">PNG/JPEG, до 50 МБ, 768×1024</span>
+        <span class="form-hint">PNG/JPEG/GIF до 50/20 МБ, MP4/WebM до 100 МБ, 768×1024</span>
       </div>
       <div class="form-group">
         <button type="submit" class="btn btn-primary">⬆ Загрузить</button>
@@ -126,9 +126,11 @@
       {% for c in creatives %}
         <tr>
           <td>
-            {% if c.content_type in ('image/png', 'image/jpeg') %}
+            {% if c.content_type in ('image/png', 'image/jpeg', 'image/gif') %}
             <img src="/preview/{{ c.creative_code }}" alt="" loading="lazy"
                  style="width:48px;height:64px;object-fit:cover;border-radius:3px;border:1px solid var(--color-border);">
+            {% elif c.content_type and c.content_type.startswith('video/') %}
+            <span style="font-size:20px;">🎬</span>
             {% else %}
             <span style="font-size:20px;">📄</span>
             {% endif %}
@@ -192,7 +194,7 @@
 <div class="empty-state">
   <div class="empty-state-icon">🎨</div>
   <div class="empty-state-title">Креативы ещё не загружены</div>
-  <div class="empty-state-text">Загрузите первый креатив через форму выше. Формат: PNG/JPEG, 768×1024, до 50 МБ.</div>
+  <div class="empty-state-text">Загрузите первый креатив через форму выше. Формат: PNG/JPEG/GIF/MP4/WebM, 768×1024.</div>
 </div>
 {% endif %}
 

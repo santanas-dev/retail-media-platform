@@ -546,16 +546,18 @@ class TestCreativesPage(unittest.TestCase):
         main.get_current_portal_user = self._orig_gcpu
 
     def test_has_kso_requirements(self):
-        # 44.2: PNG/JPEG only, 768×1024, no MP4/video
-        for req in ("PNG", "JPEG", "768×1024", "50 МБ"):
+        # 44.3: PNG/JPEG/GIF/MP4/WebM, 768×1024 portrait
+        for req in ("PNG", "JPEG", "GIF", "MP4", "WebM", "768×1024"):
             self.assertIn(req, self.html,
                           f"Requirements must mention '{req}'")
-        # Video NOT allowed in v1
-        self.assertNotIn("MP4", self.html)
+        # Video IS allowed in 44.3
+        self.assertNotIn("Видео отложено", self.html)
 
-    def test_requirements_audio_forbidden(self):
-        # Video deferred entirely — no audio mentioning needed
-        self.assertIn("Видео отложено", self.html)
+    def test_video_gif_upload_accepted(self):
+        """44.3: Video/GIF upload form accepts these types."""
+        self.assertIn("video/mp4", self.html)
+        self.assertIn("video/webm", self.html)
+        self.assertIn("image/gif", self.html)
 
     def test_filters_disabled(self):
         """Upload form is present, actions are disabled."""
@@ -612,6 +614,43 @@ class TestCreativesPage(unittest.TestCase):
         self.assertIn('method="POST"', self.html)
         self.assertIn("/archive", self.html)
         self.assertIn("Архив", self.html)
+
+    # ── 44.3: Video/GIF/AV validation statuses ────────────────────────
+
+    def test_av_pilot_warning_visible(self):
+        """44.3: Pilot mode AV warning shown on creatives page."""
+        self.assertIn("пилотный режим", self.html.lower())
+        self.assertIn("проверка безопасности", self.html.lower())
+
+    def test_manual_moderation_mentioned(self):
+        """44.3: Manual moderation mentioned in AV banner."""
+        self.assertIn("ручную модерацию", self.html.lower())
+
+    def test_production_av_requirement_mentioned(self):
+        """44.3: Production AV requirement mentioned."""
+        self.assertIn("промышленную эксплуатацию", self.html.lower())
+
+    def test_no_technical_av_terms(self):
+        """44.3: No technical AV terms in UI."""
+        lower = self.html.lower()
+        for term in ("av scanner", "clamav", "clamd", "socket", "daemon",
+                      "ffprobe", "ffmpeg"):
+            self.assertNotIn(term, lower,
+                           f"Creatives page must NOT contain '{term}'")
+
+    def test_video_preview_icon_present(self):
+        """44.3: Video files shown with 🎬 icon."""
+        self.assertIn("🎬", self.html)
+
+    def test_gif_in_allowed_types(self):
+        """44.3: GIF listed as allowed format."""
+        lower = self.html.lower()
+        self.assertIn("gif", lower)
+
+    def test_mp4_webm_in_allowed_types(self):
+        """44.3: MP4 and WebM listed as allowed formats."""
+        self.assertIn("mp4", self.html.lower())
+        self.assertIn("webm", self.html.lower())
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -3482,6 +3521,15 @@ _MOCK_CREATIVE = {
     "current_version": 1, "created_at": "2026-06-22T12:00:00Z",
 }
 
+_MOCK_CREATIVE_VIDEO = {
+    "id": "cr2", "advertiser_id": "a1", "advertiser_name": "Тестовый рекламодатель",
+    "creative_code": "demo_video_001", "name": "Тестовое видео",
+    "status": "pending_review", "content_type": "video/mp4",
+    "width": 768, "height": 1024, "file_size_bytes": 1048576,
+    "duration_ms": 5000, "scan_status": "not_configured",
+    "current_version": 1, "created_at": "2026-06-22T14:00:00Z",
+}
+
 
 class _FakeBackendClient:
     """Fake BackendClient for testing — never calls real backend."""
@@ -3502,7 +3550,7 @@ class _FakeBackendClient:
         return {"ok": True, "data": _MOCK_KSO}
 
     async def list_creatives(self, access_token: str) -> dict:
-        return {"ok": True, "data": [_MOCK_CREATIVE]}  # Single creative for testing
+        return {"ok": True, "data": [_MOCK_CREATIVE, _MOCK_CREATIVE_VIDEO]}  # PNG + video
 
     async def list_campaigns_prod(self, access_token: str) -> dict:
         return {"ok": True, "data": []}  # Empty for testing

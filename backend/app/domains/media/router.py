@@ -516,13 +516,38 @@ async def approve_creative(
             status_code=400,
             detail=f"Нельзя согласовать креатив в статусе '{creative.status}'",
         )
+
+    # AV policy gate (44.3)
+    from app.domains.media.schemas import CreativePolicyResponse
+    policy = CreativePolicyResponse()
+    if policy.require_av_clean_for_publication:
+        scan_status = getattr(creative, "scan_status", "not_configured")
+        if scan_status != "clean":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Нельзя согласовать креатив: проверка безопасности не пройдена "
+                       f"(статус: {scan_status}). Требуется статус 'clean'.",
+            )
+
+    # Pilot mode warning (av_policy_mode=pilot_dev): allow manual approval with audit
+    av_warning = False
+    if policy.av_policy_mode == "pilot_dev":
+        scan_status = getattr(creative, "scan_status", "not_configured")
+        if scan_status != "clean":
+            av_warning = True
+
     creative.status = "approved"
     await db.commit()
     await audit_business_action(
         db, actor_user_id=str(current_user.id),
         action="creative.approve", target_type="creative",
         target_ref=creative_code,
-        details={"reason_code": data.reason_code, "comment": data.comment},
+        details={
+            "reason_code": data.reason_code,
+            "comment": data.comment,
+            "av_warning": av_warning,
+            "scan_status": getattr(creative, "scan_status", "not_configured"),
+        },
     )
     return schemas.ModerationResponse(
         creative_code=creative_code, status="approved",

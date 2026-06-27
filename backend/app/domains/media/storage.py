@@ -19,12 +19,13 @@ from app.core.config import get_settings
 ALLOWED_MIME_TYPES = frozenset({
     "image/jpeg",
     "image/png",
-    # "video/mp4",   # deferred — needs codec/duration/audio validation
-    # "video/webm",  # deferred
+    "image/gif",
+    "video/mp4",
+    "video/webm",
 })
 
 # ── Allowed extensions ───────────────────────────────────────────────
-ALLOWED_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png"})
+ALLOWED_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".gif", ".mp4", ".webm"})
 
 # ── Blocked dangerous extensions (rejected immediately, no MIME check) 
 BLOCKED_EXTENSIONS = frozenset({

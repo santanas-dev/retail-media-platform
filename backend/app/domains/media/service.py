@@ -478,12 +478,21 @@ async def list_validations(
     return list(result.scalars().all())
 
 
-# ── Combined Creative Upload (Step 37.3) ─────────────────────────────────
+# ── Combined Creative Upload (Step 37.3 + 44.3) ──────────────────────────
 
 # KSO-specific constraints (v1 — physical test device 768×1024 portrait)
-KSO_MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+KSO_MAX_FILE_SIZE_IMAGE = 50 * 1024 * 1024   # 50 MB
+KSO_MAX_FILE_SIZE_VIDEO = 100 * 1024 * 1024  # 100 MB
+KSO_MAX_FILE_SIZE_GIF = 20 * 1024 * 1024     # 20 MB
 KSO_REQUIRED_WIDTH = 768   # matches physical test KSO portrait
 KSO_REQUIRED_HEIGHT = 1024
+
+# MIME types now accepted (44.3 — video/GIF production validation added)
+ALLOWED_UPLOAD_MIME_TYPES = frozenset({
+    "image/png", "image/jpeg",
+    "video/mp4", "video/webm",
+    "image/gif",
+})
 
 
 async def upload_creative_combined(
@@ -492,47 +501,62 @@ async def upload_creative_combined(
     file: UploadFile,
     user_id: UUID,
 ) -> schemas.CreativeUploadResponse:
-    """Create a creative + upload its first version in one call (Step 37.3).
+    """Create a creative + upload its first version in one call (Step 37.3 + 44.3).
 
     Validation:
-    - MIME type: image/png, image/jpeg only (video deferred to v2)
-    - Image dimensions: must be 768×1024 portrait (physical test KSO)
-    - Audio: rejected
-    - Max size: 50 MB
-    - creative_code: unique, ^[a-z0-9_-]+$
+    - MIME type: image/png, image/jpeg, video/mp4, video/webm, image/gif
+    - Image: 768×1024 portrait, Pillow verify, MP4 disguise detection
+    - Video: ffprobe — container, codec, dimensions, duration ≤30s, FPS ≤30, audio prohibited
+    - GIF: frame count ≤300, duration ≤15s, dimensions 768×1024
+    - AV scan: ClamAV if available, otherwise not_configured
     - Duplicate SHA-256: rejected (same file already uploaded)
 
     Does NOT expose file_path, sha256, or storage_ref in response.
     """
-    # 1. Validate MIME type (client-reported)
+    from app.domains.media import media_validator
+
     content_type = file.content_type or ""
-    if content_type not in ("image/png", "image/jpeg"):
+
+    # 1. Validate MIME type against allowlist
+    if content_type not in ALLOWED_UPLOAD_MIME_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Неподдерживаемый формат: {content_type}. "
-                   f"Разрешены: PNG, JPEG. Видео отложено до отдельного шага.",
+            detail=f"Неподдерживаемый формат: {content_type or 'не указан'}. "
+                   f"Разрешены: PNG, JPEG, MP4, WebM, GIF.",
         )
 
-    # 2. Read file content with size limit
+    # 2. Read file content with size limit (type-specific)
     content = await file.read()
-    if len(content) > KSO_MAX_FILE_SIZE:
+    if content_type.startswith("video/"):
+        max_size = KSO_MAX_FILE_SIZE_VIDEO
+    elif content_type == "image/gif":
+        max_size = KSO_MAX_FILE_SIZE_GIF
+    else:
+        max_size = KSO_MAX_FILE_SIZE_IMAGE
+
+    if len(content) > max_size:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Файл слишком большой: {len(content)} байт (макс {KSO_MAX_FILE_SIZE})",
+            detail=f"Файл слишком большой: {len(content)} байт "
+                   f"(максимум {max_size // (1024*1024)} МБ)",
         )
 
-    # 3. Reject video disguised as image
-    if content_type.startswith("image/") and len(content) > 0:
-        head = content[:12]
-        if head[:4] == b"\x00\x00\x00\x18" or head[4:12] == b"ftyp":  # MP4 magic
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Видеофайл замаскирован под изображение. Загрузка видео отложена.",
-            )
-
-    # 4. Image dimension validation
+    # 3. Run type-specific validation
     width, height = None, None
-    if content_type.startswith("image/"):
+    duration_seconds = None
+
+    if content_type in ("image/png", "image/jpeg"):
+        # 3a. Reject video disguised as image
+        if len(content) > 0:
+            head = content[:12]
+            if head[:4] == b"\x00\x00\x00\x18" or head[4:12] == b"ftyp":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Видеофайл замаскирован под изображение. "
+                           "Загрузите как видео (MP4).",
+                )
+
+        # 3b. Image dimension validation (Pillow)
         try:
             img = Image.open(BytesIO(content))
             width, height = img.size
@@ -550,7 +574,36 @@ async def upload_creative_combined(
                 detail=f"Не удалось прочитать изображение: {str(e)[:100]}",
             )
 
-    # 5. Check duplicate SHA-256 BEFORE upload
+    elif content_type.startswith("video/"):
+        # 3c. Video validation (ffprobe-based)
+        val_result = media_validator.validate_video(
+            content, file.filename or "untitled", content_type
+        )
+        if val_result.status == media_validator.ValidationStatus.FAILED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="; ".join(val_result.reasons),
+            )
+        # Extract metadata from validation result
+        width = val_result.metadata.get("width")
+        height = val_result.metadata.get("height")
+        duration_seconds = val_result.metadata.get("duration_seconds")
+
+    elif content_type == "image/gif":
+        # 3d. GIF validation
+        val_result = media_validator.validate_gif(
+            content, file.filename or "untitled", content_type
+        )
+        if val_result.status == media_validator.ValidationStatus.FAILED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="; ".join(val_result.reasons),
+            )
+        width = val_result.metadata.get("width")
+        height = val_result.metadata.get("height")
+        duration_seconds = val_result.metadata.get("duration_seconds")
+
+    # 4. Check duplicate SHA-256 BEFORE upload
     import hashlib
     new_sha256 = hashlib.sha256(content).hexdigest()
     existing = await db.execute(
@@ -566,17 +619,38 @@ async def upload_creative_combined(
                    f"Версия {dup.version} креатива.",
         )
 
-    # 6. Create Creative record with status 'pending_review'
+    # 5. AV scan (best-effort, no fake clean)
+    from app.domains.media.av_scanner import create_av_scanner
+    av_scanner = create_av_scanner()
+    scan_report = await av_scanner.scan(content, file.filename or "untitled")
+
+    # Determine scan_status for DB
+    scan_status = scan_report.result.value
+    if scan_report.is_infected:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Файл не прошёл проверку безопасности: {scan_report.message}",
+        )
+
+    # 6. Determine initial creative status
+    # validation_failed if any issues; pending_review if clean/not_configured
+    initial_status = "pending_review"
+    if scan_status == "infected":
+        initial_status = "validation_failed"
+        scan_status = "infected"
+
+    # 7. Create Creative record
     creative = models.Creative(
         creative_code=data.creative_code,
         name=data.name,
-        status="pending_review",  # requires moderation, not auto-approved
+        status=initial_status,
+        scan_status=scan_status,
         created_by=user_id,
     )
     db.add(creative)
-    await db.flush()  # Get ID without committing
+    await db.flush()
 
-    # 7. Upload to MinIO
+    # 8. Upload to MinIO
     try:
         metadata = await storage.upload_to_minio(
             content, file.filename or "untitled",
@@ -588,7 +662,7 @@ async def upload_creative_combined(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e),
         )
 
-    # 6. Create CreativeVersion record
+    # 9. Create CreativeVersion record
     ver = models.CreativeVersion(
         creative_id=creative.id,
         version=1,
@@ -599,6 +673,7 @@ async def upload_creative_combined(
         sha256=metadata["sha256"],
         width=width,
         height=height,
+        duration_seconds=duration_seconds,
         uploaded_by=user_id,
     )
     db.add(ver)
@@ -613,7 +688,7 @@ async def upload_creative_combined(
         content_type=ver.mime_type,
         width=ver.width,
         height=ver.height,
-        duration_ms=None,
+        duration_ms=int(duration_seconds * 1000) if duration_seconds else None,
         file_size_bytes=ver.file_size,
         version=ver.version,
     )

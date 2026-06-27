@@ -121,11 +121,12 @@
 | 9.4 | Preview в портале | ✅ DONE | Safe preview через backend proxy, no raw storage URLs | — | P0 |
 | 9.5 | SHA-256 при загрузке | ✅ DONE | Вычисляется инкрементально, duplicate hash detection (409 Conflict) | — | P0 |
 | 9.6 | Блокировка опасных типов | ✅ DONE | HTML/JS/SVG/ZIP/EXE/DLL/SH/PY — rejected до MIME-проверки | — | P0 |
-| 9.7 | AV-сканер (contract) | 🟡 PARTIAL | `scan_status` поле, AV contract (`pilot_dev`/`production` режимы) | Реальный AV не подключён | P1 |
-| 9.8 | Модерация (workflow) | ✅ DONE | submit-review→approve/reject с audit trail, reason codes | — | P0 |
+| 9.7 | AV-сканер (contract) | 🟡 PARTIAL | ClamAV adapter, NoScanner, `scan_status`, AV policy contract | Реальный ClamAV не установлен | P1 |
+| 9.8 | Модерация (workflow) | ✅ DONE | submit-review→approve/reject с audit trail, reason codes, AV gate | — | P0 |
 | 9.9 | Campaign binding gate | ✅ DONE | Только approved creative можно привязать к кампании | — | P0 |
-| 9.10 | MP4/WebM/GIF | 📅 DEFERRED | Deferred до отдельного video validation шага | Нет проверки кодека/длительности/звука | P2 |
-| 9.11 | Версионирование креативов | ✅ DONE | Замена файла → новая версия, старая сохраняется, audit | — | P0 |
+| 9.10 | MP4/WebM validation | ✅ DONE | ffprobe: container, codec, dimensions, duration, FPS, audio | — | P0 |
+| 9.11 | GIF validation | ✅ DONE | Pillow: frames, duration, dimensions, corruption | — | P0 |
+| 9.12 | Версионирование креативов | ✅ DONE | Замена файла → новая версия, старая сохраняется, audit | — | P0 |
 
 ## 10. Пакет показа / Manifest
 
