@@ -191,4 +191,99 @@
   <span class="note-icon">📅</span>
   <span class="note-text">Production Schedule API: управление расписаниями и слотами через backend. Действия архивирования/отключения проверяются backend. Test KSO placement endpoints сохранены как legacy.</span>
 </div>
+
+<!-- ── Airtime Occupancy (42.1.1) ────────────────────────────────── -->
+<div class="requirements-box">
+  <div class="requirements-title">📊 Плановая занятость эфира</div>
+  <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;">
+    Это плановая занятость по расписанию. Это <strong>не факт показа PoP</strong>.
+  </p>
+
+  <!-- Filter form (server-side GET, no JS) -->
+  <form method="get" action="/schedule" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:16px;">
+    <div style="display:flex;flex-direction:column;gap:3px;">
+      <label style="font-size:11px;color:#64748b;">КСО</label>
+      <input type="text" name="at_device" value="{{ at_device if at_device else '' }}"
+             placeholder="device_code" maxlength="64"
+             style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;width:150px;">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:3px;">
+      <label style="font-size:11px;color:#64748b;">Дата с</label>
+      <input type="date" name="at_from" value="{{ at_from if at_from else '' }}"
+             style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;width:140px;">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:3px;">
+      <label style="font-size:11px;color:#64748b;">Дата по</label>
+      <input type="date" name="at_to" value="{{ at_to if at_to else '' }}"
+             style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;width:140px;">
+    </div>
+    <button type="submit" class="btn-primary" style="padding:7px 16px;font-size:13px;">🔍 Проверить</button>
+  </form>
+
+  {% if airtime %}
+  <div class="summary-stats" style="margin-bottom:16px;">
+    <div class="summary-stat">
+      <div class="summary-stat-value">{{ airtime.total_available_minutes }}</div>
+      <div class="summary-stat-label">Всего минут</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-value">{{ airtime.occupied_minutes }}</div>
+      <div class="summary-stat-label">Занято</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-value">{{ airtime.free_minutes }}</div>
+      <div class="summary-stat-label">Свободно</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-value">{{ airtime.occupancy_percent }}%</div>
+      <div class="summary-stat-label">Загрузка</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-value">{{ airtime.campaign_count }}</div>
+      <div class="summary-stat-label">Кампаний</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-value">{{ airtime.conflict_count }}</div>
+      <div class="summary-stat-label">Конфликтов</div>
+    </div>
+  </div>
+
+  {% if airtime.conflicts %}
+  <div class="table-container" style="margin-top:12px;">
+  <table class="data-table">
+    <thead><tr>
+      <th>Кампания</th><th>Конфликт с</th><th>Даты</th><th>День</th><th>Время</th><th>Конфликтное время</th><th>Severity</th>
+    </tr></thead>
+    <tbody>
+    {% for c in airtime.conflicts %}
+    <tr>
+      <td><code>{{ c.campaign_code }}</code></td>
+      <td><code>{{ c.conflict_with_code }}</code></td>
+      <td>{{ c.date_from }} – {{ c.date_to }}</td>
+      <td>{{ c.day_label }}</td>
+      <td>{{ c.time_window }}</td>
+      <td>{{ c.conflict_time_window }}</td>
+      <td><span class="status-badge status-badge-pending">⚠️ warning</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% elif airtime.occupied_minutes == 0 %}
+  <div style="text-align:center;padding:16px;color:#64748b;font-size:13px;">
+    Эфир полностью свободен в выбранном диапазоне.
+  </div>
+  {% endif %}
+
+  <div class="note-box" style="margin-top:12px;">
+    <span class="note-icon">⚠️</span>
+    <span class="note-text">Конфликты — предупреждение, не блокировка. Policy: warning-only.</span>
+  </div>
+
+  {% else %}
+  <div style="text-align:center;padding:16px;color:#94a3b8;font-size:13px;">
+    Укажите КСО и диапазон дат для проверки занятости эфира.
+  </div>
+  {% endif %}
+</div>
 {% endblock %}

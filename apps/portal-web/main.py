@@ -363,6 +363,24 @@ async def reports_page(request: Request):
 
         backend_available = pop_summary_ok or pop_events_ok
 
+        # ── Planned airtime (42.1.1) ─────────────────────────────
+        planned_airtime = None
+        at_device = qp.get("at_device", "").strip()
+        at_from = qp.get("at_from", "").strip()
+        at_to = qp.get("at_to", "").strip()
+        if at_device and at_from and at_to:
+            at_result = await client.get_airtime_occupancy(
+                at, at_device, at_from, at_to,
+            )
+            if at_result["ok"]:
+                planned_airtime = at_result.get("data", {})
+                ct_result = await client.get_airtime_conflicts(
+                    at, at_device, at_from, at_to,
+                )
+                if ct_result["ok"]:
+                    planned_airtime["conflicts"] = ct_result.get("data", [])
+                    planned_airtime["conflict_count"] = len(planned_airtime["conflicts"])
+
         return templates.TemplateResponse(request, "pages/reports.html", {
             "request": request,
             "title": "Отчёты",
@@ -382,6 +400,10 @@ async def reports_page(request: Request):
             "backend_message": "Данные временно недоступны. Попробуйте позже.",
             "filters": filters,
             "date_error": date_error,
+            "planned_airtime": planned_airtime,
+            "at_device": at_device,
+            "at_from": at_from,
+            "at_to": at_to,
         })
     except Exception:
         return _reports_fallback(request, current_user,
@@ -412,6 +434,10 @@ def _reports_fallback(request: Request, current_user, *, reason: str = ""
         "backend_message": reason or "Данные временно недоступны. Попробуйте позже.",
         "filters": {},
         "date_error": None,
+        "planned_airtime": None,
+        "at_device": "",
+        "at_from": "",
+        "at_to": "",
     })
 app.add_api_route("/deployment", _page("pages/deployment.html", "Развёртывание", "deployment"),
                   methods=["GET"], response_class=HTMLResponse)
@@ -1314,6 +1340,25 @@ async def campaigns_create_page(request: Request):
         "end_time": "",
     }
 
+    # ── Airtime check (42.1.1) ───────────────────────────────
+    airtime_warning = None
+    at_device = request.query_params.get("at_device", "").strip()
+    at_from = request.query_params.get("at_from", "").strip()
+    at_to = request.query_params.get("at_to", "").strip()
+    if access_token and at_device and at_from and at_to:
+        at_result = await backend.get_airtime_occupancy(
+            access_token, at_device, at_from, at_to,
+        )
+        if at_result.get("ok"):
+            data = at_result.get("data", {})
+            if data.get("conflict_count", 0) > 0 or data.get("occupancy_percent", 0) > 80:
+                airtime_warning = {
+                    "device_code": at_device,
+                    "occupancy_percent": data.get("occupancy_percent", 0),
+                    "conflict_count": data.get("conflict_count", 0),
+                    "message": "Обнаружены пересечения. Сейчас это предупреждение, не блокировка.",
+                }
+
     return templates.TemplateResponse(request, "pages/campaigns_create.html", {
         "request": request,
         "title": "Создание кампании",
@@ -1327,6 +1372,10 @@ async def campaigns_create_page(request: Request):
         "flash_type": "",
         "errors": [],
         "summary": None,
+        "airtime_warning": airtime_warning,
+        "at_device": at_device,
+        "at_from": at_from,
+        "at_to": at_to,
     })
 
 
@@ -1667,6 +1716,25 @@ async def schedule_page(request: Request):
         flash_type = "error"
         flash_msg = request.session.pop("sched_flash_msg", "Ошибка.")[:200]
 
+    # ── Airtime occupancy check (42.1.1) ──────────────────────────
+    airtime = None
+    at_device = request.query_params.get("at_device", "").strip()
+    at_from = request.query_params.get("at_from", "").strip()
+    at_to = request.query_params.get("at_to", "").strip()
+    if at_device and at_from and at_to:
+        at_result = await backend.get_airtime_occupancy(
+            access_token, at_device, at_from, at_to,
+        )
+        if at_result["ok"]:
+            airtime = at_result.get("data", {})
+            # Also fetch conflicts
+            ct_result = await backend.get_airtime_conflicts(
+                access_token, at_device, at_from, at_to,
+            )
+            if ct_result["ok"]:
+                airtime["conflicts"] = ct_result.get("data", [])
+                airtime["conflict_count"] = len(airtime["conflicts"])
+
     return templates.TemplateResponse(request, "pages/schedule.html", {
         "request": request,
         "title": "Расписание",
@@ -1677,6 +1745,10 @@ async def schedule_page(request: Request):
         "schedule_slots": schedule_slots,
         "flash_type": flash_type,
         "flash_msg": flash_msg,
+        "airtime": airtime,
+        "at_device": at_device,
+        "at_from": at_from,
+        "at_to": at_to,
     })
 
 

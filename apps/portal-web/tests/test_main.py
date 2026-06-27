@@ -4576,5 +4576,142 @@ class TestUXEmptyStates(unittest.TestCase):
                       "Approvals empty must link to campaigns")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# 42.1.1 — Portal Airtime UX Tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestUXAirtimeSchedule(unittest.TestCase):
+    """42.1.1: /schedule renders airtime occupancy block."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    def test_schedule_renders_airtime_block(self):
+        resp = self.client.get("/schedule")
+        html = resp.text
+        self.assertIn("Плановая занятость эфира", html)
+        self.assertIn("не факт показа pop", html.lower())
+
+    def test_schedule_has_airtime_filter_form(self):
+        resp = self.client.get("/schedule")
+        html = resp.text
+        self.assertIn("at_device", html)
+        self.assertIn("at_from", html)
+        self.assertIn("at_to", html)
+        self.assertIn("Проверить", html)
+
+    def test_schedule_no_secrets_in_html(self):
+        resp = self.client.get("/schedule")
+        _assert_safe(self, resp.text)
+
+
+class TestUXAirtimeReports(unittest.TestCase):
+    """42.1.1: /reports renders planned airtime section."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    def test_reports_renders_planned_airtime_section(self):
+        resp = self.client.get("/reports")
+        html = resp.text
+        self.assertIn("Плановая занятость эфира", html)
+
+    def test_reports_has_airtime_check_form(self):
+        resp = self.client.get("/reports")
+        html = resp.text
+        self.assertIn("Проверить занятость", html)
+
+    def test_reports_no_secrets_in_html(self):
+        resp = self.client.get("/reports")
+        _assert_safe(self, resp.text)
+
+
+class TestUXAirtimeCampaignsCreate(unittest.TestCase):
+    """42.1.1: /campaigns/create has airtime check button."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    def test_campaigns_create_renders_airtime_check(self):
+        resp = self.client.get("/campaigns/create")
+        html = resp.text
+        self.assertIn("Проверить занятость эфира", html)
+
+    def test_campaigns_create_no_secrets_in_html(self):
+        resp = self.client.get("/campaigns/create")
+        _assert_safe(self, resp.text)
+
+    def test_campaigns_create_no_forbidden_content(self):
+        resp = self.client.get("/campaigns/create")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
+            self.assertNotIn(fb, lower, f"Must not contain {fb}")
+
+
+class TestUXAirtimeNoJS(unittest.TestCase):
+    """42.1.1: airtime pages have no JS/CDN/localStorage."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    def test_schedule_no_js(self):
+        resp = self.client.get("/schedule")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
+            self.assertNotIn(fb, lower, f"/schedule must NOT have {fb}")
+
+    def test_reports_no_js(self):
+        resp = self.client.get("/reports")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
+            self.assertNotIn(fb, lower, f"/reports must NOT have {fb}")
+
+    def test_campaigns_create_no_js(self):
+        resp = self.client.get("/campaigns/create")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
+            self.assertNotIn(fb, lower, f"/campaigns/create must NOT have {fb}")
+
+
 if __name__ == "__main__":
     unittest.main()

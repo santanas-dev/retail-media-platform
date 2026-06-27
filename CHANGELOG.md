@@ -23,12 +23,17 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ### Portal
 - BackendClient: `get_airtime_occupancy()`, `get_airtime_conflicts()`
+- Portal UX (42.1.1):
+  - `/schedule` — airtime occupancy block with server-side GET filter
+  - `/reports` — planned airtime section with conflicts table
+  - `/campaigns/create` — «🔍 Проверить занятость эфира» button + warning
+- No JS/CDN/localStorage on all airtime pages
 
 ### Tests
 | Suite | Passed |
 |---|---|
 | Backend | **568** (+17) |
-| Portal | 510 |
+| Portal | **522** (+12 new airtime UX tests) |
 
 ### Policy
 - Conflict severity: `warning` only — submit NOT blocked (policy deferred)
