@@ -7,6 +7,35 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [42.1-airtime-occupancy-conflicts] — 2026-06-16
+
+**Airtime Occupancy & Schedule Conflict Detection — backend-only planned occupancy calculation.**
+
+### Backend
+- New domain: `backend/app/domains/airtime/`
+  - `service.py` — `calculate_occupancy()` and `detect_conflicts()`
+  - `router.py` — `GET /api/airtime/occupancy` + `GET /api/airtime/conflicts`
+- Occupancy: calculates occupied/free minutes per device/date range from active schedules × slots
+- Conflicts: detects same-device schedule slot overlaps (date + day_of_week + time window)
+- Status scoping: active campaign statuses (draft/pending_approval/approved), active schedules (draft)
+- RLS: advertiser sees anonymized conflicts (no foreign campaign names); admin sees full
+- Permission: `reports.read`
+
+### Portal
+- BackendClient: `get_airtime_occupancy()`, `get_airtime_conflicts()`
+
+### Tests
+| Suite | Passed |
+|---|---|
+| Backend | **568** (+17) |
+| Portal | 510 |
+
+### Policy
+- Conflict severity: `warning` only — submit NOT blocked (policy deferred)
+- All planned — NOT PoP fact
+
+---
+
 ## [42.0-portal-product-ux-polish] — 2026-06-16
 
 **Portal Product UX Polish — статусные бейджи, next-action подсказки, flow breadcrumbs, summary-панель, empty states.**

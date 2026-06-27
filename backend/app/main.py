@@ -29,6 +29,7 @@ from app.domains.manifests.router import router as manifests_router
 from app.domains.proof_of_play.router import router as proof_of_play_router
 from app.domains.test_kso_readiness.router import router as test_kso_readiness_router
 from app.domains.device_dashboard.router import router as device_dashboard_router
+from app.domains.airtime.router import router as airtime_router
 
 
 @asynccontextmanager
@@ -74,6 +75,7 @@ app.include_router(manifests_router)
 app.include_router(proof_of_play_router)
 app.include_router(test_kso_readiness_router)
 app.include_router(device_dashboard_router)
+app.include_router(airtime_router)
 
 
 @app.get("/health")

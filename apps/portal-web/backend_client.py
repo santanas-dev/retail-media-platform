@@ -892,6 +892,55 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Airtime Occupancy & Conflicts (42.1) ─────────────────────────
+
+    async def get_airtime_occupancy(
+        self, access_token: str,
+        device_code: str, date_from: str, date_to: str,
+        placement_code: str | None = None,
+    ) -> dict:
+        """GET /api/airtime/occupancy → {ok, data}.
+
+        Planned airtime occupancy — not PoP fact.
+        Requires reports.read permission.
+        """
+        from urllib.parse import urlencode
+        params = {
+            "device_code": device_code,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
+        if placement_code:
+            params["placement_code"] = placement_code
+        return await self._request(
+            "GET", f"/api/airtime/occupancy?{urlencode(params)}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_airtime_conflicts(
+        self, access_token: str,
+        device_code: str, date_from: str, date_to: str,
+        campaign_code: str | None = None,
+    ) -> dict:
+        """GET /api/airtime/conflicts → {ok, data: [conflict]}.
+
+        Schedule slot conflicts — safe projection.
+        Advertiser sees anonymized conflicts.
+        Requires reports.read permission.
+        """
+        from urllib.parse import urlencode
+        params = {
+            "device_code": device_code,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
+        if campaign_code:
+            params["campaign_code"] = campaign_code
+        return await self._request(
+            "GET", f"/api/airtime/conflicts?{urlencode(params)}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 

@@ -3516,6 +3516,24 @@ class _FakeBackendClient:
     async def list_admin_audit(self, access_token: str, limit: int = 10) -> dict:
         return {"ok": True, "data": []}
 
+    async def get_airtime_occupancy(
+        self, access_token: str, device_code: str,
+        date_from: str, date_to: str, placement_code: str | None = None,
+    ) -> dict:
+        return {"ok": True, "data": {
+            "device_code": device_code, "date_from": date_from, "date_to": date_to,
+            "total_available_minutes": 10080, "occupied_minutes": 120,
+            "free_minutes": 9960, "occupancy_percent": 1.2,
+            "campaign_count": 1, "creative_count": 1, "conflict_count": 0,
+            "is_planned": True, "placement_code": placement_code,
+        }}
+
+    async def get_airtime_conflicts(
+        self, access_token: str, device_code: str,
+        date_from: str, date_to: str, campaign_code: str | None = None,
+    ) -> dict:
+        return {"ok": True, "data": []}
+
     async def list_advertisers(self, access_token: str) -> dict:
         return {"ok": True, "data": [{"id": "a1", "name": "Тестовый рекламодатель"}]}
 
