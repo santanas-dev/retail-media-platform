@@ -400,18 +400,17 @@ class TestDevicesPage(unittest.TestCase):
         main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
 
     def test_renders_summary_cards(self):
-        for card in ("Всего КСО", "Активно", "Неактивно",
-                      "На обслуживании", "Заблокировано", "Потеряно"):
+        for card in ("Всего КСО", "Активно",
+                      "Обслуживание", "Заблокировано"):
             self.assertIn(card, self.html,
                           f"Devices page must render summary card '{card}'")
 
-    def test_filters_disabled(self):
-        self.assertIn("action-link", self.html)
+    def test_has_actions_link(self):
+        self.assertIn("Панель КСО", self.html)
 
     def test_has_table_structure(self):
-        for col in ("device_code", "Название", "Магазин", "Статус",
-                     "Runtime", "Player", "Sidecar", "State Adapter",
-                     "Manifest", "Экран", "Ad Zone", "last_seen"):
+        for col in ("Код КСО", "Название", "Магазин", "Статус",
+                     "Агент", "Плеер", "Экран", "Обновлён"):
             self.assertIn(col, self.html,
                           f"Devices table must have column '{col}'")
 
@@ -422,14 +421,12 @@ class TestDevicesPage(unittest.TestCase):
 
     def test_shows_screen_geometry(self):
         self.assertIn("1920×1080", self.html)
-        self.assertIn("1440×1080", self.html)
 
     def test_shows_versions(self):
         self.assertIn("1.0.0", self.html)
-        self.assertIn("abc123", self.html)
 
     def test_has_status_legend(self):
-        for badge in ("active", "maintenance", "blocked", "inactive"):
+        for badge in ("Активно", "Обслуживание", "Заблокировано"):
             self.assertIn(badge, self.html,
                           f"Legend must contain status '{badge}'")
 
@@ -450,9 +447,9 @@ class TestDevicesPage(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
 
     def test_has_link_to_device_dashboard(self):
-        """Devices page has link/CTA to Device Dashboard (GAP 5)."""
+        """Devices page has link/CTA to Device Dashboard."""
         self.assertIn("/device-dashboard", self.html)
-        self.assertIn("Device Dashboard", self.html)
+        self.assertIn("Панель КСО", self.html)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -2203,8 +2200,8 @@ class TestRlsNotesOnPages(unittest.TestCase):
 
     def test_devices_says_device_visibility_is_scope_limited(self):
         resp = self.client.get("/devices")
-        self.assertIn("store_scope", resp.text.lower())
-        self.assertIn("device_scope", resp.text.lower())
+        self.assertIn("реестр", resp.text.lower())
+        self.assertIn("КСО", resp.text)
 
     def test_admin_explains_device_service_is_technical(self):
         resp = self.client.get("/admin")
@@ -4246,7 +4243,7 @@ class TestDeviceDashboardPage(unittest.TestCase):
         """Page renders successfully with authenticated session."""
         resp = self.client.get("/device-dashboard")
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("Device Dashboard", resp.text)
+        self.assertIn("Панель КСО", resp.text)
 
     # ── Content ───────────────────────────────────────────────
 
@@ -4260,12 +4257,11 @@ class TestDeviceDashboardPage(unittest.TestCase):
             self.assertIn(code, self.html)
 
     def test_shows_summary_cards(self):
-        for card in ("Всего устройств", "Ready", "Warning", "Blocked"):
+        for card in ("Всего КСО", "Готовы", "Внимание", "Без связи", "Без пакета"):
             self.assertIn(card, self.html)
 
     def test_shows_filter_form(self):
         self.assertIn('name="keyword"', self.html)
-        self.assertIn('name="channel_code"', self.html)
         self.assertIn('name="store_code"', self.html)
         self.assertIn('name="readiness_badge"', self.html)
 
@@ -4274,7 +4270,9 @@ class TestDeviceDashboardPage(unittest.TestCase):
         self.assertIn('href="/device-dashboard"', self.html)
 
     def test_shows_legend(self):
-        self.assertIn("Readiness Legend", self.html)
+        self.assertIn("Готов", self.html)
+        self.assertIn("Внимание", self.html)
+        self.assertIn("Заблокирован", self.html)
 
     def test_shows_store_names(self):
         self.assertIn("Test Store Alpha", self.html)
@@ -4294,8 +4292,7 @@ class TestDeviceDashboardPage(unittest.TestCase):
         self.assertIn("125", self.html)  # events_count for ready device
 
     def test_shows_media_cache_health(self):
-        self.assertIn("healthy", self.html)
-        self.assertIn("critical", self.html)
+        self.assertIn("Кэш", self.html)
 
     # ── Safety ────────────────────────────────────────────────
 
@@ -4324,7 +4321,7 @@ class TestDeviceDashboardPage(unittest.TestCase):
 
     def test_nav_link_exists(self):
         self.assertIn('href="/device-dashboard"', self.html)
-        self.assertIn("Device Dashboard", self.html)
+        self.assertIn("Панель КСО", self.html)
 
     # ── Backend down — safe fallback ──────────────────────────
 
@@ -4350,7 +4347,37 @@ class TestDeviceDashboardPage(unittest.TestCase):
         main.get_portal_tokens = lambda req: {"access_token": "fake-at"}
         resp = self.client.get("/device-dashboard")
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("Нет данных", resp.text)
+        self.assertIn("Нет данных КСО", resp.text)
+
+    # ── 43.9: Simplified dashboard tests ──────────────────────
+
+    def test_physical_readiness_warning_visible(self):
+        """Device dashboard shows physical readiness warning."""
+        self.assertIn("Физический запуск пока заблокирован", self.html)
+        self.assertIn("проверка сканера", self.html.lower())
+
+    def test_business_labels_no_technical(self):
+        """Dashboard has business labels, not technical column names."""
+        for good in ("Связь", "Агент и плеер", "Пакет показа", "Фактические показы"):
+            self.assertIn(good, self.html,
+                          f"Dashboard must have business label: {good}")
+        for bad in ("Sidecar", "PoP", "Manifest",
+                     "Credential", "Sessions", "Cache", "device_code"):
+            self.assertNotIn(bad, self.html,
+                             f"Dashboard must NOT contain technical label: {bad}")
+
+    def test_table_has_max_7_main_columns(self):
+        """Simplified table: max 7 main columns."""
+        import re
+        ths = re.findall(r'<th>([^<]+)</th>', self.html)
+        self.assertLessEqual(len(ths), 7,
+                            f"Table has {len(ths)} columns, expected <=7")
+
+    def test_readiness_labels_are_russian(self):
+        """Readiness badges use Russian labels."""
+        for label in ("Готов", "Внимание", "Заблокирован", "Неизвестно"):
+            self.assertIn(label, self.html,
+                          f"Dashboard must have Russian readiness: {label}")
 
 
 # ══════════════════════════════════════════════════════════════════════

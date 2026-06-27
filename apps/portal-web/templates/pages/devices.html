@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">КСО Устройства</h1>
-<p class="page-description">Реестр КСО-устройств — статус, версии компонентов, геометрия экрана.
-<a href="/device-dashboard" class="action-link" style="font-weight:600;">📡 Открыть Device Dashboard →</a>
+<h1 class="page-title">🖥️ КСО Устройства</h1>
+<p class="page-description">
+  Реестр КСО — статус, версии компонентов, геометрия экрана.
+  <a href="/device-dashboard" class="btn btn-primary btn-sm">📡 Панель КСО →</a>
 </p>
 
 <!-- Summary Cards -->
@@ -10,79 +11,78 @@
   <div class="card">
     <div class="card-title">Всего КСО</div>
     <div class="card-value">{{ devices|length }}</div>
-    <div class="card-hint">Зарегистрировано</div>
+    <div class="card-hint">В системе</div>
   </div>
   <div class="card">
     <div class="card-title">Активно</div>
     <div class="card-value">{{ devices|selectattr('status', 'equalto', 'active')|list|length }}</div>
-    <div class="card-hint">Статус active</div>
+    <div class="card-hint">В работе</div>
   </div>
   <div class="card">
-    <div class="card-title">Неактивно</div>
-    <div class="card-value">{{ devices|selectattr('status', 'equalto', 'inactive')|list|length }}</div>
-    <div class="card-hint">Статус inactive</div>
-  </div>
-  <div class="card">
-    <div class="card-title">На обслуживании</div>
+    <div class="card-title">Обслуживание</div>
     <div class="card-value">{{ devices|selectattr('status', 'equalto', 'maintenance')|list|length }}</div>
-    <div class="card-hint">Статус maintenance</div>
+    <div class="card-hint">Технические работы</div>
   </div>
   <div class="card">
     <div class="card-title">Заблокировано</div>
     <div class="card-value">{{ devices|selectattr('status', 'equalto', 'blocked')|list|length }}</div>
-    <div class="card-hint">Статус blocked</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Потеряно</div>
-    <div class="card-value">{{ devices|selectattr('status', 'equalto', 'lost')|list|length }}</div>
-    <div class="card-hint">Статус lost</div>
+    <div class="card-hint">Доступ ограничен</div>
   </div>
 </div>
 
 {% if backend_unavailable %}
-<div class="note-box mb-12">
-  <span class="note-icon">⚠️</span>
-  <span class="note-text">{{ backend_message }}</span>
+<div class="banner banner-warning">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body"><div class="banner-text">{{ backend_message }}</div></div>
 </div>
 {% endif %}
 
 <!-- Devices Table -->
-<div class="table-container">
-<table class="data-table">
+<div class="table-wrap">
+<table class="data-table data-table-compact">
   <thead>
     <tr>
-      <th>device_code</th><th>Название</th><th>Магазин</th><th>Статус</th>
-      <th>Runtime</th><th>Player</th><th>Sidecar</th><th>State Adapter</th>
-      <th>Manifest</th><th>Экран</th><th>Ad Zone</th>
-      <th>last_seen</th><th>Действия</th>
+      <th>Код КСО</th>
+      <th>Название</th>
+      <th>Магазин</th>
+      <th>Статус</th>
+      <th>Агент</th>
+      <th>Плеер</th>
+      <th>Экран</th>
+      <th>Обновлён</th>
     </tr>
   </thead>
   <tbody>
   {% if devices %}
   {% for d in devices %}
     <tr>
-      <td><code>{{ d.device_code }}</code></td>
-      <td>{{ d.display_name }}</td>
-      <td>{{ d.store_name }}</td>
-      <td><span class="badge badge-{{ 'online' if d.status == 'active' else 'hold' if d.status == 'maintenance' else 'error' if d.status in ('blocked', 'lost') else 'offline' }}"></span> {{ d.status }}</td>
-      <td>{{ d.runtime_version }}</td>
-      <td>{{ d.player_version }}</td>
-      <td>{{ d.sidecar_version }}</td>
-      <td>{{ d.state_adapter_version }}</td>
-      <td>{{ d.manifest_version }}</td>
+      <td class="cell-code">{{ d.device_code }}</td>
+      <td>{{ d.display_name or '—' }}</td>
+      <td>{{ d.store_name or '—' }}</td>
+      <td>
+        {% if d.status == 'active' %}
+        <span class="status-badge status-success">Активно</span>
+        {% elif d.status == 'maintenance' %}
+        <span class="status-badge status-warning">Обслуживание</span>
+        {% elif d.status in ('blocked', 'lost') %}
+        <span class="status-badge status-danger">Заблокировано</span>
+        {% else %}
+        <span class="status-badge status-muted">{{ d.status or '—' }}</span>
+        {% endif %}
+      </td>
+      <td>{{ d.sidecar_version or '—' }}</td>
+      <td>{{ d.player_version or '—' }}</td>
       <td>{{ d.screen_width }}×{{ d.screen_height }}</td>
-      <td>{{ d.ad_zone_width }}×{{ d.ad_zone_height }}</td>
-      <td>{{ d.last_seen_at }}</td>
-      <td><span class="action-link">—</span></td>
+      <td class="text-sm text-muted">{{ d.last_seen_at or '—' }}</td>
     </tr>
   {% endfor %}
   {% else %}
-    <tr class="empty-row">
-      <td colspan="13">
+    <tr>
+      <td colspan="8">
         <div class="table-empty-state">
           <div class="table-empty-icon">🖥️</div>
           <div class="table-empty-title">Пока нет подключённых КСО</div>
-          <div class="table-empty-text">После добавления устройств через backend здесь появится реестр КСО с геометрией экрана и версиями компонентов.</div>
+          <div class="table-empty-text">После добавления устройств здесь появится реестр.</div>
         </div>
       </td>
     </tr>
@@ -91,22 +91,20 @@
 </table>
 </div>
 
-<!-- Status Legend -->
-<div class="legend">
-  <span class="legend-title">Статус:</span>
-  <span class="legend-item"><span class="badge badge-online"></span> active</span>
-  <span class="legend-item"><span class="badge badge-hold"></span> maintenance</span>
-  <span class="legend-item"><span class="badge badge-error"></span> blocked / lost</span>
-  <span class="legend-item"><span class="badge badge-offline"></span> inactive</span>
+<!-- Legend -->
+<div class="note-panel mt-16">
+  <span class="note-icon">ℹ️</span>
+  <span class="note-text">
+    <strong>Активно</strong> — в работе ·
+    <strong>Обслуживание</strong> — технические работы ·
+    <strong>Заблокировано</strong> — доступ ограничен.
+    Подробный статус компонентов: <a href="/device-dashboard">Панель КСО</a>.
+  </span>
 </div>
 
-<!-- RLS Note -->
-<div class="note-box">
-  <span class="note-icon">🔐</span>
-  <span class="note-text">Данные проходят route-level RBAC. Business RLS по <strong>store_scope</strong> и <strong>device_scope</strong> будет включён на backend query-level в следующем этапе. Сейчас отображаются все КСО, доступные по праву <code>devices.read</code>.</span>
-</div>
-<div class="note-box">
-  <span class="note-icon">📐</span>
-  <span class="note-text">Геометрия экрана: KSO-ограничения — 1920×1080 экран, ad zone 1440×1080 (канал <strong>kso</strong>).</span>
+<!-- Safety -->
+<div class="note-box mt-12">
+  <span class="note-icon">🛡️</span>
+  <span class="note-text">Без паролей, токенов, внутренних URL. Физическая КСО не запускалась.</span>
 </div>
 {% endblock %}
