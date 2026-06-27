@@ -3787,6 +3787,32 @@ class _FakeBackendClient:
         """Fake device dashboard data for portal tests."""
         return {"ok": True, "data": _MOCK_DEVICE_DASHBOARD}
 
+    async def get_av_readiness(self, access_token: str) -> dict:
+        """44.4: AV readiness check."""
+        return {"ok": True, "data": {
+            "scanner_available": False, "scanner_name": "none",
+            "readiness": "not_configured",
+            "message": "Проверка безопасности файлов ещё не настроена",
+            "production_ready": False,
+            "notes": ["Антивирусный сканер не обнаружен"],
+        }}
+
+    async def return_creative_for_rework(self, access_token: str, creative_code: str, comment: str = "") -> dict:
+        """44.4: Return creative for rework."""
+        return {"ok": True, "creative_code": creative_code, "status": "draft", "action": "return_for_rework"}
+
+    async def get_moderation_queue(self, access_token: str) -> dict:
+        """44.4: Moderation queue."""
+        return {"ok": True, "data": [
+            {
+                "creative_code": "demo_creative_001", "name": "Тестовый креатив",
+                "status": "pending_review", "scan_status": "not_configured",
+                "content_type": "image/png", "width": 768, "height": 1024,
+                "file_size_bytes": 204800, "created_by": "admin",
+                "created_at": "2026-06-22T12:00:00Z", "can_use_in_campaign": False,
+            }
+        ]}
+
 
 _MOCK_DEVICE_DASHBOARD = [
     {
@@ -3886,6 +3912,8 @@ _MOCK_DEVICE_DASHBOARD = [
         "readiness_reasons": ["No heartbeat received", "No credential configured"],
     },
 ]
+
+
 
 
 

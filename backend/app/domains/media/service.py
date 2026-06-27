@@ -492,6 +492,7 @@ ALLOWED_UPLOAD_MIME_TYPES = frozenset({
     "image/png", "image/jpeg",
     "video/mp4", "video/webm",
     "image/gif",
+    # .mov NOT allowed for user upload — not in v1 KSO format list
 })
 
 

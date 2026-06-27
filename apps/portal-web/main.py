@@ -1300,6 +1300,77 @@ async def creatives_reject(request: Request, creative_code: str):
     return RedirectResponse(url="/creatives", status_code=303)
 
 
+@app.post("/creatives/{creative_code}/return-for-rework")
+async def creative_return_for_rework(request: Request, creative_code: str):
+    """44.4: Return creative to draft for rework."""
+    guard = await require_auth_for_page(request, "/creatives")
+    if guard is not None:
+        return guard
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    if not at:
+        return RedirectResponse(url="/login", status_code=303)
+    backend = BackendClient()
+    result = await backend.return_creative_for_rework(at, creative_code.strip())
+    if result.get("ok"):
+        request.session["creative_flash"] = "ok:rework"
+    else:
+        request.session["creative_flash"] = "error"
+        request.session["creative_flash_msg"] = result.get("error", "Ошибка")[:200]
+    return RedirectResponse(url="/creatives", status_code=303)
+
+
+@app.get("/creatives/{creative_code}", response_class=HTMLResponse)
+async def creative_detail_page(request: Request, creative_code: str):
+    """44.4: Creative detail card."""
+    guard = await require_auth_for_page(request, "/creatives")
+    if guard is not None:
+        return guard
+    current_user = get_current_portal_user(request)
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    if not at:
+        return templates.TemplateResponse(request, "pages/creative_detail.html", {
+            "request": request, "title": "Креатив", "active": "creatives",
+            "current_user": current_user, "creative": None,
+        })
+    backend = BackendClient()
+    resp = await backend.list_creatives(at)
+    creatives = resp.get("data", [])
+    creative = None
+    for c in creatives:
+        if c.get("creative_code") == creative_code:
+            creative = c
+            creative["can_use_in_campaign"] = (c.get("status") == "approved")
+            creative["scan_status"] = c.get("scan_status", "not_configured")
+            break
+    return templates.TemplateResponse(request, "pages/creative_detail.html", {
+        "request": request, "title": creative["name"] if creative else "Креатив",
+        "active": "creatives", "current_user": current_user, "creative": creative,
+    })
+
+
+@app.get("/creatives/moderation/queue", response_class=HTMLResponse)
+async def moderation_queue_page(request: Request):
+    """44.4: Moderation queue page."""
+    guard = await require_auth_for_page(request, "/creatives")
+    if guard is not None:
+        return guard
+    current_user = get_current_portal_user(request)
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    if not at:
+        return _creatives_fallback(request, current_user)
+    backend = BackendClient()
+    queue_resp = await backend.get_moderation_queue(at)
+    queue_items = queue_resp.get("data", []) if queue_resp.get("ok") else []
+    return templates.TemplateResponse(request, "pages/creatives.html", {
+        "request": request, "title": "Очередь проверки", "active": "creatives",
+        "current_user": current_user, "creatives": queue_items,
+        "moderation_queue": True,
+    })
+
+
 def _creatives_fallback(request: Request, current_user) -> HTMLResponse:
     return templates.TemplateResponse(request, "pages/creatives.html", {
         "request": request,

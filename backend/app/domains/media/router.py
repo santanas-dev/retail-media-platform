@@ -517,6 +517,15 @@ async def approve_creative(
             detail=f"Нельзя согласовать креатив в статусе '{creative.status}'",
         )
 
+    # Maker-checker: creator cannot approve their own creative (44.4)
+    creator_id = getattr(creative, "created_by", None)
+    if creator_id is not None and str(creator_id) == str(current_user.id):
+        raise HTTPException(
+            status_code=400,
+            detail="Нельзя согласовать собственный креатив. "
+                   "Требуется проверка другим сотрудником.",
+        )
+
     # AV policy gate (44.3)
     from app.domains.media.schemas import CreativePolicyResponse
     policy = CreativePolicyResponse()
@@ -584,6 +593,160 @@ async def reject_creative(
     return schemas.ModerationResponse(
         creative_code=creative_code, status="rejected",
         action="reject", comment=data.comment,
+    )
+
+
+@router.post(
+    "/creatives/by-code/{creative_code}/return-for-rework",
+    response_model=schemas.ModerationResponse,
+)
+async def return_for_rework(
+    creative_code: str,
+    data: schemas.ModerationAction,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("media.approve")),
+):
+    """Return creative to draft for rework with reason (44.4)."""
+    creative = await service.get_creative_by_code(db, creative_code)
+    if not creative:
+        raise HTTPException(status_code=404, detail="Creative not found")
+    if creative.status not in ("in_review", "pending_review", "validation_failed"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Нельзя вернуть на доработку креатив в статусе '{creative.status}'",
+        )
+    creative.status = "draft"
+    creative.comment = data.comment  # rework instructions
+    await db.commit()
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="creative.return_for_rework", target_type="creative",
+        target_ref=creative_code,
+        details={"reason_code": data.reason_code, "comment": data.comment},
+    )
+    return schemas.ModerationResponse(
+        creative_code=creative_code, status="draft",
+        action="return_for_rework", comment=data.comment,
+    )
+
+
+# ── Moderation Queue (44.4) ─────────────────────────────────────────────
+
+@router.get(
+    "/creatives/moderation-queue",
+    response_model=list[schemas.ModerationQueueItem],
+)
+async def moderation_queue(
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("media.approve")),
+):
+    """List creatives awaiting manual moderation (44.4)."""
+    from sqlalchemy import select as sa_select
+    from app.domains.media.models import Creative, CreativeVersion
+
+    stmt = (
+        sa_select(Creative)
+        .where(Creative.status.in_(["pending_review", "in_review", "manual_review"]))
+        .order_by(Creative.created_at.asc())
+    )
+    result = await db.execute(stmt)
+    creatives = result.scalars().all()
+
+    queue_items = []
+    for c in creatives:
+        # Get latest version for metadata
+        ver_result = await db.execute(
+            sa_select(CreativeVersion)
+            .where(CreativeVersion.creative_id == c.id)
+            .order_by(CreativeVersion.version.desc())
+            .limit(1)
+        )
+        latest = ver_result.scalar_one_or_none()
+
+        # Get creator username
+        from app.domains.identity.models import User
+        user_result = await db.execute(
+            sa_select(User).where(User.id == c.created_by)
+        )
+        creator = user_result.scalar_one_or_none()
+        creator_name = creator.username if creator else None
+
+        queue_items.append(schemas.ModerationQueueItem(
+            creative_code=c.creative_code,
+            name=c.name,
+            status=c.status,
+            scan_status=getattr(c, "scan_status", "not_configured"),
+            content_type=latest.mime_type if latest else None,
+            width=latest.width if latest else None,
+            height=latest.height if latest else None,
+            file_size_bytes=latest.file_size if latest else None,
+            created_by=creator_name,
+            created_at=str(c.created_at) if c.created_at else None,
+            rejection_reason=getattr(c, "comment", None),
+            can_use_in_campaign=(c.status == "approved"),
+        ))
+
+    return queue_items
+
+
+# ── AV Production Readiness (44.4) ──────────────────────────────────────
+
+@router.get("/admin/av-readiness", response_model=schemas.AVReadinessResponse)
+async def av_readiness(
+    _: identity_models.User = Depends(require_permission("admin.system")),
+):
+    """Check if AV scanner is ready for production (44.4)."""
+    from app.domains.media.av_scanner import create_av_scanner, ClamAVScanner, NoScanner
+
+    scanner = create_av_scanner()
+    notes = []
+
+    if isinstance(scanner, NoScanner):
+        return schemas.AVReadinessResponse(
+            scanner_available=False,
+            scanner_name="none",
+            readiness="not_configured",
+            message="Проверка безопасности файлов ещё не настроена",
+            production_ready=False,
+            notes=[
+                "Антивирусный сканер не обнаружен",
+                "Промышленный режим включать нельзя",
+                "Для включения: установите ClamAV и запустите clamav-daemon",
+            ],
+        )
+
+    if isinstance(scanner, ClamAVScanner):
+        if scanner.is_configured:
+            notes.append("ClamAV обнаружен и настроен")
+            return schemas.AVReadinessResponse(
+                scanner_available=True,
+                scanner_name=scanner.name,
+                readiness="ready",
+                message="Проверка безопасности файлов работает",
+                production_ready=True,
+                notes=notes,
+            )
+        else:
+            return schemas.AVReadinessResponse(
+                scanner_available=False,
+                scanner_name=scanner.name,
+                readiness="unavailable",
+                message="Проверка безопасности файлов временно недоступна",
+                production_ready=False,
+                notes=[
+                    "ClamAV установлен, но недоступен",
+                    "Проверьте статус clamav-daemon",
+                    "Промышленный режим включать нельзя",
+                ],
+            )
+
+    return schemas.AVReadinessResponse(
+        scanner_available=False,
+        scanner_name="unknown",
+        readiness="error",
+        message="Ошибка проверки безопасности",
+        production_ready=False,
+        notes=["Неизвестная ошибка сканера"],
     )
 
 

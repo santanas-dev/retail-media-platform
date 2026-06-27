@@ -422,6 +422,30 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    async def return_creative_for_rework(
+        self, access_token: str, creative_code: str, comment: str = "",
+    ) -> dict:
+        """44.4: Return creative to draft for rework."""
+        return await self._request(
+            "POST", f"/api/creatives/by-code/{creative_code}/return-for-rework",
+            json={"action": "return_for_rework", "comment": comment},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_moderation_queue(self, access_token: str) -> dict:
+        """44.4: Get creatives awaiting manual moderation."""
+        return await self._request(
+            "GET", "/api/creatives/moderation-queue",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_av_readiness(self, access_token: str) -> dict:
+        """44.4: Check AV scanner production readiness."""
+        return await self._request(
+            "GET", "/api/admin/av-readiness",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
     # ── Campaign Production API (39.2.2) ─────────────────────────────────
 

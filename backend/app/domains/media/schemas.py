@@ -157,7 +157,7 @@ class ValidationResponse(BaseModel):
 # ── Moderation (44.2) ──────────────────────────────────────────────────────
 
 class ModerationAction(BaseModel):
-    action: str = Field(pattern=r"^(approve|reject|submit_review)$")
+    action: str = Field(pattern=r"^(approve|reject|submit_review|return_for_rework)$")
     reason_code: str | None = Field(None, max_length=50)
     comment: str | None = Field(None, max_length=500)
 
@@ -168,6 +168,32 @@ class ModerationResponse(BaseModel):
     action: str
     comment: str | None = None
     ok: bool = True
+
+
+class ModerationQueueItem(BaseModel):
+    """Item in the moderation queue — safe for portal display."""
+    creative_code: str
+    name: str
+    status: str
+    scan_status: str = "not_configured"
+    content_type: str | None = None
+    width: int | None = None
+    height: int | None = None
+    file_size_bytes: int | None = None
+    created_by: str | None = None  # username
+    created_at: str | None = None
+    rejection_reason: str | None = None
+    can_use_in_campaign: bool = False
+
+
+class AVReadinessResponse(BaseModel):
+    """AV scanner production readiness check — safe for admin UI."""
+    scanner_available: bool = False
+    scanner_name: str = "none"
+    readiness: str = "not_configured"  # ready | not_configured | unavailable | error
+    message: str = ""
+    production_ready: bool = False
+    notes: list[str] = []
 
 
 # ── Creative QA Policy (44.2) ──────────────────────────────────────────────

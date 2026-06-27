@@ -2193,3 +2193,21 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 ### Module
 - `backend/app/domains/media/media_validator.py` (411 lines)
 - `backend/app/domains/media/av_scanner.py` (358 lines)
+
+## 44.4 — Creative Moderation Queue & AV Production Readiness (2026-06-16)
+
+### Added
+- **Moderation queue:** `GET /api/creatives/moderation-queue` — все креативы на модерации с метаданными
+- **Return for rework:** `POST /creatives/{code}/return-for-rework` — возврат в draft с комментарием
+- **Maker-checker:** создатель не может одобрить свой креатив (400 + бизнес-сообщение)
+- **AV readiness:** `GET /api/admin/av-readiness` — проверка готовности сканера к production
+- **Creative detail page:** `/creatives/{code}` — карточка с предпросмотром, статусами, историей
+- **Status `manual_review`:** добавлен в разрешённые статусы модерации
+- **17 backend tests** (`test_creative_moderation_444.py`)
+- `.mov` guard: исключён из пользовательских форматов загрузки (внутренний контейнерный парсинг сохранён)
+
+### Policy
+- `pilot_dev`: ручная модерация разрешена (audit warning), maker-checker enforced
+- `production`: блокирует approval/publication без `scan_status=clean`
+- Fake AV pass запрещён
+- Production AV НЕ включён автоматически

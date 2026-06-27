@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">{{ creative.name if creative else "Креатив" }}</h1>
+
+{% if creative %}
+<div class="content-card">
+  <div class="card-header">
+    <span class="card-icon">🎨</span>
+    <span class="card-title">Карточка креатива</span>
+    <code class="card-badge">{{ creative.creative_code }}</code>
+  </div>
+
+  <div class="card-body">
+    <!-- Preview -->
+    <div class="detail-preview">
+      {% if creative.content_type and creative.content_type.startswith('video/') %}
+      <span class="preview-placeholder video">🎬 Видеофайл</span>
+      {% elif creative.content_type == 'image/gif' %}
+      <span class="preview-placeholder gif">🖼️ GIF-анимация</span>
+      {% else %}
+      <img src="/preview/{{ creative.creative_code }}" alt=""
+           class="preview-image">
+      {% endif %}
+    </div>
+
+    <!-- Status -->
+    <div class="detail-grid">
+      <div class="detail-row">
+        <span class="detail-label">Статус</span>
+        <span class="detail-value">
+          {% if creative.status == 'approved' %}<span class="status-success">Одобрен</span>
+          {% elif creative.status == 'pending_review' %}<span class="status-warning">Ожидает проверки</span>
+          {% elif creative.status == 'in_review' %}<span class="status-warning">На проверке</span>
+          {% elif creative.status == 'manual_review' %}<span class="status-warning">Ручная проверка</span>
+          {% elif creative.status == 'draft' %}<span class="status-muted">Черновик</span>
+          {% elif creative.status == 'rejected' %}<span class="status-danger">Отклонён</span>
+          {% elif creative.status == 'validation_failed' %}<span class="status-danger">Ошибка проверки</span>
+          {% elif creative.status == 'archived' %}<span class="status-muted">Архив</span>
+          {% else %}<span class="status-muted">{{ creative.status }}</span>{% endif %}
+        </span>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">Формат файла</span>
+        <span class="detail-value">{{ creative.content_type or '—' }}</span>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">Размер файла</span>
+        <span class="detail-value">{% if creative.file_size_bytes %}{{ (creative.file_size_bytes / 1024)|round|int }} КБ{% else %}—{% endif %}</span>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">Разрешение</span>
+        <span class="detail-value">
+          {% if creative.width and creative.height %}{{ creative.width }}×{{ creative.height }}
+          {% if creative.width == 768 and creative.height == 1024 %}<span class="text-xs status-success">✅ 768×1024</span>
+          {% else %}<span class="text-xs status-warning">⚠️ Нестандартное</span>{% endif %}
+          {% else %}—{% endif %}
+        </span>
+      </div>
+
+      {% if creative.duration_ms %}
+      <div class="detail-row">
+        <span class="detail-label">Длительность</span>
+        <span class="detail-value">{{ (creative.duration_ms / 1000)|round(1) }} сек</span>
+      </div>
+      {% endif %}
+
+      <div class="detail-row">
+        <span class="detail-label">Проверка безопасности</span>
+        <span class="detail-value">
+          {% if creative.scan_status == 'clean' %}<span class="status-success">✅ Файл проверен</span>
+          {% elif creative.scan_status == 'pending' %}<span class="status-warning">⏳ Ожидает проверки</span>
+          {% elif creative.scan_status == 'infected' %}<span class="status-danger">🚫 Найдена угроза</span>
+          {% elif creative.scan_status == 'failed' %}<span class="status-muted">⚠️ Проверка временно недоступна</span>
+          {% else %}<span class="status-muted">Не настроена</span>{% endif %}
+        </span>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">Профиль экрана</span>
+        <span class="detail-value">КСО, портрет 768×1024</span>
+      </div>
+
+      {% if creative.comment %}
+      <div class="detail-row">
+        <span class="detail-label">Причина возврата</span>
+        <span class="detail-value detail-comment">{{ creative.comment }}</span>
+      </div>
+      {% endif %}
+
+      <div class="detail-row">
+        <span class="detail-label">Можно использовать в кампании</span>
+        <span class="detail-value">
+          {% if creative.can_use_in_campaign %}
+          <span class="status-success">✅ Да</span>
+          {% else %}
+          <span class="status-danger">❌ Нет</span>
+          {% endif %}
+        </span>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    {% if creative.status != 'archived' %}
+    <div class="detail-actions">
+      {% if creative.status in ('pending_review', 'draft', 'validation_failed') %}
+      <form method="post" action="/creatives/{{ creative.creative_code }}/submit-review" class="inline">
+        <button type="submit" class="btn btn-sm">Отправить на проверку</button>
+      </form>
+      {% endif %}
+      {% if creative.status in ('in_review', 'pending_review') %}
+      <form method="post" action="/creatives/{{ creative.creative_code }}/approve" class="inline">
+        <button type="submit" class="btn btn-sm btn-success">Одобрить</button>
+      </form>
+      <form method="post" action="/creatives/{{ creative.creative_code }}/reject" class="inline">
+        <button type="submit" class="btn btn-sm btn-danger">Отклонить</button>
+      </form>
+      <form method="post" action="/creatives/{{ creative.creative_code }}/return-for-rework" class="inline">
+        <button type="submit" class="btn btn-sm btn-warning">Вернуть на доработку</button>
+      </form>
+      {% endif %}
+      <form action="/creatives/{{ creative.creative_code }}/archive" method="POST" class="inline">
+        <button type="submit" class="btn btn-sm btn-ghost">Архивировать</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- AV Warning (pilot mode) -->
+<div class="banner banner-warning">
+  <span class="banner-icon">🛡️</span>
+  <div class="banner-body">
+    <div class="banner-title">Проверка безопасности — пилотный режим</div>
+    <div class="banner-text">Креатив проходит ручную модерацию. Для промышленной эксплуатации потребуется обязательная проверка файлов.</div>
+  </div>
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">🎨</div>
+  <div class="empty-state-title">Креатив не найден</div>
+  <div class="empty-state-text">Проверьте код креатива или вернитесь к <a href="/creatives">списку</a>.</div>
+</div>
+{% endif %}
+
+<div class="mt-16">
+  <a href="/creatives" class="btn btn-ghost">← Назад к списку</a>
+</div>
+{% endblock %}
