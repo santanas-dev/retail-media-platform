@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Dashboard</h1>
-<p class="page-description">Управленческий экран Retail Media Platform. Данные из production backend.</p>
+<p class="page-description">Управленческий экран Retail Media Platform. Данные из система.</p>
 
 <!-- Pilot Status -->
 <div class="pilot-status no-go">
   <span class="pilot-status-icon">🔴</span>
-  <span><strong>Пилот: NO-GO</strong> — backend/product/portal GO, физическая КСО NO-GO (5 physical blockers). Сканер отсутствует — physical gates не запускаются.</span>
+  <span><strong>Запуск заблокирован</strong> — backend/product/portal GO, физическая КСО NO-GO (5 этапов проверки). Сканер не подключён — физическая проверка не начата.</span>
 </div>
 
 {% if backend_warning %}
@@ -138,7 +138,7 @@
 <div class="section-card">
   <div class="section-card-header">
     <span class="section-card-icon">🔄</span>
-    <span class="section-card-title">Рекламный pipeline</span>
+    <span class="section-card-title">Процесс рекламной кампании</span>
   </div>
   <div class="section-card-body">
     <div class="pipeline">
@@ -195,7 +195,7 @@
     </div>
   </div>
   <div class="section-card-footer">
-    Pipeline: Креатив → Кампания → Расписание → Согласование → Публикация → Отчёт. Каждый этап — ссылка на раздел.
+    Этапы: Креатив → Кампания → Расписание → Согласование → Публикация → Отчёт. Каждый этап — ссылка на раздел.
   </div>
 </div>
 
@@ -206,22 +206,22 @@
 <div class="section-card" style="border-color: var(--color-error-border);">
   <div class="section-card-header" style="border-color: var(--color-error-border);">
     <span class="section-card-icon">🚫</span>
-    <span class="section-card-title">Pilot Readiness</span>
-    <span class="pilot-status no-go" style="margin:0 0 0 auto;padding:4px 12px;font-size:12px;border-radius:6px;">🔴 NO-GO</span>
+    <span class="section-card-title">Pilot Готовность</span>
+    <span class="pilot-status no-go" style="margin:0 0 0 auto;padding:4px 12px;font-size:12px;border-radius:6px;">🚫 Запуск заблокирован</span>
   </div>
   <div class="section-card-body">
     <p style="font-size:13px;color:var(--color-error-text);margin-bottom:12px;">
-      <strong>Сканер отсутствует — physical gates не запускаются.</strong> Физический пилот невозможен до закрытия всех P0 blockers.
+      <strong>Сканер не подключён — физическая проверка не начата.</strong> Физический пилот невозможен до закрытия всех P0 blockers.
     </p>
     <div class="blocker-grid">
       <div class="blocker-item">
         <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">Scanner E2E</span>
-        <span class="blocker-detail">HW scanner не протестирован</span>
+        <span class="blocker-label">Проверка физического сканера</span>
+        <span class="blocker-detail">Физический сканер не протестирован</span>
       </div>
       <div class="blocker-item">
         <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">48h+ Long-run</span>
+        <span class="blocker-label">Длительная проверка стабильности</span>
         <span class="blocker-detail">Длительный прогон не выполнялся</span>
       </div>
       <div class="blocker-item">
@@ -231,7 +231,7 @@
       </div>
       <div class="blocker-item">
         <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">Sidecar sync</span>
+        <span class="blocker-label">Синхронизация агента</span>
         <span class="blocker-detail">Синхронизация не approved</span>
       </div>
       <div class="blocker-item">
@@ -295,12 +295,12 @@
 {% else %}
 <div class="empty-state">
   <div class="empty-state-icon">📡</div>
-  <div class="empty-state-title">Backend недоступен</div>
+  <div class="empty-state-title">Система недоступна</div>
   <div class="empty-state-text">Метрики появятся после восстановления соединения с backend API.</div>
 </div>
 {% endif %}
 
 <div class="timestamp" style="margin-top:16px;">
-  <span>🕐</span> Данные: production backend · обновление при каждом запросе
+  <span>🕐</span> Данные: система · обновление при каждом запросе
 </div>
 {% endblock %}

@@ -318,7 +318,7 @@ class TestDashboardContent(unittest.TestCase):
             # Platform summary blocks present
             self.assertIn("Сводка платформы", resp.text)
             self.assertIn("Рекламный pipeline", resp.text)
-            self.assertIn("Pilot Readiness", resp.text)
+            self.assertIn("Готовность к запуску", resp.text)
             self.assertIn("Что делать дальше", resp.text)
             # Stat blocks
             self.assertIn("stat-block", resp.text)
@@ -1278,7 +1278,7 @@ class TestReportsPage(unittest.TestCase):
     def test_has_status_blocks(self):
         """43.2: Campaign/publication/manifest status blocks present."""
         self.assertIn("Кампании по статусам", self.html)
-        self.assertIn("Publication Batches", self.html)
+        self.assertIn("Пакеты публикации", self.html)
         self.assertIn("Manifest status", self.html)
 
     def test_no_js_chart_libraries(self):
@@ -1288,7 +1288,7 @@ class TestReportsPage(unittest.TestCase):
 
     def test_has_report_table_columns(self):
         # 43.2: PoP table has compact form with filters; empty state when no data
-        self.assertIn("Proof of Play", self.html)
+        self.assertIn("Фактические показы", self.html)
         self.assertIn("Кампания", self.html)  # Filter label always present
 
     def test_table_shows_empty_state(self):
@@ -1663,8 +1663,9 @@ class TestAuthPages(unittest.TestCase):
 
     def test_login_mentions_corporate_sso(self):
         resp = self.client.get("/login")
-        self.assertIn("SSO", resp.text)
-        self.assertIn("корпоративн", resp.text.lower())
+        # New auth_base.html: login is minimal, no SSO references
+        self.assertIn("Retail Media Platform", resp.text)
+        self.assertIn("Управление рекламными показами", resp.text)
 
     def test_login_has_password_field(self):
         """Login now has a real server-side password form."""
@@ -1680,9 +1681,10 @@ class TestAuthPages(unittest.TestCase):
 
     def test_login_sso_button_disabled(self):
         resp = self.client.get("/login")
-        self.assertIn("SSO", resp.text)
-        self.assertIn("disabled", resp.text.lower())
-        self.assertIn("btn-disabled", resp.text)
+        # New login is minimal — SSO button removed, no disabled elements needed
+        self.assertIn("Войти", resp.text)
+        self.assertNotIn("SSO", resp.text)
+        self.assertNotIn("корпоративн", resp.text.lower())
 
     def test_logout_mentions_session_http_only(self):
         resp = self.client.get("/logout")
@@ -1890,20 +1892,21 @@ class TestAdminUserManagement(unittest.TestCase):
 
 
 class TestLoginLocalAuth(unittest.TestCase):
-    """Login page mentions local portal account alongside SSO."""
+    """Login page uses isolated auth layout — minimal, no navigation."""
 
     def setUp(self):
         self.client = TestClient(app)
 
     def test_login_mentions_local_portal_account(self):
         resp = self.client.get("/login")
-        self.assertIn("локальн", resp.text.lower())
-        self.assertIn("учётная запись", resp.text.lower())
+        # Minimal login — username field is present
+        self.assertIn("Имя пользователя", resp.text)
 
     def test_login_mentions_sso_ad(self):
         resp = self.client.get("/login")
-        self.assertIn("SSO", resp.text)
-        self.assertIn("корпоративн", resp.text.lower())
+        # New auth_base.html has no SSO/корпоративный references
+        self.assertNotIn("SSO", resp.text)
+        self.assertNotIn("корпоративн", resp.text.lower())
 
     def test_login_has_password_field(self):
         """Login now has a real server-side password form."""
@@ -1918,10 +1921,10 @@ class TestLoginLocalAuth(unittest.TestCase):
         self.assertNotIn("access_token", lower)
 
     def test_login_has_one_disabled_button(self):
-        """Only SSO button remains disabled; local login is active."""
+        """Login is minimal — only one active button, no disabled elements."""
         resp = self.client.get("/login")
-        self.assertIn("SSO", resp.text)
-        self.assertIn("локальн", resp.text.lower())
+        self.assertIn("Войти", resp.text)
+        self.assertNotIn("SSO", resp.text)
 
     def test_login_mentions_safe_password_storage(self):
         resp = self.client.get("/login")
@@ -2265,8 +2268,9 @@ class TestLoginForm(unittest.TestCase):
 
     def test_sso_button_remains_disabled(self):
         resp = self.client.get("/login")
-        self.assertIn("btn-disabled", resp.text)
-        self.assertIn("SSO", resp.text)
+        # New auth_base.html: no SSO button at all
+        self.assertNotIn("SSO", resp.text)
+        self.assertNotIn("скоро", resp.text.lower())
 
     def test_login_error_shows_safe_message(self):
         """Error messages do not reveal which field is wrong.
@@ -2317,7 +2321,7 @@ class TestLogoutFlow(unittest.TestCase):
 
 
 class TestBaseLayoutAuthState(unittest.TestCase):
-    """Base template shows dynamic auth state."""
+    """Base layout behaviour under different auth states."""
 
     def setUp(self):
         from main import app
@@ -2325,12 +2329,16 @@ class TestBaseLayoutAuthState(unittest.TestCase):
 
     def test_unauthenticated_header(self):
         resp = self.client.get("/dashboard")
-        self.assertIn("Пользователь: вход не выполнен", resp.text)
+        # Header shows only platform name when unauthenticated
+        self.assertIn("Retail Media Platform", resp.text)
+        self.assertNotIn("Пользователь: вход не выполнен", resp.text)
 
     def test_unauthenticated_shows_login_link(self):
         resp = self.client.get("/dashboard")
-        self.assertIn("Вход", resp.text)
-        self.assertIn('href="/login"', resp.text)
+        # Unauthenticated users are redirected to /login (303 → login page)
+        # Login page always shows "Войти" button
+        self.assertIn("Войти", resp.text)
+        self.assertIn("/login", resp.text)
 
     def test_header_does_not_expose_raw_tokens(self):
         resp = self.client.get("/dashboard")
@@ -4423,7 +4431,7 @@ class TestUXFlowBreadcrumbs(unittest.TestCase):
         resp = self.client.get("/dashboard")
         html = resp.text
         # 43.1: flow section uses numbered items under "Flow (1 → 5)" header
-        self.assertIn("Flow (1 → 5)", html, "Sidebar must have flow section header")
+        self.assertIn("Этапы (1 → 5)", html, "Sidebar must have flow section header")
         self.assertIn("nav-label\">Отчёты</span>", html, "Sidebar must have flow step 5")
 
 
@@ -4777,7 +4785,7 @@ class TestVisualSystem(unittest.TestCase):
     def test_dashboard_has_blockers_list(self):
         """Dashboard shows Pilot Readiness block with blockers."""
         resp = self.client.get("/dashboard")
-        self.assertIn("Scanner E2E", resp.text)
+        self.assertIn("Проверка физического сканера", resp.text)
         self.assertIn("Long-run", resp.text)
 
     def test_dashboard_has_quick_links(self):
@@ -4814,7 +4822,7 @@ class TestVisualSystem(unittest.TestCase):
     def test_reports_has_publication_batches_block(self):
         """Reports page has publication batches section."""
         resp = self.client.get("/reports")
-        self.assertIn("Publication Batches", resp.text)
+        self.assertIn("Пакеты публикации", resp.text)
 
     def test_reports_has_manifest_status_block(self):
         """Reports page has manifest status section."""
@@ -4966,9 +4974,9 @@ class TestDashboardReportsVisualization(unittest.TestCase):
 
     def test_dashboard_pilot_readiness_block(self):
         resp = self.client.get("/dashboard")
-        self.assertIn("Pilot Readiness", resp.text)
+        self.assertIn("Готовность к запуску", resp.text)
         self.assertIn("NO-GO", resp.text)
-        self.assertIn("Сканер отсутствует", resp.text)
+        self.assertIn("Сканер не подключён", resp.text)
 
     def test_dashboard_five_blockers(self):
         resp = self.client.get("/dashboard")
@@ -5063,7 +5071,7 @@ class TestDashboardReportsVisualization(unittest.TestCase):
 
     def test_reports_pop_empty_state(self):
         resp = self.client.get("/reports")
-        self.assertIn("Proof of Play", resp.text)
+        self.assertIn("Фактические показы", resp.text)
 
     # ── Safety ──────────────────────────────────────────
 
@@ -5295,7 +5303,7 @@ class TestApprovalPublicationWorkflow(unittest.TestCase):
 
     def test_approvals_has_maker_checker_warning(self):
         resp = self.client.get("/approvals")
-        self.assertIn("Maker-Checker", resp.text)
+        self.assertIn("Принцип двух подписей", resp.text)
 
     def test_approvals_has_flow_breadcrumbs(self):
         resp = self.client.get("/approvals")
@@ -5347,7 +5355,7 @@ class TestApprovalPublicationWorkflow(unittest.TestCase):
 
     def test_publications_empty_state(self):
         resp = self.client.get("/publications")
-        self.assertIn("Пока нет publication batches", resp.text)
+        self.assertIn("Пока нет пакетов публикации", resp.text)
 
     def test_publications_no_forbidden_strings(self):
         resp = self.client.get("/publications")
@@ -5430,10 +5438,10 @@ class TestBusinessDemoAcceptance(unittest.TestCase):
     def test_readiness_has_physical_blockers(self):
         """Readiness page shows 5 P0 blockers."""
         resp = self.client.get("/readiness")
-        self.assertIn("Scanner E2E", resp.text)
-        self.assertIn("48h+ Long-run", resp.text)
-        self.assertIn("Manifest delivery", resp.text)
-        self.assertIn("Sidecar sync", resp.text)
+        self.assertIn("Проверка физического сканера", resp.text)
+        self.assertIn("Длительная проверка стабильности", resp.text)
+        self.assertIn("Доставка на КСО", resp.text)
+        self.assertIn("Синхронизация агента", resp.text)
         self.assertIn("Fleet rollout", resp.text)
 
     def test_readiness_shows_no_go_status(self):
@@ -5444,7 +5452,7 @@ class TestBusinessDemoAcceptance(unittest.TestCase):
     def test_readiness_has_scanner_absent_message(self):
         """Readiness page states scanner is absent."""
         resp = self.client.get("/readiness")
-        self.assertIn("Сканер отсутствует", resp.text)
+        self.assertIn("Сканер не подключён", resp.text)
 
     def test_readiness_no_claim_pilot_ready(self):
         """Readiness page never claims pilot is ready."""
@@ -5482,9 +5490,9 @@ class TestBusinessDemoAcceptance(unittest.TestCase):
         """Readiness page shows what happens after scanner appears."""
         resp = self.client.get("/readiness")
         self.assertIn("после появления сканера", resp.text.lower())
-        self.assertIn("PHASE_SCANNER_E2E", resp.text)
-        self.assertIn("PHASE_PHYSICAL_DELIVERY", resp.text)
-        self.assertIn("PHASE_SIDECAR_SYNC", resp.text)
+        self.assertIn("Разрешение на проверку сканера", resp.text)
+        self.assertIn("Разрешение на доставку", resp.text)
+        self.assertIn("Разрешение на синхронизацию", resp.text)
 
     # ── No legacy/deprecated/internal labels ────────────
 

@@ -109,7 +109,7 @@
         <td colspan="8">
           <div class="table-empty-state">
             <div class="table-empty-icon">👤</div>
-            <div class="table-empty-title">{{ "Backend недоступен" if not backend_available else "Нет данных" }}</div>
+            <div class="table-empty-title">{{ "Система недоступна" if not backend_available else "Нет данных" }}</div>
             <div class="table-empty-text">{{ "Backend API временно недоступен. Данные пользователей не загружены." if not backend_available else "Пользователи будут отображены после загрузки из backend API." }}</div>
           </div>
         </td>
@@ -314,7 +314,7 @@
         <td colspan="4">
           <div class="table-empty-state">
             <div class="table-empty-icon">📋</div>
-            <div class="table-empty-title">{{ "Backend недоступен" if not backend_available else "Нет записей аудита" }}</div>
+            <div class="table-empty-title">{{ "Система недоступна" if not backend_available else "Нет записей аудита" }}</div>
             <div class="table-empty-text">{{ "Backend API временно недоступен. Данные аудита не загружены." if not backend_available else "События аудита появятся здесь после выполнения действий администрирования." }}</div>
           </div>
         </td>

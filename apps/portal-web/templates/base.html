@@ -11,18 +11,14 @@
 <!-- Header -->
 <div class="header">
   <span class="header-logo">Retail Media Platform</span>
-  <span class="header-subtitle">KSO v1</span>
   <span class="header-spacer"></span>
   {% if current_user %}
-  <span class="header-user">👤 {{ current_user.safe_name }}
+  <span class="header-user">{{ current_user.safe_name }}
     {% if current_user.roles %}
     <span class="header-roles">({{ current_user.role_labels | join(', ') }})</span>
     {% endif %}
   </span>
   <a href="/logout" class="header-login-link">Выход</a>
-  {% else %}
-  <span class="header-user">Пользователь: вход не выполнен</span>
-  <a href="/login" class="header-login-link">Вход</a>
   {% endif %}
 </div>
 
@@ -30,7 +26,7 @@
 <div class="sidebar">
   <div class="sidebar-section">Главное</div>
   <a href="/dashboard" class="{{ 'active' if active == 'dashboard' }}">
-    <span class="nav-icon">📊</span><span class="nav-label">Dashboard</span>
+    <span class="nav-icon">📊</span><span class="nav-label">Главный экран</span>
   </a>
 
   <div class="sidebar-section">Реклама</div>
@@ -60,13 +56,13 @@
     <span class="nav-icon">🖥️</span><span class="nav-label">Устройства</span>
   </a>
   <a href="/readiness" class="{{ 'active' if active == 'readiness' }}">
-    <span class="nav-icon">🧭</span><span class="nav-label">Readiness</span>
+    <span class="nav-icon">🧭</span><span class="nav-label">Готовность</span>
   </a>
   <a href="/device-dashboard" class="{{ 'active' if active == 'device-dashboard' }}">
-    <span class="nav-icon">📡</span><span class="nav-label">Device Dashboard</span>
+    <span class="nav-icon">📡</span><span class="nav-label">Панель КСО</span>
   </a>
   <a href="/proof-of-play" class="{{ 'active' if active == 'pop' }}">
-    <span class="nav-icon">✅</span><span class="nav-label">Proof of Play</span>
+    <span class="nav-icon">✅</span><span class="nav-label">Фактические показы</span>
   </a>
   <a href="/stores" class="{{ 'active' if active == 'stores' }}">
     <span class="nav-icon">🏪</span><span class="nav-label">Магазины</span>
@@ -81,7 +77,7 @@
   </a>
 
   <!-- Flow hint -->
-  <div class="sidebar-section">Flow (1 → 5)</div>
+  <div class="sidebar-section">Этапы (1 → 5)</div>
   <a href="/creatives" style="font-size:11px;opacity:0.7;padding-top:4px;padding-bottom:4px;">
     <span class="nav-icon" style="font-size:10px;">1</span><span class="nav-label">Креативы</span>
   </a>
@@ -101,12 +97,6 @@
 
 <!-- Main content -->
 <div class="main">
-{% if demo %}
-<div class="demo-banner">
-  <span class="demo-banner-icon">⚠️</span>
-  <span class="demo-banner-text">Демо-данные. Не являются реальными данными сети.</span>
-</div>
-{% endif %}
 {% block content %}{% endblock %}
 </div>
 

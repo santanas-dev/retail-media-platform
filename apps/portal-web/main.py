@@ -3157,12 +3157,9 @@ async def login_page(request: Request):
     current_user = get_current_portal_user(request)
     if current_user:
         return RedirectResponse(url="/dashboard", status_code=303)
-    return templates.TemplateResponse(request, "pages/login.html", {
+    return templates.TemplateResponse(request, "auth_base.html", {
         "request": request,
         "title": "Вход",
-        "active": "login",
-        "demo": True,
-        "current_user": None,
         "error": None,
     })
 
@@ -3189,13 +3186,10 @@ async def login_handler(
         elif result.get("status") == 403:
             error = "Вход запрещён. Обратитесь к администратору."
         elif result.get("status") in (502, 504):
-            error = "Сервер авторизации временно недоступен. Попробуйте позже."
-        return templates.TemplateResponse(request, "pages/login.html", {
+            error = "Сервер временно недоступен. Попробуйте позже."
+        return templates.TemplateResponse(request, "auth_base.html", {
             "request": request,
             "title": "Вход",
-            "active": "login",
-            "demo": True,
-            "current_user": None,
             "error": error,
         }, status_code=401)
 

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Публикации</h1>
-<p class="page-description">Publication batches — от approved кампании до готового manifest. Backend status only: публикация в backend не означает доставку на физическую КСО.</p>
+<p class="page-description">Пакет публикацииes — от approved кампании до готового manifest. Backend status only: публикация в backend не означает доставку на физическую КСО.</p>
 
 <!-- Flow breadcrumbs -->
 <div class="flow-breadcrumbs">
@@ -35,7 +35,7 @@
   <span class="banner-icon">🚫</span>
   <div class="banner-body">
     <div class="banner-title">Физическая доставка на КСО: NO-GO</div>
-    <div class="banner-text"><strong>Manifest delivery to physical KSO is blocked until approval gate.</strong> Публикация в backend формирует manifest без доставки на КСО. Физическая доставка требует отдельного approval gate. Подробнее: <a href="/readiness">Readiness</a>.</div>
+    <div class="banner-text"><strong>Доставка на КСО заблокирована до получения отдельного разрешения.</strong> Публикация в backend формирует manifest без доставки на КСО. Физическая доставка требует отдельного approval gate. Подробнее: <a href="/readiness">Readiness</a>.</div>
   </div>
 </div>
 
@@ -43,7 +43,7 @@
 <div class="banner banner-warning">
   <span class="banner-icon">⚠️</span>
   <div class="banner-body">
-    <div class="banner-title">Режим backend-only</div>
+    <div class="banner-title">Режим подготовки в системе</div>
     <div class="banner-text">Публикация формирует backend manifest без доставки на устройство. Доставка и sidecar sync отключены до отдельного approval.</div>
   </div>
 </div>
@@ -98,12 +98,12 @@
 <div class="section-card">
   <div class="section-card-header">
     <span class="section-card-icon">📦</span>
-    <span class="section-card-title">Publication Batches</span>
+    <span class="section-card-title">Пакеты публикации</span>
     <span class="section-card-badge">{{ batches|length }}</span>
   </div>
   <div class="section-card-body" style="padding:0;">
 
-    <!-- Lifecycle pipeline -->
+    <!-- Lifecycle process -->
     <div style="padding:14px 20px;background:var(--color-bg);border-bottom:1px solid var(--color-border);">
       <div class="lifecycle-flow">
         <span class="lifecycle-step lifecycle-draft">draft</span>
@@ -154,14 +154,14 @@
         {% endif %}
         {% if b.status == 'approved' %}
         <form method="post" action="/publications/batch/{{ b.batch_id }}/generate" style="display:inline;">
-          <button type="submit" class="btn btn-sm" style="background:var(--color-purple);color:#fff;">📋 Generate manifest</button>
+          <button type="submit" class="btn btn-sm" style="background:var(--color-purple);color:#fff;">📋 Сформировать пакет показа</button>
         </form>
         {% endif %}
         {% if b.status == 'manifest_generated' %}
         <form method="post" action="/publications/batch/{{ b.batch_id }}/publish" style="display:inline;">
-          <button type="submit" class="btn btn-sm" style="background:var(--color-success);color:#fff;">🚀 Publish (backend)</button>
+          <button type="submit" class="btn btn-sm" style="background:var(--color-success);color:#fff;">🚀 Опубликовать в системе</button>
         </form>
-        <span style="font-size:10px;color:var(--color-warning-text);">⚠️ Backend-only. Физическая доставка заблокирована.</span>
+        <span style="font-size:10px;color:var(--color-warning-text);">⚠️ Только в системе. Доставка на КСО заблокирована.</span>
         {% endif %}
         {% if b.status not in ('published', 'cancelled') %}
         <form method="post" action="/publications/batch/{{ b.batch_id }}/cancel" style="display:inline;">
@@ -185,14 +185,14 @@
     <div class="summary-stat"><div class="summary-stat-value">{{ batches|length }}</div><div class="summary-stat-label">Всего</div></div>
     <div class="summary-stat"><div class="summary-stat-value">{{ d_count }}</div><div class="summary-stat-label">Черновик</div></div>
     <div class="summary-stat"><div class="summary-stat-value">{{ a_count }}</div><div class="summary-stat-label">Одобрено</div></div>
-    <div class="summary-stat"><div class="summary-stat-value">{{ m_count }}</div><div class="summary-stat-label">Manifest</div></div>
+    <div class="summary-stat"><div class="summary-stat-value">{{ m_count }}</div><div class="summary-stat-label">Пакеты показа</div></div>
     <div class="summary-stat"><div class="summary-stat-value">{{ p_count }}</div><div class="summary-stat-label">Опубликовано</div></div>
   </div>
 </div>
 {% else %}
 <div class="empty-state">
   <div class="empty-state-icon">📦</div>
-  <div class="empty-state-title">Пока нет publication batches</div>
+  <div class="empty-state-title">Пока нет пакет публикацииes</div>
   <div class="empty-state-text">Одобрите кампанию, затем нажмите «Подготовить публикацию» на странице <a href="/campaigns">Кампании</a>.</div>
   <div class="empty-state-action">
     <a href="/campaigns" class="btn btn-primary">📢 К кампаниям</a>
@@ -231,7 +231,7 @@
 {% if backend_unavailable %}
 <div class="banner banner-warning" style="margin-top:16px;">
   <span class="banner-icon">⚠️</span>
-  <div class="banner-body"><div class="banner-text">Бэкенд недоступен: {{ backend_message }}</div></div>
+  <div class="banner-body"><div class="banner-text">Система недоступна: {{ backend_message }}</div></div>
 </div>
 {% endif %}
 
@@ -249,10 +249,10 @@
 <!-- Safety Notes -->
 <div class="note-box">
   <span class="note-icon">📦</span>
-  <span class="note-text">Workflow: draft → согласование → approved → generate → manifest_generated → publish (backend). Доставка на КСО — после PHASE_MANIFEST_DELIVERY_APPROVED.</span>
+  <span class="note-text">Workflow: draft → согласование → approved → формирование → пакет показа → публикация в системе. Доставка на КСО — после PHASE_MANIFEST_DELIVERY_APPROVED.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Безопасная проекция: batch ID, campaign_code, status, dates. Без raw UUID, backend URL, storage paths, tokens, secrets.</span>
+  <span class="note-text"></span>
 </div>
 {% endblock %}

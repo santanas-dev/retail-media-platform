@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">🧭 Readiness — Pilot Gate + Бизнес-демо</h1>
+<h1 class="page-title">🧭 Готовность к запуску + Бизнес-демо</h1>
 <p class="page-description">
-  Сводка готовности устройств и бизнес-сценария к демонстрации. Данные из production API.
+  Сводка готовности устройств и бизнес-сценария к демонстрации. Данные из система.
   <a href="/device-dashboard">📡 Полный Device Dashboard →</a>
 </p>
 
@@ -58,7 +58,7 @@
         <div class="card-hint">Требуют обновления</div>
       </div>
       <div class="card">
-        <div class="card-title">Missing Manifest</div>
+        <div class="card-title">Missing Пакеты показа</div>
         <div class="card-value">{{ kpi.get('missing_manifest', 0) }}</div>
         <div class="card-hint">Нет applied manifest</div>
       </div>
@@ -183,7 +183,7 @@
   🎯 Бизнес-демо: что можно показать
 </h2>
 <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:20px;">
-  Полный backend-only сценарий рекламной кампании доступен для демонстрации без физической КСО.
+  Полный в системе сценарий рекламной кампании доступен для демонстрации без физической КСО.
   Физическая доставка на КСО, фактические показы и сканер — заблокированы до закрытия approval gates.
 </p>
 
@@ -191,7 +191,7 @@
 <div class="section-card" style="border-color: var(--color-success-border);">
   <div class="section-card-header" style="border-color: var(--color-success-border);">
     <span class="section-card-icon">✅</span>
-    <span class="section-card-title">Что уже готово (backend + портал)</span>
+    <span class="section-card-title">Что уже готово (система + портал)</span>
   </div>
   <div class="section-card-body">
     <div class="checklist">
@@ -213,7 +213,7 @@
       </div>
       <div class="checklist-item done">
         <span class="checklist-icon">✅</span>
-        <span class="checklist-label"><a href="/publications">Публикация в backend</a> — batch lifecycle, manifest generation, backend-only publish</span>
+        <span class="checklist-label"><a href="/publications">Публикация в backend</a> — batch lifecycle, manifest generation, в системе publish</span>
       </div>
       <div class="checklist-item done">
         <span class="checklist-icon">✅</span>
@@ -221,7 +221,7 @@
       </div>
       <div class="checklist-item done">
         <span class="checklist-icon">✅</span>
-        <span class="checklist-label"><a href="/dashboard">Dashboard</a> — KPI-сводка, pipeline, pilot readiness, план действий</span>
+        <span class="checklist-label"><a href="/dashboard">Dashboard</a> — KPI-сводка, process, pilot readiness, план действий</span>
       </div>
       <div class="checklist-item done">
         <span class="checklist-icon">✅</span>
@@ -235,7 +235,7 @@
 <div class="section-card">
   <div class="section-card-header">
     <span class="section-card-icon">🎬</span>
-    <span class="section-card-title">Сценарий демонстрации (backend-only)</span>
+    <span class="section-card-title">Сценарий демонстрации (в системе)</span>
   </div>
   <div class="section-card-body">
     <div class="pipeline" style="flex-wrap:wrap;gap:8px;">
@@ -297,18 +297,18 @@
   <div class="section-card-header" style="border-color: var(--color-error-border);">
     <span class="section-card-icon">🚫</span>
     <span class="section-card-title">Что пока заблокировано до сканера</span>
-    <span class="pilot-status no-go" style="margin:0 0 0 auto;padding:4px 12px;font-size:12px;border-radius:6px;">🔴 NO-GO</span>
+    <span class="pilot-status no-go" style="margin:0 0 0 auto;padding:4px 12px;font-size:12px;border-radius:6px;">🚫 Запуск заблокирован</span>
   </div>
   <div class="section-card-body">
     <div class="blocker-grid">
       <div class="blocker-item">
         <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">Scanner E2E</span>
-        <span class="blocker-detail">HW scanner не протестирован</span>
+        <span class="blocker-label">Проверка физического сканера</span>
+        <span class="blocker-detail">Физический сканер не протестирован</span>
       </div>
       <div class="blocker-item">
         <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">48h+ Long-run</span>
+        <span class="blocker-label">Длительная проверка стабильности</span>
         <span class="blocker-detail">Длительный прогон не выполнялся</span>
       </div>
       <div class="blocker-item">
@@ -318,7 +318,7 @@
       </div>
       <div class="blocker-item">
         <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">Sidecar sync</span>
+        <span class="blocker-label">Синхронизация агента</span>
         <span class="blocker-detail">Синхронизация не approved</span>
       </div>
       <div class="blocker-item">
@@ -328,7 +328,7 @@
       </div>
     </div>
     <p style="font-size:12px;color:var(--color-text-secondary);margin-top:12px;">
-      <strong>Сканер отсутствует — physical gates не запускаются.</strong>
+      <strong>Сканер не подключён — физическая проверка не начата.</strong>
       Без физического сканера нельзя выполнить scanner E2E, manifest delivery, sidecar sync, long-run и fleet rollout.
     </p>
   </div>
@@ -348,11 +348,11 @@
   </div>
   <div class="section-card-body">
     <ol style="font-size:13px;color:var(--color-text);line-height:1.8;padding-left:20px;">
-      <li>Подключить физический сканер к КСО → выполнить <strong>Scanner E2E</strong> (PHASE_SCANNER_E2E_APPROVED)</li>
-      <li>Доставить manifest на физическую КСО → проверить парсинг и отображение (PHASE_PHYSICAL_DELIVERY_APPROVED)</li>
-      <li>Запустить sidecar sync на КСО → убедиться, что PoP-события доходят до backend (PHASE_SIDECAR_SYNC_APPROVED)</li>
-      <li>Выполнить <strong>48h+ long-run</strong> с мониторингом — память, диск, Chromium, перезапуски (PHASE_LONG_RUN_APPROVED)</li>
-      <li>После закрытия всех P0 — решение GO/NO-GO по пилоту (PHASE_FLEET_ROLLOUT_APPROVED)</li>
+      <li>Подключить физический сканер к КСО → выполнить <strong>Проверка физического сканера</strong> (Разрешение на проверку сканера)</li>
+      <li>Доставить manifest на физическую КСО → проверить парсинг и отображение (Разрешение на доставку)</li>
+      <li>Запустить sidecar sync на КСО → убедиться, что PoP-события доходят до backend (Разрешение на синхронизацию)</li>
+      <li>Выполнить <strong>48h+ long-run</strong> с мониторингом — память, диск, Chromium, перезапуски (Разрешение на проверку стабильности)</li>
+      <li>После закрытия всех P0 — решение GO/NO-GO по пилоту (Разрешение на запуск)</li>
       <li>Пилот одного КСО → сбор evidence → решение о расширении fleet</li>
     </ol>
     <p style="font-size:11px;color:var(--color-text-muted);margin-top:8px;">
@@ -377,7 +377,7 @@
   📋 Acceptance Checklist
 </h2>
 <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:20px;">
-  Чек-лист приёмки бизнес-демо. Пройдите все пункты для подтверждения готовности backend-only сценария.
+  Чек-лист приёмки бизнес-демо. Пройдите все пункты для подтверждения готовности в системе сценария.
   <strong>Это справочный список, а не автоматическая проверка.</strong>
 </p>
 
@@ -406,7 +406,7 @@
       </div>
       <div class="checklist-item">
         <span class="checklist-icon">☐</span>
-        <span class="checklist-label"><strong>Согласование запрошено</strong> — approval request создан на /approvals</span>
+        <span class="checklist-label"><strong>Согласование запрошено</strong> — заявка создан на /approvals</span>
       </div>
       <div class="checklist-item">
         <span class="checklist-icon">☐</span>
@@ -414,7 +414,7 @@
       </div>
       <div class="checklist-item">
         <span class="checklist-icon">☐</span>
-        <span class="checklist-label"><strong>Publication batch создан</strong> — batch_ref на /publications</span>
+        <span class="checklist-label"><strong>Пакет публикации создан</strong> — batch_ref на /publications</span>
       </div>
       <div class="checklist-item">
         <span class="checklist-icon">☐</span>
@@ -440,7 +440,7 @@
   </div>
   <div class="section-card-footer">
     <span style="font-size:11px;color:var(--color-text-muted);">
-      Чек-лист приёмки. Пройдите все пункты для подтверждения готовности backend-only сценария к бизнес-демонстрации.
+      Чек-лист приёмки. Пройдите все пункты для подтверждения готовности в системе сценария к бизнес-демонстрации.
     </span>
   </div>
 </div>
@@ -454,7 +454,7 @@
   <div class="section-card-body">
     <div class="next-actions-grid" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
       <a href="/dashboard" class="next-action-card">
-        <span class="next-action-label">📊 Dashboard</span>
+        <span class="next-action-label">📊 Главный экран</span>
       </a>
       <a href="/creatives" class="next-action-card">
         <span class="next-action-label">🎨 Креативы</span>
@@ -475,7 +475,7 @@
         <span class="next-action-label">📈 Отчёты</span>
       </a>
       <a href="/device-dashboard" class="next-action-card">
-        <span class="next-action-label">📡 Device Dashboard</span>
+        <span class="next-action-label">📡 Device Главный экран</span>
       </a>
     </div>
   </div>
@@ -484,10 +484,10 @@
 <!-- Safety Notes -->
 <div class="note-box">
   <span class="note-icon">🧭</span>
-  <span class="note-text">Readiness: device KPI + бизнес-демо сценарий + acceptance checklist. Все данные из production backend.</span>
+  <span class="note-text">Readiness: device KPI + бизнес-демо сценарий + acceptance checklist. Все данные из система.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Физическая КСО, сканер, sidecar, Chromium, manifest delivery — не запускались. Pilot: 🔴 NO-GO (5 P0 blockers).</span>
+  <span class="note-text">Физическая КСО, сканер, sidecar, Chromium, manifest delivery — не запускались. Pilot: 🚫 Запуск заблокирован (5 P0 blockers).</span>
 </div>
 {% endblock %}

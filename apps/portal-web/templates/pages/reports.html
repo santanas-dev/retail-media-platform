@@ -8,7 +8,7 @@
   <span class="banner-icon">⚠️</span>
   <div class="banner-body">
     <div class="banner-title">Плановая отчётность</div>
-    <div class="banner-text">Данные ниже — плановые (backend-only). <strong>Фактические показы (Proof of Play) недоступны</strong> до physical delivery gate.</div>
+    <div class="banner-text">Данные ниже — плановые (в системе). <strong>Фактические показы (Proof of Play) недоступны</strong> до physical delivery gate.</div>
   </div>
 </div>
 
@@ -230,10 +230,10 @@
   </div>
   <div class="section-card-body">
     <div class="stat-grid stat-grid-2col">
-      <!-- Publication Batches -->
+      <!-- Пакеты публикации -->
       <div class="stat-block">
         <div class="stat-block-header">
-          <span class="stat-block-label">Publication Batches</span>
+          <span class="stat-block-label">Пакеты публикации</span>
           <span class="stat-block-total">{{ pub_batch_statuses.values() | sum if pub_batch_statuses else 0 }}</span>
         </div>
         {% if pub_batch_statuses %}
@@ -297,7 +297,7 @@
 <div class="section-card" style="border-color: var(--color-warning-border);">
   <div class="section-card-header" style="border-color: var(--color-warning-border);">
     <span class="section-card-icon">✅</span>
-    <span class="section-card-title">Proof of Play — события</span>
+    <span class="section-card-title">Фактические показы — события</span>
   </div>
   <div class="section-card-body">
     <!-- PoP Filters -->
@@ -379,10 +379,10 @@
 <!-- Safety Notes -->
 <div class="note-box">
   <span class="note-icon">📊</span>
-  <span class="note-text">Отчёты используют данные из production backend. Плановые данные отделены от фактического PoP.</span>
+  <span class="note-text">Отчёты используют данные из система. Плановые данные отделены от фактического PoP.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">RLS enforced. Advertiser видит только свои данные. Конфликты анонимизированы для advertiser. CSV: без secrets, tokens, backend URL, storage paths.</span>
+  <span class="note-text"></span>
 </div>
 {% endblock %}

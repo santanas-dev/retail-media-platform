@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retail Media Platform — Вход</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="auth-body">
+
+<div class="auth-card">
+  <div class="auth-logo">Retail Media Platform</div>
+  <div class="auth-subtitle">Управление рекламными показами на экранах КСО</div>
+
+  {% if error %}
+  <div class="banner banner-error" style="margin-bottom:20px;">
+    <span class="banner-icon">⚠️</span>
+    <div class="banner-body">
+      <div class="banner-text">{{ error }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="login-form-container">
+    <form method="POST" action="/login" class="login-form">
+      <div class="form-group">
+        <label for="username" class="form-label">Имя пользователя</label>
+        <input type="text" id="username" name="username"
+               class="form-input" required autocomplete="username"
+               minlength="1" maxlength="100"
+               placeholder="Введите имя пользователя">
+      </div>
+
+      <div class="form-group">
+        <label for="password" class="form-label">Пароль</label>
+        <input type="password" id="password" name="password"
+               class="form-input" required autocomplete="current-password"
+               minlength="1"
+               placeholder="Введите пароль">
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;font-size:14px;">Войти</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+</body>
+</html>
