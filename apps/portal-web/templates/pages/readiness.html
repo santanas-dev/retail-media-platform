@@ -1,56 +1,68 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">🧭 Readiness — Pilot Gate</h1>
+<h1 class="page-title">🧭 Readiness — Pilot Gate + Бизнес-демо</h1>
 <p class="page-description">
-  Сводка готовности устройств к пилоту. Данные из production API.
+  Сводка готовности устройств и бизнес-сценария к демонстрации. Данные из production API.
   <a href="/device-dashboard">📡 Полный Device Dashboard →</a>
 </p>
 
-<!-- Summary Cards -->
-<div class="cards">
-  <div class="card">
-    <div class="card-title">Всего устройств</div>
-    <div class="card-value">{{ kpi.get('total', 0) }}</div>
-    <div class="card-hint">В системе</div>
-  </div>
-  <div class="card">
-    <div class="card-title">✅ Ready</div>
-    <div class="card-value">{{ kpi.get('ready', 0) }}</div>
-    <div class="card-hint">Готовы к пилоту</div>
-  </div>
-  <div class="card">
-    <div class="card-title">⚠️ Warning</div>
-    <div class="card-value">{{ kpi.get('warning', 0) }}</div>
-    <div class="card-hint">Требуют внимания</div>
-  </div>
-  <div class="card">
-    <div class="card-title">🚫 Blocked</div>
-    <div class="card-value">{{ kpi.get('blocked', 0) }}</div>
-    <div class="card-hint">Заблокированы</div>
-  </div>
-  <div class="card">
-    <div class="card-title">❓ Unknown</div>
-    <div class="card-value">{{ kpi.get('unknown', 0) }}</div>
-    <div class="card-hint">Недостаточно данных</div>
-  </div>
-</div>
+<!-- ═══════════════════════════════════════════════════════════════════
+     PART 1: DEVICE READINESS
+     ═══════════════════════════════════════════════════════════════════ -->
 
-<!-- Detail Cards -->
-<div class="cards">
-  <div class="card">
-    <div class="card-title">Stale Heartbeat</div>
-    <div class="card-value">{{ kpi.get('stale_heartbeat', 0) }}</div>
-    <div class="card-hint">&gt; 15 min</div>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🖥️</span>
+    <span class="section-card-title">Готовность устройств</span>
   </div>
-  <div class="card">
-    <div class="card-title">Expired Credential</div>
-    <div class="card-value">{{ kpi.get('expired_credential', 0) }}</div>
-    <div class="card-hint">Требуют обновления</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Missing Manifest</div>
-    <div class="card-value">{{ kpi.get('missing_manifest', 0) }}</div>
-    <div class="card-hint">Нет applied manifest</div>
+  <div class="section-card-body">
+    <!-- Summary Cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-title">Всего устройств</div>
+        <div class="card-value">{{ kpi.get('total', 0) }}</div>
+        <div class="card-hint">В системе</div>
+      </div>
+      <div class="card">
+        <div class="card-title">✅ Ready</div>
+        <div class="card-value">{{ kpi.get('ready', 0) }}</div>
+        <div class="card-hint">Готовы к пилоту</div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚠️ Warning</div>
+        <div class="card-value">{{ kpi.get('warning', 0) }}</div>
+        <div class="card-hint">Требуют внимания</div>
+      </div>
+      <div class="card">
+        <div class="card-title">🚫 Blocked</div>
+        <div class="card-value">{{ kpi.get('blocked', 0) }}</div>
+        <div class="card-hint">Заблокированы</div>
+      </div>
+      <div class="card">
+        <div class="card-title">❓ Unknown</div>
+        <div class="card-value">{{ kpi.get('unknown', 0) }}</div>
+        <div class="card-hint">Недостаточно данных</div>
+      </div>
+    </div>
+
+    <!-- Detail Cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-title">Stale Heartbeat</div>
+        <div class="card-value">{{ kpi.get('stale_heartbeat', 0) }}</div>
+        <div class="card-hint">&gt; 15 min</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Expired Credential</div>
+        <div class="card-value">{{ kpi.get('expired_credential', 0) }}</div>
+        <div class="card-hint">Требуют обновления</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Missing Manifest</div>
+        <div class="card-value">{{ kpi.get('missing_manifest', 0) }}</div>
+        <div class="card-hint">Нет applied manifest</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -160,4 +172,322 @@
   {% endif %}
 </div>
 {% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     PART 2: BUSINESS DEMO READINESS
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<hr style="margin:32px 0 24px;border:1px solid var(--color-border);">
+
+<h2 style="font-size:20px;font-weight:700;color:var(--color-text);margin-bottom:4px;">
+  🎯 Бизнес-демо: что можно показать
+</h2>
+<p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:20px;">
+  Полный backend-only сценарий рекламной кампании доступен для демонстрации без физической КСО.
+  Физическая доставка на КСО, фактические показы и сканер — заблокированы до закрытия approval gates.
+</p>
+
+<!-- Что уже готово -->
+<div class="section-card" style="border-color: var(--color-success-border);">
+  <div class="section-card-header" style="border-color: var(--color-success-border);">
+    <span class="section-card-icon">✅</span>
+    <span class="section-card-title">Что уже готово (backend + портал)</span>
+  </div>
+  <div class="section-card-body">
+    <div class="checklist">
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><a href="/creatives">Загрузка креативов</a> — PNG/JPEG/MP4, портрет 768×1024</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><a href="/campaigns">Создание и управление кампаниями</a> — статусы, привязка креативов</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><a href="/schedule">Настройка расписания</a> — слоты по дням недели, временные окна</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><a href="/approvals">Согласование</a> — maker-checker, approve/reject с комментариями</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><a href="/publications">Публикация в backend</a> — batch lifecycle, manifest generation, backend-only publish</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><a href="/reports">Плановая отчётность</a> — занятость эфира, кампании по статусам, CSV export</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><a href="/dashboard">Dashboard</a> — KPI-сводка, pipeline, pilot readiness, план действий</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label">Безопасность — RBAC, RLS, audit trail, safe projection (без raw UUID, secrets, backend URL)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Что можно показать без физической КСО -->
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🎬</span>
+    <span class="section-card-title">Сценарий демонстрации (backend-only)</span>
+  </div>
+  <div class="section-card-body">
+    <div class="pipeline" style="flex-wrap:wrap;gap:8px;">
+      <a href="/creatives" class="pipeline-step">
+        <span class="pipeline-step-num">1</span>
+        <span class="pipeline-step-icon">🎨</span>
+        <span class="pipeline-step-label">Креатив</span>
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <a href="/campaigns" class="pipeline-step">
+        <span class="pipeline-step-num">2</span>
+        <span class="pipeline-step-icon">📢</span>
+        <span class="pipeline-step-label">Кампания</span>
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <a href="/schedule" class="pipeline-step">
+        <span class="pipeline-step-num">3</span>
+        <span class="pipeline-step-icon">🗓</span>
+        <span class="pipeline-step-label">Расписание</span>
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <a href="/approvals" class="pipeline-step">
+        <span class="pipeline-step-num">4</span>
+        <span class="pipeline-step-icon">📝</span>
+        <span class="pipeline-step-label">Согласование</span>
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <a href="/publications" class="pipeline-step">
+        <span class="pipeline-step-num">5</span>
+        <span class="pipeline-step-icon">📋</span>
+        <span class="pipeline-step-label">Публикация</span>
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <a href="/reports" class="pipeline-step">
+        <span class="pipeline-step-num">6</span>
+        <span class="pipeline-step-icon">📈</span>
+        <span class="pipeline-step-label">Отчёт</span>
+      </a>
+    </div>
+
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-top:16px;">
+      <strong>Полный цикл рекламной кампании:</strong> загрузка креатива → создание кампании → настройка расписания → 
+      отправка на согласование → решение → подготовка публикации → генерация manifest → backend публикация → 
+      выгрузка плановой отчётности в CSV.
+    </p>
+    <p style="font-size:12px;color:var(--color-text-muted);">
+      Весь сценарий выполняется в backend без физической КСО. Manifest формируется, но не доставляется на устройство.
+    </p>
+  </div>
+  <div class="section-card-footer">
+    <a href="/creatives" class="btn btn-sm btn-primary">🎨 Начать с креатива</a>
+    <a href="/dashboard" class="btn btn-sm btn-ghost">📊 Dashboard</a>
+    <a href="/reports" class="btn btn-sm btn-ghost">📈 Отчёты</a>
+  </div>
+</div>
+
+<!-- Что заблокировано -->
+<div class="section-card" style="border-color: var(--color-error-border);">
+  <div class="section-card-header" style="border-color: var(--color-error-border);">
+    <span class="section-card-icon">🚫</span>
+    <span class="section-card-title">Что пока заблокировано до сканера</span>
+    <span class="pilot-status no-go" style="margin:0 0 0 auto;padding:4px 12px;font-size:12px;border-radius:6px;">🔴 NO-GO</span>
+  </div>
+  <div class="section-card-body">
+    <div class="blocker-grid">
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Scanner E2E</span>
+        <span class="blocker-detail">HW scanner не протестирован</span>
+      </div>
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">48h+ Long-run</span>
+        <span class="blocker-detail">Длительный прогон не выполнялся</span>
+      </div>
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Manifest delivery</span>
+        <span class="blocker-detail">Доставка на КСО не approved</span>
+      </div>
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Sidecar sync</span>
+        <span class="blocker-detail">Синхронизация не approved</span>
+      </div>
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Fleet rollout</span>
+        <span class="blocker-detail">Не утверждён</span>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--color-text-secondary);margin-top:12px;">
+      <strong>Сканер отсутствует — physical gates не запускаются.</strong>
+      Без физического сканера нельзя выполнить scanner E2E, manifest delivery, sidecar sync, long-run и fleet rollout.
+    </p>
+  </div>
+  <div class="section-card-footer" style="border-color: var(--color-error-border);">
+    <a href="/publications" class="btn btn-sm btn-ghost">📋 Статус публикаций</a>
+    <span style="font-size:11px;color:var(--color-text-muted);margin-left:8px;">
+      См. <a href="/docs/runbooks/physical-approval-gates.md">approval gates</a>
+    </span>
+  </div>
+</div>
+
+<!-- Следующий шаг после сканера -->
+<div class="section-card" style="border-color: var(--color-warning-border);">
+  <div class="section-card-header" style="border-color: var(--color-warning-border);">
+    <span class="section-card-icon">👉</span>
+    <span class="section-card-title">Следующий шаг после появления сканера</span>
+  </div>
+  <div class="section-card-body">
+    <ol style="font-size:13px;color:var(--color-text);line-height:1.8;padding-left:20px;">
+      <li>Подключить физический сканер к КСО → выполнить <strong>Scanner E2E</strong> (PHASE_SCANNER_E2E_APPROVED)</li>
+      <li>Доставить manifest на физическую КСО → проверить парсинг и отображение (PHASE_PHYSICAL_DELIVERY_APPROVED)</li>
+      <li>Запустить sidecar sync на КСО → убедиться, что PoP-события доходят до backend (PHASE_SIDECAR_SYNC_APPROVED)</li>
+      <li>Выполнить <strong>48h+ long-run</strong> с мониторингом — память, диск, Chromium, перезапуски (PHASE_LONG_RUN_APPROVED)</li>
+      <li>После закрытия всех P0 — решение GO/NO-GO по пилоту (PHASE_FLEET_ROLLOUT_APPROVED)</li>
+      <li>Пилот одного КСО → сбор evidence → решение о расширении fleet</li>
+    </ol>
+    <p style="font-size:11px;color:var(--color-text-muted);margin-top:8px;">
+      Все approval tokens описаны в runbook. Каждый шаг требует отдельного разрешения, последовательно.
+    </p>
+  </div>
+  <div class="section-card-footer" style="border-color: var(--color-warning-border);">
+    <span style="font-size:12px;color:var(--color-text-secondary);">Документы:</span>
+    <span style="font-size:11px;color:var(--color-text-muted);">
+      pilot runbook · fallback/rollback runbook · physical approval gates · GO/NO-GO baseline
+    </span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     PART 3: ACCEPTANCE CHECKLIST
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<hr style="margin:32px 0 24px;border:1px solid var(--color-border);">
+
+<h2 style="font-size:20px;font-weight:700;color:var(--color-text);margin-bottom:4px;">
+  📋 Acceptance Checklist
+</h2>
+<p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:20px;">
+  Чек-лист приёмки бизнес-демо. Пройдите все пункты для подтверждения готовности backend-only сценария.
+  <strong>Это справочный список, а не автоматическая проверка.</strong>
+</p>
+
+<div class="section-card">
+  <div class="section-card-body">
+    <div class="checklist">
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Креатив загружен и approved</strong> — изображение 768×1024, статус на /creatives</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Кампания создана</strong> — campaign_code, название, статус на /campaigns</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Креатив привязан к кампании</strong> — creative_code в списке креативов кампании</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Расписание создано</strong> — schedule_code, слоты с днями недели и временными окнами</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Слоты расписания настроены</strong> — хотя бы один слот на /schedule</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Согласование запрошено</strong> — approval request создан на /approvals</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Согласование принято (approve/reject)</strong> — решение видно на /approvals</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Publication batch создан</strong> — batch_ref на /publications</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Manifest сгенерирован в backend</strong> — статус «Manifest готов» на /publications</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Backend публикация выполнена</strong> — статус «Опубликовано» на /publications</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Отчёты / CSV export доступны</strong> — ссылки на /reports, campaigns.csv, publications.csv</span>
+      </div>
+      <div class="checklist-item" style="color:var(--color-text-muted);">
+        <span class="checklist-icon">—</span>
+        <span class="checklist-label"><strong>Физическая доставка НЕ выполнялась</strong> — это ожидаемо, approval gate не пройден</span>
+      </div>
+      <div class="checklist-item" style="color:var(--color-text-muted);">
+        <span class="checklist-icon">—</span>
+        <span class="checklist-label"><strong>Фактические показы (PoP) не ожидаются</strong> — появятся после physical gate</span>
+      </div>
+    </div>
+  </div>
+  <div class="section-card-footer">
+    <span style="font-size:11px;color:var(--color-text-muted);">
+      Чек-лист приёмки. Пройдите все пункты для подтверждения готовности backend-only сценария к бизнес-демонстрации.
+    </span>
+  </div>
+</div>
+
+<!-- Cross-page links -->
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🔗</span>
+    <span class="section-card-title">Быстрые ссылки</span>
+  </div>
+  <div class="section-card-body">
+    <div class="next-actions-grid" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
+      <a href="/dashboard" class="next-action-card">
+        <span class="next-action-label">📊 Dashboard</span>
+      </a>
+      <a href="/creatives" class="next-action-card">
+        <span class="next-action-label">🎨 Креативы</span>
+      </a>
+      <a href="/campaigns" class="next-action-card">
+        <span class="next-action-label">📢 Кампании</span>
+      </a>
+      <a href="/schedule" class="next-action-card">
+        <span class="next-action-label">🗓 Расписание</span>
+      </a>
+      <a href="/approvals" class="next-action-card">
+        <span class="next-action-label">📝 Согласования</span>
+      </a>
+      <a href="/publications" class="next-action-card">
+        <span class="next-action-label">📋 Публикации</span>
+      </a>
+      <a href="/reports" class="next-action-card">
+        <span class="next-action-label">📈 Отчёты</span>
+      </a>
+      <a href="/device-dashboard" class="next-action-card">
+        <span class="next-action-label">📡 Device Dashboard</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Safety Notes -->
+<div class="note-box">
+  <span class="note-icon">🧭</span>
+  <span class="note-text">Readiness: device KPI + бизнес-демо сценарий + acceptance checklist. Все данные из production backend.</span>
+</div>
+<div class="note-box">
+  <span class="note-icon">🛡️</span>
+  <span class="note-text">Физическая КСО, сканер, sidecar, Chromium, manifest delivery — не запускались. Pilot: 🔴 NO-GO (5 P0 blockers).</span>
+</div>
 {% endblock %}

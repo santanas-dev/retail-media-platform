@@ -1206,6 +1206,27 @@ code {
 .pipeline-dot.dot-past   { background: var(--color-success); }
 
 /* ═══════════════════════════════════════════════════════════════════
+   CHECKLIST (acceptance checklist items)
+   ═══════════════════════════════════════════════════════════════════ */
+.checklist {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.checklist-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-radius: var(--radius-sm); background: var(--color-bg);
+  font-size: 13px; color: var(--color-text);
+}
+.checklist-item.done { background: var(--color-success-bg); border: 1px solid var(--color-success-border); }
+.checklist-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  font-size: 13px; background: var(--color-border);
+}
+.checklist-item.done .checklist-icon { background: var(--color-success-bg); }
+.checklist-label a { color: var(--color-primary); text-decoration: none; }
+.checklist-label a:hover { text-decoration: underline; }
+
+/* ═══════════════════════════════════════════════════════════════════
    REDUCED MOTION
    ═══════════════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {

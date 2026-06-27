@@ -1,8 +1,8 @@
-# Technical Debt Register — 43.1
+# Technical Debt Register — 43.5
 
 **Date:** 2026-06-16  
-**Baseline:** HEAD `178a40d` (43.1)  
-**Total items:** 34 (6 P0, 4 P1, 20 P2, 4 P3) — 1 P0 doc item RESOLVED, portal visual system normalized (43.1)
+**Baseline:** HEAD (43.5 — Business Demo Acceptance)  
+**Total items:** 34 (6 P0, 4 P1, 20 P2, 4 P3) — 1 P0 doc item RESOLVED, portal visual system normalized (43.1), business demo acceptance pack added (43.5)
 
 ---
 

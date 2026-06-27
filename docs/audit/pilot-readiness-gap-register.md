@@ -1,8 +1,9 @@
-# Pilot Readiness Gap Register — 43.1
+# Pilot Readiness Gap Register — 43.5
 
 **Date:** 2026-06-16  
-**Baseline:** HEAD `178a40d` (43.1 Portal Visual System)  
-**Pilot Status:** 🔴 NO-GO (5 physical blockers, 1 doc blocker RESOLVED)
+**Baseline:** HEAD (43.5 — Business Demo Acceptance)  
+**Pilot Status:** 🔴 NO-GO (5 physical blockers, 1 doc blocker RESOLVED)  
+**Business Demo:** ✅ Backend-only scenario ready for demonstration via `/readiness` page
 
 ---
 

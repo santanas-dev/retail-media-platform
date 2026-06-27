@@ -5398,5 +5398,187 @@ class TestApprovalPublicationWorkflow(unittest.TestCase):
         self.assertIn("/publications", resp.text)
 
 
+class TestBusinessDemoAcceptance(unittest.TestCase):
+    """43.5: Business Demo Scenario & Portal Acceptance Pack."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    # ── Readiness Page — Business Demo Sections ────────
+
+    def test_readiness_page_renders(self):
+        resp = self.client.get("/readiness")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Readiness", resp.text)
+
+    def test_readiness_has_business_demo_scope(self):
+        """Readiness page includes business demo readiness sections."""
+        resp = self.client.get("/readiness")
+        self.assertIn("Что уже готово", resp.text)
+        self.assertIn("Сценарий демонстрации", resp.text)
+
+    def test_readiness_has_physical_blockers(self):
+        """Readiness page shows 5 P0 blockers."""
+        resp = self.client.get("/readiness")
+        self.assertIn("Scanner E2E", resp.text)
+        self.assertIn("48h+ Long-run", resp.text)
+        self.assertIn("Manifest delivery", resp.text)
+        self.assertIn("Sidecar sync", resp.text)
+        self.assertIn("Fleet rollout", resp.text)
+
+    def test_readiness_shows_no_go_status(self):
+        """Readiness page explicitly shows NO-GO pilot status."""
+        resp = self.client.get("/readiness")
+        self.assertIn("NO-GO", resp.text)
+
+    def test_readiness_has_scanner_absent_message(self):
+        """Readiness page states scanner is absent."""
+        resp = self.client.get("/readiness")
+        self.assertIn("Сканер отсутствует", resp.text)
+
+    def test_readiness_no_claim_pilot_ready(self):
+        """Readiness page never claims pilot is ready."""
+        resp = self.client.get("/readiness")
+        self.assertNotIn("Pilot GO", resp.text)
+        self.assertNotIn("Пилот готов", resp.text)
+
+    def test_readiness_has_acceptance_checklist(self):
+        """Readiness page includes acceptance checklist."""
+        resp = self.client.get("/readiness")
+        self.assertIn("Acceptance Checklist", resp.text)
+        self.assertIn("Креатив загружен", resp.text)
+        self.assertIn("Кампания создана", resp.text)
+        self.assertIn("Расписание создано", resp.text)
+        self.assertIn("Согласование запрошено", resp.text)
+        self.assertIn("Publication batch создан", resp.text)
+        self.assertIn("Manifest сгенерирован", resp.text)
+        self.assertIn("Backend публикация выполнена", resp.text)
+        self.assertIn("CSV export", resp.text)
+        self.assertIn("Физическая доставка НЕ выполнялась", resp.text)
+        self.assertIn("Фактические показы", resp.text)
+
+    def test_readiness_has_quick_links(self):
+        """Readiness page has quick links to all workflow pages."""
+        resp = self.client.get("/readiness")
+        self.assertIn("/dashboard", resp.text)
+        self.assertIn("/creatives", resp.text)
+        self.assertIn("/campaigns", resp.text)
+        self.assertIn("/schedule", resp.text)
+        self.assertIn("/approvals", resp.text)
+        self.assertIn("/publications", resp.text)
+        self.assertIn("/reports", resp.text)
+
+    def test_readiness_has_next_steps_after_scanner(self):
+        """Readiness page shows what happens after scanner appears."""
+        resp = self.client.get("/readiness")
+        self.assertIn("после появления сканера", resp.text.lower())
+        self.assertIn("PHASE_SCANNER_E2E", resp.text)
+        self.assertIn("PHASE_PHYSICAL_DELIVERY", resp.text)
+        self.assertIn("PHASE_SIDECAR_SYNC", resp.text)
+
+    # ── No legacy/deprecated/internal labels ────────────
+
+    def test_no_legacy_labels_in_publications(self):
+        """Publications page does not show 'Manifest (legacy)' or 'Deprecated' labels."""
+        resp = self.client.get("/publications")
+        # Old labels must not appear
+        self.assertNotIn("Manifest (legacy)", resp.text)
+        self.assertNotIn("Deprecated — use batches", resp.text)
+        # New labels should be present
+        self.assertIn("Ранее созданные манифесты", resp.text)
+        self.assertIn("Созданы до внедрения batch-системы", resp.text)
+
+    def test_no_legacy_labels_in_readiness(self):
+        """Readiness page has no legacy/deprecated/internal/dev labels."""
+        resp = self.client.get("/readiness")
+        lower = resp.text.lower()
+        for fb in ("legacy", "deprecated", "dev-only", "test-kso", "internal label"):
+            self.assertNotIn(fb, lower)
+
+    def test_no_legacy_labels_in_dashboard(self):
+        """Dashboard has no legacy/deprecated/internal/dev labels."""
+        resp = self.client.get("/dashboard")
+        lower = resp.text.lower()
+        for fb in ("legacy", "deprecated", "dev-only", "test-kso", "internal label"):
+            self.assertNotIn(fb, lower)
+
+    def test_no_legacy_labels_in_approvals(self):
+        """Approvals page has no legacy/deprecated/internal/dev labels."""
+        resp = self.client.get("/approvals")
+        lower = resp.text.lower()
+        for fb in ("legacy", "deprecated", "dev-only", "test-kso", "internal label"):
+            self.assertNotIn(fb, lower)
+
+    # ── No JS/CDN/localStorage ─────────────────────────
+
+    def test_readiness_no_js(self):
+        resp = self.client.get("/readiness")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "localstorage"):
+            self.assertNotIn(fb, lower)
+
+    def test_readiness_no_cdn(self):
+        resp = self.client.get("/readiness")
+        lower = resp.text.lower()
+        for fb in ("cdn.", "unpkg", "jsdelivr"):
+            self.assertNotIn(fb, lower)
+
+    # ── Safety: no secrets/tokens/URLs ──────────────────
+
+    def test_readiness_no_forbidden_strings(self):
+        resp = self.client.get("/readiness")
+        lower = resp.text.lower()
+        for fb in ("device_secret", "backend_url", "api_key", "bearer ", "access_token"):
+            self.assertNotIn(fb, lower)
+
+    def test_readiness_no_raw_uuid(self):
+        """Readiness page must not leak raw UUIDs in visible text."""
+        resp = self.client.get("/readiness")
+        import re
+        uuids = re.findall(
+            r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
+            resp.text, re.IGNORECASE,
+        )
+        self.assertEqual(len(uuids), 0, f"Readiness page leaked raw UUIDs: {uuids[:3]}")
+
+    # ── Reports: planned vs factual separation ─────────
+
+    def test_reports_separates_factual_pop(self):
+        """Reports page clearly separates planned reports from factual PoP."""
+        resp = self.client.get("/reports")
+        self.assertIn("Плановая отчётность", resp.text)
+        self.assertIn("Фактические показы", resp.text)
+
+    def test_reports_has_csv_export_links(self):
+        """Reports page has CSV export links visible (publications always, campaigns when data)."""
+        resp = self.client.get("/reports")
+        # publications.csv is always visible (appears in D. PUBLICATIONS section)
+        self.assertIn("/reports/export/publications", resp.text)
+
+    # ── Dashboard: honest readiness ────────────────────
+
+    def test_dashboard_shows_pilot_nogo(self):
+        """Dashboard shows honest NO-GO pilot status."""
+        resp = self.client.get("/dashboard")
+        self.assertIn("NO-GO", resp.text)
+        self.assertIn("physical gates не запускаются", resp.text.lower())
+
+    def test_dashboard_no_claim_pilot_ready(self):
+        """Dashboard never claims pilot is ready."""
+        resp = self.client.get("/dashboard")
+        self.assertNotIn("Pilot GO", resp.text)
+        self.assertNotIn("Пилот готов", resp.text)
+
+
 if __name__ == "__main__":
     unittest.main()

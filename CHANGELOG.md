@@ -7,6 +7,51 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [43.5-business-demo-acceptance] — 2026-06-16
+
+**Business Demo Scenario & Portal Acceptance Pack — подготовка портала к бизнес-демонстрации.**
+
+### Business Demo Readiness
+- Расширена страница `/readiness`: device KPI + бизнес-демо секции
+- **«Что уже готово»** — checklist из 8 backend/portal возможностей с ссылками
+- **«Сценарий демонстрации»** — pipeline из 6 шагов (креатив → кампания → расписание → согласование → публикация → отчёт)
+- **«Что заблокировано»** — 5 P0 blockers с деталями
+- **«Следующий шаг после сканера»** — 6 шагов с approval tokens
+- **Acceptance Checklist** — 13 пунктов для самостоятельной приёмки backend-only сценария
+- Быстрые ссылки на все разделы портала
+
+### Business-facing Wording
+- «Manifest (legacy)» → «Ранее созданные манифесты»
+- «Deprecated — use batches» → «Созданы до внедрения batch-системы»
+- 0 видимых legacy/deprecated/internal/dev-only labels в production UI ✅
+
+### Visual System
+- `.checklist` / `.checklist-item` / `.checklist-icon` — стили для acceptance checklist
+- `.checklist-item.done` — выделение выполненных пунктов
+
+### Docs
+- Создан `docs/product/business-demo-acceptance-43-5.md` — полный документ приёмки:
+  цель, что показываем/не показываем, пошаговый сценарий (8 шагов),
+  критерии успешной приёмки (13 AC), known limitations, physical blockers,
+  next steps после сканера
+
+### Audit
+- `docs/audit/technical-debt-register.md` — обновлён baseline
+- `docs/audit/pilot-readiness-gap-register.md` — обновлён, добавлен статус business demo
+
+### Policy
+- Production endpoints only
+- 0 fake/demo primary data ✅
+- 0 visible test-kso/dev/internal labels ✅
+- 0 JS/CDN/localStorage ✅
+- No physical KSO/SSH/X11/Chromium/runner/sidecar/PoP changes
+
+### Tests
+- +TestBusinessDemoAcceptance (new tests): readiness business demo, acceptance checklist, physical blockers, cross-page links
+- Portal regression: running
+
+---
+
 ## [43.4-approval-publication-ux] — 2026-06-16
 
 **Approval / Publication UX — продуктовый hardening финальных этапов workflow.**
