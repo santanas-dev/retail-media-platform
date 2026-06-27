@@ -4886,14 +4886,11 @@ class TestVisualSystem(unittest.TestCase):
     # ── test-kso: not primary path ─────────────────────
 
     def test_dashboard_no_test_kso_as_primary(self):
-        """Dashboard references test-kso only in disclaimer, not as path."""
+        """Dashboard has zero visible test-kso references in production UI."""
         resp = self.client.get("/dashboard")
         text = resp.text
-        # The one allowed reference: "Без test-kso" (capital Б in Russian)
-        self.assertIn("Без test-kso", text)
-        # No other test-kso references
         count = text.count("test-kso") + text.count("test_kso")
-        self.assertEqual(count, 1, f"Expected 1 test-kso disclaimer, got {count}")
+        self.assertEqual(count, 0, f"Expected 0 test-kso refs, got {count}")
 
     # ── Banners ─────────────────────────────────────────
 

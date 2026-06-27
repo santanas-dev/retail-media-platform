@@ -7,6 +7,21 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [43.1.1-remove-test-kso-wording] — 2026-06-16
+
+**Remove visible test-kso wording from production portal UI.**
+
+### Changes
+- `apps/portal-web/templates/pages/dashboard.html` — replaced "Без test-kso как primary KPI источника" → "показатели формируются из рабочих данных платформы"
+- `apps/portal-web/tests/test_main.py` — `test_dashboard_no_test_kso_as_primary` now asserts zero test-kso refs (was 1)
+
+### Policy
+- Legacy backend/test helpers untouched
+- No backend runtime changes
+- No physical KSO/SSH/X11/Chromium/runner/sidecar/PoP
+
+---
+
 ## [43.1-portal-visual-system-navigation] — 2026-06-16
 
 **Portal Visual System & Product Navigation — UI/UX normalization step.**
