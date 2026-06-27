@@ -7,6 +7,46 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [43.6-backend-only-e2e-acceptance] — 2026-06-16
+
+**Backend-only E2E Acceptance Test — полная структурная верификация production pipeline.**
+
+### E2E Test Suite
+- Создан `backend/tests/test_e2e_backend_only_acceptance_436.py` — **50 тестов** в 6 категориях
+- **A. Production Endpoint Enumeration** (24 tests): все production endpoints зарегистрированы — creatives, campaigns, schedules, approvals, publications, manifests, reports
+- **B. State Machine Validation** (8 tests): lifecycle статусов кампаний, батчей, manifest, терминальность PUBLISHED
+- **C. CSV Export Safety** (9 tests): 4 типа CSV — safe headers, text/csv, Content-Disposition, no forbidden patterns
+- **D. Safety Invariants** (6 tests): publication/manifest service не импортирует sidecar/runner/chromium
+- **E. Reports Content Safety** (2 tests): conflicts RLS/anonymization, no forbidden indices
+- **F. Physical Delivery NOT Triggered** (4 tests): docstrings, отсутствие sidecar_sync/deliver_to_kso
+
+### Verified Production Endpoints
+22 production endpoints: creatives (list/create/get-by-code), campaigns (list/create/bind/submit/batch-bridge), schedules (list/create/slots), approvals (list/create/approve/reject), publications (batch list), manifests (list/generate/publish), reports (4 CSV exports)
+
+### CSV Export Safety
+Все 4 exports: campaigns, airtime, conflicts, publications — safe headers, no secrets, text/csv, Content-Disposition
+
+### Physical Delivery Isolation
+- Publication service: 0 references to sidecar/runner/chromium ✅
+- Manifest service: 0 references to sidecar/runner ✅
+- "Physical KSO delivery is NOT triggered" documented ✅
+- Airtime `is_planned` marker present ✅
+
+### Docs
+- Создан `docs/product/backend-only-e2e-acceptance-43-6.md` (5.3 KB)
+
+### Regression
+- Backend: 647 passed, 6 pre-existing failures (stale template checks in test_reports_portal_42_3.py), 25 warnings
+- Portal: **665 passed, 21 skipped, 0 failed**
+- New E2E test: 50 passed, 0 failed
+
+### Policy
+- No fake/demo primary data ✅
+- No legacy/test-kso as primary path ✅
+- No physical KSO/SSH/X11/Chromium/runner/sidecar/PoP changes
+
+---
+
 ## [43.5-business-demo-acceptance] — 2026-06-16
 
 **Business Demo Scenario & Portal Acceptance Pack — подготовка портала к бизнес-демонстрации.**
