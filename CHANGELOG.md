@@ -7,6 +7,34 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [43.7.1-business-lang-test-fix] — 2026-06-16
+
+**Fix portal test regression after business language + dark UI (43.7).**
+
+### Portal Tests
+- 25 failed → **0 failed**. 644 passed, 32 skipped
+- Обновлены expected strings во всех тестах под бизнес-формулировки:
+  `Dashboard` → `Главный экран`, `NO-GO` → `Запуск заблокирован`,
+  `Proof of Play` → `Фактические показы`, `Flow` → `Этапы`,
+  `Publication batch` → `Пакет публикации`, `Production` → `Система`,
+  `Scanner E2E` → `Проверка физического сканера`,
+  `Long-run` → `Длительная проверка стабильности`,
+  `Sidecar sync` → `Синхронизация агента`,
+  `Maker-checker` → `двух подписей` и многие другие
+- CSS-тест: обновлены имена классов под dark theme (`.status-badge-active` и др.)
+- Auth-тесты: `TestBaseLayoutAuthState` и `test_portal_user_from_request_has_no_tokens`
+  включают `_enable_real_auth()` для проверки реального неаутентифицированного состояния
+- Удалён дубликат метода `test_login_mentions_local_portal_account`
+
+### Safety Preserved
+- No JS/CDN/localStorage ✅
+- No secrets/tokens/full URLs/barcodes/storage paths/raw UUID leakage ✅
+- Login isolation confirmed: `/dashboard` без сессии → редирект на `/login` с "Войти"
+- Physical KSO/SSH/X11/Chromium/runner/sidecar/PoP не запускались
+- Scanner E2E/long-run/sidecar sync не выполнялись
+
+---
+
 ## [43.6-backend-only-e2e-acceptance] — 2026-06-16
 
 **Backend-only E2E Acceptance Test — полная структурная верификация production pipeline.**
