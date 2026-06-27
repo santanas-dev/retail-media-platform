@@ -52,7 +52,7 @@
 
 <!-- Status Summary -->
 {% if campaigns %}
-<div class="summary-panel" style="margin-bottom:16px;">
+<div class="summary-panel mb-16">
   <div class="summary-stats">
     <div class="summary-stat"><div class="summary-stat-value">{{ campaigns|length }}</div><div class="summary-stat-label">Всего</div></div>
     <div class="summary-stat"><div class="summary-stat-value">{{ campaigns_by_status.draft }}</div><div class="summary-stat-label">Черновик</div></div>
@@ -100,7 +100,7 @@
           </td>
           <td>
             {% if c.creative_count == 0 %}
-            <span class="text-sm" style="color:var(--color-warning);">⚠️ Нет креативов</span>
+            <span class="text-sm text-warning">⚠️ Нет креативов</span>
             {% else %}
             {{ c.creative_codes }}
             {% endif %}
@@ -111,7 +111,7 @@
             <form action="/campaigns/{{ c.campaign_code }}/archive" method="POST" class="inline">
               <button type="submit" class="btn btn-sm btn-ghost">Архив</button>
             </form>
-            {% else %}<span class="text-sm" style="color:var(--color-text-muted);">—</span>{% endif %}
+            {% else %}<span class="text-sm text-muted">—</span>{% endif %}
           </td>
         </tr>
         {% if c.status != 'archived' %}
@@ -119,14 +119,14 @@
           <td colspan="6">
             <div class="form-inline" style="gap:10px;padding:8px 12px;">
               <!-- Edit -->
-              <form method="post" action="/campaigns/{{ c.campaign_code }}/edit" style="display:flex;gap:6px;align-items:center;">
-                <span class="text-sm font-semibold text-secondary" style="white-space:nowrap;">Ред.:</span>
+              <form method="post" action="/campaigns/{{ c.campaign_code }}/edit" class="flex-center gap-6">
+                <span class="text-sm font-semibold text-secondary nowrap">Ред.:</span>
                 <input type="text" name="name" value="{{ c.name }}" minlength="1" maxlength="255" required class="form-input form-input-md" style="padding:4px 8px;font-size:12px;">
                 <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
               </form>
               <!-- Bind Creative -->
-              <form method="post" action="/campaigns/{{ c.campaign_code }}/bind-creative" style="display:flex;gap:6px;align-items:center;">
-                <span class="text-sm font-semibold text-secondary" style="white-space:nowrap;">+Креатив:</span>
+              <form method="post" action="/campaigns/{{ c.campaign_code }}/bind-creative" class="flex-center gap-6">
+                <span class="text-sm font-semibold text-secondary nowrap">+Креатив:</span>
                 <input type="text" name="creative_code" placeholder="Код" minlength="1" maxlength="64" pattern="[a-z0-9_-]+" required class="form-input form-input-sm">
                 <button type="submit" class="btn btn-sm btn-primary">Привязать</button>
               </form>
@@ -139,7 +139,7 @@
               <!-- Publication -->
               {% if c.status == 'approved' %}
               <form method="post" action="/campaigns/{{ c.campaign_code }}/create-publication-batch" class="inline">
-                <button type="submit" class="btn btn-sm" style="background:var(--color-purple);color:#fff;">📦 Подготовить публикацию</button>
+                <button type="submit" class="btn btn-sm">📦 Подготовить публикацию</button>
               </form>
               {% endif %}
             </div>

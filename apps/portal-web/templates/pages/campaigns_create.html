@@ -38,7 +38,7 @@
   {% if summary.placement_code %}
   <div class="summary-item"><span class="summary-label">Размещение:</span> <code>{{ summary.placement_code }}</code></div>
   {% endif %}
-  <p style="margin-top:1.5rem;">
+  <p class="mt-16">
     <a href="/campaigns" class="btn-primary">← К списку кампаний</a>
     <a href="/campaigns/create" class="btn-secondary" style="margin-left:0.5rem">+ Новая кампания</a>
   </p>
@@ -200,7 +200,7 @@
 
     <!-- Airtime check button (server-side GET, no JS) -->
     <div style="margin-top:6px;font-size:12px;color:#64748b;">
-      <form method="get" action="/campaigns/create" style="display:inline;">
+      <form method="get" action="/campaigns/create" class="inline">
         <input type="hidden" name="at_device" value="{{ form.device_code }}">
         <input type="hidden" name="at_from" value="{{ form.date_from }}">
         <input type="hidden" name="at_to" value="{{ form.date_to }}">

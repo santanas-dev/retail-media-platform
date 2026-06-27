@@ -57,13 +57,13 @@
       <div class="form-group">
         <label class="form-label">Код объекта <span class="text-error">*</span></label>
         <input type="text" name="object_code" placeholder="campaign_code или batch UUID" minlength="1" maxlength="64" required
-               class="form-input" style="width:220px;">
+               class="form-input form-input-lg">
         <span class="form-hint">campaign_code, placement_code или batch ID</span>
       </div>
       <div class="form-group">
         <label class="form-label">Комментарий</label>
         <input type="text" name="comment" placeholder="Причина запроса" maxlength="500"
-               class="form-input" style="width:220px;">
+               class="form-input form-input-lg">
       </div>
       <div class="form-group">
         <button type="submit" class="btn btn-primary">Отправить на согласование</button>
@@ -83,11 +83,11 @@
     <span class="section-card-title">Заявки на согласование</span>
     <span class="section-card-badge">{{ approvals|length }}</span>
   </div>
-  <div class="section-card-body" style="padding:0;">
+  <div class="section-card-body p-0">
     {% for a in approvals %}
-    <div style="padding:16px 20px;border-bottom:1px solid var(--color-border-light);">
+    <div class="p-16" style="border-bottom:1px solid var(--color-border-light);">
       <!-- Header row -->
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+      <div class="mb-8" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <code class="font-semibold">{{ a.approval_code }}</code>
         <span class="status-badge status-badge-{{ 'pending' if a.status == 'pending' else 'approved' if a.status == 'approved' else 'rejected' if a.status == 'rejected' else 'draft' }}">
           {{ 'На согласовании' if a.status == 'pending' else 'Одобрено' if a.status == 'approved' else 'Отклонено' if a.status == 'rejected' else a.status }}
@@ -101,8 +101,8 @@
 
       <!-- Campaign detail -->
       {% if a.object_type == 'campaign' %}
-      <div style="background:var(--color-bg);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:8px;">
-        <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:12px;">
+      <div class="mb-8" style="background:var(--color-bg);border-radius:var(--radius-sm);padding:10px 14px;">
+        <div class="text-meta" style="display:flex;flex-wrap:wrap;gap:16px;">
           <span><strong>Кампания:</strong> {{ a.campaign_name }}</span>
           <span><strong>Статус:</strong> <span class="lifecycle-step lifecycle-{{ a.campaign_status }}">{{ a.campaign_status }}</span></span>
           <span><strong>Креативы:</strong> {{ a.campaign_creatives }}</span>
@@ -114,16 +114,16 @@
       <!-- Decision -->
       {% if a.status == 'pending' %}
       <div class="form-inline" style="gap:10px;">
-        <form method="post" action="/approvals/decide" style="display:flex;gap:8px;align-items:center;">
+        <form method="post" action="/approvals/decide" class="flex-center gap-8">
           <input type="hidden" name="approval_code" value="{{ a.approval_code }}">
           <input type="hidden" name="decision" value="approve">
-          <button type="submit" class="btn btn-sm" style="background:var(--color-success);color:#fff;">✓ Одобрить</button>
+          <button type="submit" class="btn btn-sm btn-success">✓ Одобрить</button>
         </form>
-        <form method="post" action="/approvals/decide" style="display:flex;gap:8px;align-items:center;">
+        <form method="post" action="/approvals/decide" class="flex-center gap-8">
           <input type="hidden" name="approval_code" value="{{ a.approval_code }}">
           <input type="hidden" name="decision" value="reject">
           <input type="text" name="comment" placeholder="Причина отказа" maxlength="500"
-                 class="form-input" style="width:160px;padding:4px 8px;font-size:12px;">
+                 class="form-input form-input-md">
           <button type="submit" class="btn btn-sm btn-danger">✗ Отклонить</button>
         </form>
       </div>

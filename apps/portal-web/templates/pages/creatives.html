@@ -129,7 +129,7 @@
           <td>{{ c.content_type }}</td>
           <td>{% if c.dimensions %}{{ c.dimensions }}{% else %}—{% endif %}
             {% if c.width == 768 and c.height == 1024 %}<br><span class="text-xs" style="color:var(--color-success);">✅ 768×1024</span>
-            {% elif c.width and c.height %}<br><span class="text-xs" style="color:var(--color-warning);">⚠️ {{ c.width }}×{{ c.height }}</span>{% endif %}
+            {% elif c.width and c.height %}<br><span class="text-xs text-warning">⚠️ {{ c.width }}×{{ c.height }}</span>{% endif %}
           </td>
           <td>{% if c.file_size_bytes %}{{ (c.file_size_bytes / 1024)|round|int }} КБ{% else %}—{% endif %}</td>
           <td>{{ c.created_at }}</td>
@@ -138,7 +138,7 @@
             <form action="/creatives/{{ c.creative_code }}/archive" method="POST" class="inline">
               <button type="submit" class="btn btn-sm btn-ghost text-sm">Архив</button>
             </form>
-            {% else %}<span class="text-sm" style="color:var(--color-text-muted);">—</span>{% endif %}
+            {% else %}<span class="text-sm text-muted">—</span>{% endif %}
           </td>
         </tr>
       {% endfor %}

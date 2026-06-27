@@ -7,22 +7,22 @@
   <span class="success-banner-icon">✅</span>
   <span class="success-banner-text">Вы успешно вышли из системы. Сессия завершена.</span>
 </div>
-<div class="export-action" style="margin-top:16px">
-  <a href="/login" class="btn-primary" style="text-decoration:none">🔑 Войти снова</a>
+<div class="export-action mt-16">
+  <a href="/login" class="btn-primary">🔑 Войти снова</a>
 </div>
 {% elif current_user %}
 <p class="page-description">Вы вошли как <strong>{{ current_user.safe_name }}</strong>. Нажмите кнопку ниже для завершения сессии.</p>
-<form method="POST" action="/logout" style="margin-top:16px">
+<form method="POST" action="/logout" class="mt-16">
   <button type="submit" class="btn-primary">🚪 Выйти</button>
 </form>
 {% else %}
 <p class="page-description">Вы не вошли в систему.</p>
-<div class="export-action" style="margin-top:16px">
-  <a href="/login" class="btn-primary" style="text-decoration:none">🔑 Войти</a>
+<div class="export-action mt-16">
+  <a href="/login" class="btn-primary">🔑 Войти</a>
 </div>
 {% endif %}
 
-<div class="note-box" style="margin-top:16px">
+<div class="note-box mt-16">
   <span class="note-icon">ℹ️</span>
   <span class="note-text">Сессионная информация хранится на стороне сервера в httpOnly cookie. При выходе все данные сессии очищаются.</span>
 </div>

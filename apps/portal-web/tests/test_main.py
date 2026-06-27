@@ -5721,8 +5721,8 @@ class TestDesignSystemHardening(unittest.TestCase):
                 if f.endswith(".html") and "~" not in f:
                     content = (Path(root) / f).read_text()
                     inline_count += content.count('style="')
-        # After 43.8: should be dramatically reduced from 269
-        self.assertLess(inline_count, 200,
+        # After 43.8.1: should be minimal — Jinja2 + positioning only
+        self.assertLess(inline_count, 70,
                         f"Too many inline styles: {inline_count} (was 269, target <200)")
 
     # ── Login Isolation ─────────────────────────────

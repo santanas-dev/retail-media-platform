@@ -101,10 +101,10 @@
     <span class="section-card-title">Пакеты публикации</span>
     <span class="section-card-badge">{{ batches|length }}</span>
   </div>
-  <div class="section-card-body" style="padding:0;">
+  <div class="section-card-body p-0">
 
     <!-- Lifecycle process -->
-    <div style="padding:14px 20px;background:var(--color-bg);border-bottom:1px solid var(--color-border);">
+    <div class="px-12 py-8" style="background:var(--color-bg);border-bottom:1px solid var(--color-border);">
       <div class="lifecycle-flow">
         <span class="lifecycle-step lifecycle-draft">draft</span>
         <span class="lifecycle-arrow">→</span>
@@ -119,7 +119,7 @@
     </div>
 
     {% for b in batches %}
-    <div style="padding:14px 20px;border-bottom:1px solid var(--color-border-light);">
+    <div class="px-12 py-8" style="border-bottom:1px solid var(--color-border-light);">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
         <code class="font-semibold">{{ b.batch_ref }}</code>
         <span class="status-badge status-badge-{{ b.status }}">
@@ -133,11 +133,11 @@
         </span>
         <span class="text-meta text-secondary">📢 {{ b.campaign_code }}</span>
         <span class="text-sm text-muted">{{ b.created_at[:19] if b.created_at else '—' }}</span>
-        <span style="flex:1;"></span>
+        <span class="flex-1"></span>
       </div>
 
       <!-- Lifecycle position indicator -->
-      <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;font-size:10px;color:var(--color-text-muted);">
+      <div class="flex-center gap-4 mb-8 text-muted" style="font-size:10px;">
         {% set stages = ['draft', 'pending_approval', 'approved', 'manifest_generated', 'published'] %}
         {% for stage in stages %}
         <span class="pipeline-dot {{ 'dot-active' if stage == b.status or (stages.index(stage) < stages|length and stages.index(b.status) > stages|length) }}"></span>
@@ -146,7 +146,7 @@
       </div>
 
       <!-- Action buttons -->
-      <div class="form-inline" style="gap:8px;">
+      <div class="form-inline gap-8">
         {% if b.status == 'draft' %}
         <form method="post" action="/publications/batch/{{ b.batch_id }}/request-approval" class="inline">
           <button type="submit" class="btn btn-sm btn-primary">→ На согласование</button>
@@ -154,12 +154,12 @@
         {% endif %}
         {% if b.status == 'approved' %}
         <form method="post" action="/publications/batch/{{ b.batch_id }}/generate" class="inline">
-          <button type="submit" class="btn btn-sm" style="background:var(--color-purple);color:#fff;">📋 Сформировать пакет показа</button>
+          <button type="submit" class="btn btn-sm">📋 Сформировать пакет показа</button>
         </form>
         {% endif %}
         {% if b.status == 'manifest_generated' %}
         <form method="post" action="/publications/batch/{{ b.batch_id }}/publish" class="inline">
-          <button type="submit" class="btn btn-sm" style="background:var(--color-success);color:#fff;">🚀 Опубликовать в системе</button>
+          <button type="submit" class="btn btn-sm btn-success">🚀 Опубликовать в системе</button>
         </form>
         <span style="font-size:10px;color:var(--color-warning-text);">⚠️ Только в системе. Доставка на КСО заблокирована.</span>
         {% endif %}
@@ -206,9 +206,9 @@
   <div class="section-card-header">
     <span class="section-card-icon">📜</span>
     <span class="section-card-title">Ранее созданные манифесты</span>
-    <span style="font-size:10px;color:var(--color-text-muted);">Созданы до внедрения batch-системы</span>
+    <span class="text-muted" style="font-size:10px;">Созданы до внедрения batch-системы</span>
   </div>
-  <div class="section-card-body" style="padding:0;">
+  <div class="section-card-body p-0">
     <table class="data-table data-table-compact">
       <thead><tr><th>Code</th><th>Device</th><th>Campaign</th><th>Status</th><th>Items</th></tr></thead>
       <tbody>

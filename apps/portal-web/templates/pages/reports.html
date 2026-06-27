@@ -89,7 +89,7 @@
         <label class="form-label text-sm">КСО</label>
         <input type="text" name="at_device" value="{{ at_device if at_device else '' }}"
                placeholder="device_code" maxlength="64"
-               class="form-input" style="width:150px">
+               class="form-input w-150">
       </div>
       <div class="form-group">
         <label class="form-label text-sm">Дата с</label>
@@ -152,7 +152,7 @@
     {% endif %}
 
     {% else %}
-    <div class="text-center text-muted text-md" style="padding:16px">
+    <div class="text-center text-muted text-md p-16">
       Укажите КСО и диапазон дат для расчёта плановой занятости.
     </div>
     {% endif %}
@@ -193,7 +193,7 @@
       </tr>
       {% endfor %}
       {% if planned_airtime.conflicts | length > 15 %}
-      <tr><td colspan="6" class="text-center text-muted" style="font-size:12px">Показаны первые 15 из {{ planned_airtime.conflicts | length }} конфликтов</td></tr>
+      <tr><td colspan="6" class="text-center text-muted text-meta">Показаны первые 15 из {{ planned_airtime.conflicts | length }} конфликтов</td></tr>
       {% endif %}
       </tbody>
     </table>
@@ -204,12 +204,12 @@
     </div>
     {% endif %}
     {% elif planned_airtime and planned_airtime.conflict_count == 0 %}
-    <div class="banner banner-success" style="margin-bottom:0;">
+    <div class="banner banner-success mb-0">
       <span class="banner-icon">✅</span>
       <div class="banner-body"><div class="banner-text">Конфликтов не обнаружено для выбранного КСО и диапазона дат.</div></div>
     </div>
     {% else %}
-    <div class="text-center text-muted text-md" style="padding:16px">
+    <div class="text-center text-muted text-md p-16">
       Заполните фильтр «Плановая занятость эфира» выше для проверки конфликтов.
     </div>
     {% endif %}
@@ -279,7 +279,7 @@
           {% endfor %}
         </div>
         {% else %}
-        <div class="text-muted py-8" style="font-size:12px">Нет манифестов</div>
+        <div class="text-muted text-meta py-8">Нет манифестов</div>
         {% endif %}
       </div>
     </div>
@@ -294,8 +294,8 @@
      E. PoP / PROOF REPORTS
      ═══════════════════════════════════════════════════════════════════ -->
 
-<div class="section-card" style="border-color: var(--color-warning-border);">
-  <div class="section-card-header" style="border-color: var(--color-warning-border);">
+<div class="section-card section-card-warning">
+  <div class="section-card-header section-card-warning">
     <span class="section-card-icon">✅</span>
     <span class="section-card-title">Фактические показы — события</span>
   </div>
@@ -323,12 +323,12 @@
       <div class="form-group">
         <label class="form-label text-xs">Дата с</label>
         <input type="date" name="date_from" value="{{ filters.date_from if filters.date_from else '' }}"
-               class="form-input" style="width:130px;padding:4px 8px;font-size:12px;">
+               class="form-input form-input-sm">
       </div>
       <div class="form-group">
         <label class="form-label text-xs">Дата по</label>
         <input type="date" name="date_to" value="{{ filters.date_to if filters.date_to else '' }}"
-               class="form-input" style="width:130px;padding:4px 8px;font-size:12px;">
+               class="form-input form-input-sm">
       </div>
       <div class="form-group">
         <button type="submit" class="btn btn-primary btn-sm">Применить</button>
@@ -371,7 +371,7 @@
     </div>
     {% endif %}
   </div>
-  <div class="section-card-footer" style="border-color: var(--color-warning-border);">
+  <div class="section-card-footer section-card-warning">
     <strong>⚠️ Фактические показы появятся после approved physical PoP flow.</strong> Сейчас доступна только плановая отчётность (выше).
   </div>
 </div>

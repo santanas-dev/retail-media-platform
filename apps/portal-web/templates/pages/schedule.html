@@ -71,24 +71,24 @@
       <div class="form-group">
         <label class="form-label">Действует с <span class="text-error">*</span></label>
         <input type="text" name="valid_from" placeholder="2026-01-01" minlength="10" maxlength="10"
-               required class="form-input" style="width:120px;">
+               pattern="[a-z0-9_-]+" required class="form-input form-input-sm">
         <span class="form-hint">YYYY-MM-DD</span>
       </div>
       <div class="form-group">
         <label class="form-label">Действует по <span class="text-error">*</span></label>
         <input type="text" name="valid_to" placeholder="2026-01-31" minlength="10" maxlength="10"
-               required class="form-input" style="width:120px;">
+               pattern="[a-z0-9_-]+" required class="form-input form-input-sm">
         <span class="form-hint">≥ valid_from</span>
       </div>
       <div class="form-group">
         <label class="form-label">Часовой пояс</label>
         <input type="text" name="timezone" value="Europe/Moscow" maxlength="50"
-               class="form-input" style="width:150px;">
+               class="form-input w-150">
       </div>
       <div class="form-group">
         <label class="form-label">Код кампании</label>
         <input type="text" name="campaign_code" placeholder="camp_code" maxlength="64"
-               class="form-input" style="width:150px;">
+               class="form-input w-150">
         <span class="form-hint">Необязательно</span>
       </div>
       <div class="form-group">
@@ -109,7 +109,7 @@
   <div class="section-card-body p-0">
     {% for s in schedules %}
     <!-- Schedule row -->
-    <div style="padding:14px 20px;border-bottom:1px solid var(--color-border-light);">
+    <div class="px-12 py-8" style="border-bottom:1px solid var(--color-border-light);">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <code class="font-semibold">{{ s.schedule_code }}</code>
         <span class="font-semibold">{{ s.name }}</span>
@@ -118,7 +118,7 @@
         <span class="text-sm text-secondary">{{ s.valid_from }} – {{ s.valid_to }}</span>
         <span class="text-sm text-secondary">🕐 {{ s.timezone }}</span>
         <span class="text-sm text-secondary">📋 {{ s.slot_count }} слотов</span>
-        <span style="flex:1;"></span>
+        <span class="flex-1"></span>
         {% if s.status != 'archived' %}
         <form method="post" action="/schedule/{{ s.schedule_code }}/archive" class="inline">
           <button type="submit" class="btn btn-sm btn-ghost">Архив</button>
@@ -130,8 +130,8 @@
     <!-- Slots -->
     {% set slots = schedule_slots.get(s.schedule_code, []) %}
     {% if slots %}
-    <div style="padding:8px 20px 12px 28px;background:var(--color-bg);border-bottom:1px solid var(--color-border-light);">
-      <table class="data-table data-table-compact" style="margin-bottom:0;">
+    <div class="pl-12 pr-8 py-8" style="background:var(--color-bg);border-bottom:1px solid var(--color-border-light);">
+      <table class="data-table data-table-compact mb-0">
         <thead><tr>
           <th>Слот</th><th>Размещение</th><th>День</th><th>Начало</th><th>Конец</th><th>Порядок</th><th>Активен</th><th></th>
         </tr></thead>
@@ -159,30 +159,30 @@
       </table>
     </div>
     {% else %}
-    <div style="padding:12px 28px;font-size:12px;color:var(--color-warning);background:var(--color-warning-bg);border-bottom:1px solid var(--color-border-light);">
+    <div class="text-warning text-meta pl-12 pr-8 py-12" style="background:var(--color-warning-bg);border-bottom:1px solid var(--color-border-light);">
       ⚠️ Нет слотов. Добавьте хотя бы один слот для активации расписания.
     </div>
     {% endif %}
 
     <!-- Add Slot Form -->
     {% if s.status != 'archived' %}
-    <div style="padding:10px 20px 12px 28px;background:var(--color-bg);border-bottom:1px solid var(--color-border-light);">
-      <form method="post" action="/schedule/{{ s.schedule_code }}/create-slot" class="form-inline" style="gap:8px;">
-        <span style="font-size:11px;font-weight:600;color:var(--color-text-secondary);white-space:nowrap;">+ Слот:</span>
+    <div class="px-12 py-8" style="background:var(--color-bg);border-bottom:1px solid var(--color-border-light);">
+      <form method="post" action="/schedule/{{ s.schedule_code }}/create-slot" class="form-inline gap-8">
+        <span class="nowrap" style="font-size:11px;font-weight:600;color:var(--color-text-secondary);">+ Слот:</span>
         <input type="text" name="slot_code" placeholder="Код слота*" minlength="3" maxlength="64"
                pattern="[a-z0-9_-]+" required class="form-input form-input-sm">
         <input type="text" name="placement_code" placeholder="Код размещения" maxlength="64"
-               class="form-input" style="width:130px;padding:4px 8px;font-size:12px;">
-        <select name="day_of_week" required class="form-select" style="width:70px;font-size:12px;padding:4px 8px;">
+               class="form-input form-input-sm">
+        <select name="day_of_week" required class="form-select form-input-xs">
           <option value="0">Пн</option><option value="1">Вт</option><option value="2">Ср</option>
           <option value="3">Чт</option><option value="4">Пт</option><option value="5">Сб</option><option value="6">Вс</option>
         </select>
         <input type="text" name="start_time" placeholder="09:00*" minlength="5" maxlength="8"
-               required class="form-input" style="width:70px;padding:4px 8px;font-size:12px;">
+               required class="form-input form-input-xs">
         <input type="text" name="end_time" placeholder="21:00*" minlength="5" maxlength="8"
-               required class="form-input" style="width:70px;padding:4px 8px;font-size:12px;">
+               required class="form-input form-input-xs">
         <input type="number" name="slot_order" value="0" min="0" max="99"
-               class="form-input" style="width:50px;padding:4px 8px;font-size:12px;">
+               class="form-input form-input-xs">
         <button type="submit" class="btn btn-sm btn-primary">+ Добавить</button>
       </form>
     </div>
@@ -205,10 +205,10 @@
     <span class="section-card-title">Плановая занятость эфира</span>
   </div>
   <div class="section-card-body">
-    <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:14px;">
+    <p class="text-meta text-secondary mb-12">
       Плановая занятость по расписанию. <strong>Не фактические показы.</strong>
     </p>
-    <form method="get" action="/schedule" class="form-inline" style="margin-bottom:14px;">
+    <form method="get" action="/schedule" class="form-inline mb-12">
       <div class="form-group">
         <label class="form-label text-sm">КСО</label>
         <input type="text" name="at_device" value="{{ at_device if at_device else '' }}"
@@ -230,7 +230,7 @@
     </form>
 
     {% if airtime %}
-    <div class="summary-stats" style="margin-bottom:14px;">
+    <div class="summary-stats mb-12">
       <div class="summary-stat"><div class="summary-stat-value">{{ airtime.total_available_minutes }}</div><div class="summary-stat-label">Всего мин.</div></div>
       <div class="summary-stat"><div class="summary-stat-value">{{ airtime.occupied_minutes }}</div><div class="summary-stat-label">Занято</div></div>
       <div class="summary-stat"><div class="summary-stat-value" style="{% if airtime.occupancy_percent|int >= 80 %}color:var(--color-error);{% elif airtime.occupancy_percent|int >= 50 %}color:var(--color-warning);{% endif %}">{{ airtime.occupancy_percent }}%</div><div class="summary-stat-label">Загрузка</div></div>
@@ -254,7 +254,7 @@
     </table>
     </div>
     {% elif airtime.occupied_minutes == 0 %}
-    <div style="text-align:center;padding:12px;color:var(--color-success);font-size:13px;">
+    <div class="text-center" style="padding:12px;color:var(--color-success);font-size:13px;">
       ✅ Эфир полностью свободен в выбранном диапазоне.
     </div>
     {% endif %}
@@ -264,7 +264,7 @@
       <span class="note-text">Конфликты — предупреждение, не блокировка. Policy: warning-only.</span>
     </div>
     {% else %}
-    <div class="text-center text-muted text-md" style="padding:16px">
+    <div class="text-center text-muted text-md p-16">
       Укажите КСО и диапазон дат для проверки занятости эфира.
     </div>
     {% endif %}
