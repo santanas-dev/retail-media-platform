@@ -88,6 +88,7 @@ ALL_DDL = [
     """CREATE TABLE IF NOT EXISTS creatives (
         id VARCHAR(36) PRIMARY KEY, creative_code VARCHAR(64) UNIQUE NOT NULL,
         name VARCHAR(255) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'draft',
+        scan_status VARCHAR(20) NOT NULL DEFAULT 'not_configured',
         created_by VARCHAR(36) NOT NULL REFERENCES users(id),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)""",

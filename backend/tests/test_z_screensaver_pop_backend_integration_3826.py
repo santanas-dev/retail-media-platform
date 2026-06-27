@@ -150,6 +150,7 @@ ALL_DDL = [
         creative_code VARCHAR(64) UNIQUE NOT NULL,
         name VARCHAR(255) NOT NULL,
         status VARCHAR(20) NOT NULL DEFAULT 'draft',
+        scan_status VARCHAR(20) NOT NULL DEFAULT 'not_configured',
         comment TEXT,
         created_by VARCHAR(36) NOT NULL REFERENCES users(id),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

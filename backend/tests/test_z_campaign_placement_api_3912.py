@@ -115,6 +115,7 @@ class TestCampaignCreativeBinding(unittest.TestCase):
 
         creative = MagicMock()
         creative.creative_code = "test-creative-001"
+        creative.status = "approved"
 
         async def mock_get(model, obj_id):
             if "Campaign" in str(model):
@@ -162,6 +163,106 @@ class TestCampaignCreativeBinding(unittest.TestCase):
         import asyncio
         result = asyncio.run(unbind_campaign_creative(db, uuid4(), "test-creative-001"))
         self.assertFalse(result["is_active"])
+
+    def test_bind_rejected_creative_fails(self):
+        """Rejected creative cannot be bound to campaign."""
+        from app.domains.campaigns.service import bind_campaign_creative
+        from app.domains.campaigns import models
+        from fastapi import HTTPException
+
+        db = AsyncMock()
+        campaign = MagicMock(spec=models.Campaign)
+        creative = MagicMock()
+        creative.creative_code = "test-creative-001"
+        creative.status = "rejected"
+
+        async def mock_get(model, obj_id):
+            if "Campaign" in str(model):
+                return campaign
+            return None
+
+        async def mock_execute(stmt):
+            m = MagicMock()
+            if "Creatives" in str(stmt) or "creative_code" in str(stmt):
+                m.scalar_one_or_none.return_value = creative
+            else:
+                m.scalar_one_or_none.return_value = None
+            return m
+
+        db.get = mock_get
+        db.execute = mock_execute
+
+        import asyncio
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(bind_campaign_creative(db, uuid4(), "test-creative-001"))
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("approved", str(ctx.exception.detail))
+
+    def test_bind_pending_review_creative_fails(self):
+        """Pending review creative cannot be bound."""
+        from app.domains.campaigns.service import bind_campaign_creative
+        from app.domains.campaigns import models
+        from fastapi import HTTPException
+
+        db = AsyncMock()
+        campaign = MagicMock(spec=models.Campaign)
+        creative = MagicMock()
+        creative.creative_code = "test-creative-002"
+        creative.status = "pending_review"
+
+        async def mock_get(model, obj_id):
+            if "Campaign" in str(model):
+                return campaign
+            return None
+
+        async def mock_execute(stmt):
+            m = MagicMock()
+            if "Creatives" in str(stmt) or "creative_code" in str(stmt):
+                m.scalar_one_or_none.return_value = creative
+            else:
+                m.scalar_one_or_none.return_value = None
+            return m
+
+        db.get = mock_get
+        db.execute = mock_execute
+
+        import asyncio
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(bind_campaign_creative(db, uuid4(), "test-creative-002"))
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_bind_validation_failed_creative_fails(self):
+        """Validation failed creative cannot be bound."""
+        from app.domains.campaigns.service import bind_campaign_creative
+        from app.domains.campaigns import models
+        from fastapi import HTTPException
+
+        db = AsyncMock()
+        campaign = MagicMock(spec=models.Campaign)
+        creative = MagicMock()
+        creative.creative_code = "test-creative-003"
+        creative.status = "validation_failed"
+
+        async def mock_get(model, obj_id):
+            if "Campaign" in str(model):
+                return campaign
+            return None
+
+        async def mock_execute(stmt):
+            m = MagicMock()
+            if "Creatives" in str(stmt) or "creative_code" in str(stmt):
+                m.scalar_one_or_none.return_value = creative
+            else:
+                m.scalar_one_or_none.return_value = None
+            return m
+
+        db.get = mock_get
+        db.execute = mock_execute
+
+        import asyncio
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(bind_campaign_creative(db, uuid4(), "test-creative-003"))
+        self.assertEqual(ctx.exception.status_code, 400)
 
 
 # ══════════════════════════════════════════════════════════════════════

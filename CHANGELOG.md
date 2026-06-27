@@ -2127,3 +2127,53 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 | `v0.7.0-one-kso-e2e-dry-run` | Controlled one-KSO E2E dry run (Phase C+D, no prod) |
 | `v0.8.0-pilot-readiness` | Pilot rollout gate — all prerequisites, 4926 green |
 | `v1.0.0-kso-production-release` | First production KSO release |
+
+## 44.1 — Inventory Engine / Sold Out / Forecast (2026-06-16)
+
+### Added
+- `reservation_type` column in BookingItem (campaign/internal/emergency/filler)
+- Migration `031_add_reservation_type_to_booking_items`
+- Inventory service: sold_out flag, occupancy_pct, business-language reasons, alternatives
+- Forecast v1 (`calculate_forecast()` — spots × days × devices, disclaimer «Оценка по расписанию»)
+- Snapshot endpoint `GET /api/inventory/snapshot`
+- Portal `/inventory` page: summary cards, availability table, forecast, snapshot
+- Sidebar item «⏱ Рекламное время»
+- 20 backend tests (`test_inventory_engine_441.py`), 8 portal tests
+
+### Fixed (44.1.1)
+- 8 pre-existing backend failures from business-language refactor (43.7)
+- Backend regression: 710/0
+
+## 44.2 — Creative QA & Media Validation (2026-06-16)
+
+### Added
+- KSO profile: 768×1024 portrait (matches physical test device)
+- Dangerous type blocking: HTML/JS/SVG/ZIP/EXE/DLL/SH/PY + 8 more — rejected before MIME check
+- MP4 disguise detection (magic bytes `ftyp` check)
+- Duplicate SHA-256 detection (409 Conflict)
+- `scan_status` column (not_configured/pending/clean/infected/failed)
+- Migration `032_add_scan_status_to_creatives`
+- Moderation workflow: submit-review → approve/reject with audit + reason codes
+- Creative policy endpoint: `GET /api/creatives/policy`
+- Campaign binding gate: only `status == "approved"` creatives can be bound
+- Portal `/creatives`: summary cards, scan_status, moderation actions
+- 31 backend tests, 676 portal tests green
+
+### Fixed (44.2.1)
+- 19 backend failures: DDL in 3 test files missing `scan_status` column
+- Stale docstring `1440×1080` → `768×1024 portrait` in router.py
+- Campaign binding mock test missing `creative.status = "approved"`
+- AV policy: added `av_policy_mode` and `require_av_clean_for_publication` fields
+- AV deviation DEV-007 documented in deviation register
+- 3 new campaign binding gate tests: rejected/pending_review/validation_failed creatives rejected
+
+### AV Policy
+- Pilot/dev mode: manual approval allowed without AV scanner (warning in UI, audit trail)
+- Production mode: `scan_status=clean` required before publication
+- Fake AV pass prohibited — `scan_status=clean` never set automatically without real scanner
+- `CreativeAVScanner` interface ready for ClamAV or commercial scanner integration
+
+### Deferred
+- MP4/WebM video validation (codec, duration, audio)
+- GIF validation (duration, CPU)
+- Real AV scanner integration

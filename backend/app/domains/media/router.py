@@ -253,7 +253,7 @@ async def upload_creative(
     """Combined creative create + upload for one-KSO pilot (Step 37.3).
 
     Accepts multipart/form-data: creative_code, name, file.
-    Validates: MIME type (png/jpeg/mp4), image dimensions (1440×1080),
+    Validates: MIME type (png/jpeg), image dimensions (768×1024 portrait),
     max 50 MB, audio forbidden.
 
     Stores in MinIO via existing storage abstraction.

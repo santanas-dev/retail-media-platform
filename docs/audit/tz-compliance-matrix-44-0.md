@@ -115,10 +115,17 @@
 
 | # | Пункт ТЗ | Статус | Evidence | Gap | Priority |
 |---|---|---|---|---|---|
-| 9.1 | Загрузка креативов | ✅ DONE | PNG/JPEG/MP4 upload через portal + backend | — | P0 |
-| 9.2 | Валидация формата и размера | ✅ DONE | 768×1024 portrait, file size limits | — | P0 |
-| 9.3 | Статусная модель креатива | ✅ DONE | draft→review→approved→archived | — | P0 |
+| 9.1 | Загрузка креативов | ✅ DONE | PNG/JPEG upload через portal + backend, MinIO storage | — | P0 |
+| 9.2 | Валидация формата и размера | ✅ DONE | 768×1024 portrait, file size ≤50MB, extension/MIME consistency | — | P0 |
+| 9.3 | Статусная модель креатива | ✅ DONE | draft→pending_review→approved/rejected/archived + validation_failed | — | P0 |
 | 9.4 | Preview в портале | ✅ DONE | Safe preview через backend proxy, no raw storage URLs | — | P0 |
+| 9.5 | SHA-256 при загрузке | ✅ DONE | Вычисляется инкрементально, duplicate hash detection (409 Conflict) | — | P0 |
+| 9.6 | Блокировка опасных типов | ✅ DONE | HTML/JS/SVG/ZIP/EXE/DLL/SH/PY — rejected до MIME-проверки | — | P0 |
+| 9.7 | AV-сканер (contract) | 🟡 PARTIAL | `scan_status` поле, AV contract (`pilot_dev`/`production` режимы) | Реальный AV не подключён | P1 |
+| 9.8 | Модерация (workflow) | ✅ DONE | submit-review→approve/reject с audit trail, reason codes | — | P0 |
+| 9.9 | Campaign binding gate | ✅ DONE | Только approved creative можно привязать к кампании | — | P0 |
+| 9.10 | MP4/WebM/GIF | 📅 DEFERRED | Deferred до отдельного video validation шага | Нет проверки кодека/длительности/звука | P2 |
+| 9.11 | Версионирование креативов | ✅ DONE | Замена файла → новая версия, старая сохраняется, audit | — | P0 |
 
 ## 10. Пакет показа / Manifest
 

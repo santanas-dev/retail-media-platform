@@ -136,3 +136,25 @@
 | DEV-004 | Мультиканальность | 📅 DEFERRED | v2 |
 | DEV-005 | AD/SSO/MFA | 📅 DEFERRED | v1 production |
 | DEV-006 | Production infra | 📅 DEFERRED | v1 production |
+| DEV-007 | AV scanner | ⚠️ DEVIATION v1 pilot | v1 production |
+
+### DEV-007: AV Scanner — pilot/dev mode without real scanner
+
+**Статус:** ⚠️ DEVIATION v1 pilot
+**Дата:** 2026-06-16 (44.2.1)
+**Target:** v1 production
+
+**Описание:**
+В v1 pilot/dev режиме AV сканер не подключён (`scan_status=not_configured`). Креатив может быть одобрен вручную после модерации. В production режиме (`av_policy_mode=production`) публикация без `scan_status=clean` запрещена.
+
+**Обоснование:**
+- Реальный AV сканер (ClamAV или аналог) требует отдельной интеграции и тестирования
+- Fake AV pass (имитация проверки) запрещён — честный контракт
+- Интерфейс `CreativeAVScanner` готов для подключения реального сканера
+
+**Mitigation:**
+- Явный `av_policy_mode: pilot_dev` в policy endpoint
+- `require_av_clean_for_publication: false` — документировано
+- Audit trail для manual approval без AV
+- UI: «Проверка безопасности не настроена»
+- При переходе в production: установить `av_policy_mode=production`, интегрировать реальный AV сканер

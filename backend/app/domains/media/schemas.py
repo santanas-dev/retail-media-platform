@@ -174,6 +174,8 @@ class ModerationResponse(BaseModel):
 
 class CreativePolicyResponse(BaseModel):
     profile: str = "KSO_PORTRAIT_768x1024_v1"
+    av_policy_mode: str = "pilot_dev"
+    require_av_clean_for_publication: bool = False
     allowed_mime_types: list[str] = ["image/jpeg", "image/png"]
     allowed_extensions: list[str] = [".jpg", ".jpeg", ".png"]
     required_width: int = 768
@@ -186,9 +188,11 @@ class CreativePolicyResponse(BaseModel):
     deferred_types: list[str] = ["video/mp4", "video/webm", "image/gif"]
     av_scanner: str = "not_configured"
     notes: list[str] = [
+        "Режим AV: pilot/dev — публикация разрешена без проверки безопасности после ручной модерации",
+        "В production режиме (av_policy_mode=production) без AV scan clean публикация запрещена",
+        "Fake AV pass запрещён — scan_status clean не выставляется автоматически без реального сканера",
         "Видео отложено до отдельного шага валидации (требуется проверка кодека, длительности, звука)",
-        "GIF запрещён — нет проверки длительности/CPU",
+        "GIF отложен — нет проверки длительности/CPU",
         "HTML5/JS/ZIP/исполняемые — запрещены без решения ИБ",
         "SVG запрещён — может содержать JavaScript",
-        "Проверка безопасности (AV) не настроена — креатив может использоваться после ручной модерации",
     ]
