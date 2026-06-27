@@ -7,6 +7,24 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [41.3.1-campaign-creative-compat-guard] — 2026-06-16
+
+**CampaignCreative is_active compatibility guard — safe helper without ORM column.**
+
+### Change
+
+- `_is_campaign_creative_active(link)` helper: uses `getattr(link, "is_active", True)` — safe when ORM model has no `is_active` column
+- Removed `CampaignCreative.is_active == True` from query filters (would fail on missing column)
+- Response dicts: `"is_active": True` (existence = active)
+
+### Tests
+
+| Suite | Passed | +New |
+|---|---|---|
+| Backend | **502** | +4 |
+
+---
+
 ## [41.3-approval-decision-ux] — 2026-06-16
 
 **Approval Decision UX — campaign summary on /approvals page, per-row approve/reject forms.**

@@ -238,3 +238,34 @@ class TestTechnicalContextCodes(unittest.TestCase):
         self.assertIn("technical", _TECH_BRAND_CODE)
         self.assertIn("technical", _TECH_ORDER_NUMBER)
         self.assertIn("demo", _TECH_ADVERTISER_CODE)
+
+
+class TestCampaignCreativeCompatGuard(unittest.TestCase):
+    """is_active compatibility — helper works when ORM model has no is_active column."""
+
+    def test_helper_returns_true_when_missing(self):
+        """_is_campaign_creative_active returns True when is_active attr missing."""
+        from app.domains.campaigns.service import _is_campaign_creative_active
+
+        class FakeLink:
+            creative_code = "test_creative"
+        self.assertTrue(_is_campaign_creative_active(FakeLink()))
+
+    def test_helper_returns_true_when_true(self):
+        from app.domains.campaigns.service import _is_campaign_creative_active
+
+        class FakeLink:
+            is_active = True
+        self.assertTrue(_is_campaign_creative_active(FakeLink()))
+
+    def test_helper_returns_false_when_false(self):
+        from app.domains.campaigns.service import _is_campaign_creative_active
+
+        class FakeLink:
+            is_active = False
+        self.assertFalse(_is_campaign_creative_active(FakeLink()))
+
+    def test_no_attribute_error(self):
+        """Service imports without AttributeError on CampaignCreative.is_active."""
+        from app.domains.campaigns import service as cs
+        self.assertTrue(hasattr(cs, "_is_campaign_creative_active"))
