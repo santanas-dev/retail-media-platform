@@ -58,24 +58,24 @@
   <div class="section-card-body">
     <form method="post" action="/schedule/create" class="form-inline">
       <div class="form-group">
-        <label class="form-label">Код <span style="color:var(--color-error);">*</span></label>
+        <label class="form-label">Код <span class="text-error">*</span></label>
         <input type="text" name="schedule_code" placeholder="winter_promo" minlength="3" maxlength="64"
-               pattern="[a-z0-9_-]+" required class="form-input" style="width:160px;">
+               pattern="[a-z0-9_-]+" required class="form-input form-input-md">
         <span class="form-hint">Латинские строчные, 3–64</span>
       </div>
       <div class="form-group">
-        <label class="form-label">Название <span style="color:var(--color-error);">*</span></label>
+        <label class="form-label">Название <span class="text-error">*</span></label>
         <input type="text" name="name" placeholder="Зимняя промо-кампания" minlength="1" maxlength="255"
-               required class="form-input" style="width:220px;">
+               required class="form-input form-input-lg">
       </div>
       <div class="form-group">
-        <label class="form-label">Действует с <span style="color:var(--color-error);">*</span></label>
+        <label class="form-label">Действует с <span class="text-error">*</span></label>
         <input type="text" name="valid_from" placeholder="2026-01-01" minlength="10" maxlength="10"
                required class="form-input" style="width:120px;">
         <span class="form-hint">YYYY-MM-DD</span>
       </div>
       <div class="form-group">
-        <label class="form-label">Действует по <span style="color:var(--color-error);">*</span></label>
+        <label class="form-label">Действует по <span class="text-error">*</span></label>
         <input type="text" name="valid_to" placeholder="2026-01-31" minlength="10" maxlength="10"
                required class="form-input" style="width:120px;">
         <span class="form-hint">≥ valid_from</span>
@@ -106,21 +106,21 @@
     <span class="section-card-title">Расписания</span>
     <span class="section-card-badge">{{ schedules|length }}</span>
   </div>
-  <div class="section-card-body" style="padding:0;">
+  <div class="section-card-body p-0">
     {% for s in schedules %}
     <!-- Schedule row -->
     <div style="padding:14px 20px;border-bottom:1px solid var(--color-border-light);">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <code style="font-weight:600;">{{ s.schedule_code }}</code>
-        <span style="font-weight:600;">{{ s.name }}</span>
+        <code class="font-semibold">{{ s.schedule_code }}</code>
+        <span class="font-semibold">{{ s.name }}</span>
         <span class="status-badge status-badge-{{ 'draft' if s.status == 'draft' else 'approved' if s.status == 'active' else 'draft' }}">{{ s.status }}</span>
-        {% if s.campaign_code != '—' %}<span style="font-size:11px;color:var(--color-text-secondary);">📢 {{ s.campaign_code }}</span>{% endif %}
-        <span style="font-size:11px;color:var(--color-text-secondary);">{{ s.valid_from }} – {{ s.valid_to }}</span>
-        <span style="font-size:11px;color:var(--color-text-secondary);">🕐 {{ s.timezone }}</span>
-        <span style="font-size:11px;color:var(--color-text-secondary);">📋 {{ s.slot_count }} слотов</span>
+        {% if s.campaign_code != '—' %}<span class="text-sm text-secondary">📢 {{ s.campaign_code }}</span>{% endif %}
+        <span class="text-sm text-secondary">{{ s.valid_from }} – {{ s.valid_to }}</span>
+        <span class="text-sm text-secondary">🕐 {{ s.timezone }}</span>
+        <span class="text-sm text-secondary">📋 {{ s.slot_count }} слотов</span>
         <span style="flex:1;"></span>
         {% if s.status != 'archived' %}
-        <form method="post" action="/schedule/{{ s.schedule_code }}/archive" style="display:inline;">
+        <form method="post" action="/schedule/{{ s.schedule_code }}/archive" class="inline">
           <button type="submit" class="btn btn-sm btn-ghost">Архив</button>
         </form>
         {% endif %}
@@ -148,7 +148,7 @@
           <td>{% if sl.is_active %}✅{% else %}❌{% endif %}</td>
           <td>
             {% if sl.is_active %}
-            <form method="post" action="/schedule/{{ s.schedule_code }}/items/{{ sl.slot_code }}/disable" style="display:inline;">
+            <form method="post" action="/schedule/{{ s.schedule_code }}/items/{{ sl.slot_code }}/disable" class="inline">
               <button type="submit" class="btn btn-sm btn-ghost">Откл</button>
             </form>
             {% endif %}
@@ -170,7 +170,7 @@
       <form method="post" action="/schedule/{{ s.schedule_code }}/create-slot" class="form-inline" style="gap:8px;">
         <span style="font-size:11px;font-weight:600;color:var(--color-text-secondary);white-space:nowrap;">+ Слот:</span>
         <input type="text" name="slot_code" placeholder="Код слота*" minlength="3" maxlength="64"
-               pattern="[a-z0-9_-]+" required class="form-input" style="width:120px;padding:4px 8px;font-size:12px;">
+               pattern="[a-z0-9_-]+" required class="form-input form-input-sm">
         <input type="text" name="placement_code" placeholder="Код размещения" maxlength="64"
                class="form-input" style="width:130px;padding:4px 8px;font-size:12px;">
         <select name="day_of_week" required class="form-select" style="width:70px;font-size:12px;padding:4px 8px;">
@@ -210,19 +210,19 @@
     </p>
     <form method="get" action="/schedule" class="form-inline" style="margin-bottom:14px;">
       <div class="form-group">
-        <label class="form-label" style="font-size:11px;">КСО</label>
+        <label class="form-label text-sm">КСО</label>
         <input type="text" name="at_device" value="{{ at_device if at_device else '' }}"
                placeholder="device_code" maxlength="64" class="form-input" style="width:150px;padding:6px 10px;font-size:13px;">
       </div>
       <div class="form-group">
-        <label class="form-label" style="font-size:11px;">Дата с</label>
+        <label class="form-label text-sm">Дата с</label>
         <input type="date" name="at_from" value="{{ at_from if at_from else '' }}"
-               class="form-input" style="width:140px;padding:6px 10px;font-size:13px;">
+               class="form-input form-input-w140">
       </div>
       <div class="form-group">
-        <label class="form-label" style="font-size:11px;">Дата по</label>
+        <label class="form-label text-sm">Дата по</label>
         <input type="date" name="at_to" value="{{ at_to if at_to else '' }}"
-               class="form-input" style="width:140px;padding:6px 10px;font-size:13px;">
+               class="form-input form-input-w140">
       </div>
       <div class="form-group">
         <button type="submit" class="btn btn-primary btn-sm">Проверить</button>
@@ -239,7 +239,7 @@
     </div>
 
     {% if airtime.conflicts %}
-    <div class="table-container" style="border:none;box-shadow:none;margin-bottom:0;">
+    <div class="table-container table-clean">
     <table class="data-table data-table-compact">
       <thead><tr><th>Кампания</th><th>Конфликт с</th><th>Даты</th><th>День</th><th>Время</th><th>Конфликтное</th></tr></thead>
       <tbody>
@@ -259,12 +259,12 @@
     </div>
     {% endif %}
 
-    <div class="note-box" style="margin-top:12px;">
+    <div class="note-box mt-12">
       <span class="note-icon">⚠️</span>
       <span class="note-text">Конфликты — предупреждение, не блокировка. Policy: warning-only.</span>
     </div>
     {% else %}
-    <div style="text-align:center;padding:16px;color:var(--color-text-muted);font-size:13px;">
+    <div class="text-center text-muted text-md" style="padding:16px">
       Укажите КСО и диапазон дат для проверки занятости эфира.
     </div>
     {% endif %}

@@ -177,19 +177,19 @@
      PART 2: BUSINESS DEMO READINESS
      ═══════════════════════════════════════════════════════════════════ -->
 
-<hr style="margin:32px 0 24px;border:1px solid var(--color-border);">
+<hr class="mt-16 mb-12">
 
-<h2 style="font-size:20px;font-weight:700;color:var(--color-text);margin-bottom:4px;">
+<h2 class="font-semibold">
   🎯 Бизнес-демо: что можно показать
 </h2>
-<p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:20px;">
+<p class="text-sm text-secondary">
   Полный в системе сценарий рекламной кампании доступен для демонстрации без физической КСО.
   Физическая доставка на КСО, фактические показы и сканер — заблокированы до закрытия approval gates.
 </p>
 
 <!-- Что уже готово -->
-<div class="section-card" style="border-color: var(--color-success-border);">
-  <div class="section-card-header" style="border-color: var(--color-success-border);">
+<div class="section-card section-card-border-success">
+  <div class="section-card-header section-card-border-success">
     <span class="section-card-icon">✅</span>
     <span class="section-card-title">Что уже готово (система + портал)</span>
   </div>
@@ -238,7 +238,7 @@
     <span class="section-card-title">Сценарий демонстрации (в системе)</span>
   </div>
   <div class="section-card-body">
-    <div class="pipeline" style="flex-wrap:wrap;gap:8px;">
+    <div class="pipeline">
       <a href="/creatives" class="pipeline-step">
         <span class="pipeline-step-num">1</span>
         <span class="pipeline-step-icon">🎨</span>
@@ -276,12 +276,12 @@
       </a>
     </div>
 
-    <p style="font-size:13px;color:var(--color-text-secondary);margin-top:16px;">
+    <p class="text-sm text-secondary mt-16">
       <strong>Полный цикл рекламной кампании:</strong> загрузка креатива → создание кампании → настройка расписания → 
       отправка на согласование → решение → подготовка публикации → генерация manifest → backend публикация → 
       выгрузка плановой отчётности в CSV.
     </p>
-    <p style="font-size:12px;color:var(--color-text-muted);">
+    <p class="text-xs text-muted">
       Весь сценарий выполняется в backend без физической КСО. Manifest формируется, но не доставляется на устройство.
     </p>
   </div>
@@ -293,11 +293,11 @@
 </div>
 
 <!-- Что заблокировано -->
-<div class="section-card" style="border-color: var(--color-error-border);">
-  <div class="section-card-header" style="border-color: var(--color-error-border);">
+<div class="section-card section-card-error">
+  <div class="section-card-header section-card-error">
     <span class="section-card-icon">🚫</span>
     <span class="section-card-title">Что пока заблокировано до сканера</span>
-    <span class="pilot-status no-go" style="margin:0 0 0 auto;padding:4px 12px;font-size:12px;border-radius:6px;">🚫 Запуск заблокирован</span>
+    <span class="pilot-status no-go ml-auto text-xs">🚫 Запуск заблокирован</span>
   </div>
   <div class="section-card-body">
     <div class="blocker-grid">
@@ -327,27 +327,27 @@
         <span class="blocker-detail">Не утверждён</span>
       </div>
     </div>
-    <p style="font-size:12px;color:var(--color-text-secondary);margin-top:12px;">
+    <p class="text-xs text-secondary mt-12">
       <strong>Сканер не подключён — физическая проверка не начата.</strong>
       Без физического сканера нельзя выполнить scanner E2E, manifest delivery, sidecar sync, long-run и fleet rollout.
     </p>
   </div>
-  <div class="section-card-footer" style="border-color: var(--color-error-border);">
+  <div class="section-card-footer section-card-error">
     <a href="/publications" class="btn btn-sm btn-ghost">📋 Статус публикаций</a>
-    <span style="font-size:11px;color:var(--color-text-muted);margin-left:8px;">
+    <span class="text-xs text-muted">
       См. <a href="/docs/runbooks/physical-approval-gates.md">approval gates</a>
     </span>
   </div>
 </div>
 
 <!-- Следующий шаг после сканера -->
-<div class="section-card" style="border-color: var(--color-warning-border);">
-  <div class="section-card-header" style="border-color: var(--color-warning-border);">
+<div class="section-card">
+  <div class="section-card-header">
     <span class="section-card-icon">👉</span>
     <span class="section-card-title">Следующий шаг после появления сканера</span>
   </div>
   <div class="section-card-body">
-    <ol style="font-size:13px;color:var(--color-text);line-height:1.8;padding-left:20px;">
+    <ol class="text-sm">
       <li>Подключить физический сканер к КСО → выполнить <strong>Проверка физического сканера</strong> (Разрешение на проверку сканера)</li>
       <li>Доставить manifest на физическую КСО → проверить парсинг и отображение (Разрешение на доставку)</li>
       <li>Запустить sidecar sync на КСО → убедиться, что PoP-события доходят до backend (Разрешение на синхронизацию)</li>
@@ -355,13 +355,13 @@
       <li>После закрытия всех P0 — решение GO/NO-GO по пилоту (Разрешение на запуск)</li>
       <li>Пилот одного КСО → сбор evidence → решение о расширении fleet</li>
     </ol>
-    <p style="font-size:11px;color:var(--color-text-muted);margin-top:8px;">
+    <p class="text-xs text-muted mt-8">
       Все approval tokens описаны в runbook. Каждый шаг требует отдельного разрешения, последовательно.
     </p>
   </div>
-  <div class="section-card-footer" style="border-color: var(--color-warning-border);">
-    <span style="font-size:12px;color:var(--color-text-secondary);">Документы:</span>
-    <span style="font-size:11px;color:var(--color-text-muted);">
+  <div class="section-card-footer">
+    <span class="text-xs text-secondary">Документы:</span>
+    <span class="text-xs text-muted">
       pilot runbook · fallback/rollback runbook · physical approval gates · GO/NO-GO baseline
     </span>
   </div>
@@ -371,12 +371,12 @@
      PART 3: ACCEPTANCE CHECKLIST
      ═══════════════════════════════════════════════════════════════════ -->
 
-<hr style="margin:32px 0 24px;border:1px solid var(--color-border);">
+<hr class="mt-16 mb-12">
 
-<h2 style="font-size:20px;font-weight:700;color:var(--color-text);margin-bottom:4px;">
+<h2 class="font-semibold">
   📋 Acceptance Checklist
 </h2>
-<p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:20px;">
+<p class="text-sm text-secondary">
   Чек-лист приёмки бизнес-демо. Пройдите все пункты для подтверждения готовности в системе сценария.
   <strong>Это справочный список, а не автоматическая проверка.</strong>
 </p>
@@ -428,18 +428,18 @@
         <span class="checklist-icon">☐</span>
         <span class="checklist-label"><strong>Отчёты / CSV export доступны</strong> — ссылки на /reports, campaigns.csv, publications.csv</span>
       </div>
-      <div class="checklist-item" style="color:var(--color-text-muted);">
+      <div class="checklist-item text-muted">
         <span class="checklist-icon">—</span>
         <span class="checklist-label"><strong>Физическая доставка НЕ выполнялась</strong> — это ожидаемо, approval gate не пройден</span>
       </div>
-      <div class="checklist-item" style="color:var(--color-text-muted);">
+      <div class="checklist-item text-muted">
         <span class="checklist-icon">—</span>
         <span class="checklist-label"><strong>Фактические показы (PoP) не ожидаются</strong> — появятся после physical gate</span>
       </div>
     </div>
   </div>
   <div class="section-card-footer">
-    <span style="font-size:11px;color:var(--color-text-muted);">
+    <span class="text-xs text-muted">
       Чек-лист приёмки. Пройдите все пункты для подтверждения готовности в системе сценария к бизнес-демонстрации.
     </span>
   </div>
@@ -452,7 +452,7 @@
     <span class="section-card-title">Быстрые ссылки</span>
   </div>
   <div class="section-card-body">
-    <div class="next-actions-grid" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
+    <div class="next-actions-grid">
       <a href="/dashboard" class="next-action-card">
         <span class="next-action-label">📊 Главный экран</span>
       </a>

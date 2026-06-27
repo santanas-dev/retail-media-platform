@@ -122,9 +122,9 @@
           <span class="stat-detail pending">⏳ {{ kpi.pending_batches }} на согласовании</span>
           <span class="stat-detail approved">✅ {{ kpi.published_batches }} опубликовано</span>
         </div>
-        <div class="stat-details" style="margin-top:4px;">
-          <span class="stat-detail" style="color:var(--color-text-secondary);">📜 {{ kpi.published_manifests }} манифестов</span>
-          <span class="stat-detail" style="color:var(--color-text-secondary);">{{ kpi.total_schedules }} расписаний</span>
+        <div class="stat-details mt-4">
+          <span class="stat-detail text-secondary">📜 {{ kpi.published_manifests }} манифестов</span>
+          <span class="stat-detail text-secondary">{{ kpi.total_schedules }} расписаний</span>
         </div>
       </div>
     </div>
@@ -203,14 +203,14 @@
      C. PILOT READINESS
      ═══════════════════════════════════════════════════════════════════ -->
 
-<div class="section-card" style="border-color: var(--color-error-border);">
-  <div class="section-card-header" style="border-color: var(--color-error-border);">
+<div class="section-card section-card-error">
+  <div class="section-card-header section-card-error">
     <span class="section-card-icon">🚫</span>
     <span class="section-card-title">Pilot Готовность</span>
-    <span class="pilot-status no-go" style="margin:0 0 0 auto;padding:4px 12px;font-size:12px;border-radius:6px;">🚫 Запуск заблокирован</span>
+    <span class="pilot-status no-go ml-auto btn-sm">🚫 Запуск заблокирован</span>
   </div>
   <div class="section-card-body">
-    <p style="font-size:13px;color:var(--color-error-text);margin-bottom:12px;">
+    <p class="text-md text-error mb-12">
       <strong>Сканер не подключён — физическая проверка не начата.</strong> Физический пилот невозможен до закрытия всех P0 blockers.
     </p>
     <div class="blocker-grid">
@@ -241,7 +241,7 @@
       </div>
     </div>
   </div>
-  <div class="section-card-footer" style="border-color: var(--color-error-border);">
+  <div class="section-card-footer section-card-error">
     <a href="/readiness" class="btn btn-sm btn-ghost">🧭 Readiness</a>
     <a href="/publications" class="btn btn-sm btn-ghost">📋 Публикации</a>
   </div>
@@ -300,7 +300,7 @@
 </div>
 {% endif %}
 
-<div class="timestamp" style="margin-top:16px;">
+<div class="timestamp mt-16">
   <span>🕐</span> Данные: система · обновление при каждом запросе
 </div>
 {% endblock %}

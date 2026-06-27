@@ -64,7 +64,7 @@
 <div class="requirements-box">
   <div class="requirements-title">Пользователи портала (backend API, read-only)</div>
   {% if backend_available and users %}
-  <div class="table-container" style="margin-top:12px">
+  <div class="table-container mt-12">
   <table class="data-table">
     <thead>
       <tr>
@@ -99,7 +99,7 @@
   </table>
   </div>
   {% else %}
-  <div class="table-container" style="margin-top:12px">
+  <div class="table-container mt-12">
   <table class="data-table">
     <thead>
       <tr><th>Пользователь</th><th>Логин</th><th>Роли</th><th>Статус</th><th>Активен</th><th>MFA</th><th>Провайдер</th><th>Действия</th></tr>
@@ -120,9 +120,9 @@
   {% endif %}
   <div class="export-action">
     <!-- Create User Form (server-side POST) -->
-    <details style="margin-bottom:12px">
-      <summary style="cursor:pointer; font-weight:600; font-size:14px; color:var(--color-primary)">➕ Создать пользователя</summary>
-      <form method="POST" action="/admin/users/create" class="login-form" style="margin-top:12px">
+    <details class="mb-12">
+      <summary class="font-semibold" style="cursor:pointer; font-size:14px; color:var(--color-primary)">➕ Создать пользователя</summary>
+      <form method="POST" action="/admin/users/create" class="login-form mt-12">
         <div class="form-group">
           <label class="form-label">Имя пользователя (логин)</label>
           <input type="text" name="username" class="form-input" required
@@ -147,16 +147,16 @@
       </form>
     </details>
     <!-- Block User Form (server-side POST, Step 36.11) -->
-    <details style="margin-bottom:12px">
-      <summary style="cursor:pointer; font-weight:600; font-size:14px; color:var(--color-warning, #e67e22)">🔒 Заблокировать пользователя</summary>
-      <form method="POST" action="/admin/users/block" class="login-form" style="margin-top:12px">
+    <details class="mb-12">
+      <summary class="font-semibold" style="cursor:pointer; font-size:14px; color:var(--color-warning, #e67e22)">🔒 Заблокировать пользователя</summary>
+      <form method="POST" action="/admin/users/block" class="login-form mt-12">
         <div class="form-group">
           <label class="form-label">Имя пользователя (логин)</label>
           <input type="text" name="username" class="form-input" required
                  minlength="1" maxlength="100" autocomplete="off"
                  placeholder="user_login">
         </div>
-        <div class="form-hint" style="margin-top:4px; font-size:12px; color:var(--color-text-secondary)">
+        <div class="form-hint text-meta text-secondary" style="margin-top:4px">
           ⚠️ Заблокированный пользователь не сможет войти в систему. Последнего system_admin заблокировать нельзя.
         </div>
         <div class="form-actions">
@@ -165,16 +165,16 @@
       </form>
     </details>
     <!-- Archive User Form (server-side POST, Step 36.12) -->
-    <details style="margin-bottom:12px">
-      <summary style="cursor:pointer; font-weight:600; font-size:14px; color:var(--color-error, #e74c3c)">📦 Архивировать пользователя</summary>
-      <form method="POST" action="/admin/users/archive" class="login-form" style="margin-top:12px">
+    <details class="mb-12">
+      <summary class="font-semibold" style="cursor:pointer; font-size:14px; color:var(--color-error, #e74c3c)">📦 Архивировать пользователя</summary>
+      <form method="POST" action="/admin/users/archive" class="login-form mt-12">
         <div class="form-group">
           <label class="form-label">Имя пользователя (логин)</label>
           <input type="text" name="username" class="form-input" required
                  minlength="1" maxlength="100" autocomplete="off"
                  placeholder="user_login">
         </div>
-        <div class="form-hint" style="margin-top:4px; font-size:12px; color:var(--color-text-secondary)">
+        <div class="form-hint text-meta text-secondary" style="margin-top:4px">
           ⚠️ Архивирование — логическое удаление. Пользователь теряет доступ ко всем функциям. Это не физическое удаление (hard delete). Последнего system_admin архивировать нельзя.
         </div>
         <div class="form-actions">
@@ -191,7 +191,7 @@
 <div class="requirements-box">
   <div class="requirements-title">Роли (backend API, read-only)</div>
   {% if backend_available and roles %}
-  <div class="requirements-grid" style="margin-top:12px">
+  <div class="requirements-grid mt-12">
     {% for r in roles %}
     <div class="requirements-item">
       <span class="requirements-label">{{ r.code }}</span>
@@ -200,7 +200,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="requirements-grid" style="margin-top:12px">
+  <div class="requirements-grid mt-12">
     <div class="requirements-item">
       <span class="requirements-label">system_admin</span><span class="requirements-value requirements-forbidden">Требует MFA</span>
     </div>
@@ -217,9 +217,9 @@
   {% endif %}
   <div class="export-action">
     <!-- Assign Roles Form (server-side POST, Step 36.9) -->
-    <details style="margin-bottom:12px">
-      <summary style="cursor:pointer; font-weight:600; font-size:14px; color:var(--color-primary)">✅ Назначить роль</summary>
-      <form method="POST" action="/admin/users/assign-roles" class="login-form" style="margin-top:12px">
+    <details class="mb-12">
+      <summary class="font-semibold" style="cursor:pointer; font-size:14px; color:var(--color-primary)">✅ Назначить роль</summary>
+      <form method="POST" action="/admin/users/assign-roles" class="login-form mt-12">
         <div class="form-group">
           <label class="form-label">Имя пользователя (логин)</label>
           <input type="text" name="username" class="form-input" required
@@ -251,7 +251,7 @@
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <div class="requirements-box">
   <div class="requirements-title">Области доступа / RLS</div>
-  <div class="requirements-grid" style="margin-top:12px">
+  <div class="requirements-grid mt-12">
     <div class="requirements-item"><span class="requirements-label">advertiser_scope</span><span class="requirements-value">По рекламодателю — только свои кампании</span></div>
     <div class="requirements-item"><span class="requirements-label">branch_scope</span><span class="requirements-value">По филиалу — только магазины своего филиала</span></div>
     <div class="requirements-item"><span class="requirements-label">store_scope</span><span class="requirements-value">По магазину — только свои КСО и показы</span></div>
@@ -262,9 +262,9 @@
   </div>
   <div class="export-action">
     <!-- Assign RLS Scopes Form (server-side POST, Step 36.10) -->
-    <details style="margin-bottom:12px">
-      <summary style="cursor:pointer; font-weight:600; font-size:14px; color:var(--color-primary)">✅ Назначить область</summary>
-      <form method="POST" action="/admin/users/assign-rls-scopes" class="login-form" style="margin-top:12px">
+    <details class="mb-12">
+      <summary class="font-semibold" style="cursor:pointer; font-size:14px; color:var(--color-primary)">✅ Назначить область</summary>
+      <form method="POST" action="/admin/users/assign-rls-scopes" class="login-form mt-12">
         <div class="form-group">
           <label class="form-label">Имя пользователя (логин)</label>
           <input type="text" name="username" class="form-input" required
@@ -278,7 +278,7 @@
                     placeholder="branch_scope:demo_branch_north&#10;store_scope:demo_store_001&#10;report_scope:demo_report_kso"
                     style="font-family:monospace; resize:vertical"></textarea>
         </div>
-        <div class="form-hint" style="margin-top:4px; font-size:12px; color:var(--color-text-secondary)">
+        <div class="form-hint text-meta text-secondary" style="margin-top:4px">
           ⚠️ <strong>Заменяет</strong> полный список областей доступа пользователя. Допустимые типы: advertiser_scope, branch_scope, store_scope, campaign_scope, device_scope, approval_scope, report_scope. Без пробелов, @, телефонов, /, \.
         </div>
         <div class="form-actions">
@@ -294,7 +294,7 @@
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <div class="requirements-box">
   <div class="requirements-title">Аудит администрирования (backend API, read-only)</div>
-  <div class="table-container" style="margin-top:12px">
+  <div class="table-container mt-12">
   <table class="data-table">
     <thead>
       <tr><th>Дата</th><th>Действие</th><th>Тип объекта</th><th>Объект</th></tr>

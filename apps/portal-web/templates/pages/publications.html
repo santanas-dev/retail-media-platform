@@ -121,7 +121,7 @@
     {% for b in batches %}
     <div style="padding:14px 20px;border-bottom:1px solid var(--color-border-light);">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
-        <code style="font-weight:600;">{{ b.batch_ref }}</code>
+        <code class="font-semibold">{{ b.batch_ref }}</code>
         <span class="status-badge status-badge-{{ b.status }}">
           {{ 'Черновик' if b.status == 'draft' else
              'На согласовании' if b.status == 'pending_approval' else
@@ -131,8 +131,8 @@
              'Отменено' if b.status == 'cancelled' else
              'Отклонено' if b.status == 'rejected' else b.status }}
         </span>
-        <span style="font-size:12px;color:var(--color-text-secondary);">📢 {{ b.campaign_code }}</span>
-        <span style="font-size:11px;color:var(--color-text-muted);">{{ b.created_at[:19] if b.created_at else '—' }}</span>
+        <span class="text-meta text-secondary">📢 {{ b.campaign_code }}</span>
+        <span class="text-sm text-muted">{{ b.created_at[:19] if b.created_at else '—' }}</span>
         <span style="flex:1;"></span>
       </div>
 
@@ -148,23 +148,23 @@
       <!-- Action buttons -->
       <div class="form-inline" style="gap:8px;">
         {% if b.status == 'draft' %}
-        <form method="post" action="/publications/batch/{{ b.batch_id }}/request-approval" style="display:inline;">
+        <form method="post" action="/publications/batch/{{ b.batch_id }}/request-approval" class="inline">
           <button type="submit" class="btn btn-sm btn-primary">→ На согласование</button>
         </form>
         {% endif %}
         {% if b.status == 'approved' %}
-        <form method="post" action="/publications/batch/{{ b.batch_id }}/generate" style="display:inline;">
+        <form method="post" action="/publications/batch/{{ b.batch_id }}/generate" class="inline">
           <button type="submit" class="btn btn-sm" style="background:var(--color-purple);color:#fff;">📋 Сформировать пакет показа</button>
         </form>
         {% endif %}
         {% if b.status == 'manifest_generated' %}
-        <form method="post" action="/publications/batch/{{ b.batch_id }}/publish" style="display:inline;">
+        <form method="post" action="/publications/batch/{{ b.batch_id }}/publish" class="inline">
           <button type="submit" class="btn btn-sm" style="background:var(--color-success);color:#fff;">🚀 Опубликовать в системе</button>
         </form>
         <span style="font-size:10px;color:var(--color-warning-text);">⚠️ Только в системе. Доставка на КСО заблокирована.</span>
         {% endif %}
         {% if b.status not in ('published', 'cancelled') %}
-        <form method="post" action="/publications/batch/{{ b.batch_id }}/cancel" style="display:inline;">
+        <form method="post" action="/publications/batch/{{ b.batch_id }}/cancel" class="inline">
           <button type="submit" class="btn btn-sm btn-ghost">✕ Отмена</button>
         </form>
         {% endif %}
@@ -175,7 +175,7 @@
 </div>
 
 <!-- Manifest Status Summary -->
-<div class="summary-panel" style="margin-top:16px;">
+<div class="summary-panel mt-16">
   <div class="summary-panel-title">Сводка публикаций</div>
   <div class="summary-stats">
     {% set d_count = batches|selectattr('status','equalto','draft')|list|length %}
@@ -202,7 +202,7 @@
 
 <!-- ├─ Legacy Manifests ─────────────────────────────────────────────────────── -->
 {% if manifests %}
-<div class="section-card" style="margin-top:16px;opacity:0.8;">
+<div class="section-card mt-16" style="opacity:0.8;">
   <div class="section-card-header">
     <span class="section-card-icon">📜</span>
     <span class="section-card-title">Ранее созданные манифесты</span>
@@ -229,7 +229,7 @@
 
 <!-- Backend Unavailable -->
 {% if backend_unavailable %}
-<div class="banner banner-warning" style="margin-top:16px;">
+<div class="banner banner-warning mt-16">
   <span class="banner-icon">⚠️</span>
   <div class="banner-body"><div class="banner-text">Система недоступна: {{ backend_message }}</div></div>
 </div>
@@ -237,7 +237,7 @@
 
 <!-- Next Step -->
 {% if batches %}
-<div class="banner banner-info" style="margin-top:16px;">
+<div class="banner banner-info mt-16">
   <span class="banner-icon">👉</span>
   <div class="banner-body">
     <div class="banner-title">Следующий шаг</div>

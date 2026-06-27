@@ -47,7 +47,7 @@
   <div class="section-card-body">
     <form method="post" action="/approvals/request" class="form-inline">
       <div class="form-group">
-        <label class="form-label">Тип объекта <span style="color:var(--color-error);">*</span></label>
+        <label class="form-label">Тип объекта <span class="text-error">*</span></label>
         <select name="object_type" required class="form-select" style="min-width:200px;">
           <option value="campaign">Кампания</option>
           <option value="placement">Размещение</option>
@@ -55,7 +55,7 @@
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Код объекта <span style="color:var(--color-error);">*</span></label>
+        <label class="form-label">Код объекта <span class="text-error">*</span></label>
         <input type="text" name="object_code" placeholder="campaign_code или batch UUID" minlength="1" maxlength="64" required
                class="form-input" style="width:220px;">
         <span class="form-hint">campaign_code, placement_code или batch ID</span>
@@ -88,14 +88,14 @@
     <div style="padding:16px 20px;border-bottom:1px solid var(--color-border-light);">
       <!-- Header row -->
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-        <code style="font-weight:600;">{{ a.approval_code }}</code>
+        <code class="font-semibold">{{ a.approval_code }}</code>
         <span class="status-badge status-badge-{{ 'pending' if a.status == 'pending' else 'approved' if a.status == 'approved' else 'rejected' if a.status == 'rejected' else 'draft' }}">
           {{ 'На согласовании' if a.status == 'pending' else 'Одобрено' if a.status == 'approved' else 'Отклонено' if a.status == 'rejected' else a.status }}
         </span>
-        <span style="font-size:12px;color:var(--color-text-secondary);">{{ a.object_type }} → {{ a.object_code }}</span>
-        <span style="font-size:11px;color:var(--color-text-muted);">Запрошен: {{ a.requested_at }}</span>
+        <span class="text-meta text-secondary">{{ a.object_type }} → {{ a.object_code }}</span>
+        <span class="text-sm text-muted">Запрошен: {{ a.requested_at }}</span>
         {% if a.decided_at and a.decided_at != '—' %}
-        <span style="font-size:11px;color:var(--color-text-muted);">Решение: {{ a.decided_at }}</span>
+        <span class="text-sm text-muted">Решение: {{ a.decided_at }}</span>
         {% endif %}
       </div>
 
@@ -128,7 +128,7 @@
         </form>
       </div>
       {% else %}
-      <div style="font-size:12px;color:var(--color-text-secondary);">
+      <div class="text-meta text-secondary">
         <strong>Решение:</strong> {{ a.decision }}
         {% if a.comment and a.comment != '—' %} — {{ a.comment }}{% endif %}
       </div>
@@ -150,7 +150,7 @@
 
 <!-- Next Step -->
 {% if approvals %}
-<div class="banner banner-info" style="margin-top:16px;">
+<div class="banner banner-info mt-16">
   <span class="banner-icon">👉</span>
   <div class="banner-body">
     <div class="banner-title">Следующий шаг</div>

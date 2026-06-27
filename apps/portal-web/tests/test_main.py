@@ -5639,5 +5639,125 @@ class TestBusinessDemoAcceptance(unittest.TestCase):
         self.assertNotIn("Пилот готов", resp.text)
 
 
+class TestDesignSystemHardening(unittest.TestCase):
+    """43.8: Design system — CSS classes, no inline styles, dark theme."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.css = (_PORTAL_DIR / "static" / "styles.css").read_text()
+        cls.css_lower = cls.css.lower()
+
+    def setUp(self):
+        from main import app
+        self.client = TestClient(app)
+
+    # ── CSS Tokens ──────────────────────────────────
+
+    def test_dark_theme_variables_exist(self):
+        for var in ("--color-bg", "--color-surface", "--color-primary",
+                     "--color-text", "--color-border", "--shadow-sm",
+                     "--shadow-md", "--shadow-lg", "--shadow-glow",
+                     "--radius-sm", "--radius", "--radius-lg"):
+            self.assertIn(var, self.css, f"CSS missing token: {var}")
+
+    def test_reduced_motion_exists(self):
+        self.assertIn("prefers-reduced-motion", self.css_lower)
+
+    def test_typography_fluid_exists(self):
+        self.assertIn("clamp(", self.css, "CSS must use fluid typography")
+
+    # ── Button System ───────────────────────────────
+
+    def test_button_classes_exist(self):
+        for btn in (".btn", ".btn-primary", ".btn-secondary", ".btn-ghost",
+                     ".btn-danger", ".btn-success", ".btn-warning",
+                     ".btn-sm", ".btn-lg", ".btn-block", ".btn-disabled"):
+            self.assertIn(btn, self.css, f"Missing button class: {btn}")
+
+    # ── Status Badges ───────────────────────────────
+
+    def test_status_pill_classes_exist(self):
+        for cls_name in (".status-badge", ".status-success", ".status-warning",
+                          ".status-danger", ".status-info", ".status-muted"):
+            self.assertIn(cls_name, self.css, f"Missing status class: {cls_name}")
+
+    # ── Content Panels ──────────────────────────────
+
+    def test_panel_classes_exist(self):
+        for panel in (".section-card", ".content-card", ".info-panel",
+                       ".warning-panel", ".note-panel"):
+            self.assertIn(panel, self.css, f"Missing panel class: {panel}")
+
+    # ── Progress Fill ───────────────────────────────
+
+    def test_progress_fill_classes_exist(self):
+        for pct in (0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100):
+            self.assertIn(f".fill-{pct}", self.css,
+                          f"Missing fill class: fill-{pct}")
+
+    # ── Utility Classes ─────────────────────────────
+
+    def test_spacing_utilities_exist(self):
+        for cls_name in (".mt-4", ".mt-8", ".mt-12", ".mt-16",
+                          ".mb-8", ".mb-12", ".mb-16"):
+            self.assertIn(cls_name, self.css,
+                          f"Missing spacing utility: {cls_name}")
+
+    def test_text_utilities_exist(self):
+        for cls_name in (".text-xs", ".text-sm", ".text-md",
+                          ".text-muted", ".text-secondary", ".text-error"):
+            self.assertIn(cls_name, self.css,
+                          f"Missing text utility: {cls_name}")
+
+    # ── Inline Styles Audit ─────────────────────────
+
+    def test_no_inline_styles_in_core_templates(self):
+        """Core templates should have minimal inline styles."""
+        import os
+        templates_dir = _PORTAL_DIR / "templates"
+        inline_count = 0
+        for root, _, files in os.walk(templates_dir):
+            for f in files:
+                if f.endswith(".html") and "~" not in f:
+                    content = (Path(root) / f).read_text()
+                    inline_count += content.count('style="')
+        # After 43.8: should be dramatically reduced from 269
+        self.assertLess(inline_count, 200,
+                        f"Too many inline styles: {inline_count} (was 269, target <200)")
+
+    # ── Login Isolation ─────────────────────────────
+
+    def test_login_still_isolated(self):
+        resp = self.client.get("/login")
+        self.assertNotIn("sidebar", resp.text)
+        self.assertNotIn("Retail Media Platform", resp.text)
+        self.assertIn("Рекламный портал", resp.text)
+
+    # ── Sidebar ─────────────────────────────────────
+
+    def test_sidebar_no_stages_section(self):
+        resp = self.client.get("/dashboard")
+        self.assertNotIn("Этапы", resp.text,
+                         "Sidebar must NOT contain Этапы section")
+
+    # ── Safety ──────────────────────────────────────
+
+    def test_no_js_cdn_localstorage(self):
+        resp = self.client.get("/dashboard")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "localstorage",
+                    "cdnjs", "unpkg", "jsdelivr"):
+            self.assertNotIn(fb, lower,
+                             f"Must NOT contain: {fb}")
+
+    def test_no_technical_labels(self):
+        resp = self.client.get("/dashboard")
+        lower = resp.text.lower()
+        for fb in ("retail media platform", "test-kso", "dev-kso",
+                    "legacy", "deprecated", "internal-use"):
+            self.assertNotIn(fb, lower,
+                             f"Must NOT contain: {fb}")
+
+
 if __name__ == "__main__":
     unittest.main()

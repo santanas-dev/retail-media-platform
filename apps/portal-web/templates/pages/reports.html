@@ -60,7 +60,7 @@
       </span>
       {% endfor %}
     </div>
-    <div class="export-links" style="margin-top:12px;">
+    <div class="export-links mt-12">
       <a href="/reports/export/campaigns" class="export-link">📥 campaigns_export.csv</a>
     </div>
     {% else %}
@@ -84,22 +84,22 @@
     <span class="section-card-title">Плановая занятость эфира</span>
   </div>
   <div class="section-card-body">
-    <form method="get" action="/reports" class="form-inline" style="margin-bottom:16px;">
+    <form method="get" action="/reports" class="form-inline mb-16">
       <div class="form-group">
-        <label class="form-label" style="font-size:11px;">КСО</label>
+        <label class="form-label text-sm">КСО</label>
         <input type="text" name="at_device" value="{{ at_device if at_device else '' }}"
                placeholder="device_code" maxlength="64"
-               class="form-input" style="width:150px;padding:6px 10px;font-size:13px;">
+               class="form-input" style="width:150px">
       </div>
       <div class="form-group">
-        <label class="form-label" style="font-size:11px;">Дата с</label>
+        <label class="form-label text-sm">Дата с</label>
         <input type="date" name="at_from" value="{{ at_from if at_from else '' }}"
-               class="form-input" style="width:140px;padding:6px 10px;font-size:13px;">
+               class="form-input form-input-w140">
       </div>
       <div class="form-group">
-        <label class="form-label" style="font-size:11px;">Дата по</label>
+        <label class="form-label text-sm">Дата по</label>
         <input type="date" name="at_to" value="{{ at_to if at_to else '' }}"
-               class="form-input" style="width:140px;padding:6px 10px;font-size:13px;">
+               class="form-input form-input-w140">
       </div>
       <div class="form-group">
         <button type="submit" class="btn btn-primary btn-sm">Проверить</button>
@@ -126,7 +126,7 @@
       <span class="threshold-marker" style="left:80%;" title="80% — риск перегруза"><span class="threshold-marker-label">80%</span></span>
     </div>
 
-    <div class="summary-stats" style="margin-top:16px;">
+    <div class="summary-stats mt-16">
       <div class="summary-stat">
         <div class="summary-stat-value">{{ planned_airtime.total_available_minutes }}</div>
         <div class="summary-stat-label">Всего мин.</div>
@@ -146,13 +146,13 @@
     </div>
 
     {% if at_device %}
-    <div class="export-links" style="margin-top:12px;">
+    <div class="export-links mt-12">
       <a href="/reports/export/airtime?device_codes={{ at_device }}" class="export-link">📥 airtime.csv</a>
     </div>
     {% endif %}
 
     {% else %}
-    <div style="text-align:center;padding:16px;color:var(--color-text-muted);font-size:13px;">
+    <div class="text-center text-muted text-md" style="padding:16px">
       Укажите КСО и диапазон дат для расчёта плановой занятости.
     </div>
     {% endif %}
@@ -176,7 +176,7 @@
   </div>
   <div class="section-card-body">
     {% if planned_airtime and planned_airtime.conflicts %}
-    <div class="table-container" style="border:none;box-shadow:none;margin-bottom:0;">
+    <div class="table-container table-clean">
     <table class="data-table">
       <thead><tr>
         <th>Кампания</th><th>Конфликт с</th><th>Даты</th><th>День</th><th>Время</th><th>Конфликтное время</th>
@@ -193,13 +193,13 @@
       </tr>
       {% endfor %}
       {% if planned_airtime.conflicts | length > 15 %}
-      <tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);font-size:12px;">Показаны первые 15 из {{ planned_airtime.conflicts | length }} конфликтов</td></tr>
+      <tr><td colspan="6" class="text-center text-muted" style="font-size:12px">Показаны первые 15 из {{ planned_airtime.conflicts | length }} конфликтов</td></tr>
       {% endif %}
       </tbody>
     </table>
     </div>
     {% if at_device %}
-    <div class="export-links" style="margin-top:12px;">
+    <div class="export-links mt-12">
       <a href="/reports/export/conflicts?device_codes={{ at_device }}" class="export-link">📥 conflicts_export.csv</a>
     </div>
     {% endif %}
@@ -209,7 +209,7 @@
       <div class="banner-body"><div class="banner-text">Конфликтов не обнаружено для выбранного КСО и диапазона дат.</div></div>
     </div>
     {% else %}
-    <div style="text-align:center;padding:16px;color:var(--color-text-muted);font-size:13px;">
+    <div class="text-center text-muted text-md" style="padding:16px">
       Заполните фильтр «Плановая занятость эфира» выше для проверки конфликтов.
     </div>
     {% endif %}
@@ -252,7 +252,7 @@
           {% endfor %}
         </div>
         {% endif %}
-        <div class="export-links" style="margin-top:8px;">
+        <div class="export-links mt-8">
           <a href="/reports/export/publications" class="export-link">📥 publications.csv</a>
         </div>
       </div>
@@ -279,7 +279,7 @@
           {% endfor %}
         </div>
         {% else %}
-        <div style="color:var(--color-text-muted);font-size:12px;padding:8px 0;">Нет манифестов</div>
+        <div class="text-muted py-8" style="font-size:12px">Нет манифестов</div>
         {% endif %}
       </div>
     </div>
@@ -301,32 +301,32 @@
   </div>
   <div class="section-card-body">
     <!-- PoP Filters -->
-    <form method="get" action="/reports" class="form-inline" style="margin-bottom:12px;">
+    <form method="get" action="/reports" class="form-inline mb-12">
       <div class="form-group">
-        <label class="form-label" style="font-size:10px;">Кампания</label>
+        <label class="form-label text-xs">Кампания</label>
         <input type="text" name="campaign_code" value="{{ filters.campaign_code if filters.campaign_code else '' }}"
                placeholder="camp_code" maxlength="64"
-               class="form-input" style="width:120px;padding:4px 8px;font-size:12px;">
+               class="form-input form-input-sm">
       </div>
       <div class="form-group">
-        <label class="form-label" style="font-size:10px;">Креатив</label>
+        <label class="form-label text-xs">Креатив</label>
         <input type="text" name="creative_code" value="{{ filters.creative_code if filters.creative_code else '' }}"
                placeholder="cr_code" maxlength="64"
-               class="form-input" style="width:120px;padding:4px 8px;font-size:12px;">
+               class="form-input form-input-sm">
       </div>
       <div class="form-group">
-        <label class="form-label" style="font-size:10px;">КСО</label>
+        <label class="form-label text-xs">КСО</label>
         <input type="text" name="device_code" value="{{ filters.device_code if filters.device_code else '' }}"
                placeholder="dev_code" maxlength="64"
-               class="form-input" style="width:120px;padding:4px 8px;font-size:12px;">
+               class="form-input form-input-sm">
       </div>
       <div class="form-group">
-        <label class="form-label" style="font-size:10px;">Дата с</label>
+        <label class="form-label text-xs">Дата с</label>
         <input type="date" name="date_from" value="{{ filters.date_from if filters.date_from else '' }}"
                class="form-input" style="width:130px;padding:4px 8px;font-size:12px;">
       </div>
       <div class="form-group">
-        <label class="form-label" style="font-size:10px;">Дата по</label>
+        <label class="form-label text-xs">Дата по</label>
         <input type="date" name="date_to" value="{{ filters.date_to if filters.date_to else '' }}"
                class="form-input" style="width:130px;padding:4px 8px;font-size:12px;">
       </div>
@@ -339,7 +339,7 @@
     </form>
 
     {% if pop_events_ok and pop_events %}
-    <div class="table-container" style="border:none;box-shadow:none;margin-bottom:0;">
+    <div class="table-container table-clean">
     <table class="data-table data-table-compact">
       <thead><tr>
         <th>Event</th><th>Кампания</th><th>Креатив</th><th>КСО</th>
@@ -361,7 +361,7 @@
     </table>
     </div>
     {% if pop_events | length >= 20 %}
-    <p style="font-size:11px;color:var(--color-text-muted);text-align:center;margin-top:8px;">Показаны последние 20 событий</p>
+    <p class="text-sm text-muted text-center mt-8">Показаны последние 20 событий</p>
     {% endif %}
     {% else %}
     <div class="table-empty-state" style="padding:28px 16px;">
