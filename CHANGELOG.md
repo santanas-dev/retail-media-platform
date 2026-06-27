@@ -7,6 +7,31 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [42.4-full-audit-tech-debt] — 2026-06-16
+
+**Full Audit & Technical Debt Register — comprehensive codebase audit after 42.3.**
+
+### Deliverables
+- `docs/audit/full-audit-42-4.md` — full audit covering backend, portal, KSO, infra, docs
+- `docs/audit/technical-debt-register.md` — 34 debt items (6 P0, 4 P1, 20 P2, 4 P3)
+- `docs/audit/pilot-readiness-gap-register.md` — 6 pilot blockers confirmed, 5 pre-pilot gaps
+- `docs/audit/security-hardening-register.md` — 12 security items (3 P1, 9 P2)
+
+### Key Findings
+- **No new blockers from 42.3** — CSV export, RLS, reports are safe
+- **171 test-kso references** across 27 files — consolidation sprint needed (43.x)
+- **7 legacy BackendClient methods** referencing test-kso paths
+- **6 pilot blockers** unchanged (scanner, long-run, delivery, sidecar, runbook, approval)
+- **Portal demo_data** module still imported but unused in production
+- **KSO Player** correctly enforces 768×1024 portrait, no 1920×1080 leakage
+- **Security posture** good — no P0 findings, P1 items are pre-pilot hardening
+- **Docs gaps**: no ADR, no security hardening doc, no rollback runbook
+
+### Regression
+Doc-only — no runtime/physical actions. Full regression not required.
+
+---
+
 ## [42.3-planned-reports-export] — 2026-06-16
 
 **Planned Reports Export — CSV выгрузки по кампаниям, занятости эфира, конфликтам и publication batches.**
