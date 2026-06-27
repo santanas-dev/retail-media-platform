@@ -1,142 +1,293 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Dashboard</h1>
-<p class="page-description">Ключевые метрики Retail Media Platform — production backend API. Данные обновляются при каждом запросе.</p>
+<p class="page-description">Управленческий экран Retail Media Platform. Данные из production backend.</p>
 
 <!-- Pilot Status -->
 <div class="pilot-status no-go">
   <span class="pilot-status-icon">🔴</span>
-  <span><strong>Пилот: NO-GO</strong> — backend/product/portal GO, физическая КСО NO-GO. Требуется: scanner E2E, controlled long-run, physical delivery gate.</span>
+  <span><strong>Пилот: NO-GO</strong> — backend/product/portal GO, физическая КСО NO-GO (5 physical blockers). Сканер отсутствует — physical gates не запускаются.</span>
 </div>
 
 {% if backend_warning %}
 <div class="banner banner-warning">
   <span class="banner-icon">⚠️</span>
-  <div class="banner-body">
-    <div class="banner-text">{{ backend_warning }}</div>
-  </div>
+  <div class="banner-body"><div class="banner-text">{{ backend_warning }}</div></div>
 </div>
 {% endif %}
 
 {% if dashboard_backend %}
-<!-- KPI Cards -->
-<div class="cards">
-  <div class="card">
-    <div class="card-title">Кампаний</div>
-    <div class="card-value">{{ kpi.total_campaigns }}</div>
-    <div class="card-hint">{{ kpi.active_campaigns }} активных · {{ kpi.draft_campaigns }} черновиков</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Креативов</div>
-    <div class="card-value">{{ kpi.total_creatives }}</div>
-    <div class="card-hint">Загружено в платформу</div>
-  </div>
-  <div class="card">
-    <div class="card-title">КСО устройств</div>
-    <div class="card-value">{{ kpi.total_devices }}</div>
-    <div class="card-hint">Подключены к платформе</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Расписаний</div>
-    <div class="card-value">{{ kpi.total_schedules }}</div>
-    <div class="card-hint">{{ kpi.active_schedules }} активных</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Манифестов</div>
-    <div class="card-value">{{ kpi.total_publications }}</div>
-    <div class="card-hint">Сгенерировано</div>
-  </div>
-  <div class="card">
-    <div class="card-title">На согласовании</div>
-    <div class="card-value">{{ kpi.approvals_pending }}</div>
-    <div class="card-hint">Ожидают решения</div>
-  </div>
-</div>
 
-<!-- Campaign Status Pipeline -->
-{% if kpi.campaigns_draft is defined %}
+<!-- ═══════════════════════════════════════════════════════════════════
+     A. PLATFORM SUMMARY
+     ═══════════════════════════════════════════════════════════════════ -->
+
 <div class="section-card">
   <div class="section-card-header">
-    <span class="section-card-icon">📢</span>
-    <span class="section-card-title">Кампании по статусам</span>
+    <span class="section-card-icon">📊</span>
+    <span class="section-card-title">Сводка платформы</span>
   </div>
   <div class="section-card-body">
-    <div class="lifecycle-flow">
-      <span class="lifecycle-step lifecycle-draft">Черновик: {{ kpi.campaigns_draft }}</span>
-      <span class="lifecycle-arrow">→</span>
-      <span class="lifecycle-step lifecycle-review">На согласовании: {{ kpi.campaigns_pending }}</span>
-      <span class="lifecycle-arrow">→</span>
-      <span class="lifecycle-step lifecycle-ready">Одобрено: {{ kpi.campaigns_approved }}</span>
+    <div class="stat-grid">
+      <!-- Campaigns -->
+      <div class="stat-block">
+        <div class="stat-block-header">
+          <span class="stat-block-icon">📢</span>
+          <span class="stat-block-label">Кампании</span>
+          <span class="stat-block-total">{{ kpi.total_campaigns }}</span>
+        </div>
+        <div class="stat-bars">
+          {% if kpi.total_campaigns > 0 %}
+          {% set c_draft_pct = (kpi.draft_campaigns / kpi.total_campaigns * 100) | int %}
+          {% set c_pending_pct = (kpi.pending_campaigns / kpi.total_campaigns * 100) | int %}
+          {% set c_approved_pct = (kpi.approved_campaigns / kpi.total_campaigns * 100) | int %}
+          {% set c_other_pct = 100 - c_draft_pct - c_pending_pct - c_approved_pct %}
+          <div class="dist-bar">
+            {% if c_draft_pct > 0 %}<div class="dist-segment draft" style="width:{{ c_draft_pct }}%;" title="Черновик: {{ kpi.draft_campaigns }}"></div>{% endif %}
+            {% if c_pending_pct > 0 %}<div class="dist-segment pending" style="width:{{ c_pending_pct }}%;" title="На согласовании: {{ kpi.pending_campaigns }}"></div>{% endif %}
+            {% if c_approved_pct > 0 %}<div class="dist-segment approved" style="width:{{ c_approved_pct }}%;" title="Одобрено: {{ kpi.approved_campaigns }}"></div>{% endif %}
+            {% if c_other_pct > 0 %}<div class="dist-segment other" style="width:{{ c_other_pct }}%;" title="Прочее"></div>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="stat-details">
+          <span class="stat-detail draft">📝 {{ kpi.draft_campaigns }} черновик</span>
+          <span class="stat-detail pending">⏳ {{ kpi.pending_campaigns }} на согласовании</span>
+          <span class="stat-detail approved">✅ {{ kpi.approved_campaigns }} одобрено</span>
+        </div>
+      </div>
+
+      <!-- Creatives -->
+      <div class="stat-block">
+        <div class="stat-block-header">
+          <span class="stat-block-icon">🎨</span>
+          <span class="stat-block-label">Креативы</span>
+          <span class="stat-block-total">{{ kpi.total_creatives }}</span>
+        </div>
+        <div class="stat-bars">
+          {% if kpi.total_creatives > 0 %}
+          {% set cr_active_pct = (kpi.active_creatives / kpi.total_creatives * 100) | int %}
+          {% set cr_approved_pct = (kpi.approved_creatives / kpi.total_creatives * 100) | int %}
+          {% set cr_other_pct = 100 - cr_active_pct - cr_approved_pct %}
+          <div class="dist-bar">
+            {% if cr_active_pct > 0 %}<div class="dist-segment approved" style="width:{{ cr_active_pct }}%;" title="Активно: {{ kpi.active_creatives }}"></div>{% endif %}
+            {% if cr_approved_pct > 0 %}<div class="dist-segment pending" style="width:{{ cr_approved_pct }}%;" title="Одобрено: {{ kpi.approved_creatives }}"></div>{% endif %}
+            {% if cr_other_pct > 0 %}<div class="dist-segment other" style="width:{{ cr_other_pct }}%;" title="Прочее"></div>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="stat-details">
+          <span class="stat-detail approved">✅ {{ kpi.active_creatives }} активно</span>
+          <span class="stat-detail pending">{{ kpi.approved_creatives }} одобрено</span>
+        </div>
+      </div>
+
+      <!-- Devices -->
+      <div class="stat-block">
+        <div class="stat-block-header">
+          <span class="stat-block-icon">🖥️</span>
+          <span class="stat-block-label">КСО устройства</span>
+          <span class="stat-block-total">{{ kpi.total_devices }}</span>
+        </div>
+        <div class="stat-bars">
+          {% if kpi.total_devices > 0 %}
+          {% set d_ready_pct = (kpi.ready_devices / kpi.total_devices * 100) | int %}
+          {% set d_blocked_pct = (kpi.blocked_devices / kpi.total_devices * 100) | int %}
+          {% set d_offline_pct = (kpi.offline_devices / kpi.total_devices * 100) | int %}
+          {% set d_other_pct = 100 - d_ready_pct - d_blocked_pct - d_offline_pct %}
+          <div class="dist-bar">
+            {% if d_ready_pct > 0 %}<div class="dist-segment approved" style="width:{{ d_ready_pct }}%;" title="Ready: {{ kpi.ready_devices }}"></div>{% endif %}
+            {% if d_blocked_pct > 0 %}<div class="dist-segment blocked" style="width:{{ d_blocked_pct }}%;" title="Blocked: {{ kpi.blocked_devices }}"></div>{% endif %}
+            {% if d_offline_pct > 0 %}<div class="dist-segment offline" style="width:{{ d_offline_pct }}%;" title="Offline: {{ kpi.offline_devices }}"></div>{% endif %}
+            {% if d_other_pct > 0 %}<div class="dist-segment other" style="width:{{ d_other_pct }}%;" title="Прочее"></div>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="stat-details">
+          <span class="stat-detail approved">✅ {{ kpi.ready_devices }} готово</span>
+          <span class="stat-detail blocked">🚫 {{ kpi.blocked_devices }} заблокировано</span>
+          <span class="stat-detail offline">⬤ {{ kpi.offline_devices }} офлайн</span>
+        </div>
+      </div>
+
+      <!-- Manifests & Batches -->
+      <div class="stat-block">
+        <div class="stat-block-header">
+          <span class="stat-block-icon">📋</span>
+          <span class="stat-block-label">Публикации</span>
+          <span class="stat-block-total">{{ kpi.total_batches }}</span>
+        </div>
+        <div class="stat-details">
+          <span class="stat-detail draft">📝 {{ kpi.draft_batches }} черновик</span>
+          <span class="stat-detail pending">⏳ {{ kpi.pending_batches }} на согласовании</span>
+          <span class="stat-detail approved">✅ {{ kpi.published_batches }} опубликовано</span>
+        </div>
+        <div class="stat-details" style="margin-top:4px;">
+          <span class="stat-detail" style="color:var(--color-text-secondary);">📜 {{ kpi.published_manifests }} манифестов</span>
+          <span class="stat-detail" style="color:var(--color-text-secondary);">{{ kpi.total_schedules }} расписаний</span>
+        </div>
+      </div>
     </div>
   </div>
 </div>
-{% endif %}
 
-<!-- Summary Stats -->
-<div class="summary-panel">
-  <div class="summary-panel-title">Сводка платформы</div>
-  <div class="summary-stats">
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ kpi.total_campaigns }}</div>
-      <div class="summary-stat-label">Кампаний</div>
+<!-- ═══════════════════════════════════════════════════════════════════
+     B. ADVERTISING PIPELINE
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🔄</span>
+    <span class="section-card-title">Рекламный pipeline</span>
+  </div>
+  <div class="section-card-body">
+    <div class="pipeline">
+      <!-- 1. Creative -->
+      <a href="/creatives" class="pipeline-step {{ 'pipeline-warning' if kpi.total_creatives == 0 }}">
+        <span class="pipeline-step-num">1</span>
+        <span class="pipeline-step-icon">🎨</span>
+        <span class="pipeline-step-label">Креативы</span>
+        <span class="pipeline-step-count {{ 'count-zero' if kpi.total_creatives == 0 }}">{{ kpi.total_creatives }}</span>
+        {% if kpi.total_creatives == 0 %}<span class="pipeline-warn">Пусто</span>{% endif %}
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <!-- 2. Campaign -->
+      <a href="/campaigns" class="pipeline-step {{ 'pipeline-warning' if kpi.total_campaigns == 0 }}">
+        <span class="pipeline-step-num">2</span>
+        <span class="pipeline-step-icon">📢</span>
+        <span class="pipeline-step-label">Кампании</span>
+        <span class="pipeline-step-count {{ 'count-zero' if kpi.total_campaigns == 0 }}">{{ kpi.total_campaigns }}</span>
+        {% if kpi.total_campaigns == 0 %}<span class="pipeline-warn">Пусто</span>{% endif %}
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <!-- 3. Schedule -->
+      <a href="/schedule" class="pipeline-step {{ 'pipeline-warning' if kpi.total_schedules == 0 }}">
+        <span class="pipeline-step-num">3</span>
+        <span class="pipeline-step-icon">🗓</span>
+        <span class="pipeline-step-label">Расписание</span>
+        <span class="pipeline-step-count {{ 'count-zero' if kpi.total_schedules == 0 }}">{{ kpi.total_schedules }}</span>
+        {% if kpi.total_schedules == 0 %}<span class="pipeline-warn">Пусто</span>{% endif %}
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <!-- 4. Approval -->
+      <a href="/approvals" class="pipeline-step">
+        <span class="pipeline-step-num">4</span>
+        <span class="pipeline-step-icon">📝</span>
+        <span class="pipeline-step-label">Согласование</span>
+        <span class="pipeline-step-count">{{ kpi.approvals_pending }}</span>
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <!-- 5. Publication -->
+      <a href="/publications" class="pipeline-step {{ 'pipeline-warning' if kpi.total_batches == 0 }}">
+        <span class="pipeline-step-num">5</span>
+        <span class="pipeline-step-icon">📋</span>
+        <span class="pipeline-step-label">Публикация</span>
+        <span class="pipeline-step-count {{ 'count-zero' if kpi.total_batches == 0 }}">{{ kpi.total_batches }}</span>
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <!-- 6. Report -->
+      <a href="/reports" class="pipeline-step">
+        <span class="pipeline-step-num">6</span>
+        <span class="pipeline-step-icon">📈</span>
+        <span class="pipeline-step-label">Отчёт</span>
+        <span class="pipeline-step-count">CSV</span>
+      </a>
     </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ kpi.total_creatives }}</div>
-      <div class="summary-stat-label">Креативов</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ kpi.total_devices }}</div>
-      <div class="summary-stat-label">Устройств</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ kpi.total_publications }}</div>
-      <div class="summary-stat-label">Манифестов</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ kpi.approvals_pending }}</div>
-      <div class="summary-stat-label">Согласований</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value" style="color:var(--color-error);">🔴</div>
-      <div class="summary-stat-label">Пилот</div>
-    </div>
+  </div>
+  <div class="section-card-footer">
+    Pipeline: Креатив → Кампания → Расписание → Согласование → Публикация → Отчёт. Каждый этап — ссылка на раздел.
   </div>
 </div>
 
-<!-- Pilot Blockers -->
-<div class="section-card" style="border-color: var(--color-error-border); background: var(--color-error-bg);">
+<!-- ═══════════════════════════════════════════════════════════════════
+     C. PILOT READINESS
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<div class="section-card" style="border-color: var(--color-error-border);">
   <div class="section-card-header" style="border-color: var(--color-error-border);">
     <span class="section-card-icon">🚫</span>
-    <span class="section-card-title">Блокеры пилота (6 P0)</span>
+    <span class="section-card-title">Pilot Readiness</span>
+    <span class="pilot-status no-go" style="margin:0 0 0 auto;padding:4px 12px;font-size:12px;border-radius:6px;">🔴 NO-GO</span>
   </div>
-  <div class="section-card-body" style="color: var(--color-error-text); font-size: 13px;">
-    <ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;">
-      <li>HW scanner E2E — физический сканер не протестирован</li>
-      <li>Controlled 48h+ long-run — длительный прогон не выполнялся</li>
-      <li>Manifest delivery to physical KSO — доставка не выполнялась</li>
-      <li>Sidecar sync physical start — синхронизация не запускалась</li>
-      <li>Pilot runbook / fallback — ✅ документировано (42.5)</li>
-      <li>Fleet rollout approval — не утверждён</li>
-    </ul>
+  <div class="section-card-body">
+    <p style="font-size:13px;color:var(--color-error-text);margin-bottom:12px;">
+      <strong>Сканер отсутствует — physical gates не запускаются.</strong> Физический пилот невозможен до закрытия всех P0 blockers.
+    </p>
+    <div class="blocker-grid">
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Scanner E2E</span>
+        <span class="blocker-detail">HW scanner не протестирован</span>
+      </div>
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">48h+ Long-run</span>
+        <span class="blocker-detail">Длительный прогон не выполнялся</span>
+      </div>
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Manifest delivery</span>
+        <span class="blocker-detail">Доставка на КСО не approved</span>
+      </div>
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Sidecar sync</span>
+        <span class="blocker-detail">Синхронизация не approved</span>
+      </div>
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Fleet rollout</span>
+        <span class="blocker-detail">Не утверждён</span>
+      </div>
+    </div>
   </div>
   <div class="section-card-footer" style="border-color: var(--color-error-border);">
-    <a href="/readiness" class="btn btn-sm btn-ghost">🧭 Подробнее в Readiness →</a>
+    <a href="/readiness" class="btn btn-sm btn-ghost">🧭 Readiness</a>
+    <a href="/publications" class="btn btn-sm btn-ghost">📋 Публикации</a>
   </div>
 </div>
 
-<!-- Quick Links -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     D. BUSINESS NEXT ACTIONS
+     ═══════════════════════════════════════════════════════════════════ -->
+
 <div class="section-card">
   <div class="section-card-header">
-    <span class="section-card-icon">🔗</span>
-    <span class="section-card-title">Быстрые ссылки</span>
+    <span class="section-card-icon">👉</span>
+    <span class="section-card-title">Что делать дальше</span>
   </div>
   <div class="section-card-body">
-    <div class="export-links">
-      <a href="/campaigns/create" class="export-link">+ Новая кампания</a>
-      <a href="/creatives" class="export-link">🎨 Креативы</a>
-      <a href="/approvals" class="export-link">📝 Согласования</a>
-      <a href="/reports" class="export-link">📈 Отчёты</a>
-      <a href="/reports/export/campaigns" class="export-link">📥 CSV: кампании</a>
+    <div class="next-actions-grid">
+      <a href="/creatives" class="next-action-card {{ 'next-action-done' if kpi.total_creatives > 0 }}">
+        <span class="next-action-num">1</span>
+        <span class="next-action-label">Загрузить креатив</span>
+        <span class="next-action-hint">{{ kpi.total_creatives }} загружено</span>
+      </a>
+      <a href="/campaigns/create" class="next-action-card {{ 'next-action-done' if kpi.total_campaigns > 0 }}">
+        <span class="next-action-num">2</span>
+        <span class="next-action-label">Создать кампанию</span>
+        <span class="next-action-hint">{{ kpi.total_campaigns }} создано</span>
+      </a>
+      <a href="/schedule" class="next-action-card {{ 'next-action-done' if kpi.total_schedules > 0 }}">
+        <span class="next-action-num">3</span>
+        <span class="next-action-label">Настроить расписание</span>
+        <span class="next-action-hint">{{ kpi.total_schedules }} расписаний</span>
+      </a>
+      <a href="/approvals" class="next-action-card">
+        <span class="next-action-num">4</span>
+        <span class="next-action-label">Отправить на согласование</span>
+        <span class="next-action-hint">{{ kpi.approvals_pending }} ожидают</span>
+      </a>
+      <a href="/publications" class="next-action-card {{ 'next-action-done' if kpi.total_batches > 0 }}">
+        <span class="next-action-num">5</span>
+        <span class="next-action-label">Подготовить публикацию</span>
+        <span class="next-action-hint">{{ kpi.total_batches }} batches</span>
+      </a>
+      <a href="/reports" class="next-action-card">
+        <span class="next-action-num">6</span>
+        <span class="next-action-label">Выгрузить отчёты</span>
+        <span class="next-action-hint">CSV export</span>
+      </a>
     </div>
   </div>
 </div>
@@ -149,12 +300,7 @@
 </div>
 {% endif %}
 
-<div class="note-box" style="margin-top:0;">
-  <span class="note-icon">📊</span>
-  <span class="note-text">Production Dashboard: показатели формируются из рабочих данных платформы.</span>
-</div>
-
-<div class="timestamp" style="margin-top:8px;">
+<div class="timestamp" style="margin-top:16px;">
   <span>🕐</span> Данные: production backend · обновление при каждом запросе
 </div>
 {% endblock %}

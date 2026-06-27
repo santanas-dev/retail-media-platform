@@ -7,6 +7,36 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [43.2-dashboard-reports-visualization] — 2026-06-16
+
+**Dashboard & Reports Visualization — управленческая аналитика и плановая отчётность.**
+
+### Dashboard
+- **Platform Summary** — stat-block grid: кампании/креативы/устройства/публикации с distribution bars по статусам
+- **Advertising Pipeline** — 6-step visual flow (Креатив→Кампания→Расписание→Согласование→Публикация→Отчёт) с warning на пустых этапах
+- **Pilot Readiness** — 5 P0 blockers с иконками, чёткий текст "Сканер отсутствует"
+- **Business Next Actions** — 6 карточек-действий с отметками выполненных этапов, ссылки на разделы
+
+### Reports
+- **Campaigns by Status** — distribution bar с цветовой легендой, CSV export
+- **Airtime Planning** — progress bar с порогами (НОРМА <50% · ВНИМАНИЕ 50-79% · РИСК ≥80%), threshold markers
+- **Conflicts** — карточка с conflict count badge, advertiser-safe аннотации, CSV export
+- **Publications** — stat-grid: Batches + Manifest status, distribution bars
+- **PoP** — компактная таблица с фильтрами, чёткое отделение planned от factual
+
+### Технически
+- `styles.css`: +stat-grid, +dist-bar (multi-segment), +pipeline-step, +blocker-grid, +next-actions-grid, +threshold-badge
+- `main.py`: dashboard handler расширен (creative/devices/batches status breakdown, +publication_batches fetch)
+- `tests`: +TestDashboardReportsVisualization (25 tests) + обновлены старые тесты под новую структуру
+
+### Policy
+- No JS/CDN/localStorage ✅
+- No physical KSO changes
+- Planned/factual разделение явное
+- Advertiser-safe через RLS + анонимизацию
+
+---
+
 ## [43.1.1-remove-test-kso-wording] — 2026-06-16
 
 **Remove visible test-kso wording from production portal UI.**

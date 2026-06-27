@@ -1,71 +1,66 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Отчёты</h1>
-<p class="page-description">Плановая отчётность и выгрузки. Физический PoP недоступен до physical delivery gate — все данные backend-only.</p>
+<p class="page-description">Плановая отчётность и выгрузки. Фактические показы появятся после approved physical PoP flow.</p>
 
-<!-- Disclaimer Banner -->
+<!-- Disclaimer: planned vs factual -->
 <div class="banner banner-warning">
   <span class="banner-icon">⚠️</span>
   <div class="banner-body">
     <div class="banner-title">Плановая отчётность</div>
-    <div class="banner-text">Факт показов (Proof of Play) появится только после physical gate. Все данные — плановые, backend-only.</div>
+    <div class="banner-text">Данные ниже — плановые (backend-only). <strong>Фактические показы (Proof of Play) недоступны</strong> до physical delivery gate.</div>
   </div>
 </div>
+
+{% if date_error %}
+<div class="banner banner-warning">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body"><div class="banner-text">{{ date_error }}</div></div>
+</div>
+{% endif %}
 
 <!-- Pilot NO-GO -->
 <div class="banner banner-error">
   <span class="banner-icon">🔴</span>
   <div class="banner-body">
-    <div class="banner-title">Пилот: {{ pilot_nogo.status }} — {{ pilot_nogo.blockers }} блокеров</div>
-    <div class="banner-text">
-      <ul style="margin:4px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:2px;">
-        {% for reason in pilot_nogo.reasons %}
-        <li>{{ reason }}</li>
-        {% endfor %}
-      </ul>
-    </div>
+    <div class="banner-title">Пилот: {{ pilot_nogo.status }}</div>
+    <div class="banner-text">{{ pilot_nogo.reasons | join(' · ') }}</div>
   </div>
 </div>
 
-<!-- KPI Cards -->
-<div class="cards">
-  <div class="card">
-    <div class="card-title">Кампаний (всего)</div>
-    <div class="card-value">{{ campaigns_count if campaigns_count > 0 else "—" }}</div>
-    <div class="card-hint">{{ "Креативов: " ~ creatives_count if creatives_count > 0 else "Нет данных" }}</div>
-  </div>
-  <div class="card">
-    <div class="card-title">КСО / манифестов</div>
-    <div class="card-value">{{ kso_count if kso_count > 0 else "—" }}</div>
-    <div class="card-hint">{{ "Манифестов: " ~ manifests_count if manifests_count > 0 else "Нет данных" }}</div>
-  </div>
-  <div class="card">
-    <div class="card-title">PoP событий всего</div>
-    <div class="card-value">{{ pop_summary.total_events if pop_summary_ok else "—" }}</div>
-    <div class="card-hint">{{ "Принято: " ~ pop_summary.accepted if pop_summary_ok else "Нет данных" }}</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Уникальных устройств</div>
-    <div class="card-value">{{ pop_summary.unique_devices if pop_summary_ok else "—" }}</div>
-    <div class="card-hint">{{ "Кампаний: " ~ pop_summary.unique_campaigns if pop_summary_ok else "Нет данных" }}</div>
-  </div>
-</div>
+<!-- ═══════════════════════════════════════════════════════════════════
+     A. CAMPAIGNS BY STATUS (distribution bars)
+     ═══════════════════════════════════════════════════════════════════ -->
 
-<!-- ═══ Campaigns by Status ═══ -->
 <div class="section-card">
   <div class="section-card-header">
     <span class="section-card-icon">📋</span>
     <span class="section-card-title">Кампании по статусам</span>
+    <span class="section-card-badge">{{ campaigns_count if campaigns_count > 0 else 0 }} всего</span>
   </div>
   <div class="section-card-body">
     {% if campaign_statuses %}
-    <div class="lifecycle-flow">
+    {% set total_c = campaign_statuses.values() | sum %}
+    <div class="dist-bar dist-bar-lg">
       {% for status, count in campaign_statuses.items() %}
-      <span class="lifecycle-step lifecycle-{{ status }}">{{ status }}: {{ count }}</span>
-      {% if not loop.last %}<span class="lifecycle-arrow">→</span>{% endif %}
+      {% set pct = (count / total_c * 100) | int if total_c > 0 else 0 %}
+      {% if pct > 0 %}
+      <div class="dist-segment {{ status }}" style="width:{{ pct }}%;" title="{{ status }}: {{ count }}">
+        {% if pct >= 10 %}<span class="dist-label">{{ count }}</span>{% endif %}
+      </div>
+      {% endif %}
       {% endfor %}
     </div>
-    <div class="export-links">
+    <div class="dist-legend">
+      {% for status, count in campaign_statuses.items() %}
+      <span class="dist-legend-item">
+        <span class="dist-dot {{ status }}"></span>
+        <span class="dist-legend-label">{{ status }}</span>
+        <span class="dist-legend-count">{{ count }}</span>
+      </span>
+      {% endfor %}
+    </div>
+    <div class="export-links" style="margin-top:12px;">
       <a href="/reports/export/campaigns" class="export-link">📥 campaigns_export.csv</a>
     </div>
     {% else %}
@@ -76,73 +71,19 @@
     </div>
     {% endif %}
   </div>
-  <div class="section-card-footer">CSV: campaign_code, name, status, planned_start, planned_end. RLS enforced.</div>
+  <div class="section-card-footer">CSV: campaign_code, name, status, planned dates. RLS enforced — каждый видит свои кампании.</div>
 </div>
 
-<!-- ═══ Publication Batches by Status ═══ -->
-<div class="section-card">
-  <div class="section-card-header">
-    <span class="section-card-icon">📦</span>
-    <span class="section-card-title">Publication Batches</span>
-  </div>
-  <div class="section-card-body">
-    {% if pub_batch_statuses %}
-    <div class="lifecycle-flow">
-      {% for status, count in pub_batch_statuses.items() %}
-      <span class="lifecycle-step lifecycle-{{ status }}">{{ status }}: {{ count }}</span>
-      {% if not loop.last %}<span class="lifecycle-arrow">→</span>{% endif %}
-      {% endfor %}
-    </div>
-    <div class="export-links">
-      <a href="/reports/export/publications" class="export-link">📥 publication_batches_export.csv</a>
-    </div>
-    {% else %}
-    <div class="table-empty-state">
-      <div class="table-empty-icon">📦</div>
-      <div class="table-empty-title">Нет publication batches</div>
-      <div class="table-empty-text">Batches появятся после создания публикаций из одобренных кампаний.</div>
-    </div>
-    {% endif %}
-  </div>
-  <div class="section-card-footer">Batch ID/campaign ID — только для admin. RLS enforced.</div>
-</div>
+<!-- ═══════════════════════════════════════════════════════════════════
+     B. AIRTIME PLANNING (progress bars with thresholds)
+     ═══════════════════════════════════════════════════════════════════ -->
 
-<!-- ═══ Manifest Publish Status ═══ -->
 <div class="section-card">
   <div class="section-card-header">
-    <span class="section-card-icon">📜</span>
-    <span class="section-card-title">Manifest publish status</span>
-  </div>
-  <div class="section-card-body">
-    {% if manifest_statuses %}
-    <div class="lifecycle-flow">
-      {% for status, count in manifest_statuses.items() %}
-      <span class="lifecycle-step lifecycle-{{ status }}">{{ status }}: {{ count }}</span>
-      {% if not loop.last %}<span class="lifecycle-arrow">→</span>{% endif %}
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="table-empty-state">
-      <div class="table-empty-icon">📜</div>
-      <div class="table-empty-title">Нет манифестов</div>
-      <div class="table-empty-text">Manifest генерируются при публикации batch.</div>
-    </div>
-    {% endif %}
-  </div>
-  <div class="section-card-footer">Manifest status отражает backend publish status — не physical KSO delivery.</div>
-</div>
-
-<!-- ═══ Planned Airtime Occupancy ═══ -->
-<div class="section-card">
-  <div class="section-card-header">
-    <span class="section-card-icon">📊</span>
+    <span class="section-card-icon">⏱</span>
     <span class="section-card-title">Плановая занятость эфира</span>
   </div>
   <div class="section-card-body">
-    <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:14px;">
-      Backend-only плановая занятость по расписанию. <strong>Не факт показа PoP.</strong>
-    </p>
-
     <form method="get" action="/reports" class="form-inline" style="margin-bottom:16px;">
       <div class="form-group">
         <label class="form-label" style="font-size:11px;">КСО</label>
@@ -161,73 +102,52 @@
                class="form-input" style="width:140px;padding:6px 10px;font-size:13px;">
       </div>
       <div class="form-group">
-        <button type="submit" class="btn btn-primary btn-sm">Проверить занятость</button>
+        <button type="submit" class="btn btn-primary btn-sm">Проверить</button>
       </div>
     </form>
 
     {% if planned_airtime %}
-    <!-- Occupancy progress bar -->
     {% set occ = planned_airtime.occupancy_percent | int if planned_airtime.occupancy_percent else 0 %}
-    {% set level = 'low' if occ <= 50 else ('medium' if occ <= 80 else 'high') %}
+    {% set level = 'low' if occ <= 50 else ('medium' if occ <= 79 else 'high') %}
+    {% set threshold_label = 'Норма' if occ <= 50 else ('Внимание' if occ <= 79 else 'Риск перегруза') %}
     <div class="progress-label">
       <span class="progress-label-text">Загрузка эфира</span>
-      <span class="progress-label-value">{{ occ }}%</span>
+      <span class="progress-label-value">
+        <span class="threshold-badge {{ level }}">{{ threshold_label }}</span>
+        {{ occ }}%
+      </span>
     </div>
-    <div class="progress-bar">
+    <div class="progress-bar progress-bar-lg">
       <div class="progress-fill {{ level }}" style="width:{{ occ }}%;"></div>
+    </div>
+    <!-- Threshold markers -->
+    <div class="threshold-markers">
+      <span class="threshold-marker" style="left:50%;" title="50% — граница нормы"><span class="threshold-marker-label">50%</span></span>
+      <span class="threshold-marker" style="left:80%;" title="80% — риск перегруза"><span class="threshold-marker-label">80%</span></span>
     </div>
 
     <div class="summary-stats" style="margin-top:16px;">
       <div class="summary-stat">
         <div class="summary-stat-value">{{ planned_airtime.total_available_minutes }}</div>
-        <div class="summary-stat-label">Всего минут</div>
+        <div class="summary-stat-label">Всего мин.</div>
       </div>
       <div class="summary-stat">
         <div class="summary-stat-value">{{ planned_airtime.occupied_minutes }}</div>
         <div class="summary-stat-label">Занято</div>
       </div>
       <div class="summary-stat">
-        <div class="summary-stat-value">{{ occ }}%</div>
+        <div class="summary-stat-value" style="{% if occ >= 80 %}color:var(--color-error);{% elif occ >= 50 %}color:var(--color-warning);{% endif %}">{{ occ }}%</div>
         <div class="summary-stat-label">Загрузка</div>
       </div>
       <div class="summary-stat">
         <div class="summary-stat-value">{{ planned_airtime.campaign_count }}</div>
         <div class="summary-stat-label">Кампаний</div>
       </div>
-      <div class="summary-stat">
-        <div class="summary-stat-value" style="{{ 'color:var(--color-error);' if planned_airtime.conflict_count > 0 }}">
-          {{ planned_airtime.conflict_count }}
-        </div>
-        <div class="summary-stat-label">Конфликтов</div>
-      </div>
     </div>
 
     {% if at_device %}
-    <div class="export-links" style="margin-top:16px;">
-      <a href="/reports/export/airtime?device_codes={{ at_device }}" class="export-link">📥 airtime_occupancy_export.csv</a>
-      <a href="/reports/export/conflicts?device_codes={{ at_device }}" class="export-link">📥 conflicts_export.csv</a>
-    </div>
-    {% endif %}
-
-    {% if planned_airtime.conflicts %}
-    <div class="table-container" style="margin-top:16px;">
-    <table class="data-table">
-      <thead><tr>
-        <th>Кампания</th><th>Конфликт с</th><th>Даты</th><th>День</th><th>Время</th><th>Конфликтное время</th>
-      </tr></thead>
-      <tbody>
-      {% for c in planned_airtime.conflicts %}
-      <tr>
-        <td><code>{{ c.campaign_code }}</code></td>
-        <td><code>{{ c.conflict_with_code }}</code></td>
-        <td>{{ c.date_from }} – {{ c.date_to }}</td>
-        <td>{{ c.day_label }}</td>
-        <td>{{ c.time_window }}</td>
-        <td>{{ c.conflict_time_window }}</td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+    <div class="export-links" style="margin-top:12px;">
+      <a href="/reports/export/airtime?device_codes={{ at_device }}" class="export-link">📥 airtime.csv</a>
     </div>
     {% endif %}
 
@@ -237,158 +157,232 @@
     </div>
     {% endif %}
   </div>
-  <div class="section-card-footer">Занятость считается по плановым слотам расписания. Конфликты — warning-only.</div>
+  <div class="section-card-footer">Плановая занятость по слотам расписания. &lt;50% норма · 50–79% внимание · ≥80% риск перегруза.</div>
 </div>
 
-<!-- ═══ PoP Filters ═══ -->
-{% if date_error %}
-<div class="banner banner-warning">
-  <span class="banner-icon">⚠️</span>
-  <div class="banner-body"><div class="banner-text">{{ date_error }}</div></div>
-</div>
-{% endif %}
+<!-- ═══════════════════════════════════════════════════════════════════
+     C. CONFLICTS
+     ═══════════════════════════════════════════════════════════════════ -->
 
 <div class="section-card">
   <div class="section-card-header">
-    <span class="section-card-icon">🔍</span>
-    <span class="section-card-title">Срезы и фильтры PoP</span>
+    <span class="section-card-icon">⚠️</span>
+    <span class="section-card-title">Конфликты расписания</span>
+    {% if planned_airtime and planned_airtime.conflict_count is defined %}
+    <span class="section-card-badge {{ 'conflict' if planned_airtime.conflict_count > 0 else 'ok' }}">
+      {{ planned_airtime.conflict_count }}
+    </span>
+    {% endif %}
   </div>
   <div class="section-card-body">
-    <form method="get" action="/reports">
-    <div class="filter-toolbar" style="box-shadow:none;margin-bottom:0;padding:0;">
-      <div class="filter-group">
-        <label class="filter-label" for="f_campaign">Кампания</label>
-        <input type="text" id="f_campaign" name="campaign_code"
-               class="filter-select" style="width:140px"
-               value="{{ filters.campaign_code if filters.campaign_code else '' }}"
-               placeholder="camp_code" maxlength="64">
+    {% if planned_airtime and planned_airtime.conflicts %}
+    <div class="table-container" style="border:none;box-shadow:none;margin-bottom:0;">
+    <table class="data-table">
+      <thead><tr>
+        <th>Кампания</th><th>Конфликт с</th><th>Даты</th><th>День</th><th>Время</th><th>Конфликтное время</th>
+      </tr></thead>
+      <tbody>
+      {% for c in planned_airtime.conflicts[:15] %}
+      <tr>
+        <td><code>{{ c.campaign_code }}</code></td>
+        <td><code>{{ c.conflict_with_code }}</code></td>
+        <td>{{ c.date_from }} – {{ c.date_to }}</td>
+        <td>{{ c.day_label }}</td>
+        <td>{{ c.time_window }}</td>
+        <td>{{ c.conflict_time_window }}</td>
+      </tr>
+      {% endfor %}
+      {% if planned_airtime.conflicts | length > 15 %}
+      <tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);font-size:12px;">Показаны первые 15 из {{ planned_airtime.conflicts | length }} конфликтов</td></tr>
+      {% endif %}
+      </tbody>
+    </table>
+    </div>
+    {% if at_device %}
+    <div class="export-links" style="margin-top:12px;">
+      <a href="/reports/export/conflicts?device_codes={{ at_device }}" class="export-link">📥 conflicts_export.csv</a>
+    </div>
+    {% endif %}
+    {% elif planned_airtime and planned_airtime.conflict_count == 0 %}
+    <div class="banner banner-success" style="margin-bottom:0;">
+      <span class="banner-icon">✅</span>
+      <div class="banner-body"><div class="banner-text">Конфликтов не обнаружено для выбранного КСО и диапазона дат.</div></div>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:16px;color:var(--color-text-muted);font-size:13px;">
+      Заполните фильтр «Плановая занятость эфира» выше для проверки конфликтов.
+    </div>
+    {% endif %}
+  </div>
+  <div class="section-card-footer">
+    ⚠️ Конфликты — warning-only, не блокируют публикацию. Advertiser-safe: коды анонимизированы для роли advertiser.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     D. PUBLICATIONS
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📦</span>
+    <span class="section-card-title">Публикации</span>
+  </div>
+  <div class="section-card-body">
+    <div class="stat-grid stat-grid-2col">
+      <!-- Publication Batches -->
+      <div class="stat-block">
+        <div class="stat-block-header">
+          <span class="stat-block-label">Publication Batches</span>
+          <span class="stat-block-total">{{ pub_batch_statuses.values() | sum if pub_batch_statuses else 0 }}</span>
+        </div>
+        {% if pub_batch_statuses %}
+        {% set pb_total = pub_batch_statuses.values() | sum %}
+        <div class="dist-bar dist-bar-sm">
+          {% for status, count in pub_batch_statuses.items() %}
+          {% set pct = (count / pb_total * 100) | int if pb_total > 0 else 0 %}
+          {% if pct > 0 %}
+          <div class="dist-segment {{ status }}" style="width:{{ pct }}%;" title="{{ status }}: {{ count }}"></div>
+          {% endif %}
+          {% endfor %}
+        </div>
+        <div class="dist-legend">
+          {% for status, count in pub_batch_statuses.items() %}
+          <span class="dist-legend-item"><span class="dist-dot {{ status }}"></span>{{ status }}: {{ count }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div class="export-links" style="margin-top:8px;">
+          <a href="/reports/export/publications" class="export-link">📥 publications.csv</a>
+        </div>
       </div>
-      <div class="filter-group">
-        <label class="filter-label" for="f_creative">Креатив</label>
-        <input type="text" id="f_creative" name="creative_code"
-               class="filter-select" style="width:140px"
-               value="{{ filters.creative_code if filters.creative_code else '' }}"
-               placeholder="cr_code" maxlength="64">
+
+      <!-- Manifest Status -->
+      <div class="stat-block">
+        <div class="stat-block-header">
+          <span class="stat-block-label">Manifest status</span>
+          <span class="stat-block-total">{{ manifest_statuses.values() | sum if manifest_statuses else 0 }}</span>
+        </div>
+        {% if manifest_statuses %}
+        {% set mf_total = manifest_statuses.values() | sum %}
+        <div class="dist-bar dist-bar-sm">
+          {% for status, count in manifest_statuses.items() %}
+          {% set pct = (count / mf_total * 100) | int if mf_total > 0 else 0 %}
+          {% if pct > 0 %}
+          <div class="dist-segment {{ status }}" style="width:{{ pct }}%;" title="{{ status }}: {{ count }}"></div>
+          {% endif %}
+          {% endfor %}
+        </div>
+        <div class="dist-legend">
+          {% for status, count in manifest_statuses.items() %}
+          <span class="dist-legend-item"><span class="dist-dot {{ status }}"></span>{{ status }}: {{ count }}</span>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div style="color:var(--color-text-muted);font-size:12px;padding:8px 0;">Нет манифестов</div>
+        {% endif %}
       </div>
-      <div class="filter-group">
-        <label class="filter-label" for="f_device">КСО</label>
-        <input type="text" id="f_device" name="device_code"
-               class="filter-select" style="width:140px"
-               value="{{ filters.device_code if filters.device_code else '' }}"
-               placeholder="dev_code" maxlength="64">
+    </div>
+  </div>
+  <div class="section-card-footer">
+    <a href="/publications" class="btn btn-sm btn-ghost">📋 Перейти к публикациям →</a>
+    Manifest status — backend publish status, не physical KSO delivery.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     E. PoP / PROOF REPORTS
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<div class="section-card" style="border-color: var(--color-warning-border);">
+  <div class="section-card-header" style="border-color: var(--color-warning-border);">
+    <span class="section-card-icon">✅</span>
+    <span class="section-card-title">Proof of Play — события</span>
+  </div>
+  <div class="section-card-body">
+    <!-- PoP Filters -->
+    <form method="get" action="/reports" class="form-inline" style="margin-bottom:12px;">
+      <div class="form-group">
+        <label class="form-label" style="font-size:10px;">Кампания</label>
+        <input type="text" name="campaign_code" value="{{ filters.campaign_code if filters.campaign_code else '' }}"
+               placeholder="camp_code" maxlength="64"
+               class="form-input" style="width:120px;padding:4px 8px;font-size:12px;">
       </div>
-      <div class="filter-group">
-        <label class="filter-label" for="f_placement">Плейсмент</label>
-        <input type="text" id="f_placement" name="placement_code"
-               class="filter-select" style="width:140px"
-               value="{{ filters.placement_code if filters.placement_code else '' }}"
-               placeholder="pl_code" maxlength="64">
+      <div class="form-group">
+        <label class="form-label" style="font-size:10px;">Креатив</label>
+        <input type="text" name="creative_code" value="{{ filters.creative_code if filters.creative_code else '' }}"
+               placeholder="cr_code" maxlength="64"
+               class="form-input" style="width:120px;padding:4px 8px;font-size:12px;">
       </div>
-      <div class="filter-group">
-        <label class="filter-label" for="f_from">Дата с</label>
-        <input type="date" id="f_from" name="date_from"
-               class="filter-select" style="width:140px"
-               value="{{ filters.date_from if filters.date_from else '' }}">
+      <div class="form-group">
+        <label class="form-label" style="font-size:10px;">КСО</label>
+        <input type="text" name="device_code" value="{{ filters.device_code if filters.device_code else '' }}"
+               placeholder="dev_code" maxlength="64"
+               class="form-input" style="width:120px;padding:4px 8px;font-size:12px;">
       </div>
-      <div class="filter-group">
-        <label class="filter-label" for="f_to">Дата по</label>
-        <input type="date" id="f_to" name="date_to"
-               class="filter-select" style="width:140px"
-               value="{{ filters.date_to if filters.date_to else '' }}">
+      <div class="form-group">
+        <label class="form-label" style="font-size:10px;">Дата с</label>
+        <input type="date" name="date_from" value="{{ filters.date_from if filters.date_from else '' }}"
+               class="form-input" style="width:130px;padding:4px 8px;font-size:12px;">
       </div>
-      <div class="filter-group" style="align-self:flex-end;">
+      <div class="form-group">
+        <label class="form-label" style="font-size:10px;">Дата по</label>
+        <input type="date" name="date_to" value="{{ filters.date_to if filters.date_to else '' }}"
+               class="form-input" style="width:130px;padding:4px 8px;font-size:12px;">
+      </div>
+      <div class="form-group">
         <button type="submit" class="btn btn-primary btn-sm">Применить</button>
         {% if filters %}
         <a href="/reports" class="btn btn-secondary btn-sm" style="margin-left:4px;">Сбросить</a>
         {% endif %}
       </div>
-    </div>
     </form>
-  </div>
-</div>
 
-<!-- PoP Events Table -->
-<div class="section-card">
-  <div class="section-card-header">
-    <span class="section-card-icon">✅</span>
-    <span class="section-card-title">События Proof of Play</span>
-  </div>
-  <div class="section-card-body" style="padding:0;">
+    {% if pop_events_ok and pop_events %}
     <div class="table-container" style="border:none;box-shadow:none;margin-bottom:0;">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Event code</th><th>Кампания</th><th>Креатив</th><th>КСО</th>
-          <th>Плейсмент</th><th>Тип</th><th>Статус</th>
-          <th>Сыграно</th><th>Длит. (ms)</th><th>Получено</th>
-        </tr>
-      </thead>
+    <table class="data-table data-table-compact">
+      <thead><tr>
+        <th>Event</th><th>Кампания</th><th>Креатив</th><th>КСО</th>
+        <th>Тип</th><th>Статус</th><th>Сыграно</th>
+      </tr></thead>
       <tbody>
-      {% if pop_events_ok and pop_events %}
-      {% for e in pop_events %}
-        <tr>
-          <td>{{ e.event_code }}</td>
-          <td>{{ e.campaign_code }}</td>
-          <td>{{ e.creative_code }}</td>
-          <td>{{ e.device_code }}</td>
-          <td>{{ e.placement_code }}</td>
-          <td>{{ e.event_type }}</td>
-          <td>{{ e.status }}</td>
-          <td>{{ e.played_at }}</td>
-          <td>{{ e.duration_ms }}</td>
-          <td>{{ e.received_at }}</td>
-        </tr>
+      {% for e in pop_events[:20] %}
+      <tr>
+        <td><code>{{ e.event_code }}</code></td>
+        <td>{{ e.campaign_code }}</td>
+        <td>{{ e.creative_code }}</td>
+        <td>{{ e.device_code }}</td>
+        <td>{{ e.event_type }}</td>
+        <td><span class="lifecycle-step lifecycle-{{ e.status }}">{{ e.status }}</span></td>
+        <td>{{ e.played_at }}</td>
+      </tr>
       {% endfor %}
-      {% else %}
-        <tr class="empty-row">
-          <td colspan="10">
-            <div class="table-empty-state">
-              <div class="table-empty-icon">📈</div>
-              <div class="table-empty-title">Пока нет данных Proof of Play</div>
-              <div class="table-empty-text">После публикации manifest и поступления PoP событий здесь появится таблица.</div>
-            </div>
-          </td>
-        </tr>
-      {% endif %}
       </tbody>
     </table>
     </div>
-  </div>
-</div>
-
-<!-- PoP Status Breakdown -->
-<div class="section-card">
-  <div class="section-card-header">
-    <span class="section-card-icon">📊</span>
-    <span class="section-card-title">Статусы событий PoP</span>
-  </div>
-  <div class="section-card-body">
-    <div class="lifecycle-flow">
-      <span class="lifecycle-step lifecycle-completed">Принято: {{ pop_summary.accepted if pop_summary_ok else "—" }}</span>
-      <span class="lifecycle-arrow">|</span>
-      <span class="lifecycle-step lifecycle-draft">Отклонено: {{ pop_summary.rejected if pop_summary_ok else "—" }}</span>
-      <span class="lifecycle-arrow">|</span>
-      <span class="lifecycle-step lifecycle-scheduled">Дубликатов: {{ pop_summary.duplicate if pop_summary_ok else "—" }}</span>
-      <span class="lifecycle-arrow">|</span>
-      <span class="lifecycle-step lifecycle-live">Прочее: {{ pop_summary.unknown_status if pop_summary_ok else "—" }}</span>
-    </div>
-    {% if pop_summary_ok and pop_summary.last_event_at %}
-    <p class="drilldown-note">Последнее событие: {{ pop_summary.last_event_at }}</p>
+    {% if pop_events | length >= 20 %}
+    <p style="font-size:11px;color:var(--color-text-muted);text-align:center;margin-top:8px;">Показаны последние 20 событий</p>
     {% endif %}
+    {% else %}
+    <div class="table-empty-state" style="padding:28px 16px;">
+      <div class="table-empty-icon">📈</div>
+      <div class="table-empty-title">Пока нет данных Proof of Play</div>
+      <div class="table-empty-text">Фактические показы появятся после approved physical PoP flow. Сейчас доступна только плановая отчётность.</div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="section-card-footer" style="border-color: var(--color-warning-border);">
+    <strong>⚠️ Фактические показы появятся после approved physical PoP flow.</strong> Сейчас доступна только плановая отчётность (выше).
   </div>
 </div>
 
 <!-- Safety Notes -->
 <div class="note-box">
   <span class="note-icon">📊</span>
-  <span class="note-text">Отчёты используют данные из <strong>production backend</strong>. Test-kso endpoints не используются как primary source.</span>
+  <span class="note-text">Отчёты используют данные из production backend. Плановые данные отделены от фактического PoP.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">RLS применяется <strong>до</strong> построения отчётов и CSV export. Advertiser видит только свои данные, конфликты анонимизированы.</span>
-</div>
-<div class="note-box">
-  <span class="note-icon">🔒</span>
-  <span class="note-text">CSV содержит только безопасные поля: без raw UUID (для non-admin), без токенов, секретов, backend URL, storage paths, чеков, оплат, фискальных и персональных данных.</span>
+  <span class="note-text">RLS enforced. Advertiser видит только свои данные. Конфликты анонимизированы для advertiser. CSV: без secrets, tokens, backend URL, storage paths.</span>
 </div>
 {% endblock %}

@@ -129,6 +129,7 @@ async def dashboard_page(request: Request):
     schedules_r = await backend.list_schedules(access_token)
     manifests_r = await backend.list_manifests(access_token)  # production /api/manifests
     approvals_r = await backend.list_approvals_prod(access_token)
+    batches_r = await backend.list_publication_batches(access_token)
 
     # Count unreachable backends
     errors = 0
@@ -146,17 +147,42 @@ async def dashboard_page(request: Request):
     schedules = schedules_r.get("data", []) if schedules_r["ok"] else []
     manifests = manifests_r.get("data", []) if manifests_r["ok"] else []
     approvals = approvals_r.get("data", []) if approvals_r["ok"] else []
+    batches = batches_r.get("data", []) if batches_r["ok"] else []
 
     total_campaigns = len(campaigns)
     active_campaigns = sum(1 for c in campaigns if c.get("status") == "active")
     draft_campaigns = sum(1 for c in campaigns if c.get("status") == "draft")
     pending_campaigns = sum(1 for c in campaigns if c.get("status") == "pending_approval")
     approved_campaigns = sum(1 for c in campaigns if c.get("status") == "approved")
+    rejected_campaigns = sum(1 for c in campaigns if c.get("status") == "rejected")
+    archived_campaigns = sum(1 for c in campaigns if c.get("status") == "archived")
+
     total_creatives = len(creatives)
+    active_creatives = sum(1 for c in creatives if c.get("status") == "active")
+    draft_creatives = sum(1 for c in creatives if c.get("status") == "draft")
+    approved_creatives = sum(1 for c in creatives if c.get("status") == "approved")
+    archived_creatives = sum(1 for c in creatives if c.get("status") == "archived")
+
     total_devices = len(devices)
+    ready_devices = sum(1 for d in devices if d.get("status") in ("active", "ready"))
+    blocked_devices = sum(1 for d in devices if d.get("status") == "blocked")
+    offline_devices = sum(1 for d in devices if d.get("status") in ("inactive", "offline"))
+    maintenance_devices = sum(1 for d in devices if d.get("status") == "maintenance")
+
     total_schedules = len(schedules)
     active_schedules = sum(1 for s in schedules if s.get("status") == "active")
-    total_publications = len(manifests)
+    draft_schedules = sum(1 for s in schedules if s.get("status") == "draft")
+
+    total_manifests = len(manifests)
+    draft_manifests = sum(1 for m in manifests if m.get("status") == "draft")
+    published_manifests = sum(1 for m in manifests if m.get("status") in ("published", "manifest_generated"))
+
+    total_batches = len(batches)
+    draft_batches = sum(1 for b in batches if b.get("status") == "draft")
+    pending_batches = sum(1 for b in batches if b.get("status") == "pending_approval")
+    approved_batches = sum(1 for b in batches if b.get("status") == "approved")
+    published_batches = sum(1 for b in batches if b.get("status") == "published")
+
     approvals_pending = sum(
         1 for a in approvals if a.get("status") in ("pending", "in_review")
     )
@@ -166,14 +192,33 @@ async def dashboard_page(request: Request):
         "total_campaigns": total_campaigns,
         "active_campaigns": active_campaigns,
         "draft_campaigns": draft_campaigns,
+        "pending_campaigns": pending_campaigns,
+        "approved_campaigns": approved_campaigns,
+        "rejected_campaigns": rejected_campaigns,
+        "archived_campaigns": archived_campaigns,
         "campaigns_draft": draft_campaigns,
         "campaigns_pending": pending_campaigns,
         "campaigns_approved": approved_campaigns,
         "total_creatives": total_creatives,
+        "active_creatives": active_creatives,
+        "draft_creatives": draft_creatives,
+        "approved_creatives": approved_creatives,
         "total_devices": total_devices,
+        "ready_devices": ready_devices,
+        "blocked_devices": blocked_devices,
+        "offline_devices": offline_devices,
         "total_schedules": total_schedules,
         "active_schedules": active_schedules,
-        "total_publications": total_publications,
+        "draft_schedules": draft_schedules,
+        "total_manifests": total_manifests,
+        "draft_manifests": draft_manifests,
+        "published_manifests": published_manifests,
+        "total_publications": total_manifests,
+        "total_batches": total_batches,
+        "draft_batches": draft_batches,
+        "pending_batches": pending_batches,
+        "approved_batches": approved_batches,
+        "published_batches": published_batches,
         "approvals_pending": approvals_pending,
     }
 

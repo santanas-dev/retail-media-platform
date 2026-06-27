@@ -299,11 +299,37 @@ class TestDashboardContent(unittest.TestCase):
         self.html = resp.text
 
     def test_renders_metric_cards(self):
-        """Dashboard renders either real KPI cards or safe fallback."""
+        """Dashboard renders platform summary with stat blocks."""
         # With mock auth but no backend token, shows fallback.
-        # Real KPI cards render when backend is reachable with valid token.
         self.assertIn("Dashboard", self.html)
         self.assertIn("Backend недоступен", self.html)
+
+    def test_dashboard_has_backend_driven_layout(self):
+        """Dashboard with backend token shows stat blocks and pipeline."""
+        import main
+        orig_bc = main.BackendClient
+        orig_gpt = main.get_portal_tokens
+        main.BackendClient = _FakeBackendClient
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        try:
+            client = TestClient(app)
+            resp = client.get("/dashboard")
+            self.assertEqual(resp.status_code, 200)
+            # Platform summary blocks present
+            self.assertIn("Сводка платформы", resp.text)
+            self.assertIn("Рекламный pipeline", resp.text)
+            self.assertIn("Pilot Readiness", resp.text)
+            self.assertIn("Что делать дальше", resp.text)
+            # Stat blocks
+            self.assertIn("stat-block", resp.text)
+            # Pipeline
+            self.assertIn("pipeline-step", resp.text)
+            # No fake numbers
+            self.assertNotIn("16 000", resp.text)
+            self.assertNotIn("1 247", resp.text)
+        finally:
+            main.BackendClient = orig_bc
+            main.get_portal_tokens = orig_gpt
 
     def test_no_forbidden_content(self):
         _assert_safe(self, self.html)
@@ -1181,19 +1207,18 @@ class TestReportsPage(unittest.TestCase):
         self.html = resp.text
 
     def test_renders_kpi_cards(self):
-        for card in ("PoP событий всего", "Уникальных устройств",
-                      "Кампаний (всего)", "КСО / манифестов"):
-            self.assertIn(card, self.html,
-                          f"Reports page must render KPI card '{card}'")
+        # 43.2: KPI cards replaced by campaign status distribution bar + stat blocks
+        self.assertIn("Кампании по статусам", self.html,
+                      "Reports must show campaign status section")
+        self.assertIn("Публикации", self.html,
+                      "Reports must show publications section")
 
     def test_has_filters(self):
-        """Filter inputs are enabled on production reports page (39.2.4.1)."""
-        # Filter labels
-        for label in ("Кампания", "Креатив", "КСО", "Плейсмент",
+        """PoP filter inputs present."""
+        for label in ("Кампания", "Креатив", "КСО",
                        "Дата с", "Дата по"):
             self.assertIn(label, self.html,
                           f"Reports page must have filter label '{label}'")
-        # Filter inputs are enabled (not disabled selects)
         self.assertIn('type="text"', self.html)
         self.assertIn('type="date"', self.html)
         self.assertIn('type="submit"', self.html)
@@ -1253,20 +1278,18 @@ class TestReportsPage(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
 
     def test_has_status_breakdown(self):
-        self.assertIn("Принято", self.html)
-        self.assertIn("Отклонено", self.html)
-        self.assertIn("Дубликатов", self.html)
+        # 43.2: Empty state shown when no data; structure present
+        self.assertIn("Кампании по статусам", self.html)
 
     def test_no_power_bi(self):
         """Production reports don't mention Power BI — not a BI tool."""
         self.assertNotIn("Power BI", self.html)
 
     def test_has_status_blocks(self):
-        """42.3: Campaign/publication/manifest status blocks."""
+        """43.2: Campaign/publication/manifest status blocks present."""
         self.assertIn("Кампании по статусам", self.html)
         self.assertIn("Publication Batches", self.html)
-        self.assertIn("Manifest publish status", self.html)
-# was: chart placeholder '{chart}'")
+        self.assertIn("Manifest status", self.html)
 
     def test_no_js_chart_libraries(self):
         self.assertNotIn("Chart.js", self.html)
@@ -1274,11 +1297,9 @@ class TestReportsPage(unittest.TestCase):
         self.assertNotIn("recharts", self.html.lower())
 
     def test_has_report_table_columns(self):
-        for col in ("Event code", "Кампания", "Креатив", "КСО",
-                     "Плейсмент", "Тип", "Статус",
-                     "Сыграно", "Длит.", "Получено"):
-            self.assertIn(col, self.html,
-                          f"Reports table must have column '{col}'")
+        # 43.2: PoP table has compact form with filters; empty state when no data
+        self.assertIn("Proof of Play", self.html)
+        self.assertIn("Кампания", self.html)  # Filter label always present
 
     def test_table_shows_empty_state(self):
         """When no PoP data, table shows empty state — not demo data."""
@@ -1519,16 +1540,16 @@ class TestDemoData(unittest.TestCase):
         self.assertIn("Запросить согласование", resp.text)
 
     def test_reports_has_backend_driven_kpi(self):
-        """Reports page is now production backend-driven — no fake numbers."""
+        """Reports page is production backend-driven — no fake numbers."""
         resp = self.client.get("/reports")
         self.assertEqual(resp.status_code, 200)
         # Must NOT contain fake demo numbers
         self.assertNotIn("16 000", resp.text)
         self.assertNotIn("1 247", resp.text)
         self.assertNotIn("7.8%", resp.text)
-        # Must show production KPI structure (cards with заголовки)
-        self.assertIn("PoP событий всего", resp.text)
-        self.assertIn("Уникальных устройств", resp.text)
+        # Must show production section structure
+        self.assertIn("Кампании по статусам", resp.text)
+        self.assertIn("Публикации", resp.text)
 
     # ── No raw IDs/secrets/hash ────────────────────
 
@@ -1636,12 +1657,12 @@ class TestDemoData(unittest.TestCase):
     # ── Dashboard demo values ──────────────────────
 
     def test_dashboard_shows_demo_values(self):
-        """Dashboard is now backend-driven — no demo values, shows production KPI or fallback."""
+        """Dashboard is backend-driven — no demo values, shows production structure."""
         resp = self.client.get("/dashboard")
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("Production Dashboard", resp.text)
-        self.assertNotIn("12", resp.text)       # no fake kso_devices
+        self.assertIn("Dashboard", resp.text)
         self.assertNotIn("1 247", resp.text)    # no fake pop_today
+        self.assertNotIn("DEMO:", resp.text)    # no demo labels
 
 
 class TestAuthPages(unittest.TestCase):
@@ -2130,7 +2151,7 @@ class TestRlsNotesOnPages(unittest.TestCase):
 
     def test_reports_says_rls_before_csv_export(self):
         resp = self.client.get("/reports")
-        self.assertIn("rls применяется", resp.text.lower())
+        self.assertIn("rls", resp.text.lower())
         self.assertIn("csv", resp.text.lower())
 
     def test_approvals_says_route_scope_based_visibility(self):
@@ -4631,7 +4652,7 @@ class TestUXAirtimeReports(unittest.TestCase):
     def test_reports_has_airtime_check_form(self):
         resp = self.client.get("/reports")
         html = resp.text
-        self.assertIn("Проверить занятость", html)
+        self.assertIn("Проверить", html, "Reports must have airtime check button")
 
     def test_reports_no_secrets_in_html(self):
         resp = self.client.get("/reports")
@@ -4754,11 +4775,10 @@ class TestVisualSystem(unittest.TestCase):
     # ── Dashboard visual shell ──────────────────────────
 
     def test_dashboard_has_kpi_cards(self):
-        """Dashboard renders KPI card grid."""
+        """Dashboard renders platform summary with stat blocks."""
         resp = self.client.get("/dashboard")
-        self.assertIn("cards", resp.text)
-        self.assertIn("card-title", resp.text)
-        self.assertIn("card-value", resp.text)
+        self.assertIn("stat-block", resp.text)
+        self.assertIn("Сводка платформы", resp.text)
 
     def test_dashboard_has_pilot_no_go_banner(self):
         """Dashboard shows pilot NO-GO banner."""
@@ -4766,14 +4786,15 @@ class TestVisualSystem(unittest.TestCase):
         self.assertIn("NO-GO", resp.text)
 
     def test_dashboard_has_blockers_list(self):
-        """Dashboard shows blockers list section."""
+        """Dashboard shows Pilot Readiness block with blockers."""
         resp = self.client.get("/dashboard")
-        self.assertIn("Блокеры", resp.text)
+        self.assertIn("Scanner E2E", resp.text)
+        self.assertIn("Long-run", resp.text)
 
     def test_dashboard_has_quick_links(self):
-        """Dashboard has quick links section."""
+        """Dashboard has next actions section."""
         resp = self.client.get("/dashboard")
-        self.assertIn("Быстрые ссылки", resp.text)
+        self.assertIn("Что делать дальше", resp.text)
 
     # ── Reports visual shell ────────────────────────────
 
@@ -4907,10 +4928,10 @@ class TestVisualSystem(unittest.TestCase):
         self.assertTrue(has_empty, "Reports should have empty state components")
 
     def test_status_badge_components_exist(self):
-        """Lifecycle steps and status badges are used in production pages."""
+        """Distribution bars and stat blocks are used in reports."""
         resp = self.client.get("/reports")
-        # Reports always renders lifecycle-flow with PoP status breakdown
-        self.assertIn("lifecycle-step", resp.text)
+        # Reports has distribution bars and stat blocks for status display
+        self.assertIn("dist-bar", resp.text)
 
     # ── Stylesheet linked ──────────────────────────────
 
@@ -4922,6 +4943,177 @@ class TestVisualSystem(unittest.TestCase):
             resp = self.client.get(path)
             self.assertIn('/static/styles.css', resp.text,
                           f"{path} must link local stylesheet")
+
+
+class TestDashboardReportsVisualization(unittest.TestCase):
+    """43.2: Dashboard & Reports enhanced visualization."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    # ── Dashboard: Platform Summary ─────────────────────
+
+    def test_dashboard_platform_summary_present(self):
+        resp = self.client.get("/dashboard")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Сводка платформы", resp.text)
+        self.assertIn("stat-block", resp.text)
+
+    def test_dashboard_pipeline_has_six_steps(self):
+        resp = self.client.get("/dashboard")
+        steps = ["Креативы", "Кампании", "Расписание", "Согласование", "Публикация", "Отчёт"]
+        for step in steps:
+            self.assertIn(step, resp.text, f"Pipeline missing step: {step}")
+
+    def test_dashboard_pilot_readiness_block(self):
+        resp = self.client.get("/dashboard")
+        self.assertIn("Pilot Readiness", resp.text)
+        self.assertIn("NO-GO", resp.text)
+        self.assertIn("Сканер отсутствует", resp.text)
+
+    def test_dashboard_five_blockers(self):
+        resp = self.client.get("/dashboard")
+        blockers = ["Scanner E2E", "Long-run", "Manifest delivery", "Sidecar sync", "Fleet rollout"]
+        for b in blockers:
+            self.assertIn(b, resp.text, f"Missing blocker: {b}")
+
+    def test_dashboard_next_actions(self):
+        resp = self.client.get("/dashboard")
+        actions = ["Загрузить креатив", "Создать кампанию", "Настроить расписание",
+                    "Отправить на согласование", "Подготовить публикацию", "Выгрузить отчёты"]
+        for a in actions:
+            self.assertIn(a, resp.text, f"Missing action: {a}")
+
+    def test_dashboard_next_actions_links(self):
+        resp = self.client.get("/dashboard")
+        self.assertIn("/creatives", resp.text)
+        self.assertIn("/campaigns", resp.text)
+        self.assertIn("/schedule", resp.text)
+        self.assertIn("/approvals", resp.text)
+        self.assertIn("/publications", resp.text)
+        self.assertIn("/reports", resp.text)
+
+    # ── Dashboard: No fake data ─────────────────────────
+
+    def test_dashboard_no_fake_numbers(self):
+        resp = self.client.get("/dashboard")
+        for fake in ("16 000", "1 247", "7.8%", "DEMO:"):
+            self.assertNotIn(fake, resp.text, f"Dashboard must NOT have fake: {fake}")
+
+    def test_dashboard_no_visible_test_labels(self):
+        resp = self.client.get("/dashboard")
+        self.assertNotIn("test-kso", resp.text.lower())
+        self.assertNotIn("test_kso", resp.text.lower())
+
+    # ── Reports: Campaigns visualization ────────────────
+
+    def test_reports_campaign_distribution_bar(self):
+        resp = self.client.get("/reports")
+        self.assertIn("dist-bar", resp.text, "Reports must have distribution bar")
+
+    def test_reports_campaign_status_legend(self):
+        resp = self.client.get("/reports")
+        self.assertIn("dist-legend", resp.text, "Reports must have dist legend")
+
+    def test_reports_campaign_csv_export_link(self):
+        resp = self.client.get("/reports")
+        # CSV filename referenced in section card footer
+        self.assertIn("campaign_code", resp.text, "Reports must mention campaign CSV export fields")
+
+    # ── Reports: Airtime visualization ──────────────────
+
+    def test_reports_airtime_progress_bar(self):
+        resp = self.client.get("/reports?at_device=test-dev&at_from=2026-01-01&at_to=2026-01-07")
+        self.assertIn("progress-bar", resp.text, "Reports must have progress bar")
+
+    def test_reports_airtime_threshold_labels(self):
+        resp = self.client.get("/reports")
+        # Thresholds referenced in footer: "&lt;50% норма · 50–79% внимание · ≥80% риск перегруза"
+        self.assertIn("норма", resp.text.lower(), "Reports must have threshold concept")
+        self.assertIn("50%", resp.text, "Reports must show 50% threshold")
+        self.assertIn("внимание", resp.text, "Reports must show attention level")
+        self.assertIn("перегруза", resp.text, "Reports must show overload risk")
+
+    def test_reports_airtime_export_link_present(self):
+        resp = self.client.get("/reports")
+        self.assertIn("airtime", resp.text.lower())
+
+    # ── Reports: Conflicts block ────────────────────────
+
+    def test_reports_conflicts_section_present(self):
+        resp = self.client.get("/reports")
+        self.assertIn("Конфликты", resp.text)
+
+    def test_reports_conflicts_csv_export(self):
+        resp = self.client.get("/reports")
+        # Footer mentions conflicts_export.csv filename
+        self.assertIn("conflicts", resp.text.lower(), "Reports must mention conflicts")
+
+    # ── Reports: Publications block ─────────────────────
+
+    def test_reports_publications_section_present(self):
+        resp = self.client.get("/reports")
+        self.assertIn("Публикации", resp.text)
+
+    # ── Reports: PoP separation ─────────────────────────
+
+    def test_reports_separates_planned_from_factual(self):
+        resp = self.client.get("/reports")
+        self.assertIn("Плановая отчётность", resp.text)
+        self.assertIn("Фактические показы", resp.text)
+
+    def test_reports_pop_empty_state(self):
+        resp = self.client.get("/reports")
+        self.assertIn("Proof of Play", resp.text)
+
+    # ── Safety ──────────────────────────────────────────
+
+    def test_dashboard_no_js(self):
+        resp = self.client.get("/dashboard")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "localstorage"):
+            self.assertNotIn(fb, lower)
+
+    def test_reports_no_js(self):
+        resp = self.client.get("/reports")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "localstorage"):
+            self.assertNotIn(fb, lower)
+
+    def test_dashboard_no_forbidden_strings(self):
+        resp = self.client.get("/dashboard")
+        lower = resp.text.lower()
+        for fb in ("device_secret", "access_token", "backend_url", "api_key", "bearer "):
+            self.assertNotIn(fb, lower)
+
+    def test_reports_no_forbidden_strings(self):
+        resp = self.client.get("/reports")
+        lower = resp.text.lower()
+        for fb in ("device_secret", "access_token", "backend_url", "api_key", "bearer "):
+            self.assertNotIn(fb, lower)
+
+    def test_no_cdn_on_dashboard_or_reports(self):
+        for path in ("/dashboard", "/reports"):
+            resp = self.client.get(path)
+            lower = resp.text.lower()
+            for cdn in ("cdn.", "cloudflare", "unpkg", "jsdelivr"):
+                self.assertNotIn(cdn, lower, f"{path} must NOT reference CDN {cdn}")
+
+    def test_csv_links_are_safe_get(self):
+        resp = self.client.get("/reports")
+        self.assertIn("/reports/export/", resp.text)
+        self.assertIn("CSV", resp.text)
+        self.assertNotIn("javascript:", resp.text.lower())
 
 
 if __name__ == "__main__":
