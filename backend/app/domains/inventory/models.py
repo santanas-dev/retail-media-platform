@@ -164,6 +164,7 @@ class BookingItem(Base):
     )
     booked_spots_per_loop = Column(Integer, nullable=False)
     booked_share_of_voice = Column(Numeric(5, 4), nullable=True)
+    reservation_type = Column(String(20), nullable=False, server_default="campaign")
     date_from = Column(Date, nullable=False)
     date_to = Column(Date, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -220,3 +220,33 @@ async def update_booking_items(
     current_user: User = Depends(require_permission("bookings.manage")),
 ):
     return await service.update_booking_items(db, booking_id, data)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Forecast v1
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@router.post("/inventory/forecast", response_model=schemas.ForecastResponse)
+async def forecast_impressions(
+    data: schemas.ForecastRequest,
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("inventory.read")),
+):
+    return await service.calculate_forecast(db, data)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Inventory Snapshot
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@router.get("/inventory/snapshot")
+async def inventory_snapshot(
+    branch_id: Optional[UUID] = Query(None),
+    cluster_id: Optional[UUID] = Query(None),
+    store_id: Optional[UUID] = Query(None),
+    db=Depends(get_db),
+    current_user: User = Depends(require_permission("inventory.read")),
+):
+    return await service.get_inventory_snapshot(db, branch_id, cluster_id, store_id)

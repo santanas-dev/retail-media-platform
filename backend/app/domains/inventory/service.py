@@ -307,11 +307,12 @@ def _day_capacity(rule: models.CapacityRule, d: date) -> int:
 
 async def _get_booked_spots(
     db: AsyncSession,
-    inventory_unit_id: UUID,
+    inventory_unit_id: Optional[UUID],
     d_from: date,
     d_to: date,
     exclude_booking_id: Optional[UUID] = None,
     statuses: list[str] | None = None,
+    reservation_types: list[str] | None = None,
 ) -> int:
     """Sum booked_spots_per_loop across booking_items in date range."""
     if statuses is None:
@@ -323,14 +324,17 @@ async def _get_booked_spots(
         select(func.coalesce(func.sum(BookingItem.booked_spots_per_loop), 0))
         .join(CampaignBooking, CampaignBooking.id == BookingItem.booking_id)
         .where(
-            BookingItem.inventory_unit_id == inventory_unit_id,
             BookingItem.date_from <= d_to,
             BookingItem.date_to >= d_from,
             CampaignBooking.status.in_(statuses),
         )
     )
+    if inventory_unit_id is not None:
+        stmt = stmt.where(BookingItem.inventory_unit_id == inventory_unit_id)
     if exclude_booking_id:
         stmt = stmt.where(BookingItem.booking_id != exclude_booking_id)
+    if reservation_types:
+        stmt = stmt.where(BookingItem.reservation_type.in_(reservation_types))
     result = await db.execute(stmt)
     return result.scalar() or 0
 
@@ -362,13 +366,28 @@ async def calculate_availability(
         if store_ids:
             stmt = stmt.where(models.InventoryUnit.store_id.in_(store_ids))
         else:
-            return schemas.AvailabilityResponse(items=[])
+            return schemas.AvailabilityResponse(items=[], summary=schemas.AvailabilitySummary(
+                total_units=0, total_capacity=0, total_available=0,
+                total_confirmed=0, total_reserved=0, occupancy_pct_avg=0.0,
+                sold_out_units=0, limited_units=0,
+            ))
 
     result = await db.execute(stmt)
     units = list(result.scalars().all())
 
+    # Pre-load store names for all units
+    store_ids = list({u.store_id for u in units})
+    store_map: dict = {}
+    if store_ids:
+        store_result = await db.execute(select(Store).where(Store.id.in_(store_ids)))
+        for s in store_result.scalars().all():
+            store_map[str(s.id)] = s
+
     days = _days_in_range(req.date_from, req.date_to)
     items: list[schemas.AvailabilityItem] = []
+    summary_stats = {"total_units": 0, "total_capacity": 0, "total_available": 0,
+                     "total_confirmed": 0, "total_reserved": 0, "sold_out_units": 0,
+                     "limited_units": 0}
 
     for unit in units:
         # Find active capacity rules overlapping the request period
@@ -381,17 +400,26 @@ async def calculate_availability(
         rules_result = await db.execute(rules_stmt)
         rules = list(rules_result.scalars().all())
 
+        store_info = store_map.get(str(unit.store_id))
+        store_code_val = store_info.store_code if store_info else None
+        store_name_val = store_info.name if store_info else None
+
         if not rules:
             items.append(schemas.AvailabilityItem(
                 inventory_unit_id=unit.id,
                 inventory_unit_code=unit.code,
+                store_code=store_code_val,
+                store_name=store_name_val,
                 capacity_total=0,
                 confirmed_booked=0,
                 reserved_booked=0,
                 available=0,
+                occupancy_pct=0.0,
+                sold_out=False,
                 status="unavailable",
-                reasons=["no active capacity rule for this period"],
+                reasons=["Нет активных правил рекламной нагрузки на этот период"],
             ))
+            summary_stats["total_units"] += 1
             continue
 
         # Total capacity across all days
@@ -400,7 +428,7 @@ async def calculate_availability(
             for rule in rules:
                 capacity_total += _day_capacity(rule, d)
 
-        # Booked: confirmed + reserved (other bookings)
+        # Booked: confirmed + reserved
         confirmed_booked = await _get_booked_spots(
             db, unit.id, req.date_from, req.date_to,
             statuses=["confirmed"],
@@ -409,39 +437,104 @@ async def calculate_availability(
             db, unit.id, req.date_from, req.date_to,
             statuses=["reserved"],
         )
+        internal_booked = await _get_booked_spots(
+            db, unit.id, req.date_from, req.date_to,
+            statuses=["confirmed", "reserved"],
+            reservation_types=["internal"],
+        )
+        emergency_booked = await _get_booked_spots(
+            db, unit.id, req.date_from, req.date_to,
+            statuses=["confirmed", "reserved"],
+            reservation_types=["emergency"],
+        )
 
         available = capacity_total - confirmed_booked - reserved_booked
+        occupancy_pct = round((confirmed_booked + reserved_booked) / max(capacity_total, 1) * 100, 1)
 
         reasons: list[str] = []
-        if available <= 0:
-            status = "unavailable"
-            reasons.append("no available spots")
-        elif available <= capacity_total * 0.1:
-            status = "limited"
-        else:
-            status = "available"
+        alternatives: list[str] = []
+        sold_out = False
+        status = "available"
 
-        # Day-level reasons
+        if capacity_total == 0:
+            status = "unavailable"
+            reasons.append("Нет рекламного времени в выбранный период")
+        elif available <= 0:
+            status = "sold_out"
+            sold_out = True
+            reasons.append("Рекламное время полностью занято")
+            alternatives.append("Попробуйте другой период или меньше КСО")
+        elif occupancy_pct >= 90:
+            status = "limited"
+            reasons.append(f"Свободно менее 10% рекламного времени")
+            alternatives.append("Доступны отдельные магазины с меньшей занятостью")
+        elif occupancy_pct >= 70:
+            status = "limited"
+            reasons.append(f"Занято {occupancy_pct:.0f}% рекламного времени")
+
+        # Business-language reasons
+        if internal_booked > 0:
+            reasons.append(f"Зарезервировано для внутренних нужд: {internal_booked} слотов")
+        if emergency_booked > 0:
+            reasons.append(f"Зарезервировано для экстренных показов: {emergency_booked} слотов")
+
+        # Day-level check
         for d in days:
             day_cap = sum(_day_capacity(r, d) for r in rules)
-            # Approximate: booked evenly across days
             day_booked_conf = confirmed_booked // len(days) if days else 0
             day_booked_res = reserved_booked // len(days) if days else 0
             if day_cap > 0 and day_booked_conf + day_booked_res >= day_cap:
-                reasons.append(f"capacity exceeded on {d.isoformat()}")
+                reasons.append(f"Нет свободного времени {d.isoformat()}")
+                if not alternatives:
+                    alternatives.append(f"Попробуйте другие дни вместо {d.isoformat()}")
 
         items.append(schemas.AvailabilityItem(
             inventory_unit_id=unit.id,
             inventory_unit_code=unit.code,
+            store_code=store_code_val,
+            store_name=store_name_val,
             capacity_total=capacity_total,
             confirmed_booked=confirmed_booked,
             reserved_booked=reserved_booked,
+            internal_booked=internal_booked,
+            emergency_booked=emergency_booked,
             available=max(0, available),
+            occupancy_pct=occupancy_pct,
+            sold_out=sold_out,
             status=status,
-            reasons=reasons[:5],  # cap at 5 reasons
+            reasons=reasons[:5],
+            alternatives=alternatives[:3],
         ))
 
-    return schemas.AvailabilityResponse(items=items)
+        # Summary stats
+        summary_stats["total_units"] += 1
+        summary_stats["total_capacity"] += capacity_total
+        summary_stats["total_available"] += max(0, available)
+        summary_stats["total_confirmed"] += confirmed_booked
+        summary_stats["total_reserved"] += reserved_booked
+        if sold_out:
+            summary_stats["sold_out_units"] += 1
+        if status == "limited":
+            summary_stats["limited_units"] += 1
+
+    occupancy_pct_avg = (
+        round(
+            (summary_stats["total_confirmed"] + summary_stats["total_reserved"])
+            / max(summary_stats["total_capacity"], 1) * 100, 1
+        )
+    )
+    summary = schemas.AvailabilitySummary(
+        total_units=summary_stats["total_units"],
+        total_capacity=summary_stats["total_capacity"],
+        total_available=summary_stats["total_available"],
+        total_confirmed=summary_stats["total_confirmed"],
+        total_reserved=summary_stats["total_reserved"],
+        occupancy_pct_avg=occupancy_pct_avg,
+        sold_out_units=summary_stats["sold_out_units"],
+        limited_units=summary_stats["limited_units"],
+    )
+
+    return schemas.AvailabilityResponse(items=items, summary=summary)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -878,6 +971,7 @@ async def update_booking_items(
             inventory_unit_id=item_req.inventory_unit_id,
             booked_spots_per_loop=item_req.booked_spots_per_loop,
             booked_share_of_voice=item_req.booked_share_of_voice,
+            reservation_type=item_req.reservation_type,
             date_from=item_req.date_from,
             date_to=item_req.date_to,
         )
@@ -893,3 +987,219 @@ async def update_booking_items(
     )
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Forecast v1
+# ═══════════════════════════════════════════════════════════════════
+
+
+async def _get_active_device_count(
+    db: AsyncSession,
+    channel_id: Optional[UUID] = None,
+    store_id: Optional[UUID] = None,
+    branch_id: Optional[UUID] = None,
+    cluster_id: Optional[UUID] = None,
+) -> tuple[int, int]:
+    """Return (total_devices, active_devices) matching scope."""
+    from app.domains.hierarchy.models import KsoDevice
+
+    stmt = select(func.count(KsoDevice.id)).where(
+        KsoDevice.status != "decommissioned",
+    )
+    if store_id:
+        store_ids = [store_id]
+    elif branch_id or cluster_id:
+        store_stmt = select(Store.id).join(Cluster, Store.cluster_id == Cluster.id)
+        if branch_id:
+            store_stmt = store_stmt.where(Cluster.branch_id == branch_id)
+        if cluster_id:
+            store_stmt = store_stmt.where(Store.cluster_id == cluster_id)
+        store_result = await db.execute(store_stmt)
+        store_ids = [r[0] for r in store_result.all()]
+        if not store_ids:
+            return 0, 0
+    else:
+        store_ids = None
+
+    if store_ids:
+        stmt = stmt.where(KsoDevice.store_id.in_(store_ids))
+
+    total_result = await db.execute(stmt)
+    total_devices = total_result.scalar() or 0
+
+    active_stmt = stmt.where(KsoDevice.status == "active")
+    active_result = await db.execute(active_stmt)
+    active_devices = active_result.scalar() or 0
+
+    return total_devices, active_devices
+
+
+async def calculate_forecast(
+    db: AsyncSession, req: schemas.ForecastRequest,
+) -> schemas.ForecastResponse:
+    """Forecast v1 — estimate expected impressions from schedule and device count.
+
+    Formula: devices × active_capacity_rules × spots_per_loop × days.
+    Does NOT use actual traffic/check data — marked as low confidence.
+    """
+    # Count devices in scope
+    total_devices, active_devices = await _get_active_device_count(
+        db, req.channel_id, req.store_id, req.branch_id, req.cluster_id,
+    )
+
+    # Count sellable inventory units with active capacity rules in period
+    unit_stmt = select(func.count(models.InventoryUnit.id)).where(
+        models.InventoryUnit.status == "active",
+        models.InventoryUnit.is_sellable == True,
+    )
+    if req.channel_id:
+        unit_stmt = unit_stmt.where(models.InventoryUnit.channel_id == req.channel_id)
+    if req.store_id:
+        unit_stmt = unit_stmt.where(models.InventoryUnit.store_id == req.store_id)
+    unit_result = await db.execute(unit_stmt)
+    sellable_units = unit_result.scalar() or 0
+
+    # Sum capacity spots from active rules
+    rules_stmt = (
+        select(func.coalesce(func.sum(models.CapacityRule.max_spots_per_loop), 0))
+        .join(models.InventoryUnit, models.CapacityRule.inventory_unit_id == models.InventoryUnit.id)
+        .where(
+            models.InventoryUnit.status == "active",
+            models.InventoryUnit.is_sellable == True,
+            models.CapacityRule.status == "active",
+            models.CapacityRule.valid_from <= req.date_to,
+            models.CapacityRule.valid_to >= req.date_from,
+        )
+    )
+    if req.channel_id:
+        rules_stmt = rules_stmt.where(models.InventoryUnit.channel_id == req.channel_id)
+    if req.store_id:
+        rules_stmt = rules_stmt.where(models.InventoryUnit.store_id == req.store_id)
+
+    rules_result = await db.execute(rules_stmt)
+    total_capacity_spots = rules_result.scalar() or 0
+
+    days = (req.date_to - req.date_from).days + 1
+
+    # Simple formula: capacity spots × request spots × days
+    expected_impressions = total_capacity_spots * req.spots_per_loop * days
+
+    # Estimate occupancy from confirmed+reserved vs max
+    confirmed_booked = await _get_booked_spots(
+        db, None, req.date_from, req.date_to,  # None = sum across all
+        statuses=["confirmed"],
+    )
+    reserved_booked = await _get_booked_spots(
+        db, None, req.date_from, req.date_to,
+        statuses=["reserved"],
+    )
+    total_max = total_capacity_spots * days
+    occupancy_estimate_pct = (
+        round((confirmed_booked + reserved_booked) / max(total_max, 1) * 100, 1)
+    )
+
+    return schemas.ForecastResponse(
+        date_from=req.date_from,
+        date_to=req.date_to,
+        total_devices=total_devices,
+        active_devices=active_devices,
+        total_capacity_spots=total_capacity_spots,
+        expected_impressions=expected_impressions,
+        occupancy_estimate_pct=occupancy_estimate_pct,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Inventory Snapshot (scope-level)
+# ═══════════════════════════════════════════════════════════════════
+
+
+async def get_inventory_snapshot(
+    db: AsyncSession,
+    branch_id: Optional[UUID] = None,
+    cluster_id: Optional[UUID] = None,
+    store_id: Optional[UUID] = None,
+) -> dict:
+    """Aggregate inventory snapshot for scope-level dashboard."""
+    # Build unit filter
+    stmt = select(models.InventoryUnit).where(
+        models.InventoryUnit.status == "active",
+        models.InventoryUnit.is_sellable == True,
+    )
+
+    if store_id:
+        stmt = stmt.where(models.InventoryUnit.store_id == store_id)
+    elif branch_id or cluster_id:
+        store_stmt = select(Store.id).join(Cluster, Store.cluster_id == Cluster.id)
+        if branch_id:
+            store_stmt = store_stmt.where(Cluster.branch_id == branch_id)
+        if cluster_id:
+            store_stmt = store_stmt.where(Store.cluster_id == cluster_id)
+        store_result = await db.execute(store_stmt)
+        store_ids = [r[0] for r in store_result.all()]
+        if store_ids:
+            stmt = stmt.where(models.InventoryUnit.store_id.in_(store_ids))
+        else:
+            return {"total_units": 0, "total_kso_devices": 0, "active_kso_devices": 0,
+                    "sellable_units": 0, "with_rules": 0, "with_bookings": 0}
+
+    result = await db.execute(stmt)
+    units = list(result.scalars().all())
+
+    today = date.today()
+    far_future = today + timedelta(days=365)
+
+    unit_ids = [u.id for u in units]
+    store_ids = list({u.store_id for u in units})
+
+    # Count units with active capacity rules
+    if unit_ids:
+        rules_count_stmt = select(func.count(func.distinct(models.CapacityRule.inventory_unit_id))).where(
+            models.CapacityRule.inventory_unit_id.in_(unit_ids),
+            models.CapacityRule.status == "active",
+            models.CapacityRule.valid_from <= far_future,
+            models.CapacityRule.valid_to >= today,
+        )
+        rules_count_result = await db.execute(rules_count_stmt)
+        with_rules = rules_count_result.scalar() or 0
+
+        # Count units with active bookings
+        bookings_count_stmt = (
+            select(func.count(func.distinct(models.BookingItem.inventory_unit_id)))
+            .join(models.CampaignBooking, models.CampaignBooking.id == models.BookingItem.booking_id)
+            .where(
+                models.BookingItem.inventory_unit_id.in_(unit_ids),
+                models.BookingItem.date_from <= far_future,
+                models.BookingItem.date_to >= today,
+                models.CampaignBooking.status.in_(["confirmed", "reserved"]),
+            )
+        )
+        bookings_count_result = await db.execute(bookings_count_stmt)
+        with_bookings = bookings_count_result.scalar() or 0
+    else:
+        with_rules = 0
+        with_bookings = 0
+
+    # Count KSO devices
+    from app.domains.hierarchy.models import KsoDevice
+    device_stmt = select(func.count(KsoDevice.id)).where(
+        KsoDevice.status != "decommissioned",
+    )
+    if store_ids:
+        device_stmt = device_stmt.where(KsoDevice.store_id.in_(store_ids))
+    device_result = await db.execute(device_stmt)
+    total_kso_devices = device_result.scalar() or 0
+
+    active_stmt = device_stmt.where(KsoDevice.status == "active")
+    active_result = await db.execute(active_stmt)
+    active_kso_devices = active_result.scalar() or 0
+
+    return {
+        "total_units": len(units),
+        "total_kso_devices": total_kso_devices,
+        "active_kso_devices": active_kso_devices,
+        "sellable_units": len(units),
+        "with_rules": with_rules,
+        "with_bookings": with_bookings,
+    }

@@ -5786,5 +5786,78 @@ class TestDesignSystemHardening(unittest.TestCase):
                              f"Must NOT contain: {fb}")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Inventory Page (44.1)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestInventoryPage44_1(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_inventory_route_accessible(self):
+        resp = self.client.get("/inventory")
+        self.assertIn(resp.status_code, (200, 303, 302),
+                      f"Expected 200 or redirect, got {resp.status_code}")
+
+    def test_inventory_page_title(self):
+        resp = self.client.get("/inventory")
+        if resp.status_code == 200:
+            self.assertIn("Рекламное время", resp.text)
+
+    def test_inventory_no_js_cdn(self):
+        resp = self.client.get("/inventory")
+        if resp.status_code == 200:
+            lower = resp.text.lower()
+            for fb in ("<script", "onclick=", "localstorage",
+                        "cdnjs", "unpkg", "jsdelivr"):
+                self.assertNotIn(fb, lower,
+                                 f"Must NOT contain: {fb}")
+
+    def test_inventory_no_technical_labels(self):
+        resp = self.client.get("/inventory")
+        if resp.status_code == 200:
+            lower = resp.text.lower()
+            for fb in ("retail media platform", "test-kso", "dev-kso",
+                        "legacy", "deprecated", "internal-use"):
+                self.assertNotIn(fb, lower,
+                                 f"Must NOT contain: {fb}")
+
+    def test_inventory_sidebar_active(self):
+        resp = self.client.get("/inventory")
+        if resp.status_code == 200:
+            self.assertIn("Рекламное время", resp.text)
+
+    def test_inventory_no_secrets_leakage(self):
+        resp = self.client.get("/inventory")
+        if resp.status_code == 200:
+            lower = resp.text.lower()
+            for fb in ("device_secret", "access_token", "backend_url",
+                        "password", "bearer", "token="):
+                self.assertNotIn(fb, lower,
+                                 f"Must NOT contain: {fb}")
+
+    def test_inventory_business_language(self):
+        """Page should use Russian business labels (visible in fallback)."""
+        resp = self.client.get("/inventory")
+        if resp.status_code == 200:
+            for label in ("Рекламное время", "Занятость", "доступность",
+                          "Управление расписаниями", "прогноз показов"):
+                self.assertIn(label, resp.text,
+                              f"Must contain Russian label: {label}")
+
+    def test_inventory_no_raw_uuid(self):
+        """No raw UUIDs in inventory page HTML."""
+        resp = self.client.get("/inventory")
+        if resp.status_code == 200:
+            import re
+            uuid_pattern = re.compile(
+                r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
+                re.IGNORECASE,
+            )
+            matches = uuid_pattern.findall(resp.text)
+            self.assertEqual(len(matches), 0,
+                             f"Raw UUIDs in inventory page: {matches[:5]}")
+
+
 if __name__ == "__main__":
     unittest.main()

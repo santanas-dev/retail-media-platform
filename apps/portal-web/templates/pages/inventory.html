@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">Рекламное время</h1>
+<p class="page-description">Занятость рекламного времени, прогноз показов, доступность для размещения. Оценка по расписанию и количеству КСО без учёта фактического трафика.</p>
+
+<!-- Flash Messages -->
+{% if flash_msg %}
+<div class="flash-message flash-{{ flash_type }}">{{ flash_msg }}</div>
+{% endif %}
+
+<!-- Backend Unavailable -->
+{% if backend_unavailable %}
+<div class="banner banner-warning">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body"><div class="banner-text">{{ backend_message }}</div></div>
+</div>
+{% endif %}
+
+{% if availability.ok and availability.data.summary %}
+{% set s = availability.data.summary %}
+<!-- ── Summary Cards ── -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">Единиц инвентаря</div>
+    <div class="kpi-value">{{ s.total_units }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Общая ёмкость (слотов)</div>
+    <div class="kpi-value">{{ s.total_capacity }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Свободно слотов</div>
+    <div class="kpi-value">{{ s.total_available }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Занятость</div>
+    <div class="kpi-value">{{ s.occupancy_pct_avg }}%</div>
+  </div>
+  {% if s.sold_out_units > 0 %}
+  <div class="kpi-card kpi-card-warning">
+    <div class="kpi-label">Нет свободного времени</div>
+    <div class="kpi-value">{{ s.sold_out_units }}</div>
+  </div>
+  {% endif %}
+  {% if s.limited_units > 0 %}
+  <div class="kpi-card kpi-card-warning">
+    <div class="kpi-label">Ограниченная доступность</div>
+    <div class="kpi-value">{{ s.limited_units }}</div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ── Forecast ── -->
+{% if forecast.ok and forecast.data %}
+{% set f = forecast.data %}
+<div class="content-card" style="margin-bottom:24px;">
+  <div class="content-card-header">
+    <h2 class="content-card-title">Прогноз показов</h2>
+    <span class="badge badge-info">Оценка</span>
+  </div>
+  <div class="info-panel" style="margin-bottom:16px;">
+    <span class="info-panel-icon">ℹ️</span>
+    <span>{{ f.disclaimer }}</span>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Устройств (всего)</div>
+      <div class="kpi-value">{{ f.total_devices }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Активных устройств</div>
+      <div class="kpi-value">{{ f.active_devices }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Слотов в расписании</div>
+      <div class="kpi-value">{{ f.total_capacity_spots }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Ожидаемых показов</div>
+      <div class="kpi-value">{{ f.expected_impressions }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Занятость (оценка)</div>
+      <div class="kpi-value">{{ f.occupancy_estimate_pct }}%</div>
+    </div>
+  </div>
+  <div class="note-panel" style="margin-top:16px;">
+    <span>Период: {{ f.date_from }} → {{ f.date_to }} ({{ (f.date_to + '-' + f.date_from)|length }} дней)</span>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Availability Table ── -->
+{% if availability.ok and availability.data.items %}
+{% set items = availability.data.items %}
+<div class="content-card">
+  <div class="content-card-header">
+    <h2 class="content-card-title">Доступность рекламного времени</h2>
+    <span class="note-text">{{ date_from }} → {{ date_to }}</span>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Код</th>
+        <th>Магазин</th>
+        <th>Ёмкость</th>
+        <th>Занято</th>
+        <th>Зарезерв.</th>
+        <th>Внутр.</th>
+        <th>Аварийн.</th>
+        <th>Свободно</th>
+        <th>Статус</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td><code>{{ item.inventory_unit_code }}</code></td>
+        <td>{{ item.store_name or item.store_code or '—' }}</td>
+        <td>{{ item.capacity_total }}</td>
+        <td>{{ item.confirmed_booked }}</td>
+        <td>{{ item.reserved_booked }}</td>
+        <td>{{ item.internal_booked }}</td>
+        <td>{{ item.emergency_booked }}</td>
+        <td><strong>{{ item.available }}</strong></td>
+        <td>
+          {% if item.sold_out %}
+          <span class="status-danger">Нет свободного времени</span>
+          {% elif item.status == 'limited' %}
+          <span class="status-warning">Ограниченная доступность</span>
+          {% elif item.status == 'unavailable' %}
+          <span class="status-muted">Недоступно</span>
+          {% else %}
+          <span class="status-success">Свободно</span>
+          {% endif %}
+          {% if item.occupancy_pct > 0 %}
+          <div class="fill-bar" style="margin-top:4px;">
+            <div class="fill-bar-inner fill-{{ (item.occupancy_pct/10)|round|int * 10 }}" style="width:{{ item.occupancy_pct }}%;"></div>
+          </div>
+          <small>{{ item.occupancy_pct }}% занято</small>
+          {% endif %}
+        </td>
+      </tr>
+      {% if item.reasons %}
+      <tr class="row-detail">
+        <td colspan="9">
+          {% for reason in item.reasons %}
+          <span class="status-badge status-warning" style="margin-right:8px;">{{ reason }}</span>
+          {% endfor %}
+          {% if item.alternatives %}
+          <br>
+          {% for alt in item.alternatives %}
+          <span class="note-text">{{ alt }}</span>
+          {% endfor %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif availability.ok %}
+<div class="content-card">
+  <div class="content-card-header">
+    <h2 class="content-card-title">Доступность рекламного времени</h2>
+  </div>
+  <div class="note-panel">Нет данных о доступности за выбранный период. Возможно, не созданы единицы инвентаря или правила рекламной нагрузки.</div>
+</div>
+{% endif %}
+
+<!-- ── Snapshot ── -->
+{% if snapshot.ok and snapshot.data %}
+{% set sn = snapshot.data %}
+<div class="content-card" style="margin-top:24px;">
+  <div class="content-card-header">
+    <h2 class="content-card-title">Состояние инвентаря</h2>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Единиц инвентаря</div>
+      <div class="kpi-value">{{ sn.total_units }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">С правилами нагрузки</div>
+      <div class="kpi-value">{{ sn.with_rules }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">С бронированиями</div>
+      <div class="kpi-value">{{ sn.with_bookings }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">КСО (всего)</div>
+      <div class="kpi-value">{{ sn.total_kso_devices }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">КСО (активных)</div>
+      <div class="kpi-value">{{ sn.active_kso_devices }}</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Quick Nav ── -->
+<div class="action-panel" style="margin-top:24px;">
+  <span><a href="/schedule" class="btn btn-sm">🗓 Управление расписаниями</a></span>
+  <span><a href="/campaigns" class="btn btn-sm">📢 Кампании</a></span>
+  <span><a href="/reports" class="btn btn-sm">📊 Отчёты</a></span>
+</div>
+{% endblock %}

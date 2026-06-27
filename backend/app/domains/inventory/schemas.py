@@ -167,16 +167,73 @@ class AvailabilityRequest(BaseModel):
 class AvailabilityItem(BaseModel):
     inventory_unit_id: UUID
     inventory_unit_code: str
+    store_code: Optional[str] = None
+    store_name: Optional[str] = None
     capacity_total: int
     confirmed_booked: int
     reserved_booked: int
+    internal_booked: int = 0
+    emergency_booked: int = 0
     available: int
-    status: str  # available / limited / unavailable
+    occupancy_pct: float = 0.0
+    sold_out: bool = False
+    status: str  # available / limited / unavailable / sold_out
     reasons: list[str] = []
+    alternatives: list[str] = []
+
+
+class AvailabilitySummary(BaseModel):
+    total_units: int
+    total_capacity: int
+    total_available: int
+    total_confirmed: int
+    total_reserved: int
+    occupancy_pct_avg: float
+    sold_out_units: int
+    limited_units: int
 
 
 class AvailabilityResponse(BaseModel):
     items: list[AvailabilityItem]
+    summary: Optional[AvailabilitySummary] = None
+
+
+# ── Forecast v1 ────────────────────────────────────────────────────
+
+
+class ForecastRequest(BaseModel):
+    channel_id: Optional[UUID] = None
+    store_id: Optional[UUID] = None
+    branch_id: Optional[UUID] = None
+    cluster_id: Optional[UUID] = None
+    date_from: date
+    date_to: date
+    spots_per_loop: int = Field(default=1, gt=0)
+
+    @model_validator(mode="after")
+    def validate_dates(self):
+        if self.date_from > self.date_to:
+            raise ValueError("date_from must be <= date_to")
+        return self
+
+
+class ForecastResponse(BaseModel):
+    estimate_type: str = "schedule_and_device_count"  # v1 estimate
+    disclaimer: str = (
+        "Оценка по расписанию и количеству КСО. "
+        "Не учитывает фактический трафик и чеки."
+    )
+    date_from: date
+    date_to: date
+    total_devices: int
+    active_devices: int
+    total_capacity_spots: int
+    expected_impressions: int
+    occupancy_estimate_pct: float
+    confidence: str = "low"  # v1: no real traffic data
+
+
+# ── Inventory Snapshot ─────────────────────────────────────────────
 
 
 # ── Booking ────────────────────────────────────────────────────────
@@ -224,6 +281,7 @@ class BookingItemRequest(BaseModel):
     inventory_unit_id: UUID
     booked_spots_per_loop: int = Field(..., gt=0)
     booked_share_of_voice: Optional[Decimal] = None
+    reservation_type: str = Field(default="campaign")  # campaign / internal / emergency / filler
     date_from: date
     date_to: date
 
@@ -247,6 +305,7 @@ class BookingItemResponse(BaseModel):
     inventory_unit_id: UUID
     booked_spots_per_loop: int
     booked_share_of_voice: Optional[Decimal] = None
+    reservation_type: str = "campaign"
     date_from: date
     date_to: date
     created_at: datetime

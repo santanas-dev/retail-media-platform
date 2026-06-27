@@ -629,6 +629,100 @@ async def reports_export_publications(request: Request):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Inventory — Availability, Forecast & Sold Out (44.1)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/inventory", response_class=HTMLResponse)
+async def inventory_page(request: Request):
+    """Inventory dashboard — рекламное время, занятость, прогноз.
+
+    Backend-driven: availability + forecast + snapshot.
+    No JS/CDN/localStorage.  Russian business language only.
+    """
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/inventory")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    if not access_token:
+        return _inventory_fallback(request, current_user, "Нет доступа")
+
+    from datetime import date, timedelta
+    today = date.today()
+    next_week = today + timedelta(days=7)
+
+    # ── Snapshot ──
+    snap = {"ok": False, "data": {}}
+    snap_result = await backend.get_inventory_snapshot(access_token)
+    if snap_result.get("ok"):
+        snap = {"ok": True, "data": snap_result.get("data", {})}
+
+    # ── Availability (next 7 days) ──
+    avail = {"ok": False, "data": {"items": [], "summary": None}}
+    avail_result = await backend.get_inventory_availability(access_token, {
+        "date_from": today.isoformat(),
+        "date_to": next_week.isoformat(),
+    })
+    if avail_result.get("ok"):
+        avail = {"ok": True, "data": avail_result.get("data", {})}
+
+    # ── Forecast (next 30 days) ──
+    month_end = today + timedelta(days=30)
+    forecast = {"ok": False, "data": {}}
+    fc_result = await backend.get_inventory_forecast(access_token, {
+        "date_from": today.isoformat(),
+        "date_to": month_end.isoformat(),
+        "spots_per_loop": 1,
+    })
+    if fc_result.get("ok"):
+        forecast = {"ok": True, "data": fc_result.get("data", {})}
+
+    await backend.close()
+
+    has_data = avail["ok"] or snap["ok"] or forecast["ok"]
+
+    return templates.TemplateResponse(request, "pages/inventory.html", {
+        "request": request,
+        "title": "Рекламное время",
+        "active": "inventory",
+        "demo": False,
+        "current_user": current_user,
+        "backend_ok": has_data,
+        "snapshot": snap,
+        "availability": avail,
+        "forecast": forecast,
+        "date_from": today.isoformat(),
+        "date_to": next_week.isoformat(),
+        "forecast_date_to": month_end.isoformat(),
+    })
+
+
+def _inventory_fallback(
+    request: Request, current_user, reason: str = "",
+) -> HTMLResponse:
+    return templates.TemplateResponse(request, "pages/inventory.html", {
+        "request": request,
+        "title": "Рекламное время",
+        "active": "inventory",
+        "demo": False,
+        "current_user": current_user,
+        "backend_ok": False,
+        "backend_unavailable": True,
+        "backend_message": reason or "Данные временно недоступны.",
+        "snapshot": {"ok": False, "data": {}},
+        "availability": {"ok": False, "data": {"items": [], "summary": None}},
+        "forecast": {"ok": False, "data": {}},
+        "date_from": "",
+        "date_to": "",
+        "forecast_date_to": "",
+    })
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Creative Preview Proxy (42.2)
 # ══════════════════════════════════════════════════════════════════════
 

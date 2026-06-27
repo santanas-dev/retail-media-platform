@@ -7,6 +7,48 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [44.1-inventory-engine] — 2026-06-16
+
+**Inventory Engine: availability, sold out, forecast v1, reservation types, portal page.**
+
+### Backend
+- Модель `BookingItem` расширена: `reservation_type` (campaign/internal/emergency/filler)
+- Миграция: `031_add_reservation_type_to_booking_items`
+- `calculate_availability()`: sold_out flag, occupancy_pct, internal/emergency bookings,
+  store_code/name, business-language reasons, alternatives, summary aggregation
+- `calculate_forecast()` new: v1 estimate — capacity_spots × days × spots_per_loop,
+  disclaimer «Оценка по расписанию», confidence: low
+- `get_inventory_snapshot()` new: scope-level aggregation (branch/cluster/store)
+- `_get_booked_spots()`: Optional inventory_unit_id + reservation_type filter
+- New endpoints: `POST /api/inventory/forecast`, `GET /api/inventory/snapshot`
+- All endpoints under `inventory.read` / `bookings.*` RBAC
+
+### Portal
+- New page `/inventory` — Рекламное время: summary cards, availability table, forecast, snapshot
+- Sidebar: «⏱ Рекламное время» in Аналитика section
+- BackendClient: `get_inventory_availability`, `get_inventory_forecast`, `get_inventory_snapshot`
+- No JS/CDN/localStorage, all server-side HTML/CSS/Jinja2
+- Russian business language: all statuses, reasons, alternatives
+
+### Tests
+- Backend: `test_inventory_engine_441.py` — 20 tests (availability, forecast, reservation_type, safety, router, business language)
+- Portal: `TestInventoryPage44_1` — 8 tests (route, title, no JS/technical labels/secrets, business labels, no UUID)
+
+### Docs
+- `docs/product/inventory-engine-44-1.md`
+
+### Safety
+- No JS/CDN/localStorage ✅
+- No secrets/tokens/full URLs/barcodes/storage paths/raw UUID leakage ✅
+- Physical KSO/SSH/X11/Chromium/runner/sidecar/PoP не запускались
+- Scanner E2E/long-run/sidecar sync не выполнялись
+
+### Regression
+- Backend: 702 passed, 8 pre-existing failures, 26 warnings
+- Portal: 655 passed, 20 skipped, 0 failed
+
+---
+
 ## [43.7.1-business-lang-test-fix] — 2026-06-16
 
 **Fix portal test regression after business language + dark UI (43.7).**

@@ -1017,6 +1017,48 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Inventory Engine (44.1) ────────────────────────────────────
+
+    async def get_inventory_availability(
+        self, access_token: str, payload: dict,
+    ) -> dict:
+        """POST /api/inventory/availability → {ok, data: {items, summary}}."""
+        return await self._request_json(
+            "POST", "/api/inventory/availability",
+            json=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_inventory_forecast(
+        self, access_token: str, payload: dict,
+    ) -> dict:
+        """POST /api/inventory/forecast → {ok, data: ForecastResponse}."""
+        return await self._request_json(
+            "POST", "/api/inventory/forecast",
+            json=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_inventory_snapshot(
+        self, access_token: str,
+        branch_id: str | None = None,
+        cluster_id: str | None = None,
+        store_id: str | None = None,
+    ) -> dict:
+        """GET /api/inventory/snapshot → {ok, data: snapshot}."""
+        params = {}
+        if branch_id:
+            params["branch_id"] = branch_id
+        if cluster_id:
+            params["cluster_id"] = cluster_id
+        if store_id:
+            params["store_id"] = store_id
+        return await self._request_json(
+            "GET", "/api/inventory/snapshot",
+            params=params,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 
