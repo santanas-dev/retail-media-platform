@@ -387,31 +387,121 @@ async def submit_campaign_by_code(
     db: AsyncSession = Depends(get_db),
     current_user: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
-    """Submit campaign for review by campaign_code. RLS: advertiser scope enforced."""
+    """Submit campaign for approval via production ApprovalRequest flow.
+
+    Creates an ApprovalRequest (object_type=campaign), transitions campaign
+    to pending_approval.  Validates completeness: creative binding + schedule.
+    Maker-checker enforced by approval domain.
+    """
     from fastapi import HTTPException
+    from app.domains.approvals import service as approvals_service
+    from app.domains.approvals.schemas import ApprovalRequestCreate
+
     campaign = await service.get_campaign_by_code(db, campaign_code)
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     scope_ctx = await resolve_user_scope_context(db, current_user)
     assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "submit campaign")
-    result = await service.submit_campaign(db, campaign.id)
-    creative_codes = sorted([
-        cc.creative_code for cc in (result.creatives or [])
-    ])
+
+    # ═══════════════════════════════════════════════════════════════
+    # Completeness validation
+    # ═══════════════════════════════════════════════════════════════
+    from sqlalchemy import select as sa_select
+    from app.domains.campaigns.models import CampaignCreative as CC
+    from app.domains.scheduling.models import Schedule as SchedModel, ScheduleSlot
+    from app.domains.media.models import Creative as CreativeModel
+
+    # 1. Has at least one creative binding
+    cc_result = await db.execute(
+        sa_select(CC).where(CC.campaign_id == campaign.id)
+    )
+    active_bindings = cc_result.scalars().all()
+    if not active_bindings:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot submit: campaign has no active creative bindings",
+        )
+
+    # 2. Bound creatives are not archived/rejected
+    creative_codes_check = [cc.creative_code for cc in active_bindings]
+    creative_check = await db.execute(
+        sa_select(CreativeModel).where(
+            CreativeModel.creative_code.in_(creative_codes_check)
+        )
+    )
+    creatives_by_code = {c.creative_code: c for c in creative_check.scalars().all()}
+    for cc in creative_codes_check:
+        creative = creatives_by_code.get(cc)
+        if not creative:
+            raise HTTPException(status_code=400, detail=f"Cannot submit: creative '{cc}' not found")
+        if creative.status in ("archived", "rejected"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot submit: creative '{cc}' is {creative.status}",
+            )
+
+    # 3. Has schedule (at least one schedule linked to this campaign)
+    sched_result = await db.execute(
+        sa_select(SchedModel).where(SchedModel.campaign_code == campaign_code)
+    )
+    schedules = sched_result.scalars().all()
+    if not schedules:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot submit: campaign has no schedule",
+        )
+
+    # 4. Schedule has at least one slot
+    has_slots = False
+    for s in schedules:
+        slot_result = await db.execute(
+            sa_select(ScheduleSlot).where(
+                ScheduleSlot.schedule_id == s.id,
+                ScheduleSlot.is_active == True,
+            )
+        )
+        if slot_result.scalars().first():
+            has_slots = True
+            break
+    if not has_slots:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot submit: campaign has no active schedule slots",
+        )
+
+    # ═══════════════════════════════════════════════════════════════
+    # Create ApprovalRequest via production approval flow
+    # ═══════════════════════════════════════════════════════════════
+    approval_data = ApprovalRequestCreate(
+        object_type="campaign",
+        object_code=campaign_code,
+        comment=f"Submit by {current_user.username if hasattr(current_user, 'username') else 'user'}",
+    )
+    approval_result = await approvals_service.request_approval(
+        db, approval_data, current_user.id, scope_ctx=scope_ctx,
+    )
+
+    # Reload campaign to get updated status
+    await db.refresh(campaign)
+    creative_codes = sorted([cc.creative_code for cc in (campaign.creatives or [])])
+
     await audit_business_action(
         db, actor_user_id=str(current_user.id),
         action="campaign.submit", target_type="campaign",
         target_ref=campaign_code,
-        details={"new_status": result.status},
+        details={
+            "new_status": campaign.status,
+            "approval_code": approval_result.get("approval_code"),
+        },
     )
     return schemas.CampaignSafeResponse(
-        campaign_code=result.campaign_code or campaign_code,
-        name=result.name,
-        status=result.status,
-        description=result.comment,
+        campaign_code=campaign.campaign_code or campaign_code,
+        name=campaign.name,
+        status=campaign.status,
+        description=campaign.comment,
         creative_codes=creative_codes,
-        created_at=result.created_at,
-        updated_at=result.updated_at,
+        created_at=campaign.created_at,
+        updated_at=campaign.updated_at,
     )
 
 

@@ -578,3 +578,16 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - 40.3.2: Controlled 1h technical soak — ready, needs approval token
 - 40.3.3: Pilot runbook finalization — after Gates A/B
 - 40.4: v0.11.0 release tag — after gates green
+
+## 41.2.1 — Campaign Submit Approval Integration Gate (2026-06-16)
+
+### Status
+- ✅ CampaignCreative binding created on /campaigns/create via creative_codes in create_test_kso_campaign
+- ✅ Submit now creates ApprovalRequest: POST /api/campaigns/by-code/{code}/submit → approvals.service.request_approval(object_type=campaign)
+- ✅ Campaign status: draft → pending_approval (not legacy in_review)
+- ✅ Completeness validation: creative bindings required, creatives not archived/rejected, schedule + slots required
+- ✅ Duplicate submit prevented by _check_no_active_pending
+- ✅ Maker-checker preserved (approval domain enforces requested_by != decided_by)
+- ✅ /approvals page shows campaign approvals (object_type=campaign, object_code=campaign_code)
+- ✅ No JS on /campaigns, /campaigns/create, /approvals
+- ✅ Portal regression: 483 passed (+9), 0 failed

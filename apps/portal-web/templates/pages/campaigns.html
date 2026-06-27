@@ -41,7 +41,7 @@
     <tr>
       <td><code>{{ c.campaign_code }}</code></td>
       <td>{{ c.name }}</td>
-      <td><span class="badge badge-{{ 'draft' if c.status == 'draft' else 'review' if c.status == 'in_review' else 'ready' if c.status == 'approved' else '' }}"></span> {{ c.status }}</td>
+      <td><span class="badge badge-{{ 'draft' if c.status == 'draft' else 'review' if c.status in ('in_review', 'pending_approval') else 'ready' if c.status == 'approved' else '' }}"></span> {{ c.status }}</td>
       <td>{{ c.description }}</td>
       <td>{{ c.creative_codes }}</td>
       <td>{{ c.created_at }}</td>
@@ -74,7 +74,7 @@
         {% if c.status in ('draft', 'rejected') %}
         <form method="post" action="/campaigns/{{ c.campaign_code }}/submit" class="inline-form">
           <span class="form-title-sm">Согласование:</span>
-          <button type="submit" class="btn-sm btn-success">→ На согласование</button>
+          <button type="submit" class="btn-sm btn-success">→ Запросить</button>
         </form>
         {% endif %}
       </td>

@@ -972,7 +972,7 @@ async def campaigns_page(request: Request):
         flash_msg = "Креатив отвязан."
     elif raw == "ok:submitted":
         flash_type = "success"
-        flash_msg = "Кампания отправлена на согласование."
+        flash_msg = "Согласование запрошено. Кампания ожидает решения."
     elif raw == "error":
         flash_type = "error"
         flash_msg = request.session.pop("camp_flash_msg", "Ошибка.")[:200]

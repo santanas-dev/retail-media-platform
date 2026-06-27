@@ -7,6 +7,51 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [41.2.1-campaign-submit-approval-integration] — 2026-06-16
+
+**Campaign Submit → ApprovalRequest integration gate.**
+
+### Key Fixes
+
+- **Submit now creates ApprovalRequest**: `POST /api/campaigns/by-code/{code}/submit` calls `approvals.service.request_approval(object_type=campaign, ...)` instead of old `submit_campaign` (which required channels/targets/renditions unavailable to code-based campaigns)
+- **Completeness validation**: submit rejects campaigns with no creative bindings, archived/rejected creatives, no schedule, no schedule slots
+- **Campaign status**: `draft` → `pending_approval` (via approval service, not legacy `in_review`)
+- **ApprovalCode**: `appr_campaign_{campaign_code}` — automatically visible in `/approvals`
+- **Maker-checker**: preserved via approval domain (user cannot decide own request)
+- **Duplicate submit**: idempotent-safe — `_check_no_active_pending` prevents double ApprovalRequest
+- **Audit**: `campaign.submit` with `approval_code` in details
+
+### Portal
+
+- Submit button wording: "На согласование" → "Запросить"
+- Flash message: "Согласование запрошено. Кампания ожидает решения."
+- `pending_approval` status rendered with review badge
+- `/approvals` page confirmed: shows campaign approvals, no JS, maker-checker note
+
+### CampaignCreative binding
+
+- ✅ Created on `/campaigns/create` via `creative_codes` in `create_test_kso_campaign`
+- ✅ Bound creatives validated on submit (not archived/rejected)
+
+### Object model
+
+- **ApprovalRequest.object_type**: `campaign` (validated by `post /api/approvals` schema)
+- **Known gap**: `CampaignCreative.is_active` column referenced in service but not in model
+
+### Tests
+
+| Suite | Passed | Skipped | Failed |
+|---|---|---|---|
+| Portal | **483** (+9) | 20 | 0 |
+
+### No JS/CDN/localStorage
+
+- ✅ `/campaigns` — no `<script>`, `onclick`, `confirm`, `onsubmit`
+- ✅ `/campaigns/create` — same
+- ✅ `/approvals` — same
+
+---
+
 ## [41.0.0-portal-ui-hygiene-baseline] — 2026-06-16
 
 **Portal UI Hygiene Baseline — safe CSS-only improvements, no redesign.**

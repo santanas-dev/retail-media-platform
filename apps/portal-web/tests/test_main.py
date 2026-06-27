@@ -611,6 +611,7 @@ class TestCampaignsPage(unittest.TestCase):
         # Submit button appears per-campaign (when campaigns exist).
         # Without campaigns, confirm page structure is valid.
         self.assertIn("Кампании", self.html)
+        self.assertIn("Production Campaign API", self.html)
 
     def test_has_safe_notes(self):
         """Safe projection note present, production API note."""
@@ -739,6 +740,70 @@ class TestCampaignsCreatePage(unittest.TestCase):
         """Form has submit button."""
         self.assertIn('type="submit"', self.html)
         self.assertIn("Создать кампанию", self.html)
+
+
+class TestCampaignSubmitApprovalGate(unittest.TestCase):
+    """Campaign submit → approval integration gate (41.2.1)."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_campaigns_page_no_js(self):
+        """No JS on /campaigns: no script, onclick, confirm, onsubmit."""
+        resp = self.client.get("/campaigns")
+        html = resp.text.lower()
+        self.assertNotIn("<script", html)
+        self.assertNotIn("onclick", html)
+        self.assertNotIn("confirm(", html)
+        self.assertNotIn("onsubmit", html)
+
+    def test_campaigns_create_page_no_js(self):
+        """No JS on /campaigns/create: no script, onclick, confirm, onsubmit."""
+        resp = self.client.get("/campaigns/create")
+        html = resp.text.lower()
+        self.assertNotIn("<script", html)
+        self.assertNotIn("onclick", html)
+        self.assertNotIn("confirm(", html)
+        self.assertNotIn("onsubmit", html)
+
+    def test_approvals_page_no_js(self):
+        """No JS on /approvals: no script, onclick, confirm, onsubmit."""
+        resp = self.client.get("/approvals")
+        html = resp.text.lower()
+        self.assertNotIn("<script", html)
+        self.assertNotIn("onclick", html)
+        self.assertNotIn("confirm(", html)
+        self.assertNotIn("onsubmit", html)
+
+    def test_campaigns_page_has_approval_note(self):
+        """Campaigns page mentions approval in notes."""
+        resp = self.client.get("/campaigns")
+        self.assertIn("согласование", resp.text.lower())
+
+    def test_approvals_page_renders(self):
+        """Approvals page loads without error."""
+        resp = self.client.get("/approvals")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Согласования", resp.text)
+
+    def test_approvals_page_has_maker_checker(self):
+        """Approvals page shows maker-checker constraint."""
+        resp = self.client.get("/approvals")
+        self.assertIn("Maker-checker", resp.text)
+
+    def test_approvals_page_supports_campaign_type(self):
+        """Approvals form includes campaign as object_type."""
+        resp = self.client.get("/approvals")
+        self.assertIn('value="campaign"', resp.text)
+
+    def test_approvals_page_no_forbidden_content(self):
+        """No secrets/tokens in approvals page."""
+        resp = self.client.get("/approvals")
+        _assert_safe(self, resp.text)
+
+    def test_approvals_route_returns_200(self):
+        resp = self.client.get("/approvals")
+        self.assertEqual(resp.status_code, 200)
 
 
 # ══════════════════════════════════════════════════════════════════════
