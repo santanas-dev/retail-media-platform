@@ -39,36 +39,6 @@
   </form>
 </div>
 
-<!-- Decide Approval Form -->
-<div class="form-section">
-  <div class="form-title">Принять решение</div>
-  <form method="post" action="/approvals/decide" class="create-form">
-    <div class="form-row">
-      <div class="form-group">
-        <label for="approval_code">Код согласования*</label>
-        <input type="text" id="approval_code" name="approval_code"
-               placeholder="approval_code" minlength="1" maxlength="64" required>
-        <span class="form-hint">approval_code из списка ниже.</span>
-      </div>
-      <div class="form-group">
-        <label for="decision">Решение*</label>
-        <select id="decision" name="decision" required>
-          <option value="approve">Одобрить</option>
-          <option value="reject">Отклонить</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label for="dec_comment">Комментарий</label>
-        <input type="text" id="dec_comment" name="comment"
-               placeholder="Комментарий к решению" maxlength="500">
-      </div>
-    </div>
-    <button type="submit" class="btn-primary">Принять решение</button>
-  </form>
-</div>
-
 <!-- Backend Unavailable -->
 {% if backend_unavailable %}
 <div class="note-box warning">
@@ -77,19 +47,18 @@
 </div>
 {% endif %}
 
-<!-- Safe Fields Only -->
+<!-- Approvals Table -->
 <div class="table-container">
 <table class="data-table">
   <thead>
     <tr>
-      <th>Код</th>
+      <th>Заявка</th>
       <th>Тип</th>
       <th>Объект</th>
       <th>Статус</th>
-      <th>Решение</th>
-      <th>Комментарий</th>
+      <th>Детали</th>
       <th>Запрошен</th>
-      <th>Решён</th>
+      <th>Решение</th>
     </tr>
   </thead>
   <tbody>
@@ -99,20 +68,51 @@
       <td><code>{{ a.approval_code }}</code></td>
       <td>{{ a.object_type }}</td>
       <td>{{ a.object_code }}</td>
-      <td><span class="badge badge-{{ 'draft' if a.status == 'pending' else 'ready' if a.status == 'approved' else 'rejected' }}"></span> {{ a.status }}</td>
-      <td>{{ a.decision }}</td>
-      <td>{{ a.comment }}</td>
+      <td><span class="badge badge-{{ 'draft' if a.status == 'pending' else 'ready' if a.status == 'approved' else 'rejected' if a.status == 'rejected' else '' }}"></span> {{ a.status }}</td>
+      <td>
+        {% if a.object_type == 'campaign' %}
+        <div class="approval-campaign-detail">
+          <strong>{{ a.campaign_name }}</strong><br>
+          Креативы: {{ a.campaign_creatives }}<br>
+          Расписание: <code>{{ a.schedule_code }}</code> ({{ a.schedule_slot_count }} слотов)<br>
+          Статус кампании: <span class="badge badge-{{ 'draft' if a.campaign_status == 'pending_approval' else 'ready' if a.campaign_status == 'approved' else '' }}"></span> {{ a.campaign_status }}
+        </div>
+        {% else %}
+        {{ a.decision }}
+        {% endif %}
+      </td>
       <td>{{ a.requested_at }}</td>
-      <td>{{ a.decided_at }}</td>
+      <td>
+        {% if a.is_pending %}
+        <div class="approval-actions">
+          <!-- Approve Form -->
+          <form method="post" action="/approvals/decide" class="inline-form approval-decision-form">
+            <input type="hidden" name="approval_code" value="{{ a.approval_code }}">
+            <input type="hidden" name="decision" value="approve">
+            <button type="submit" class="btn-sm btn-success">✓ Одобрить</button>
+          </form>
+          <!-- Reject Form -->
+          <form method="post" action="/approvals/decide" class="inline-form approval-decision-form">
+            <input type="hidden" name="approval_code" value="{{ a.approval_code }}">
+            <input type="hidden" name="decision" value="reject">
+            <input type="text" name="comment" placeholder="Причина отказа" maxlength="500" style="width:140px">
+            <button type="submit" class="btn-sm btn-danger">✗ Отклонить</button>
+          </form>
+        </div>
+        {% else %}
+        <span>{{ a.decision }}</span>
+        {% if a.comment and a.comment != '—' %}<br><small>{{ a.comment }}</small>{% endif %}
+        {% endif %}
+      </td>
     </tr>
   {% endfor %}
   {% else %}
     <tr class="empty-row">
-      <td colspan="8">
+      <td colspan="7">
         <div class="table-empty-state">
           <div class="table-empty-icon">📝</div>
           <div class="table-empty-title">Пока нет согласований</div>
-          <div class="table-empty-text">Отправьте объект на согласование через форму выше.</div>
+          <div class="table-empty-text">Кампании отправляются на согласование со страницы <a href="/campaigns">Кампании</a>.</div>
         </div>
       </td>
     </tr>

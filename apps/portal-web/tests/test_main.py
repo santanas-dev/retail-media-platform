@@ -872,7 +872,7 @@ class TestSchedulePage(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class TestApprovalsPage(unittest.TestCase):
-    """KSO Approvals page — forms + safe table (Step 37.6 backend-driven)."""
+    """Approvals page — campaign summary + per-row approve/reject (41.3)."""
 
     def setUp(self):
         self.client = TestClient(app)
@@ -884,15 +884,6 @@ class TestApprovalsPage(unittest.TestCase):
         self.assertIn('action="/approvals/request"', self.html)
         self.assertIn('<form method="post"', self.html)
 
-    def test_has_decide_form(self):
-        self.assertIn("Принять решение", self.html)
-        self.assertIn('action="/approvals/decide"', self.html)
-
-    def test_form_fields_present(self):
-        for field in ("object_type", "object_code", "approval_code", "decision"):
-            self.assertIn(f'id="{field}"', self.html,
-                          f"Form must have field '{field}'")
-
     def test_has_safe_notes(self):
         self.assertIn("Maker-checker", self.html)
         self.assertIn("без доставки", self.html)
@@ -900,9 +891,13 @@ class TestApprovalsPage(unittest.TestCase):
     def test_backend_unavailable_fallback(self):
         self.assertIn("временно недоступны", self.html.lower())
 
-    def test_no_js_in_form(self):
-        self.assertNotIn("<script", self.html.lower())
-        self.assertNotIn("onclick", self.html.lower())
+    def test_no_js_in_page(self):
+        """No client-side JS: no script, onclick, confirm, onsubmit."""
+        lower = self.html.lower()
+        self.assertNotIn("<script", lower)
+        self.assertNotIn("onclick", lower)
+        self.assertNotIn("confirm(", lower)
+        self.assertNotIn("onsubmit", lower)
 
     def test_no_forbidden_content(self):
         _assert_safe(self, self.html)
@@ -929,6 +924,26 @@ class TestApprovalsPage(unittest.TestCase):
     def test_approvals_route_returns_200(self):
         resp = self.client.get("/approvals")
         self.assertEqual(resp.status_code, 200)
+
+    def test_empty_state_links_campaigns(self):
+        """Empty state refers users to /campaigns for submission."""
+        self.assertIn("/campaigns", self.html.lower())
+
+    def test_request_form_has_object_type_campaign(self):
+        """Request form supports campaign object type."""
+        self.assertIn('value="campaign"', self.html)
+
+    def test_page_has_table_structure(self):
+        """Table headers present for approval data."""
+        self.assertIn("Заявка", self.html)
+        self.assertIn("Тип", self.html)
+        self.assertIn("Объект", self.html)
+        self.assertIn("Детали", self.html)
+        self.assertIn("Решение", self.html)
+
+    def test_request_form_uses_post(self):
+        """Request form uses POST method."""
+        self.assertIn('method="post"', self.html)
 
 
 # ══════════════════════════════════════════════════════════════════════

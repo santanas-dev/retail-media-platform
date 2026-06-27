@@ -7,6 +7,58 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [41.3-approval-decision-ux] — 2026-06-16
+
+**Approval Decision UX — campaign summary on /approvals page, per-row approve/reject forms.**
+
+### Portal
+
+- `/approvals` — enhanced: campaign summary for `object_type=campaign` (name, creatives, schedule, campaign status)
+- Per-row approve/reject forms: hidden inputs (`approval_code`, `decision`), POST to `/approvals/decide`
+- Reject form includes comment field (reason)
+- Empty state links to `/campaigns` for submission guidance
+- Table columns: Заявка, Тип, Объект, Статус, Детали, Запрошен, Решение
+
+### Approve/Reject flow
+
+- Backend unchanged: `POST /api/approvals/{code}/approve`, `POST /api/approvals/{code}/reject`
+- Portal `/approvals/decide` handler already uses production BackendClient methods
+- State transitions: `pending` → `approved`/`rejected` (via approval domain)
+- Campaign status: `pending_approval` → `approved`/`rejected`
+- Maker-checker: backend-enforced (requested_by ≠ decided_by)
+- Duplicate decide: safe 400 error
+
+### Technical debt: CampaignCreative.is_active
+
+- **NOT added to ORM model** — column exists in DB (via manual migration), but adding to model breaks `Base.metadata.create_all()` in PoP integration tests
+- Known gap documented: service references `is_active` but model doesn't map it
+- Fix deferred to DB migration phase
+
+### No JS/CDN/localStorage
+
+- ✅ `/approvals` — no `<script>`, `onclick`, `confirm`, `onsubmit`
+- ✅ All forms use `method="post"`, no client-side handlers
+
+### Tests
+
+| Suite | Passed | Skipped | Failed |
+|---|---|---|---|
+| Portal | **485** (+2) | 20 | 0 |
+
+### Regression
+
+| Suite | Passed |
+|---|---|
+| Backend | 498 |
+| Portal | 485 |
+| KSO SA | 86 |
+| Player | 2072 |
+| Sidecar | 1838 |
+| Infra | 227 |
+| **Total** | **5206** |
+
+---
+
 ## [41.2.1-campaign-submit-approval-integration] — 2026-06-16
 
 **Campaign Submit → ApprovalRequest integration gate.**

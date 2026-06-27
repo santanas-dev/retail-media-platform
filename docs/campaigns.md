@@ -51,12 +51,30 @@ On submit, the portal orchestrates 4 backend calls:
 3. **`POST /api/schedules`** — Create schedule linked to campaign
 4. **`POST /api/schedules/{code}/items`** — Create schedule slots (one per selected day_of_week)
 
-### Submit for Approval
+### Submit for Approval (41.2.1)
 
-- `POST /campaigns/by-code/{code}/submit` → campaign status: draft → in_review
+- `POST /campaigns/by-code/{code}/submit` → creates `ApprovalRequest(object_type=campaign)`
+- Campaign status: `draft` → `pending_approval`
+- Approval code pattern: `appr_campaign_{campaign_code}`
+- Maker-checker: backend-enforced (user cannot approve own request)
+- Completeness guard: requires creative bindings + schedule + active slots
 - Requires `campaigns.manage` permission
 - RLS: advertiser scope enforced
-- Audit: campaign.submit event written
+- Audit: `campaign.submit` with `approval_code`
+
+### Approval Decision (41.3)
+
+- **Approve**: `POST /api/approvals/{code}/approve` → `pending` → `approved`
+- **Reject**: `POST /api/approvals/{code}/reject` → `pending` → `rejected`
+- Campaign status follows approval decision: `pending_approval` → `approved`/`rejected`
+- Requires `approvals.approve` permission
+- Maker-checker enforced
+- Portal `/approvals` page: per-row approve/reject forms, campaign summary for campaign-type approvals
+- State transitions managed by approvals domain (not legacy campaign submit/approve)
+
+### Known technical debt
+
+- `CampaignCreative.is_active`: column exists in DB but NOT in ORM model (`backend/app/domains/campaigns/models.py`). Service code references `.is_active` but model doesn't map it. Fix deferred to DB migration phase — adding to model breaks `Base.metadata.create_all()` in in-memory SQLite tests.
 
 ### Approval
 

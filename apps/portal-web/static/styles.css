@@ -577,6 +577,26 @@ h1, h2, h3, h4 { text-wrap: balance; }
   text-decoration: none;
 }
 
+/* ── Approval Campaign Detail ──────────────────── */
+.approval-campaign-detail {
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.approval-campaign-detail code {
+  font-size: 0.8rem;
+}
+.approval-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.approval-decision-form {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+
 /* ── Reduced motion ─────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

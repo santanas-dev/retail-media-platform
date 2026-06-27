@@ -1938,7 +1938,7 @@ async def approvals_page(request: Request):
     approvals = result.get("data", [])
     safe_rows = []
     for a in approvals:
-        safe_rows.append({
+        row = {
             "approval_code": a.get("approval_code", ""),
             "object_type": a.get("object_type", ""),
             "object_code": a.get("object_code", ""),
@@ -1947,7 +1947,51 @@ async def approvals_page(request: Request):
             "comment": a.get("comment") or "—",
             "requested_at": _fmt_dt(a.get("requested_at")),
             "decided_at": _fmt_dt(a.get("decided_at")),
-        })
+            "is_pending": a.get("status") == "pending",
+        }
+
+        # Enrich campaign-type approvals with campaign summary
+        if a.get("object_type") == "campaign":
+            camp_code = a.get("object_code", "")
+            camp_result = await backend.get_campaign_by_code(access_token, camp_code)
+            if camp_result["ok"]:
+                camp = camp_result["data"]
+                row["campaign_name"] = camp.get("name", "")
+                row["campaign_status"] = camp.get("status", "—")
+                row["campaign_description"] = camp.get("description", "—")
+                # Fetch creative bindings
+                cr_result = await backend.list_campaign_creatives(access_token, camp_code)
+                if cr_result["ok"]:
+                    row["campaign_creatives"] = ", ".join(
+                        c.get("creative_code", "") for c in cr_result["data"]
+                    )
+                else:
+                    row["campaign_creatives"] = "—"
+                # Fetch schedules
+                sched_result = await backend.list_schedules(access_token)
+                if sched_result["ok"]:
+                    linked = [
+                        s for s in sched_result["data"]
+                        if s.get("campaign_code") == camp_code
+                    ]
+                    if linked:
+                        s = linked[0]
+                        row["schedule_code"] = s.get("schedule_code", "—")
+                        row["schedule_slot_count"] = s.get("slot_count", 0)
+                    else:
+                        row["schedule_code"] = "—"
+                        row["schedule_slot_count"] = 0
+                else:
+                    row["schedule_code"] = "—"
+                    row["schedule_slot_count"] = 0
+            else:
+                row["campaign_name"] = "—"
+                row["campaign_status"] = "—"
+                row["campaign_creatives"] = "—"
+                row["schedule_code"] = "—"
+                row["schedule_slot_count"] = 0
+
+        safe_rows.append(row)
 
     flash_type = ""
     flash_msg = ""
