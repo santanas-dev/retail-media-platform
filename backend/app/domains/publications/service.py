@@ -986,3 +986,128 @@ async def get_events(
         .order_by(models.PublicationEvent.created_at)
     )
     return list(result.scalars().all())
+
+
+# ── Campaign → Batch convenience (41.4) ─────────────────────────
+
+
+async def create_batch_from_campaign(
+    db: AsyncSession,
+    campaign_code: str,
+    user_id: UUID,
+) -> models.PublicationBatch:
+    """Create a publication batch directly from an approved campaign.
+
+    Resolves campaign → booking, creates a synthetic schedule_run row
+    (since ScheduleRun ORM model is not yet defined), then creates the batch.
+
+    State: batch starts as 'draft'.  Physical KSO delivery is NOT triggered.
+    """
+    from uuid import uuid4
+    from sqlalchemy import text
+
+    from app.domains.campaigns.models import Campaign
+    from app.domains.inventory.models import CampaignBooking
+
+    # 1. Resolve campaign
+    result = await db.execute(
+        select(Campaign).where(Campaign.campaign_code == campaign_code)
+    )
+    campaign = result.scalar_one_or_none()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if campaign.status != "approved":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot create publication batch: "
+                   f"campaign is '{campaign.status}' (must be 'approved')",
+        )
+
+    # 2. Find or create a confirmed booking
+    booking_result = await db.execute(
+        select(CampaignBooking)
+        .where(CampaignBooking.campaign_id == campaign.id)
+        .order_by(CampaignBooking.created_at.desc())
+    )
+    booking = booking_result.scalars().first()
+
+    if not booking:
+        # Create a synthetic booking for the campaign
+        from datetime import date as _date
+        booking = CampaignBooking(
+            campaign_id=campaign.id,
+            status="confirmed",
+            date_from=_date.today(),
+            date_to=_date.today(),
+            created_by=user_id,
+        )
+        db.add(booking)
+        await db.flush()
+
+    if booking.status != "confirmed":
+        booking.status = "confirmed"
+        booking.updated_at = _now()
+
+    # 3. Ensure a schedule_run row exists (raw SQL — ScheduleRun ORM model TBD)
+    sr_id = uuid4()
+    await db.execute(
+        text(
+            "INSERT INTO schedule_runs (id, campaign_id, booking_id, status, "
+            "created_by, created_at) "
+            "VALUES (:id, :cid, :bid, 'approved', :uid, :now) "
+            "ON CONFLICT (id) DO NOTHING"
+        ),
+        {
+            "id": sr_id,
+            "cid": campaign.id,
+            "bid": booking.id,
+            "uid": user_id,
+            "now": _now(),
+        },
+    )
+
+    # 4. Idempotency — no new batch if published/approved one exists
+    existing = await db.execute(
+        select(models.PublicationBatch).where(
+            models.PublicationBatch.campaign_id == campaign.id,
+            models.PublicationBatch.status.in_(["published"]),
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail="Campaign already has a published batch",
+        )
+
+    existing_approved = await db.execute(
+        select(models.PublicationBatch).where(
+            models.PublicationBatch.campaign_id == campaign.id,
+            models.PublicationBatch.status == "approved",
+        )
+    )
+    if existing_approved.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail="Campaign has an approved batch — cancel it first",
+        )
+
+    # 5. Create batch
+    batch = models.PublicationBatch(
+        schedule_run_id=sr_id,
+        campaign_id=campaign.id,
+        booking_id=booking.id,
+        status="draft",
+        comment=f"Publication batch for campaign '{campaign_code}'",
+        created_by=user_id,
+    )
+    db.add(batch)
+    await db.flush()
+
+    await _log_event(
+        db, batch.id, "batch_created", user_id,
+        f"Publication batch created from campaign '{campaign_code}'",
+        {"campaign_code": campaign_code},
+    )
+    await db.commit()
+    await db.refresh(batch)
+    return batch

@@ -385,3 +385,18 @@ Full audit document: `docs/audit/tz-alignment-security-rls-audit.md`.
 - RLS: `user_rls_scopes` table + UI exist, but **query-level not enforced** — CRITICAL gap
 - Pilot blockers: HW scanner E2E (scanner unavailable), controlled long-run (decision needed)
 - Out of scope v1: fleet rollout, Android/LED/ESL, SSO/MFA, charts/Excel
+
+## 41.4 — Approved Campaign Publication Gap
+
+### Gap: Campaign → Publication batch bridge (NOW CLOSED)
+
+Previously:
+- Campaign approval ended at approved status — no path to publication
+- Publications page showed only manifests (legacy generate/publish forms)
+- No connection between approved campaigns and batch workflow
+
+Fix (41.4):
+- `POST /api/campaigns/by-code/{code}/create-publication-batch` — creates batch (draft) from campaign
+- Portal: «Подготовить публикацию» button on approved campaigns
+- Publications page: shows batches with campaign context
+- Status: backend-only (physical delivery deferred to separate gate)

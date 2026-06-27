@@ -684,7 +684,7 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-    # ── Publication Batches (39.3.3) ──────────────────────────────────
+    # ── Publication Batches (39.3.3 + 41.4) ─────────────────────────────────
 
     async def list_publication_batches(self, access_token: str) -> dict:
         """GET /api/publication-batches → {ok, data: [...]} (production)."""
@@ -699,6 +699,19 @@ class BackendClient:
         """GET /api/publication-batches/{id} → {ok, data} (production)."""
         return await self._request(
             "GET", f"/api/publication-batches/{batch_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def create_publication_batch(
+        self, access_token: str, campaign_code: str,
+    ) -> dict:
+        """POST /api/campaigns/by-code/{code}/create-publication-batch → {ok, data}.
+
+        Creates a publication batch (draft) from an approved campaign.
+        Physical KSO delivery is NOT triggered — backend status only.
+        """
+        return await self._request(
+            "POST", f"/api/campaigns/by-code/{campaign_code}/create-publication-batch",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 

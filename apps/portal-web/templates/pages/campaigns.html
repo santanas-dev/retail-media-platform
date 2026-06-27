@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Кампании</h1>
-<p class="page-description">Управление рекламными кампаниями — создание, редактирование, архивация и привязка креативов. Production Campaign API.</p>
+<p class="page-description">Управление рекламными кампаниями — создание, редактирование, архивация, привязка креативов и публикация. Production Campaign API.</p>
 
 <!-- Flash Messages -->
 {% if flash_msg %}
@@ -77,6 +77,13 @@
           <button type="submit" class="btn-sm btn-success">→ Запросить</button>
         </form>
         {% endif %}
+        <!-- Prepare Publication (approved only) -->
+        {% if c.status == 'approved' %}
+        <form method="post" action="/campaigns/{{ c.campaign_code }}/create-publication-batch" class="inline-form">
+          <span class="form-title-sm">Публикация:</span>
+          <button type="submit" class="btn-sm" style="background:var(--color-accent,#8e44ad);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer">📦 Подготовить</button>
+        </form>
+        {% endif %}
       </td>
     </tr>
     {% endif %}
@@ -106,5 +113,9 @@
 <div class="note-box">
   <span class="note-icon">📋</span>
   <span class="note-text">Production Campaign API: создание, редактирование, архивация, привязка креативов и отправка на согласование через production code-based endpoints.</span>
+</div>
+<div class="note-box">
+  <span class="note-icon">📦</span>
+  <span class="note-text">После согласования кампании доступна кнопка «Подготовить публикацию» — создаёт backend publication batch (draft) без доставки на КСО. Физическая доставка — отдельный approval gate.</span>
 </div>
 {% endblock %}

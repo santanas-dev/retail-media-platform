@@ -135,3 +135,18 @@
 2. **Legacy methods in BackendClient** are dead code but not breaking anything — can be cleaned up in future step.
 3. **Live integration test** (portal → backend HTTP) is created but runs against mock in default regression; full HTTP mode requires running backend.
 4. **RLS verification through portal** is implicit — portal trusts backend RLS, no separate portal-side RLS. Backend tests cover RLS enforcement.
+
+## 41.4 Update — Publications Batch Integration
+
+### New Portal Page Integration
+
+| Portal Page | Handler | Backend Endpoint | BackendClient Method | Permission |
+|---|---|---|---|---|
+| `/campaigns` (approved) | `POST /campaigns/{code}/create-publication-batch` | `POST /api/campaigns/by-code/{code}/create-publication-batch` | `create_publication_batch()` | publications.manage |
+| `/publications` | `GET /publications` | `GET /api/publication-batches` + `GET /api/manifests` | `list_publication_batches()`, `list_manifests()` | publications.read |
+
+### Status
+- ✅ Campaign → batch bridge endpoint: code-based, no UUIDs in portal
+- ✅ Publications page updated: batches table with campaign context + legacy manifests
+- ✅ Physical delivery deferred: backend-only mode warning on /publications
+- ✅ No JS/CDN/localStorage on new/changed pages

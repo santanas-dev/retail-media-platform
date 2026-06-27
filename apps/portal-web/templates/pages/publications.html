@@ -1,50 +1,73 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Публикации</h1>
-<p class="page-description">Генерация и публикация manifest — от approved placement до production манифеста (backend status only, без доставки на КСО).</p>
+<p class="page-description">Publication batches — от approved кампании до готового manifest (backend status only, без доставки на КСО).</p>
 
 <!-- Flash messages -->
 {% if pub_flash and pub_flash.startswith('ok:') %}
 <div class="flash-ok">
-  {% if pub_flash == 'ok:generated' %}✅ Manifest сгенерирован.{% elif pub_flash == 'ok:published' %}✅ Manifest опубликован (backend status).{% else %}✅ Успешно.{% endif %}
+  {% if pub_flash == 'ok:batch_created' %}✅ Publication batch создан.{% elif pub_flash == 'ok:published' %}✅ Manifest опубликован (backend status).{% else %}✅ Успешно.{% endif %}
 </div>
 {% elif pub_flash == 'error' %}
 <div class="flash-error">❌ Ошибка: {{ pub_flash_msg }}</div>
 {% endif %}
 
-<!-- Generate Manifest Form -->
-<div class="form-panel">
-  <h2>Сгенерировать Manifest</h2>
-  <form method="POST" action="/publications/generate">
-    <div class="form-row">
-      <label>Placement Code:</label>
-      <input type="text" name="placement_code" required minlength="1" maxlength="64"
-             placeholder="placement_code">
-    </div>
-    <div class="form-row">
-      <label>Manifest Code:</label>
-      <input type="text" name="manifest_code" required minlength="1" maxlength="64"
-             placeholder="manifest_code">
-    </div>
-    <button type="submit" class="btn-primary">Сгенерировать</button>
-  </form>
+<!-- Info: Physical delivery disabled -->
+<div class="form-panel" style="border-left: 4px solid #f59e0b;">
+  <h2>⚠️ Режим backend-only</h2>
+  <p>Публикация в этом шаге формирует backend manifest. <strong>Доставка на КСО отключена</strong> до отдельного approval gate. Физические устройства не затрагиваются.</p>
 </div>
 
-<!-- Publish Manifest Form -->
-<div class="form-panel">
-  <h2>Опубликовать Manifest (backend status)</h2>
-  <form method="POST" action="/publications/publish">
-    <div class="form-row">
-      <label>Manifest Code:</label>
-      <input type="text" name="manifest_code" required minlength="1" maxlength="64"
-             placeholder="manifest_code">
-    </div>
-    <button type="submit" class="btn-primary">Опубликовать</button>
-  </form>
-</div>
-
-<!-- Manifests Table -->
+<!-- Batches Table -->
 <div class="table-container">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Batch</th>
+      <th>Кампания</th>
+      <th>Статус</th>
+      <th>Комментарий</th>
+      <th>Создан</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% if batches %}
+  {% for b in batches %}
+    <tr>
+      <td><code>{{ b.batch_ref }}</code></td>
+      <td><code>{{ b.campaign_code }}</code> — {{ b.campaign_name }}</td>
+      <td><span class="badge badge-{{ 'draft' if b.status == 'draft' else 'review' if b.status == 'pending_approval' else 'ready' if b.status in ('approved', 'manifest_generated') else 'ready' if b.status == 'published' else '' }}"></span> {{ b.status }}</td>
+      <td>{{ b.comment or '—' }}</td>
+      <td>{{ b.created_at[:19] if b.created_at else '—' }}</td>
+      <td>
+        {% if b.status == 'published' %}
+        <span class="badge badge-ready">published</span>
+        {% else %}
+        <span class="text-muted">—</span>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  {% else %}
+    <tr class="empty-row">
+      <td colspan="6">
+        <div class="table-empty-state">
+          <div class="table-empty-icon">📦</div>
+          <div class="table-empty-title">Пока нет publication batches</div>
+          <div class="table-empty-text">Согласуйте кампанию, затем нажмите «Подготовить публикацию» на странице Кампании.</div>
+        </div>
+      </td>
+    </tr>
+  {% endif %}
+  </tbody>
+</table>
+</div>
+
+<!-- Also show manifests for backward compatibility -->
+{% if manifests %}
+<div class="table-container" style="margin-top: 2rem;">
+<h2 style="font-size: 1.2rem; margin-bottom: 0.5rem;">Manifest versions (legacy)</h2>
 <table class="data-table">
   <thead>
     <tr>
@@ -59,7 +82,6 @@
     </tr>
   </thead>
   <tbody>
-  {% if manifests %}
   {% for m in manifests %}
     <tr>
       <td><code>{{ m.manifest_code }}</code></td>
@@ -77,20 +99,10 @@
       <td>{{ m.published_at[:19] if m.published_at else '—' }}</td>
     </tr>
   {% endfor %}
-  {% else %}
-    <tr class="empty-row">
-      <td colspan="8">
-        <div class="table-empty-state">
-          <div class="table-empty-icon">📋</div>
-          <div class="table-empty-title">Пока нет манифестов</div>
-          <div class="table-empty-text">Сгенерируйте manifest из approved placement.</div>
-        </div>
-      </td>
-    </tr>
-  {% endif %}
   </tbody>
 </table>
 </div>
+{% endif %}
 
 <!-- Notes -->
 {% if backend_unavailable %}
@@ -101,7 +113,7 @@
 {% endif %}
 <div class="note-box">
   <span class="note-icon">📦</span>
-  <span class="note-text">Manifest генерируется только из <strong>approved placement</strong> с approved campaign и active устройством. Публикация меняет статус generated → published (backend status only, без доставки на КСО).</span>
+  <span class="note-text">Publication batch создаётся из approved кампании через кнопку «Подготовить публикацию» на странице Кампании. Статусы: draft → pending_approval → approved → manifest_generated → published.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>

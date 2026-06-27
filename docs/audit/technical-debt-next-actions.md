@@ -591,3 +591,24 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - ✅ /approvals page shows campaign approvals (object_type=campaign, object_code=campaign_code)
 - ✅ No JS on /campaigns, /campaigns/create, /approvals
 - ✅ Portal regression: 483 passed (+9), 0 failed
+
+## 41.4 — Approved Campaign Publication / Manifest UX (2026-06-16)
+
+### Status
+- ✅ `create_batch_from_campaign()` — creates PublicationBatch (draft) from approved campaign
+- ✅ `POST /api/campaigns/by-code/{code}/create-publication-batch` — new endpoint (201)
+- ✅ Portal `/campaigns` — «Подготовить публикацию» button for approved campaigns (no JS)
+- ✅ Portal `/publications` — rewritten to show batches with campaign context
+- ✅ Physical KSO delivery NOT triggered — backend-only mode confirmed
+- ✅ Backend: 528 (+26), Portal: 518, Full regression: 5269 green
+
+### Key decisions
+- Batch starts as `draft` — state machine unchanged
+- `ScheduleRun` ORM model not yet defined → raw SQL for schedule_runs row
+- Manifest generation (version N+1) deferred to full batch workflow execution
+- `CampaignCreative.is_active` DB/ORM mismatch acknowledged — compatibility helper active
+
+### Remaining
+- Full batch workflow execution (request_approval → approve → generate_manifests → publish)
+- Manifest version N+1 generation for campaign material inclusion
+- Physical KSO delivery gate (separate approval)

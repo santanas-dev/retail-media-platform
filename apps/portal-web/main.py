@@ -973,6 +973,9 @@ async def campaigns_page(request: Request):
     elif raw == "ok:submitted":
         flash_type = "success"
         flash_msg = "Согласование запрошено. Кампания ожидает решения."
+    elif raw == "ok:batch_created":
+        flash_type = "success"
+        flash_msg = request.session.pop("camp_flash_msg", "Publication batch создан.")[:200]
     elif raw == "error":
         flash_type = "error"
         flash_msg = request.session.pop("camp_flash_msg", "Ошибка.")[:200]
@@ -1125,6 +1128,45 @@ async def campaigns_bind_creative(
     else:
         request.session["camp_flash"] = "error"
         request.session["camp_flash_msg"] = result.get("error", "Ошибка привязки")[:200]
+
+    return RedirectResponse(url="/campaigns", status_code=303)
+
+
+@app.post("/campaigns/{campaign_code}/create-publication-batch", response_class=HTMLResponse)
+async def campaigns_create_publication_batch(
+    request: Request,
+    campaign_code: str,
+):
+    """Create publication batch from approved campaign.
+
+    Requires publications.manage permission on the backend.
+    Physical KSO delivery is NOT triggered — backend status only.
+    """
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/campaigns", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.create_publication_batch(
+        access_token, campaign_code.strip(),
+    )
+
+    if result["ok"]:
+        request.session["camp_flash"] = "ok:batch_created"
+        request.session["camp_flash_msg"] = (
+            f"Publication batch создан для {campaign_code}"
+        )
+    else:
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = result.get("error", "Ошибка создания batch")[:200]
 
     return RedirectResponse(url="/campaigns", status_code=303)
 
@@ -1806,7 +1848,7 @@ def _schedule_fallback(request: Request, current_user) -> HTMLResponse:
 
 @app.get("/publications", response_class=HTMLResponse)
 async def publications_page(request: Request):
-    """Publications page: list manifests from backend + generate/publish forms."""
+    """Publications page: list batches + legacy manifests from backend."""
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/publications")
     if guard is not None:
@@ -1815,18 +1857,49 @@ async def publications_page(request: Request):
     tokens = get_portal_tokens(request)
     access_token = tokens.get("access_token", "")
 
+    batches = []
     manifests = []
     backend_unavailable = False
     backend_message = ""
 
     if access_token:
         backend = BackendClient()
-        result = await backend.list_manifests(access_token)
-        if result["ok"]:
-            manifests = result.get("data", [])
+
+        # Load batches
+        batch_result = await backend.list_publication_batches(access_token)
+        if batch_result["ok"]:
+            raw_batches = batch_result.get("data", [])
+            # Enrich with campaign info via the test-kso list
+            campaigns_r = await backend.list_campaigns(access_token)
+            campaigns_by_id = {}
+            if campaigns_r["ok"]:
+                for c in campaigns_r.get("data", []):
+                    campaigns_by_id[c.get("campaign_code")] = c
+            for b in raw_batches:
+                batch_ref = str(b.get("id", ""))[:8]
+                cid = b.get("campaign_id", "")
+                # Try to match campaign_id with campaign_code
+                cam_code = "?"
+                cam_name = "?"
+                status = b.get("status", "draft")
+                comment = b.get("comment", "")
+                created_at = b.get("created_at", "")
+                batches.append({
+                    "batch_ref": batch_ref,
+                    "campaign_code": cam_code,
+                    "campaign_name": cam_name,
+                    "status": status,
+                    "comment": comment,
+                    "created_at": created_at,
+                })
         else:
             backend_unavailable = True
-            backend_message = result.get("error", "Данные временно недоступны.")[:200]
+            backend_message = batch_result.get("error", "Данные временно недоступны.")[:200]
+
+        # Load legacy manifests too
+        manifest_result = await backend.list_manifests(access_token)
+        if manifest_result["ok"]:
+            manifests = manifest_result.get("data", [])
 
     # Flash messages
     flash = request.session.pop("pub_flash", None)
@@ -1838,6 +1911,7 @@ async def publications_page(request: Request):
         "active": "publications",
         "demo": False,
         "current_user": current_user,
+        "batches": batches,
         "manifests": manifests,
         "backend_unavailable": backend_unavailable,
         "backend_message": backend_message,

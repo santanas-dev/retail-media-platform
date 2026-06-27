@@ -585,3 +585,54 @@ async def unbind_campaign_creative(
         details={"creative_code": creative_code},
     )
     return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Campaign → Publication Batch bridge (41.4)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@router.post(
+    "/campaigns/by-code/{campaign_code}/create-publication-batch",
+    response_model=schemas.CampaignSafeResponse,
+    status_code=201,
+)
+async def create_publication_batch_from_campaign(
+    campaign_code: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("publications.manage")),
+):
+    """Create a publication batch from an approved campaign.
+
+    Validates campaign is approved, resolves booking, creates batch (draft).
+    Physical KSO delivery is NOT triggered — backend status only.
+    """
+    from app.domains.publications.service import create_batch_from_campaign
+
+    campaign = await service.get_campaign_by_code(db, campaign_code)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "create publication batch")
+
+    batch = await create_batch_from_campaign(db, campaign_code, current_user.id)
+
+    creative_codes = sorted([cc.creative_code for cc in (campaign.creatives or [])])
+
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="publication_batch.create_from_campaign",
+        target_type="publication_batch",
+        target_ref=str(batch.id),
+        details={"campaign_code": campaign_code, "batch_id": str(batch.id)},
+    )
+
+    return schemas.CampaignSafeResponse(
+        campaign_code=campaign.campaign_code if campaign.campaign_code else campaign_code,
+        name=campaign.name,
+        status=campaign.status,
+        description=campaign.comment,
+        creative_codes=creative_codes,
+        created_at=campaign.created_at,
+        updated_at=campaign.updated_at,
+    )

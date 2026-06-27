@@ -7,6 +7,54 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [41.4-approved-campaign-publication-manifest-ux] — 2026-06-16
+
+**Approved Campaign Publication / Manifest UX — batch creation from approved campaigns.**
+
+### Backend
+
+- `create_batch_from_campaign(db, campaign_code, user_id)` — new service function in publications
+  - Validates campaign.status == "approved"
+  - Creates/finds confirmed CampaignBooking
+  - Inserts schedule_run row via raw SQL (ScheduleRun ORM model TBD)
+  - Creates PublicationBatch (draft) with idempotency guards
+  - Audit event logged, physical KSO delivery NOT triggered
+- `POST /api/campaigns/by-code/{code}/create-publication-batch` — new endpoint (201)
+  - Requires `publications.manage` permission
+  - RLS advertiser scope enforced
+  - Returns CampaignSafeResponse
+
+### Portal
+
+- `/campaigns` — "📦 Подготовить" button for approved campaigns (inline POST form, no JS)
+- `/publications` — rewritten to show publication batches with campaign context
+  - Backend-only mode warning: "Доставка на КСО отключена до отдельного approval gate"
+  - Legacy manifests section preserved for backward compatibility
+- `BackendClient.create_publication_batch(access_token, campaign_code)` — new method
+- Flash handling: `ok:batch_created` message
+
+### Tests
+
+| Suite | Passed | +New |
+|---|---|---|
+| Backend | **528** | +26 |
+| Portal | 518 (20 skipped) | — |
+
+### Key decisions
+
+- Batch starts as `draft`; state machine: draft → pending_approval → approved → manifest_generated → published
+- Physical KSO delivery is NOT triggered — backend status only
+- `ScheduleRun` ORM model not yet defined — raw SQL used for schedule_runs insertion
+- Manifest generation (version N+1) deferred to full batch workflow execution
+
+### Remaining
+
+- Full batch workflow execution (request_approval → approve → generate_manifests → publish)
+- Manifest version N+1 generation for campaign material inclusion
+- Physical KSO delivery gate (separate approval)
+
+---
+
 ## [41.3.1-campaign-creative-compat-guard] — 2026-06-16
 
 **CampaignCreative is_active compatibility guard — safe helper without ORM column.**

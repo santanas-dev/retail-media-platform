@@ -959,21 +959,25 @@ class TestPublicationsPage(unittest.TestCase):
         self.html = resp.text
 
     def test_has_generate_form(self):
-        self.assertIn("Сгенерировать Manifest", self.html)
-        self.assertIn('action="/publications/generate"', self.html)
+        # Old generate forms removed; batch creation is now via campaigns page
+        self.assertIn("Publication batches", self.html)
+        self.assertIn("batch", self.html.lower())
 
     def test_has_publish_form(self):
-        self.assertIn("Опубликовать Manifest", self.html)
-        self.assertIn('action="/publications/publish"', self.html)
+        # Old publish form removed; published status shown in batches table
+        self.assertIn("Доставка на КСО отключена", self.html)
 
     def test_has_manifest_table(self):
-        self.assertIn("Manifest Code", self.html)
-        self.assertIn("Device", self.html)
-        self.assertIn("Status", self.html)
+        # Batches table replaces old manifest table
+        self.assertIn("Batch", self.html)
+        self.assertIn("Кампания", self.html)
+        self.assertIn("Статус", self.html)
 
     def test_form_is_server_side(self):
-        self.assertIn("method=\"POST\"", self.html)
-        self.assertIn("type=\"submit\"", self.html)
+        # Publications page no longer has POST forms — batch creation moved to campaigns page.
+        # Server-side rendering confirmed via backend-only mode + safe projection notes.
+        self.assertIn("backend-only", self.html)
+        self.assertIn("безопасная проекция", self.html.lower())
 
     def test_no_forbidden_content(self):
         _assert_safe(self, self.html)
@@ -1506,9 +1510,9 @@ class TestDemoData(unittest.TestCase):
         self.assertIn("Создать расписание", resp.text)
 
     def test_publications_has_demo_data(self):
-        """Publications page is now backend-driven — forms + safe table, no demo."""
+        """Publications page is now batch-driven — batches table + backend-only warning, no demo."""
         resp = self.client.get("/publications")
-        self.assertIn("Сгенерировать Manifest", resp.text)
+        self.assertIn("Publication batches", resp.text)
 
     def test_pop_has_demo_data(self):
         """PoP page is now backend-driven — no demo data, shows empty state."""
@@ -1589,9 +1593,10 @@ class TestDemoData(unittest.TestCase):
                 if action in lower:
                     self.assertIn("disabled", lower,
                                   f"{route}: '{action}' must be disabled")
-        # /publications: publish button IS active (intentional for test KSO)
+        # /publications: now batch-driven, active publish form removed.
+        # Publication batch workflow runs through campaigns → create-publication-batch.
         resp = self.client.get("/publications")
-        self.assertIn("Опубликовать", resp.text)
+        self.assertIn("backend-only", resp.text)
         # /approvals: request/decide buttons ARE active (intentional for test KSO)
         resp2 = self.client.get("/approvals")
         self.assertIn("Отправить на согласование", resp2.text)
@@ -2146,7 +2151,7 @@ class TestRlsNotesOnPages(unittest.TestCase):
     def test_publications_says_publish_requires_permission_and_rls(self):
         resp = self.client.get("/publications")
         self.assertIn("Публикации", resp.text)
-        self.assertIn("Сгенерировать Manifest", resp.text)
+        self.assertIn("Publication batch", resp.text)
 
     def test_devices_says_device_visibility_is_scope_limited(self):
         resp = self.client.get("/devices")
