@@ -357,3 +357,107 @@ async def archive_creative_by_code(
         details={"name": creative.name},
     )
     return {"ok": True, "creative_code": creative_code, "status": "archived"}
+
+
+# ── Safe Creative Preview (42.2) ──────────────────────────────────────────
+
+from fastapi.responses import StreamingResponse
+from minio import Minio
+from minio.error import S3Error
+from app.core.config import get_settings
+
+
+def _get_minio_client() -> Minio:
+    settings = get_settings()
+    return Minio(
+        settings.MINIO_ENDPOINT,
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_SECRET_KEY,
+        secure=settings.MINIO_SECURE,
+    )
+
+
+@router.get("/creatives/by-code/{creative_code}/preview")
+async def preview_creative_by_code(
+    creative_code: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("media.read")),
+):
+    """Safe creative preview — streams image file with no storage internals exposed.
+
+    - Auth: media.read
+    - RLS: advertiser scope enforced (404 if foreign)
+    - Archived/rejected: 404 (no preview for non-active)
+    - Images only in this step: image/png, image/jpeg
+    - Video: 415 Unsupported Media Type (deferred)
+    - Response headers: Content-Type, Content-Length, Cache-Control only
+    - NO signed URLs, NO MinIO paths, NO storage keys in response
+    """
+    from app.domains.media.models import Creative, CreativeVersion
+
+    # Look up creative by code
+    creative = await service.get_creative_by_code(db, creative_code)
+    if not creative:
+        raise HTTPException(status_code=404, detail="Creative not found")
+
+    # RLS check
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    if creative.advertiser_id is not None:
+        assert_object_in_advertiser_scope(creative.advertiser_id, scope_ctx, "preview")
+
+    # Status gate: no preview for archived/rejected
+    if creative.status in ("archived", "rejected"):
+        raise HTTPException(status_code=404, detail="Preview not available")
+
+    # Find latest version with a file
+    from sqlalchemy import select
+    cv_result = await db.execute(
+        select(CreativeVersion)
+        .where(CreativeVersion.creative_id == creative.id)
+        .order_by(CreativeVersion.version.desc())
+        .limit(1)
+    )
+    version = cv_result.scalar_one_or_none()
+    if not version or not version.file_path:
+        raise HTTPException(status_code=404, detail="No media file uploaded")
+
+    # Only images in this step
+    if version.mime_type not in ("image/png", "image/jpeg"):
+        raise HTTPException(
+            status_code=415,
+            detail="Preview supports images only (PNG, JPEG). Video preview deferred.",
+        )
+
+    # Validate object key format
+    if not version.file_path or ".." in version.file_path or "\n" in version.file_path:
+        raise HTTPException(status_code=403, detail="Media path invalid")
+
+    # Stream from MinIO
+    settings = get_settings()
+    try:
+        minio_client = _get_minio_client()
+        obj_info = minio_client.stat_object(settings.MINIO_BUCKET, version.file_path)
+        content_length = obj_info.size
+        response_obj = minio_client.get_object(settings.MINIO_BUCKET, version.file_path)
+    except S3Error:
+        raise HTTPException(status_code=404, detail="Media not available")
+
+    def _close():
+        try:
+            response_obj.close()
+            response_obj.release_conn()
+        except Exception:
+            pass
+
+    return StreamingResponse(
+        response_obj.stream(amt=64 * 1024),
+        status_code=200,
+        media_type=version.mime_type,
+        headers={
+            "Content-Length": str(content_length),
+            "Content-Type": version.mime_type,
+            "Content-Disposition": "inline",
+            "Cache-Control": "private, max-age=3600",
+        },
+        background=_close,
+    )

@@ -105,7 +105,7 @@
 <table class="data-table">
   <thead>
     <tr>
-      <th>Код</th><th>Название</th><th>Рекламодатель</th><th>Тип</th>
+      <th>Preview</th><th>Код</th><th>Название</th><th>Рекламодатель</th><th>Тип</th>
       <th>Разрешение</th><th>Размер</th><th>Версия</th>
       <th>Статус</th><th>Создан</th><th>Действия</th>
     </tr>
@@ -114,11 +114,22 @@
   {% if creatives %}
   {% for c in creatives %}
     <tr>
-      <td><code>{{ c.creative_code }}</code></td>
+      <td>
+        {% if c.content_type in ('image/png', 'image/jpeg') %}
+        <img src="/preview/{{ c.creative_code }}" alt="{{ c.name }}"
+             style="max-width:80px;max-height:100px;border-radius:4px;border:1px solid #e5e7eb;"
+             loading="lazy">
+        {% else %}
+        <span style="color:#94a3b8;font-size:24px;">{% if c.content_type and 'video' in c.content_type %}🎬{% else %}📄{% endif %}</span>
+        {% endif %}
+      </td>
       <td>{{ c.name }}</td>
       <td>{{ c.advertiser_name }}</td>
       <td>{{ c.content_type }}</td>
-      <td>{% if c.dimensions %}{{ c.dimensions }}{% else %}—{% endif %}</td>
+      <td>{% if c.dimensions %}{{ c.dimensions }}{% else %}—{% endif %}
+        {% if c.width == 768 and c.height == 1024 %}<br><span style="font-size:10px;color:#16a34a;">✅ КСО 768×1024</span>
+        {% elif c.width and c.height %}<br><span style="font-size:10px;color:#ca8a04;">⚠️ {{ c.width }}×{{ c.height }}</span>{% endif %}
+      </td>
       <td>{% if c.file_size_bytes %}{{ (c.file_size_bytes / 1024)|round|int }} КБ{% else %}—{% endif %}</td>
       <td>{% if c.current_version %}v{{ c.current_version }}{% else %}—{% endif %}</td>
       <td>

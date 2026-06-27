@@ -7,6 +7,37 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [42.2-safe-creative-preview] — 2026-06-16
+
+**Safe Creative Preview — backend-proxied image thumbnails with no storage internals in HTML.**
+
+### Backend
+- `GET /api/creatives/by-code/{code}/preview` — streams image from MinIO through backend
+  - Auth: `media.read`, RLS: advertiser scope (404 for foreign)
+  - Status gate: no preview for archived/rejected
+  - Images only: PNG, JPEG (video → 415, deferred)
+- Safe headers: Content-Type, Content-Length, Cache-Control, Content-Disposition: inline
+- NO signed URLs, NO MinIO paths, NO storage keys in response
+
+### Portal
+- `/preview/{creative_code}` — proxy endpoint (portal → backend → MinIO stream)
+- `/creatives` — thumbnail column with `<img>` for images, 🎬/📄 placeholder for video/other
+- KSO compatibility hints: ✅ 768×1024 match, ⚠️ non-standard dimensions
+- `BackendClient.creative_preview_url()` — returns relative `/api/...` path
+
+### Tests
+| Suite | Passed |
+|---|---|
+| Backend | **575** (+7 preview) |
+| Portal | 522 |
+
+### No JS/CDN/localStorage
+- ✅ No `<script>`, `onclick`, `onsubmit`, `confirm`
+- ✅ `<img loading="lazy">` only — no JS lightbox/modal
+- ✅ No storage internals in creatives HTML template
+
+---
+
 ## [42.1-airtime-occupancy-conflicts] — 2026-06-16
 
 **Airtime Occupancy & Schedule Conflict Detection — backend-only planned occupancy calculation.**

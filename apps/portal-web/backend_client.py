@@ -894,6 +894,10 @@ class BackendClient:
 
     # ── Airtime Occupancy & Conflicts (42.1) ─────────────────────────
 
+    def creative_preview_url(self, creative_code: str) -> str:
+        """Relative URL for creative preview — safe, no backend URL exposed."""
+        return f"/api/creatives/by-code/{creative_code}/preview"
+
     async def get_airtime_occupancy(
         self, access_token: str,
         device_code: str, date_from: str, date_to: str,

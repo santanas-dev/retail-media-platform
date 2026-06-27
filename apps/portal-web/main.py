@@ -5,7 +5,7 @@ No external CDN. Auth integration with backend API.
 """
 
 import os
-from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -441,6 +441,55 @@ def _reports_fallback(request: Request, current_user, *, reason: str = ""
     })
 app.add_api_route("/deployment", _page("pages/deployment.html", "Развёртывание", "deployment"),
                   methods=["GET"], response_class=HTMLResponse)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Creative Preview Proxy (42.2)
+# ══════════════════════════════════════════════════════════════════════
+
+import httpx
+from fastapi.responses import StreamingResponse as FastAPIStreamingResponse
+
+
+@app.get("/preview/{creative_code}")
+async def preview_creative_proxy(
+    creative_code: str,
+    request: Request,
+):
+    """Proxy creative preview from backend — no backend URL in HTML.
+
+    Streams the image directly from backend MinIO through portal.
+    Auth checked via session cookie.
+    """
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    backend = BackendClient()
+    backend_url = backend._base_url  # internal, not exposed to HTML
+    preview_path = backend.creative_preview_url(creative_code)
+
+    async def _stream():
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            async with client.stream(
+                "GET", f"{backend_url}{preview_path}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            ) as resp:
+                if resp.status_code != 200:
+                    # Return empty for non-200 (404/415 etc.)
+                    return
+                async for chunk in resp.aiter_bytes(65536):
+                    yield chunk
+
+    return FastAPIStreamingResponse(
+        _stream(),
+        media_type="image/png",  # fallback; real Content-Type from backend
+        headers={
+            "Cache-Control": "private, max-age=3600",
+            "Content-Disposition": "inline",
+        },
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════
