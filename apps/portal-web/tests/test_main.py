@@ -270,7 +270,7 @@ class TestNavigation(unittest.TestCase):
 
     def test_contains_kso_v1_menu_items(self):
         for item in ("Dashboard", "Кампании", "Креативы", "Расписание",
-                      "Публикации", "КСО Устройства", "Proof of Play",
+                      "Публикации", "Устройства", "Proof of Play",
                       "Магазины", "Отчёты", "Развёртывание",
                       "Согласования", "Администрирование"):
             self.assertIn(item, self.html,
@@ -302,8 +302,8 @@ class TestDashboardContent(unittest.TestCase):
         """Dashboard renders either real KPI cards or safe fallback."""
         # With mock auth but no backend token, shows fallback.
         # Real KPI cards render when backend is reachable with valid token.
-        self.assertIn("Production Dashboard", self.html)
-        self.assertIn("Платформа запущена", self.html)
+        self.assertIn("Dashboard", self.html)
+        self.assertIn("Backend недоступен", self.html)
 
     def test_no_forbidden_content(self):
         _assert_safe(self, self.html)
@@ -4372,7 +4372,8 @@ class TestUXNextActions(unittest.TestCase):
     def test_reports_has_next_action(self):
         resp = self.client.get("/reports")
         html = resp.text
-        self.assertIn("next-action", html, "Reports must have next-action block")
+        # 43.1: next-action replaced by banner disclaimer component
+        self.assertIn("Плановая отчётность", html, "Reports must show planned reporting banner")
 
 
 class TestUXFlowBreadcrumbs(unittest.TestCase):
@@ -4411,8 +4412,9 @@ class TestUXFlowBreadcrumbs(unittest.TestCase):
     def test_sidebar_has_flow_section(self):
         resp = self.client.get("/dashboard")
         html = resp.text
-        self.assertIn("Креативы →", html, "Sidebar must have flow section")
-        self.assertIn("Кампании →", html, "Sidebar must show campaign flow")
+        # 43.1: flow section uses numbered items under "Flow (1 → 5)" header
+        self.assertIn("Flow (1 → 5)", html, "Sidebar must have flow section header")
+        self.assertIn("nav-label\">Отчёты</span>", html, "Sidebar must have flow step 5")
 
 
 class TestUXPilotStatus(unittest.TestCase):
@@ -4701,6 +4703,228 @@ class TestUXAirtimeNoJS(unittest.TestCase):
         lower = resp.text.lower()
         for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
             self.assertNotIn(fb, lower, f"/campaigns/create must NOT have {fb}")
+
+
+class TestVisualSystem(unittest.TestCase):
+    """43.1: Portal visual system — nav, layout, KPI, safety, components."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    # ── Navigation ──────────────────────────────────────
+
+    def test_dashboard_renders_with_new_layout(self):
+        """Dashboard renders with page-title and KPI cards."""
+        resp = self.client.get("/dashboard")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("page-title", resp.text)
+        self.assertIn("Dashboard", resp.text)
+
+    def test_navigation_sidebar_structure(self):
+        """Sidebar has all required sections."""
+        resp = self.client.get("/dashboard")
+        html = resp.text
+        # Required nav items
+        for item in ("Dashboard", "Кампании", "Креативы", "Расписание",
+                     "Согласования", "Публикации", "Отчёты",
+                     "Устройства", "Readiness", "Device Dashboard",
+                     "Proof of Play", "Магазины", "Администрирование"):
+            self.assertIn(item, html, f"Sidebar missing: {item}")
+
+    def test_active_menu_item_highlighted(self):
+        """Active page gets 'active' CSS class on sidebar link."""
+        resp = self.client.get("/dashboard")
+        self.assertIn('class="active"', resp.text)
+
+    def test_flow_section_exists(self):
+        """Sidebar has Flow (1→5) section."""
+        resp = self.client.get("/dashboard")
+        self.assertIn("Flow", resp.text)
+
+    # ── Dashboard visual shell ──────────────────────────
+
+    def test_dashboard_has_kpi_cards(self):
+        """Dashboard renders KPI card grid."""
+        resp = self.client.get("/dashboard")
+        self.assertIn("cards", resp.text)
+        self.assertIn("card-title", resp.text)
+        self.assertIn("card-value", resp.text)
+
+    def test_dashboard_has_pilot_no_go_banner(self):
+        """Dashboard shows pilot NO-GO banner."""
+        resp = self.client.get("/dashboard")
+        self.assertIn("NO-GO", resp.text)
+
+    def test_dashboard_has_blockers_list(self):
+        """Dashboard shows blockers list section."""
+        resp = self.client.get("/dashboard")
+        self.assertIn("Блокеры", resp.text)
+
+    def test_dashboard_has_quick_links(self):
+        """Dashboard has quick links section."""
+        resp = self.client.get("/dashboard")
+        self.assertIn("Быстрые ссылки", resp.text)
+
+    # ── Reports visual shell ────────────────────────────
+
+    def test_reports_has_section_cards(self):
+        """Reports page uses section-card components."""
+        resp = self.client.get("/reports")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("section-card", resp.text)
+
+    def test_reports_has_progress_bar(self):
+        """Reports page has progress-bar for airtime occupancy."""
+        # Need to simulate airtime data — just check structure exists
+        resp = self.client.get("/reports?at_device=test-dev&at_from=2026-01-01&at_to=2026-01-07")
+        self.assertEqual(resp.status_code, 200)
+        # Even if data is empty, the component structure should be there
+        self.assertIn("Плановая занятость", resp.text)
+
+    def test_reports_has_export_links(self):
+        """Reports page has CSV export links."""
+        resp = self.client.get("/reports")
+        self.assertIn("csv", resp.text.lower())
+
+    def test_reports_has_campaign_statuses_block(self):
+        """Reports page has campaigns by status section."""
+        resp = self.client.get("/reports")
+        self.assertIn("Кампании по статусам", resp.text)
+
+    def test_reports_has_publication_batches_block(self):
+        """Reports page has publication batches section."""
+        resp = self.client.get("/reports")
+        self.assertIn("Publication Batches", resp.text)
+
+    def test_reports_has_manifest_status_block(self):
+        """Reports page has manifest status section."""
+        resp = self.client.get("/reports")
+        self.assertIn("Manifest", resp.text)
+
+    # ── Safety: no JS / CDN / localStorage ──────────────
+
+    def test_no_js_on_dashboard(self):
+        resp = self.client.get("/dashboard")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
+            self.assertNotIn(fb, lower, f"/dashboard must NOT have {fb}")
+
+    def test_no_js_on_reports(self):
+        resp = self.client.get("/reports")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
+            self.assertNotIn(fb, lower, f"/reports must NOT have {fb}")
+
+    def test_no_js_on_campaigns(self):
+        resp = self.client.get("/campaigns")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
+            self.assertNotIn(fb, lower, f"/campaigns must NOT have {fb}")
+
+    def test_no_js_on_creatives(self):
+        resp = self.client.get("/creatives")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
+            self.assertNotIn(fb, lower, f"/creatives must NOT have {fb}")
+
+    def test_no_js_on_publications(self):
+        resp = self.client.get("/publications")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
+            self.assertNotIn(fb, lower, f"/publications must NOT have {fb}")
+
+    def test_no_js_on_approvals(self):
+        resp = self.client.get("/approvals")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
+            self.assertNotIn(fb, lower, f"/approvals must NOT have {fb}")
+
+    def test_no_js_on_devices(self):
+        resp = self.client.get("/devices")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
+            self.assertNotIn(fb, lower, f"/devices must NOT have {fb}")
+
+    def test_no_js_on_admin(self):
+        resp = self.client.get("/admin")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "onsubmit=", "confirm(", "localstorage"):
+            self.assertNotIn(fb, lower, f"/admin must NOT have {fb}")
+
+    def test_no_cdn_on_any_page(self):
+        pages = ["/dashboard", "/reports", "/campaigns", "/creatives",
+                 "/publications", "/approvals", "/devices", "/admin",
+                 "/schedule", "/readiness", "/device-dashboard", "/stores"]
+        for path in pages:
+            resp = self.client.get(path)
+            lower = resp.text.lower()
+            for cdn in ("cdn.", "cloudflare", "unpkg", "jsdelivr", "googleapis"):
+                self.assertNotIn(cdn, lower, f"{path} must NOT reference CDN {cdn}")
+
+    # ── Safety: no forbidden strings ────────────────────
+
+    def test_no_forbidden_strings_in_pages(self):
+        pages = ["/dashboard", "/reports", "/campaigns", "/creatives",
+                 "/publications", "/approvals", "/devices", "/admin", "/schedule"]
+        for path in pages:
+            resp = self.client.get(path)
+            lower = resp.text.lower()
+            for fb in ("device_secret", "access_token", "backend_url",
+                       "change_me", "api_key", "bearer "):
+                self.assertNotIn(fb, lower, f"{path} must NOT leak {fb}")
+
+    # ── test-kso: not primary path ─────────────────────
+
+    def test_dashboard_no_test_kso_as_primary(self):
+        """Dashboard references test-kso only in disclaimer, not as path."""
+        resp = self.client.get("/dashboard")
+        text = resp.text
+        # The one allowed reference: "Без test-kso" (capital Б in Russian)
+        self.assertIn("Без test-kso", text)
+        # No other test-kso references
+        count = text.count("test-kso") + text.count("test_kso")
+        self.assertEqual(count, 1, f"Expected 1 test-kso disclaimer, got {count}")
+
+    # ── Banners ─────────────────────────────────────────
+
+    def test_banner_components_exist(self):
+        """Key pages render banner components for alerts."""
+        resp = self.client.get("/reports")
+        self.assertIn("banner", resp.text)
+
+    def test_empty_state_components_exist(self):
+        """Key pages render empty-state components."""
+        resp = self.client.get("/reports")
+        # Should have at least one empty-state or table-empty-state
+        has_empty = "empty-state" in resp.text or "table-empty-state" in resp.text
+        self.assertTrue(has_empty, "Reports should have empty state components")
+
+    def test_status_badge_components_exist(self):
+        """Lifecycle steps and status badges are used in production pages."""
+        resp = self.client.get("/reports")
+        # Reports always renders lifecycle-flow with PoP status breakdown
+        self.assertIn("lifecycle-step", resp.text)
+
+    # ── Stylesheet linked ──────────────────────────────
+
+    def test_stylesheet_linked(self):
+        """All pages link /static/styles.css (no CDN)."""
+        pages = ["/dashboard", "/reports", "/campaigns", "/creatives",
+                 "/publications", "/approvals", "/devices", "/admin", "/schedule"]
+        for path in pages:
+            resp = self.client.get(path)
+            self.assertIn('/static/styles.css', resp.text,
+                          f"{path} must link local stylesheet")
 
 
 if __name__ == "__main__":

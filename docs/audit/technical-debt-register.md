@@ -1,8 +1,8 @@
-# Technical Debt Register — 42.5
+# Technical Debt Register — 43.1
 
 **Date:** 2026-06-16  
-**Baseline:** HEAD `c389ba4` (42.5)  
-**Total items:** 34 (6 P0, 4 P1, 20 P2, 4 P3) — 1 P0 doc item RESOLVED
+**Baseline:** HEAD `178a40d` (43.1)  
+**Total items:** 34 (6 P0, 4 P1, 20 P2, 4 P3) — 1 P0 doc item RESOLVED, portal visual system normalized (43.1)
 
 ---
 

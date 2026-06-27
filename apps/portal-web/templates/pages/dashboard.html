@@ -1,15 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Dashboard</h1>
-<p class="page-description">Ключевые метрики Retail Media Platform — данные из production backend API.</p>
-
-<!-- Backend Warning -->
-{% if backend_warning %}
-<div class="note-box warning">
-  <span class="note-icon">⚠️</span>
-  <span class="note-text">{{ backend_warning }}</span>
-</div>
-{% endif %}
+<p class="page-description">Ключевые метрики Retail Media Platform — production backend API. Данные обновляются при каждом запросе.</p>
 
 <!-- Pilot Status -->
 <div class="pilot-status no-go">
@@ -17,13 +9,22 @@
   <span><strong>Пилот: NO-GO</strong> — backend/product/portal GO, физическая КСО NO-GO. Требуется: scanner E2E, controlled long-run, physical delivery gate.</span>
 </div>
 
-<!-- KPI Cards -->
+{% if backend_warning %}
+<div class="banner banner-warning">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body">
+    <div class="banner-text">{{ backend_warning }}</div>
+  </div>
+</div>
+{% endif %}
+
 {% if dashboard_backend %}
+<!-- KPI Cards -->
 <div class="cards">
   <div class="card">
     <div class="card-title">Кампаний</div>
     <div class="card-value">{{ kpi.total_campaigns }}</div>
-    <div class="card-hint">{{ kpi.active_campaigns }} активных, {{ kpi.draft_campaigns }} черновиков</div>
+    <div class="card-hint">{{ kpi.active_campaigns }} активных · {{ kpi.draft_campaigns }} черновиков</div>
   </div>
   <div class="card">
     <div class="card-title">Креативов</div>
@@ -41,9 +42,9 @@
     <div class="card-hint">{{ kpi.active_schedules }} активных</div>
   </div>
   <div class="card">
-    <div class="card-title">Публикаций</div>
+    <div class="card-title">Манифестов</div>
     <div class="card-value">{{ kpi.total_publications }}</div>
-    <div class="card-hint">Сгенерированных манифестов</div>
+    <div class="card-hint">Сгенерировано</div>
   </div>
   <div class="card">
     <div class="card-title">На согласовании</div>
@@ -52,47 +53,108 @@
   </div>
 </div>
 
-<!-- Summary by Status -->
+<!-- Campaign Status Pipeline -->
+{% if kpi.campaigns_draft is defined %}
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📢</span>
+    <span class="section-card-title">Кампании по статусам</span>
+  </div>
+  <div class="section-card-body">
+    <div class="lifecycle-flow">
+      <span class="lifecycle-step lifecycle-draft">Черновик: {{ kpi.campaigns_draft }}</span>
+      <span class="lifecycle-arrow">→</span>
+      <span class="lifecycle-step lifecycle-review">На согласовании: {{ kpi.campaigns_pending }}</span>
+      <span class="lifecycle-arrow">→</span>
+      <span class="lifecycle-step lifecycle-ready">Одобрено: {{ kpi.campaigns_approved }}</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Summary Stats -->
 <div class="summary-panel">
-  <div class="summary-panel-title">Статус платформы</div>
+  <div class="summary-panel-title">Сводка платформы</div>
   <div class="summary-stats">
-    {% if kpi.campaigns_draft is defined %}
     <div class="summary-stat">
-      <div class="summary-stat-value">{{ kpi.campaigns_draft }}</div>
-      <div class="summary-stat-label">Кампаний — черновик</div>
+      <div class="summary-stat-value">{{ kpi.total_campaigns }}</div>
+      <div class="summary-stat-label">Кампаний</div>
     </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ kpi.campaigns_pending }}</div>
-      <div class="summary-stat-label">На согласовании</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ kpi.campaigns_approved }}</div>
-      <div class="summary-stat-label">Одобрено</div>
-    </div>
-    {% endif %}
     <div class="summary-stat">
       <div class="summary-stat-value">{{ kpi.total_creatives }}</div>
       <div class="summary-stat-label">Креативов</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-value">{{ kpi.total_devices }}</div>
+      <div class="summary-stat-label">Устройств</div>
     </div>
     <div class="summary-stat">
       <div class="summary-stat-value">{{ kpi.total_publications }}</div>
       <div class="summary-stat-label">Манифестов</div>
     </div>
     <div class="summary-stat">
-      <div class="summary-stat-value">🔴</div>
-      <div class="summary-stat-label">Пилот: NO-GO</div>
+      <div class="summary-stat-value">{{ kpi.approvals_pending }}</div>
+      <div class="summary-stat-label">Согласований</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-value" style="color:var(--color-error);">🔴</div>
+      <div class="summary-stat-label">Пилот</div>
     </div>
   </div>
 </div>
+
+<!-- Pilot Blockers -->
+<div class="section-card" style="border-color: var(--color-error-border); background: var(--color-error-bg);">
+  <div class="section-card-header" style="border-color: var(--color-error-border);">
+    <span class="section-card-icon">🚫</span>
+    <span class="section-card-title">Блокеры пилота (6 P0)</span>
+  </div>
+  <div class="section-card-body" style="color: var(--color-error-text); font-size: 13px;">
+    <ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;">
+      <li>HW scanner E2E — физический сканер не протестирован</li>
+      <li>Controlled 48h+ long-run — длительный прогон не выполнялся</li>
+      <li>Manifest delivery to physical KSO — доставка не выполнялась</li>
+      <li>Sidecar sync physical start — синхронизация не запускалась</li>
+      <li>Pilot runbook / fallback — ✅ документировано (42.5)</li>
+      <li>Fleet rollout approval — не утверждён</li>
+    </ul>
+  </div>
+  <div class="section-card-footer" style="border-color: var(--color-error-border);">
+    <a href="/readiness" class="btn btn-sm btn-ghost">🧭 Подробнее в Readiness →</a>
+  </div>
+</div>
+
+<!-- Quick Links -->
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🔗</span>
+    <span class="section-card-title">Быстрые ссылки</span>
+  </div>
+  <div class="section-card-body">
+    <div class="export-links">
+      <a href="/campaigns/create" class="export-link">+ Новая кампания</a>
+      <a href="/creatives" class="export-link">🎨 Креативы</a>
+      <a href="/approvals" class="export-link">📝 Согласования</a>
+      <a href="/reports" class="export-link">📈 Отчёты</a>
+      <a href="/reports/export/campaigns" class="export-link">📥 CSV: кампании</a>
+    </div>
+  </div>
+</div>
+
 {% else %}
 <div class="empty-state">
-  <div class="empty-state-title">Платформа запущена</div>
-  <div class="empty-state-text">Backend работает. Метрики появятся после подключения первых КСО.</div>
+  <div class="empty-state-icon">📡</div>
+  <div class="empty-state-title">Backend недоступен</div>
+  <div class="empty-state-text">Метрики появятся после восстановления соединения с backend API.</div>
 </div>
 {% endif %}
 
-<div class="note-box">
+<div class="note-box" style="margin-top:0;">
   <span class="note-icon">📊</span>
   <span class="note-text">Production Dashboard: KPI из production backend API. Без test-kso как primary KPI источника.</span>
+</div>
+
+<div class="timestamp" style="margin-top:8px;">
+  <span>🕐</span> Данные: production backend · обновление при каждом запросе
 </div>
 {% endblock %}

@@ -1,7 +1,7 @@
-# Pilot Readiness Gap Register — 42.5
+# Pilot Readiness Gap Register — 43.1
 
 **Date:** 2026-06-16  
-**Baseline:** HEAD `c389ba4` (42.5 Pilot Runbook & Approval Gates)  
+**Baseline:** HEAD `178a40d` (43.1 Portal Visual System)  
 **Pilot Status:** 🔴 NO-GO (5 physical blockers, 1 doc blocker RESOLVED)
 
 ---

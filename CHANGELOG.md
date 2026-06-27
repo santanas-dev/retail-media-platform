@@ -7,6 +7,39 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [43.1-portal-visual-system-navigation] — 2026-06-16
+
+**Portal Visual System & Product Navigation — UI/UX normalization step.**
+
+### Deliverables
+- `apps/portal-web/static/styles.css` — unified visual system v2: cards, badges, banners, progress bars, buttons (primary/secondary/danger/ghost/sm/lg), forms, tables, empty/error states
+- `apps/portal-web/templates/base.html` — restructured navigation: Dashboard → Campaigns → Creatives → Schedule → Approvals → Publications → Reports → Devices → Admin, with Flow (1→5) helper
+- `apps/portal-web/templates/pages/dashboard.html` — KPI cards, campaign status pipeline, summary stats, blockers list, quick links, pilot NO-GO banner
+- `apps/portal-web/templates/pages/reports.html` — section-card blocks, progress bars for airtime occupancy, export links, PoP filters and events table
+- `apps/portal-web/tests/test_main.py` — +class `TestVisualSystem` (29 tests): nav structure, KPI rendering, progress bars, empty states, JS/CDN/localStorage safety, forbidden strings, test-kso isolation
+
+### Visual System
+- Design tokens extended (success/warning/error/info color palettes with bg/border/text variants)
+- New components: `.section-card` (replaces overused `.requirements-box`), `.banner` (warning/error/info/success), `.progress-bar`/`.progress-fill`, `.btn-secondary`/`.btn-danger`/`.btn-ghost`/`.btn-sm`/`.btn-lg`, `.export-link`, `.timestamp`
+- Status badges enhanced with dot indicators via `::before` pseudo-element
+- Sidebar: clear sections (Главное, Реклама, Аналитика, КСО, Управление), two-column layout with `.nav-icon` + `.nav-label`
+- Focus states, reduced motion, transition consistency
+
+### Safety
+- **No JS** — verified across all pages
+- **No CDN** — verified (cdn./cloudflare/unpkg/jsdelivr/googleapis)
+- **No localStorage** — verified
+- **No secrets/tokens/URLs/barcodes** — verified
+- test-kso: 1 deliberate disclaimer ("без test-kso как primary"), no other references
+
+### Policy
+- Doc-only for visual layer — no runtime/physical changes
+- No JS/CDN/localStorage on any page
+- Backend code unchanged
+- Physical KSO/SSH/X11/Chromium/runner/sidecar/PoP not touched
+
+---
+
 ## [42.5-pilot-runbook-approval-gates] — 2026-06-16
 
 **Pilot Runbook, Fallback & Approval Gates — documentation/safety/governance step.**

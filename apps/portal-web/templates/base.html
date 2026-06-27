@@ -19,43 +19,84 @@
     <span class="header-roles">({{ current_user.role_labels | join(', ') }})</span>
     {% endif %}
   </span>
-  <a href="/logout" class="header-login-link">🚪 Выход</a>
+  <a href="/logout" class="header-login-link">Выход</a>
   {% else %}
-  <span class="header-user">👤 Пользователь: вход не выполнен</span>
-  <a href="/login" class="header-login-link">🔐 Вход</a>
+  <span class="header-user">Пользователь: вход не выполнен</span>
+  <a href="/login" class="header-login-link">Вход</a>
   {% endif %}
 </div>
 
-<!-- Sidebar -->
+<!-- Sidebar Navigation -->
 <div class="sidebar">
   <div class="sidebar-section">Главное</div>
-  <a href="/dashboard" class="{{ 'active' if active == 'dashboard' }}">📊 Dashboard</a>
+  <a href="/dashboard" class="{{ 'active' if active == 'dashboard' }}">
+    <span class="nav-icon">📊</span><span class="nav-label">Dashboard</span>
+  </a>
 
   <div class="sidebar-section">Реклама</div>
-  <a href="/creatives" class="{{ 'active' if active == 'creatives' }}">🎨 Креативы</a>
-  <a href="/campaigns" class="{{ 'active' if active == 'campaigns' }}">📢 Кампании</a>
-  <a href="/schedule" class="{{ 'active' if active == 'schedule' }}">🗓 Расписание</a>
-  <a href="/publications" class="{{ 'active' if active == 'publications' }}">📋 Публикации</a>
+  <a href="/campaigns" class="{{ 'active' if active == 'campaigns' }}">
+    <span class="nav-icon">📢</span><span class="nav-label">Кампании</span>
+  </a>
+  <a href="/creatives" class="{{ 'active' if active == 'creatives' }}">
+    <span class="nav-icon">🎨</span><span class="nav-label">Креативы</span>
+  </a>
+  <a href="/schedule" class="{{ 'active' if active == 'schedule' }}">
+    <span class="nav-icon">🗓</span><span class="nav-label">Расписание</span>
+  </a>
+  <a href="/approvals" class="{{ 'active' if active == 'approvals' }}">
+    <span class="nav-icon">📝</span><span class="nav-label">Согласования</span>
+  </a>
+  <a href="/publications" class="{{ 'active' if active == 'publications' }}">
+    <span class="nav-icon">📋</span><span class="nav-label">Публикации</span>
+  </a>
 
-  <div class="sidebar-section">Flow</div>
-  <a href="/creatives" style="font-size:11px;opacity:0.7;">1. Креативы →</a>
-  <a href="/campaigns/create" style="font-size:11px;opacity:0.7;">2. Кампании →</a>
-  <a href="/approvals" style="font-size:11px;opacity:0.7;">3. Согласования →</a>
-  <a href="/publications" style="font-size:11px;opacity:0.7;">4. Публикации →</a>
-  <a href="/reports" style="font-size:11px;opacity:0.7;">5. Отчёты</a>
+  <div class="sidebar-section">Аналитика</div>
+  <a href="/reports" class="{{ 'active' if active == 'reports' }}">
+    <span class="nav-icon">📈</span><span class="nav-label">Отчёты</span>
+  </a>
 
   <div class="sidebar-section">КСО</div>
-  <a href="/devices" class="{{ 'active' if active == 'devices' }}">🖥️ КСО Устройства</a>
-  <a href="/device-dashboard" class="{{ 'active' if active == 'device-dashboard' }}">📡 Device Dashboard</a>
-  <a href="/proof-of-play" class="{{ 'active' if active == 'pop' }}">✅ Proof of Play</a>
-  <a href="/readiness" class="{{ 'active' if active == 'readiness' }}">🧭 Readiness</a>
-  <a href="/stores" class="{{ 'active' if active == 'stores' }}">🏪 Магазины</a>
+  <a href="/devices" class="{{ 'active' if active == 'devices' }}">
+    <span class="nav-icon">🖥️</span><span class="nav-label">Устройства</span>
+  </a>
+  <a href="/readiness" class="{{ 'active' if active == 'readiness' }}">
+    <span class="nav-icon">🧭</span><span class="nav-label">Readiness</span>
+  </a>
+  <a href="/device-dashboard" class="{{ 'active' if active == 'device-dashboard' }}">
+    <span class="nav-icon">📡</span><span class="nav-label">Device Dashboard</span>
+  </a>
+  <a href="/proof-of-play" class="{{ 'active' if active == 'pop' }}">
+    <span class="nav-icon">✅</span><span class="nav-label">Proof of Play</span>
+  </a>
+  <a href="/stores" class="{{ 'active' if active == 'stores' }}">
+    <span class="nav-icon">🏪</span><span class="nav-label">Магазины</span>
+  </a>
 
   <div class="sidebar-section">Управление</div>
-  <a href="/reports" class="{{ 'active' if active == 'reports' }}">📈 Отчёты</a>
-  <a href="/deployment" class="{{ 'active' if active == 'deployment' }}">🚀 Развёртывание</a>
-  <a href="/approvals" class="{{ 'active' if active == 'approvals' }}">📝 Согласования</a>
-  <a href="/admin" class="{{ 'active' if active == 'admin' }}">⚙️ Администрирование</a>
+  <a href="/admin" class="{{ 'active' if active == 'admin' }}">
+    <span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span>
+  </a>
+  <a href="/deployment" class="{{ 'active' if active == 'deployment' }}">
+    <span class="nav-icon">🚀</span><span class="nav-label">Развёртывание</span>
+  </a>
+
+  <!-- Flow hint -->
+  <div class="sidebar-section">Flow (1 → 5)</div>
+  <a href="/creatives" style="font-size:11px;opacity:0.7;padding-top:4px;padding-bottom:4px;">
+    <span class="nav-icon" style="font-size:10px;">1</span><span class="nav-label">Креативы</span>
+  </a>
+  <a href="/campaigns/create" style="font-size:11px;opacity:0.7;padding-top:4px;padding-bottom:4px;">
+    <span class="nav-icon" style="font-size:10px;">2</span><span class="nav-label">Кампании</span>
+  </a>
+  <a href="/approvals" style="font-size:11px;opacity:0.7;padding-top:4px;padding-bottom:4px;">
+    <span class="nav-icon" style="font-size:10px;">3</span><span class="nav-label">Согласования</span>
+  </a>
+  <a href="/publications" style="font-size:11px;opacity:0.7;padding-top:4px;padding-bottom:4px;">
+    <span class="nav-icon" style="font-size:10px;">4</span><span class="nav-label">Публикации</span>
+  </a>
+  <a href="/reports" style="font-size:11px;opacity:0.7;padding-top:4px;padding-bottom:4px;">
+    <span class="nav-icon" style="font-size:10px;">5</span><span class="nav-label">Отчёты</span>
+  </a>
 </div>
 
 <!-- Main content -->
