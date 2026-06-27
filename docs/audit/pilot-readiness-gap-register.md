@@ -1,8 +1,8 @@
-# Pilot Readiness Gap Register — 42.4
+# Pilot Readiness Gap Register — 42.5
 
 **Date:** 2026-06-16  
-**Baseline:** HEAD `c3b8daa` (42.3)  
-**Pilot Status:** 🔴 NO-GO (6 blockers, 0 resolved since v0.12.1 baseline)
+**Baseline:** HEAD `c389ba4` (42.5 Pilot Runbook & Approval Gates)  
+**Pilot Status:** 🔴 NO-GO (5 physical blockers, 1 doc blocker RESOLVED)
 
 ---
 
@@ -64,12 +64,10 @@
 
 | Field | Value |
 |---|---|
-| Status | ❌ Pending |
-| Evidence | Runbook draft exists (`docs/pilot/one-kso-pilot-runbook.md`) but no fallback/rollback |
-| Risk | Cannot recover from pilot failure |
-| Resolution Gate | Formal rollback runbook created and reviewed |
-| Dependencies | D-IN-02 (rollback runbook) |
-| Safe Execution | Doc-only — no physical action needed |
+| Status | ✅ RESOLVED (42.5) |
+| Evidence | `docs/runbooks/one-kso-pilot-runbook.md`, `docs/runbooks/kso-fallback-rollback-runbook.md`, `docs/runbooks/physical-approval-gates.md` |
+| Resolution | Three runbooks created: pilot execution, fallback/rollback, approval gates. All 5 approval tokens defined. |
+| Notes | Doc-only resolution. Physical execution still requires token grants. |
 
 ### B-06: Live Pilot / Fleet Rollout Approval
 

@@ -7,6 +7,28 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [42.5-pilot-runbook-approval-gates] — 2026-06-16
+
+**Pilot Runbook, Fallback & Approval Gates — documentation/safety/governance step.**
+
+### Deliverables
+- `docs/runbooks/one-kso-pilot-runbook.md` — comprehensive pilot execution runbook (5 phases, stop criteria, evidence checklist)
+- `docs/runbooks/kso-fallback-rollback-runbook.md` — incident response and rollback procedures
+- `docs/runbooks/physical-approval-gates.md` — 5 sequential approval tokens (scanner→manifest→sidecar→long-run→rollout)
+
+### Blocker Resolution
+- **B-05 (Pilot runbook/fallback/rollback)** → RESOLVED ✅
+- Remaining 5 physical blockers unchanged (scanner, long-run, delivery, sidecar, fleet)
+- Pilot remains 🔴 NO-GO until all physical gates passed
+
+### Policy
+- Doc-only — no runtime/physical changes
+- All commands in runbooks marked "execute only after explicit approval"
+- Keyboard simulation explicitly rejected as invalid E2E
+- Fleet rollout explicitly forbidden without PHASE_PILOT_ROLLOUT_APPROVED
+
+---
+
 ## [42.4-full-audit-tech-debt] — 2026-06-16
 
 **Full Audit & Technical Debt Register — comprehensive codebase audit after 42.3.**
