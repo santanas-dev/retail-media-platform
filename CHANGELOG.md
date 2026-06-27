@@ -7,6 +7,35 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [42.0-portal-product-ux-polish] — 2026-06-16
+
+**Portal Product UX Polish — статусные бейджи, next-action подсказки, flow breadcrumbs, summary-панель, empty states.**
+
+### Changed
+- **Status badges** — унифицированы human-readable русские подписи на всех страницах:
+  - `campaigns`: Черновик / На согласовании / Одобрено / Отклонено / Архив
+  - `creatives`: Черновик / На проверке / Готово / Отклонено / Архив
+  - `approvals`: На согласовании / Одобрено / Отклонено
+  - `publications`: Черновик / На согласовании / Одобрено / Manifest готов / Опубликовано / Отменено / Отклонено
+  - `manifests (legacy)`: Опубликовано / Черновик / Отменено
+- **Next-action блоки** — «Следующее действие» на ключевых страницах:
+  - `/creatives` — при пустом списке: загрузите креатив
+  - `/campaigns` — если есть черновики → отправьте на согласование; одобрено → подготовьте публикацию
+  - `/publications` — черновик → на согласование; одобрено → generate manifest
+  - `/reports` — физический PoP недоступен до delivery gate
+- **Flow breadcrumbs** — навигационная цепочка на `/campaigns` и `/publications`
+- **Dashboard summary panel** — карточки по статусам: черновик/на согласовании/одобрено + pilot NO-GO
+- **Pilot NO-GO баннер** — красный на dashboard
+- **Sidebar flow-секция** — нумерованные шаги: 1. Креативы → 2. Кампании → 3. Согласования → 4. Публикации → 5. Отчёты
+- **JS removal** — убраны `onsubmit="return confirm()"` из schedule.html
+
+### No new backend workflow. No physical KSO. No JS/CDN/localStorage.
+
+### Portal tests
+510 passed, 32 skipped (добавлены 6 новых тест-классов: статусы, next actions, flow breadcrumbs, pilot status, no-JS, safe errors, empty states)
+
+---
+
 ## [41.5-pilot-runbook-go-no-go-pack] — 2026-06-16
 
 **Pilot Runbook & GO/NO-GO Pack — decision-ready documentation for physical pilot.**

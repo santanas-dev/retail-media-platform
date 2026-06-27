@@ -32,10 +32,17 @@
   <a href="/dashboard" class="{{ 'active' if active == 'dashboard' }}">📊 Dashboard</a>
 
   <div class="sidebar-section">Реклама</div>
-  <a href="/campaigns" class="{{ 'active' if active == 'campaigns' }}">📢 Кампании</a>
   <a href="/creatives" class="{{ 'active' if active == 'creatives' }}">🎨 Креативы</a>
+  <a href="/campaigns" class="{{ 'active' if active == 'campaigns' }}">📢 Кампании</a>
   <a href="/schedule" class="{{ 'active' if active == 'schedule' }}">🗓 Расписание</a>
   <a href="/publications" class="{{ 'active' if active == 'publications' }}">📋 Публикации</a>
+
+  <div class="sidebar-section">Flow</div>
+  <a href="/creatives" style="font-size:11px;opacity:0.7;">1. Креативы →</a>
+  <a href="/campaigns/create" style="font-size:11px;opacity:0.7;">2. Кампании →</a>
+  <a href="/approvals" style="font-size:11px;opacity:0.7;">3. Согласования →</a>
+  <a href="/publications" style="font-size:11px;opacity:0.7;">4. Публикации →</a>
+  <a href="/reports" style="font-size:11px;opacity:0.7;">5. Отчёты</a>
 
   <div class="sidebar-section">КСО</div>
   <a href="/devices" class="{{ 'active' if active == 'devices' }}">🖥️ КСО Устройства</a>

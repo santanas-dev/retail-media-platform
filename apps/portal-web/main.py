@@ -150,6 +150,8 @@ async def dashboard_page(request: Request):
     total_campaigns = len(campaigns)
     active_campaigns = sum(1 for c in campaigns if c.get("status") == "active")
     draft_campaigns = sum(1 for c in campaigns if c.get("status") == "draft")
+    pending_campaigns = sum(1 for c in campaigns if c.get("status") == "pending_approval")
+    approved_campaigns = sum(1 for c in campaigns if c.get("status") == "approved")
     total_creatives = len(creatives)
     total_devices = len(devices)
     total_schedules = len(schedules)
@@ -164,6 +166,9 @@ async def dashboard_page(request: Request):
         "total_campaigns": total_campaigns,
         "active_campaigns": active_campaigns,
         "draft_campaigns": draft_campaigns,
+        "campaigns_draft": draft_campaigns,
+        "campaigns_pending": pending_campaigns,
+        "campaigns_approved": approved_campaigns,
         "total_creatives": total_creatives,
         "total_devices": total_devices,
         "total_schedules": total_schedules,
@@ -937,19 +942,24 @@ async def campaigns_page(request: Request):
 
     campaigns = result.get("data", [])
     safe_rows = []
+    status_counts = {"draft": 0, "pending_approval": 0, "approved": 0, "rejected": 0, "archived": 0}
     for c in campaigns:
         code = c.get("campaign_code", "")
+        status = c.get("status", "")
         creative_codes = c.get("creative_codes", [])
         safe_rows.append({
             "campaign_code": code,
             "name": c.get("name", ""),
-            "status": c.get("status", "—"),
+            "status": status,
             "description": c.get("description") or "—",
             "creative_codes": ", ".join(creative_codes),
             "creative_count": len(creative_codes),
             "created_at": _fmt_dt(c.get("created_at")),
             "updated_at": _fmt_dt(c.get("updated_at")),
         })
+        # Count by status for next-action hints
+        if status in status_counts:
+            status_counts[status] += 1
 
     # Consume flash messages
     flash_type = ""
@@ -987,6 +997,7 @@ async def campaigns_page(request: Request):
         "demo": False,
         "current_user": current_user,
         "campaigns": safe_rows,
+        "campaigns_by_status": status_counts,
         "flash_type": flash_type,
         "flash_msg": flash_msg,
     })

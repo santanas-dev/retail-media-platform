@@ -3,6 +3,39 @@
 <h1 class="page-title">Публикации</h1>
 <p class="page-description">Publication batches — от approved кампании до готового manifest (backend status only, без доставки на КСО).</p>
 
+<!-- Flow breadcrumbs -->
+<div class="flow-breadcrumbs">
+  <a href="/creatives" class="flow-step">🎨 Креативы</a>
+  <span class="flow-arrow">→</span>
+  <a href="/campaigns" class="flow-step">📢 Кампании</a>
+  <span class="flow-arrow">→</span>
+  <a href="/approvals" class="flow-step">📝 Согласования</a>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step active">📋 Публикации</span>
+  <span class="flow-arrow">→</span>
+  <a href="/reports" class="flow-step">📈 Отчёты</a>
+</div>
+
+<!-- Next Action -->
+{% if batches %}
+  {% set ns = {'draft': false, 'approved': false} %}
+  {% for b in batches %}
+    {% if b.status == 'draft' %}{% if ns.update({'draft': true}) %}{% endif %}{% endif %}
+    {% if b.status == 'approved' %}{% if ns.update({'approved': true}) %}{% endif %}{% endif %}
+  {% endfor %}
+  {% if ns.draft %}
+<div class="next-action">
+  <span class="next-action-icon">📝</span>
+  <span class="next-action-text"><strong>Следующее действие:</strong> у вас есть batch в статусе «Черновик» — отправьте на согласование.</span>
+</div>
+  {% elif ns.approved %}
+<div class="next-action">
+  <span class="next-action-icon">📋</span>
+  <span class="next-action-text"><strong>Следующее действие:</strong> у вас есть одобренный batch — нажмите «Generate» для создания manifest.</span>
+</div>
+  {% endif %}
+{% endif %}
+
 <!-- Flash messages -->
 {% if pub_flash and pub_flash.startswith('ok:') %}
 <div class="flash-ok">
@@ -36,7 +69,16 @@
     <tr>
       <td><code>{{ b.batch_ref }}</code></td>
       <td><code>{{ b.campaign_code }}</code></td>
-      <td><span class="badge badge-{{ 'draft' if b.status == 'draft' else 'review' if b.status == 'pending_approval' else 'ready' if b.status in ('approved', 'manifest_generated') else 'ready' if b.status == 'published' else '' }}"></span> {{ b.status }}</td>
+      <td><span class="status-badge status-badge-{{ b.status }}">{{ 
+        'Черновик' if b.status == 'draft' else
+        'На согласовании' if b.status == 'pending_approval' else
+        'Одобрено' if b.status == 'approved' else
+        'Manifest готов' if b.status == 'manifest_generated' else
+        'Опубликовано' if b.status == 'published' else
+        'Отменено' if b.status == 'cancelled' else
+        'Отклонено' if b.status == 'rejected' else
+        b.status
+      }}</span></td>
       <td>{{ b.created_at[:19] if b.created_at else '—' }}</td>
       <td>
         <!-- Draft → Request Approval -->
@@ -101,7 +143,17 @@
       <td><code>{{ m.manifest_code }}</code></td>
       <td><code>{{ m.device_code }}</code></td>
       <td><code>{{ m.campaign_code }}</code></td>
-      <td><span class="badge badge-{{ 'ready' if m.status == 'published' else '' }}"></span> {{ m.status }}</td>
+      <td>
+        {% if m.status == 'published' %}
+        <span class="status-badge status-badge-published">Опубликовано</span>
+        {% elif m.status == 'draft' %}
+        <span class="status-badge status-badge-draft">Черновик</span>
+        {% elif m.status == 'cancelled' %}
+        <span class="status-badge status-badge-cancelled">Отменено</span>
+        {% else %}
+        <span class="status-badge status-badge-draft">{{ m.status }}</span>
+        {% endif %}
+      </td>
       <td>{{ m.item_count }}</td>
     </tr>
   {% endfor %}

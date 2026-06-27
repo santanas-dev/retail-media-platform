@@ -95,7 +95,7 @@
       <td>{{ s.slot_count }}</td>
       <td>
         {% if s.status != 'archived' %}
-        <form method="post" action="/schedule/{{ s.schedule_code }}/archive" style="display:inline" onsubmit="return confirm('Архивировать расписание {{ s.schedule_code }}?')">
+        <form method="post" action="/schedule/{{ s.schedule_code }}/archive" style="display:inline">
           <button type="submit" class="btn-sm btn-danger">Архив</button>
         </form>
         {% endif %}
@@ -133,7 +133,7 @@
       <td>{% if sl.is_active %}✅{% else %}❌{% endif %}</td>
       <td>
         {% if sl.is_active %}
-        <form method="post" action="/schedule/{{ s.schedule_code }}/items/{{ sl.slot_code }}/disable" style="display:inline" onsubmit="return confirm('Отключить слот {{ sl.slot_code }}?')">
+        <form method="post" action="/schedule/{{ s.schedule_code }}/items/{{ sl.slot_code }}/disable" style="display:inline">
           <button type="submit" class="btn-sm btn-warn">Откл</button>
         </form>
         {% endif %}

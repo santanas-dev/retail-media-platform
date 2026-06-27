@@ -68,14 +68,24 @@
       <td><code>{{ a.approval_code }}</code></td>
       <td>{{ a.object_type }}</td>
       <td>{{ a.object_code }}</td>
-      <td><span class="badge badge-{{ 'draft' if a.status == 'pending' else 'ready' if a.status == 'approved' else 'rejected' if a.status == 'rejected' else '' }}"></span> {{ a.status }}</td>
+      <td>
+        {% if a.status == 'pending' %}
+        <span class="status-badge status-badge-pending">На согласовании</span>
+        {% elif a.status == 'approved' %}
+        <span class="status-badge status-badge-approved">Одобрено</span>
+        {% elif a.status == 'rejected' %}
+        <span class="status-badge status-badge-rejected">Отклонено</span>
+        {% else %}
+        <span class="status-badge">{{ a.status }}</span>
+        {% endif %}
+      </td>
       <td>
         {% if a.object_type == 'campaign' %}
         <div class="approval-campaign-detail">
           <strong>{{ a.campaign_name }}</strong><br>
           Креативы: {{ a.campaign_creatives }}<br>
           Расписание: <code>{{ a.schedule_code }}</code> ({{ a.schedule_slot_count }} слотов)<br>
-          Статус кампании: <span class="badge badge-{{ 'draft' if a.campaign_status == 'pending_approval' else 'ready' if a.campaign_status == 'approved' else '' }}"></span> {{ a.campaign_status }}
+          Статус кампании: <span class="status-badge status-badge-pending_approval">На согласовании</span>
         </div>
         {% else %}
         {{ a.decision }}

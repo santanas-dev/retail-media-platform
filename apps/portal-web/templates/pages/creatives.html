@@ -3,6 +3,14 @@
 <h1 class="page-title">Креативы</h1>
 <p class="page-description">Библиотека рекламных материалов. Загрузка изображений (PNG/JPEG) и видео (MP4). Рекомендованный формат для КСО: портрет 768×1024.</p>
 
+<!-- Next Action -->
+{% if not creatives %}
+<div class="next-action">
+  <span class="next-action-icon">⬆️</span>
+  <span class="next-action-text"><strong>Начните с загрузки креатива:</strong> загрузите изображение 768×1024 через форму ниже. Затем <a href="/campaigns/create">создайте кампанию</a>.</span>
+</div>
+{% endif %}
+
 {% if flash_msg %}
 <div class="note-box" style="border-color:{% if flash_type == 'success' %}#10b981{% else %}#ef4444{% endif %};">
   <span class="note-icon">{% if flash_type == 'success' %}✅{% else %}❌{% endif %}</span>
@@ -113,7 +121,21 @@
       <td>{% if c.dimensions %}{{ c.dimensions }}{% else %}—{% endif %}</td>
       <td>{% if c.file_size_bytes %}{{ (c.file_size_bytes / 1024)|round|int }} КБ{% else %}—{% endif %}</td>
       <td>{% if c.current_version %}v{{ c.current_version }}{% else %}—{% endif %}</td>
-      <td><span class="badge badge-{{ 'ready' if c.status == 'draft' else 'review' if c.status == 'in_review' else 'live' if c.status == 'approved' else 'error' if c.status == 'rejected' else 'archived' if c.status == 'archived' else 'unknown' }}"></span> {{ c.status_label }}</td>
+      <td>
+        {% if c.status == 'draft' %}
+        <span class="status-badge status-badge-draft">Черновик</span>
+        {% elif c.status == 'in_review' %}
+        <span class="status-badge status-badge-in_review">На проверке</span>
+        {% elif c.status in ('approved', 'ready') %}
+        <span class="status-badge status-badge-ready">Готово</span>
+        {% elif c.status == 'rejected' %}
+        <span class="status-badge status-badge-rejected">Отклонено</span>
+        {% elif c.status == 'archived' %}
+        <span class="status-badge status-badge-archived">Архив</span>
+        {% else %}
+        <span class="status-badge status-badge-draft">{{ c.status_label }}</span>
+        {% endif %}
+      </td>
       <td>{{ c.created_at }}</td>
       <td>
         {% if c.status != 'archived' %}

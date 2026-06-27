@@ -11,6 +11,12 @@
 </div>
 {% endif %}
 
+<!-- Pilot Status -->
+<div class="pilot-status no-go">
+  <span class="pilot-status-icon">🔴</span>
+  <span><strong>Пилот: NO-GO</strong> — backend/product/portal GO, физическая КСО NO-GO. Требуется: scanner E2E, controlled long-run, physical delivery gate.</span>
+</div>
+
 <!-- KPI Cards -->
 {% if dashboard_backend %}
 <div class="cards">
@@ -45,6 +51,39 @@
     <div class="card-hint">Ожидают решения</div>
   </div>
 </div>
+
+<!-- Summary by Status -->
+<div class="summary-panel">
+  <div class="summary-panel-title">Статус платформы</div>
+  <div class="summary-stats">
+    {% if kpi.campaigns_draft is defined %}
+    <div class="summary-stat">
+      <div class="summary-stat-value">{{ kpi.campaigns_draft }}</div>
+      <div class="summary-stat-label">Кампаний — черновик</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-value">{{ kpi.campaigns_pending }}</div>
+      <div class="summary-stat-label">На согласовании</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-value">{{ kpi.campaigns_approved }}</div>
+      <div class="summary-stat-label">Одобрено</div>
+    </div>
+    {% endif %}
+    <div class="summary-stat">
+      <div class="summary-stat-value">{{ kpi.total_creatives }}</div>
+      <div class="summary-stat-label">Креативов</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-value">{{ kpi.total_publications }}</div>
+      <div class="summary-stat-label">Манифестов</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-value">🔴</div>
+      <div class="summary-stat-label">Пилот: NO-GO</div>
+    </div>
+  </div>
+</div>
 {% else %}
 <div class="empty-state">
   <div class="empty-state-title">Платформа запущена</div>
@@ -54,6 +93,6 @@
 
 <div class="note-box">
   <span class="note-icon">📊</span>
-  <span class="note-text">Production Dashboard: KPI из production backend API (GET /api/campaigns, /api/creatives, /api/devices/kso, /api/schedules, /api/manifests, /api/approvals/test-kso). Test-kso endpoints не используются как primary KPI источники.</span>
+  <span class="note-text">Production Dashboard: KPI из production backend API. Без test-kso как primary KPI источника.</span>
 </div>
 {% endblock %}

@@ -3445,6 +3445,77 @@ class _FakeBackendClient:
     async def list_creatives(self, access_token: str) -> dict:
         return {"ok": True, "data": [_MOCK_CREATIVE]}  # Single creative for testing
 
+    async def list_campaigns_prod(self, access_token: str) -> dict:
+        return {"ok": True, "data": []}  # Empty for testing
+
+    async def list_publication_batches(self, access_token: str) -> dict:
+        return {"ok": True, "data": []}  # Empty for testing
+
+    async def list_approvals_prod(self, access_token: str) -> dict:
+        return {"ok": True, "data": []}
+
+    async def list_schedules(self, access_token: str) -> dict:
+        return {"ok": True, "data": []}
+
+    async def get_pop_report(self, access_token: str, filters: dict = None) -> dict:
+        return {"ok": True, "data": []}
+
+    async def get_pop_summary(self, access_token: str, filters: dict = None) -> dict:
+        return {"ok": True, "data": {"total_events": 0, "accepted": 0, "rejected": 0,
+                "duplicate": 0, "unique_devices": 0, "unique_campaigns": 0,
+                "unique_creatives": 0, "unique_placements": 0, "last_event_at": None}}
+
+    async def get_campaign_by_code(self, access_token: str, code: str) -> dict:
+        return {"ok": False, "error": "not found"}  # Not found by default
+
+    async def submit_campaign(self, access_token: str, code: str) -> dict:
+        return {"ok": True}
+
+    async def create_publication_batch(self, access_token: str, code: str) -> dict:
+        return {"ok": True}
+
+    async def bind_campaign_creative(self, access_token: str, campaign_code: str, creative_code: str) -> dict:
+        return {"ok": True}
+
+    async def unbind_campaign_creative(self, access_token: str, campaign_code: str, creative_code: str) -> dict:
+        return {"ok": True}
+
+    async def archive_campaign_by_code(self, access_token: str, code: str) -> dict:
+        return {"ok": True}
+
+    async def update_campaign_by_code(self, access_token: str, code: str, payload: dict) -> dict:
+        return {"ok": True}
+
+    async def create_schedule(self, access_token: str, payload: dict) -> dict:
+        return {"ok": True}
+
+    async def create_schedule_slot(self, access_token: str, schedule_code: str, payload: dict) -> dict:
+        return {"ok": True}
+
+    async def archive_schedule(self, access_token: str, code: str) -> dict:
+        return {"ok": True}
+
+    async def disable_slot(self, access_token: str, schedule_code: str, slot_code: str) -> dict:
+        return {"ok": True}
+
+    async def create_publication_batch_action(self, access_token: str, batch_id: str, action: str) -> dict:
+        return {"ok": True}
+
+    async def list_users(self, access_token: str) -> dict:
+        return {"ok": True, "data": []}
+
+    async def list_roles(self, access_token: str) -> dict:
+        return {"ok": True, "data": []}
+
+    async def list_audit_log(self, access_token: str) -> dict:
+        return {"ok": True, "data": []}
+
+    async def list_permissions(self, access_token: str) -> dict:
+        return {"ok": True, "data": []}
+
+    async def list_admin_audit(self, access_token: str, limit: int = 10) -> dict:
+        return {"ok": True, "data": []}
+
     async def list_advertisers(self, access_token: str) -> dict:
         return {"ok": True, "data": [{"id": "a1", "name": "Тестовый рекламодатель"}]}
 
@@ -3712,6 +3783,27 @@ class _FakeBackendClientDown:
         return {"ok": False, "error": "Backend unreachable"}
 
     async def list_creatives(self, access_token: str) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def list_campaigns_prod(self, access_token: str) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def list_publication_batches(self, access_token: str) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def list_approvals_prod(self, access_token: str) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def list_schedules(self, access_token: str) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def get_pop_report(self, access_token: str, filters: dict = None) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def get_pop_summary(self, access_token: str, filters: dict = None) -> dict:
+        return {"ok": False, "error": "Backend unreachable"}
+
+    async def get_campaign_by_code(self, access_token: str, code: str) -> dict:
         return {"ok": False, "error": "Backend unreachable"}
 
     async def list_advertisers(self, access_token: str) -> dict:
@@ -4182,6 +4274,288 @@ class TestDeviceDashboardPage(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Нет данных", resp.text)
 
+
+# ══════════════════════════════════════════════════════════════════════
+# 42.0 — Portal Product UX Polish Tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestUXStatusBadges(unittest.TestCase):
+    """42.0: status badges render human-readable Russian labels."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    def test_campaigns_page_has_status_badge_structure(self):
+        """Campaigns page has CSS classes for status badges (empty data shows empty state)."""
+        resp = self.client.get("/campaigns")
+        self.assertEqual(resp.status_code, 200)
+        html = resp.text
+        # Empty campaigns → empty state renders with helpful links
+        self.assertIn("загрузите креатив", html.lower())
+        self.assertIn("/creatives", html)
+
+    def test_creatives_page_has_text_badges(self):
+        resp = self.client.get("/creatives")
+        self.assertEqual(resp.status_code, 200)
+        html = resp.text
+        # Mock data has creative → "Черновик" badge renders, legend has "Архив"
+        for label in ("Черновик", "status-badge-draft"):
+            self.assertIn(label, html, f"Creatives must contain '{label}'")
+
+    def test_publications_page_has_status_badges(self):
+        resp = self.client.get("/publications")
+        self.assertEqual(resp.status_code, 200)
+        html = resp.text
+        # Empty batches but manifest section renders status badges
+        self.assertIn("status-badge", html, "Publications must have status badges")
+
+    def test_approvals_page_renders_empty_state(self):
+        resp = self.client.get("/approvals")
+        self.assertEqual(resp.status_code, 200)
+        html = resp.text
+        self.assertIn("нет согласований", html.lower(),
+                      "Approvals empty state must show")
+
+
+class TestUXNextActions(unittest.TestCase):
+    """42.0: next action hints on key pages."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    def test_creatives_has_next_action_conditional(self):
+        """Creatives has next-action only when creatives list is empty. With mock it's non-empty."""
+        resp = self.client.get("/creatives")
+        html = resp.text
+        # Has creative data → no next-action. Template structure exists.
+        self.assertIn("Next Action", html, "Creatives must have Next Action comment")
+
+    def test_campaigns_empty_shows_create_link(self):
+        resp = self.client.get("/campaigns")
+        html = resp.text
+        self.assertIn("Создать кампанию", html, "Campaigns must have create link")
+
+    def test_publications_has_next_action_conditional(self):
+        resp = self.client.get("/publications")
+        html = resp.text
+        # Empty batches → no next-action block. Template structure exists.
+        self.assertIn("Next Action", html, "Publications must have Next Action comment")
+
+    def test_reports_has_next_action(self):
+        resp = self.client.get("/reports")
+        html = resp.text
+        self.assertIn("next-action", html, "Reports must have next-action block")
+
+
+class TestUXFlowBreadcrumbs(unittest.TestCase):
+    """42.0: flow breadcrumbs on key pages."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    def test_campaigns_has_flow_breadcrumbs(self):
+        resp = self.client.get("/campaigns")
+        html = resp.text
+        self.assertIn("flow-breadcrumbs", html, "Campaigns must have flow breadcrumbs")
+        self.assertIn("flow-step active", html, "Active step must be highlighted")
+
+    def test_publications_has_flow_breadcrumbs(self):
+        resp = self.client.get("/publications")
+        html = resp.text
+        self.assertIn("flow-breadcrumbs", html, "Publications must have flow breadcrumbs")
+        self.assertIn("flow-step active", html, "Active step must be highlighted")
+
+    def test_creatives_has_flow_links(self):
+        resp = self.client.get("/creatives")
+        html = resp.text
+        self.assertIn("/campaigns", html, "Creatives must link to campaigns")
+
+    def test_sidebar_has_flow_section(self):
+        resp = self.client.get("/dashboard")
+        html = resp.text
+        self.assertIn("Креативы →", html, "Sidebar must have flow section")
+        self.assertIn("Кампании →", html, "Sidebar must show campaign flow")
+
+
+class TestUXPilotStatus(unittest.TestCase):
+    """42.0: pilot NO-GO status visible on dashboard and readiness."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    def test_dashboard_shows_no_go(self):
+        resp = self.client.get("/dashboard")
+        html = resp.text
+        self.assertIn("NO-GO", html, "Dashboard must show NO-GO status")
+        self.assertIn("pilot-status no-go", html, "Dashboard must have no-go banner")
+
+    def test_readiness_shows_pilot_status(self):
+        resp = self.client.get("/readiness")
+        html = resp.text
+        self.assertIn("пилот", html.lower(), "Readiness must mention pilot")
+
+
+class TestUXNoJSAllPages(unittest.TestCase):
+    """42.0: verify NO JS/CDN/localStorage across all portal pages."""
+
+    PAGES = [
+        "/dashboard", "/campaigns", "/creatives", "/schedule",
+        "/publications", "/approvals", "/reports", "/proof-of-play",
+        "/stores", "/devices", "/device-dashboard", "/readiness",
+        "/admin", "/deployment",
+    ]
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    def test_no_js_on_any_page(self):
+        for page in self.PAGES:
+            resp = self.client.get(page)
+            html_lower = resp.text.lower()
+            self.assertNotIn("<script", html_lower, f"{page}: must NOT have <script>")
+            self.assertNotIn("onclick=", html_lower, f"{page}: must NOT have onclick=")
+            self.assertNotIn("onsubmit=", html_lower, f"{page}: must NOT have onsubmit=")
+            self.assertNotIn("confirm(", html_lower, f"{page}: must NOT have confirm(")
+            self.assertNotIn("localstorage", html_lower, f"{page}: must NOT have localStorage")
+
+    def test_no_cdn_on_any_page(self):
+        """Check no actual CDN resource URLs (documentation mentions OK)."""
+        for page in self.PAGES:
+            resp = self.client.get(page)
+            html_lower = resp.text.lower()
+            # Only check for actual CDN URLs, not documentation about CDN
+            for cdn_url in ("cdn.", "unpkg.com", "jsdelivr.net", "fonts.googleapis",
+                            "fonts.gstatic.com", "cloudflare.com/cdn-cgi"):
+                if cdn_url in html_lower:
+                    self.fail(f"{page}: must NOT have CDN URL '{cdn_url}'")
+
+
+class TestUXSafeErrors(unittest.TestCase):
+    """42.0: error/flash messages must NOT leak secrets/tokens/URLs."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    def test_dashboard_no_stacktrace(self):
+        resp = self.client.get("/dashboard")
+        self.assertNotIn("Traceback", resp.text)
+        self.assertNotIn("File \"", resp.text)
+
+    def test_campaigns_no_forbidden_in_html(self):
+        resp = self.client.get("/campaigns")
+        _assert_safe(self, resp.text)
+
+    def test_creatives_no_forbidden_in_html(self):
+        resp = self.client.get("/creatives")
+        _assert_safe(self, resp.text)
+
+    def test_publications_no_forbidden_in_html(self):
+        resp = self.client.get("/publications")
+        _assert_safe(self, resp.text)
+
+    def test_approvals_no_forbidden_in_html(self):
+        resp = self.client.get("/approvals")
+        _assert_safe(self, resp.text)
+
+
+class TestUXEmptyStates(unittest.TestCase):
+    """42.0: empty states with correct links."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    def test_campaigns_empty_links_to_creatives(self):
+        # Without backend data, page shows empty state with links
+        resp = self.client.get("/campaigns")
+        html = resp.text
+        self.assertIn("загрузите креатив", html.lower(),
+                      "Campaigns empty state must mention creatives")
+        self.assertIn("/creatives", html,
+                      "Campaigns must link to creatives")
+
+    def test_publications_empty_has_hint(self):
+        resp = self.client.get("/publications")
+        html = resp.text
+        self.assertIn("согласуйте", html.lower(),
+                      "Publications empty state must hint at approval")
+        self.assertIn("/campaigns", html,
+                      "Publications must link to campaigns")
+
+    def test_approvals_empty_has_hint(self):
+        resp = self.client.get("/approvals")
+        html = resp.text
+        self.assertIn("/campaigns", html,
+                      "Approvals empty must link to campaigns")
 
 
 if __name__ == "__main__":

@@ -3,9 +3,37 @@
 <h1 class="page-title">Кампании</h1>
 <p class="page-description">Управление рекламными кампаниями — создание, редактирование, архивация, привязка креативов и публикация. Production Campaign API.</p>
 
+<!-- Flow breadcrumbs -->
+<div class="flow-breadcrumbs">
+  <a href="/creatives" class="flow-step">🎨 Креативы</a>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step active">📢 Кампании</span>
+  <span class="flow-arrow">→</span>
+  <a href="/approvals" class="flow-step">📝 Согласования</a>
+  <span class="flow-arrow">→</span>
+  <a href="/publications" class="flow-step">📋 Публикации</a>
+  <span class="flow-arrow">→</span>
+  <a href="/reports" class="flow-step">📈 Отчёты</a>
+</div>
+
 <!-- Flash Messages -->
 {% if flash_msg %}
 <div class="flash-message flash-{{ flash_type }}">{{ flash_msg }}</div>
+{% endif %}
+
+<!-- Next Action -->
+{% if campaigns %}
+  {% if campaigns_by_status.draft > 0 %}
+<div class="next-action">
+  <span class="next-action-icon">📋</span>
+  <span class="next-action-text"><strong>Следующее действие:</strong> у вас есть кампании в статусе «Черновик» — отправьте их на согласование, нажав «Запросить» под кампанией.</span>
+</div>
+  {% elif campaigns_by_status.approved > 0 %}
+<div class="next-action">
+  <span class="next-action-icon">📦</span>
+  <span class="next-action-text"><strong>Следующее действие:</strong> у вас есть одобренные кампании — нажмите «Подготовить публикацию» для создания publication batch.</span>
+</div>
+  {% endif %}
 {% endif %}
 
 <!-- Create Campaign Button -->
@@ -41,7 +69,21 @@
     <tr>
       <td><code>{{ c.campaign_code }}</code></td>
       <td>{{ c.name }}</td>
-      <td><span class="badge badge-{{ 'draft' if c.status == 'draft' else 'review' if c.status in ('in_review', 'pending_approval') else 'ready' if c.status == 'approved' else '' }}"></span> {{ c.status }}</td>
+      <td>
+        {% if c.status == 'draft' %}
+        <span class="status-badge status-badge-draft">Черновик</span>
+        {% elif c.status == 'pending_approval' %}
+        <span class="status-badge status-badge-pending_approval">На согласовании</span>
+        {% elif c.status == 'approved' %}
+        <span class="status-badge status-badge-approved">Одобрено</span>
+        {% elif c.status == 'rejected' %}
+        <span class="status-badge status-badge-rejected">Отклонено</span>
+        {% elif c.status == 'archived' %}
+        <span class="status-badge status-badge-archived">Архив</span>
+        {% else %}
+        <span class="status-badge status-badge-draft">{{ c.status }}</span>
+        {% endif %}
+      </td>
       <td>{{ c.description }}</td>
       <td>{{ c.creative_codes }}</td>
       <td>{{ c.created_at }}</td>
@@ -95,7 +137,7 @@
           <div class="table-empty-icon">📢</div>
           <div class="table-empty-title">Пока нет рекламных кампаний</div>
           <div class="table-empty-text">
-            <a href="/campaigns/create" class="btn-primary">Создать первую кампанию</a>
+            Создайте кампанию, чтобы начать. Сначала <a href="/creatives">загрузите креатив</a>, затем <a href="/campaigns/create">создайте кампанию</a>.
           </div>
         </div>
       </td>
