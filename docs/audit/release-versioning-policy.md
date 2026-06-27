@@ -65,6 +65,43 @@ v<MAJOR>.<MINOR>.<PATCH>-<descriptor>
 
 ---
 
+### v0.12.1-pilot-runbook-go-no-go-baseline (2026-06-16)
+
+**Type:** Patch release on v0.12.0.
+
+**Includes:**
+- v0.12.0-product-workflow-backend-manifest (full baseline)
+- 41.5 — Pilot Runbook & GO/NO-GO Pack
+  - `docs/pilot/one-kso-pilot-runbook.md` — full pilot runbook (scope, roles, prerequisites, phases, stop criteria, rollback, evidence, communications)
+  - `docs/pilot/go-no-go-checklist.md` — GO/NO-GO decision matrix (9 categories, 50+ criteria)
+  - `docs/pilot/physical-approval-tokens.md` — 7 approval tokens (scanner → long-run → KSO access → delivery → sidecar → PoP → autostart)
+  - `docs/pilot/evidence-checklist.md` — 21 backend evidence items (captured) + 12 physical items (pending)
+  - `docs/pilot/known-risks-and-deferred-items.md` — 3 blockers, 5 non-blocking tech-debt, 5 accepted risks, 7 deferred items
+  - Updated `docs/audit/technical-debt-next-actions.md`
+  - Updated `docs/audit/product-backend-frontend-gap-analysis.md`
+
+**Regression:** 5260 passed, 32 skipped, 0 failed (inherited from v0.12.0 — docs-only, no code changes).
+
+**Pilot Status:** NO-GO 🔴
+- HW scanner E2E: not executed (no hardware)
+- Controlled long-run: not executed
+- Physical KSO delivery gate: not approved
+- All 7 approval tokens: PENDING ⛔
+
+**Remaining Blockers:**
+- HW scanner E2E validation (barcode → campaign match)
+- Controlled long-run (1h/8h/48h options, monitoring)
+- Explicit physical KSO approval gate
+
+**Non-Blocking Technical Debt:**
+- `ScheduleRun` raw SQL in `create_batch_from_campaign` (ORM exists, can migrate later)
+- `CampaignCreative.is_active` ORM/schema mismatch (deferred to migration track)
+- 7 legacy BackendClient methods (dead code, unused by portal)
+- `/deployment` page: demo-only (documentation, no backend data)
+- `ScheduleConflict` ORM missing (legacy table)
+
+---
+
 ### v0.11.1-pre-pilot-access-integration-hotfix (2026-06-16)
 
 **Type:** Patch hotfix on v0.11.0.

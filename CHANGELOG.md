@@ -22,7 +22,32 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## Release v0.12.1 — Pilot Runbook GO/NO-GO Baseline (2026-06-16)
 
+**Documentation-only patch on v0.12.0 — prepares decision-ready pilot documentation without changing any code or product logic.**
+
+### Includes
+- v0.12.0-product-workflow-backend-manifest (full baseline)
+- 41.5 — Pilot Runbook & GO/NO-GO Pack
+  - `docs/pilot/one-kso-pilot-runbook.md` — full runbook (scope, roles, prerequisites, 4 phases, 8 stop criteria, rollback, evidence, communications)
+  - `docs/pilot/go-no-go-checklist.md` — GO/NO-GO matrix (9 categories, 50+ criteria)
+  - `docs/pilot/physical-approval-tokens.md` — 7 tokens: scanner → long-run → KSO → delivery → sidecar → PoP → autostart
+  - `docs/pilot/evidence-checklist.md` — 21 captured backend items + 12 pending physical items
+  - `docs/pilot/known-risks-and-deferred-items.md` — 3 blockers, 5 tech-debt, 5 accepted risks, 7 deferred
+- Updated `docs/audit/technical-debt-next-actions.md`
+- Updated `docs/audit/product-backend-frontend-gap-analysis.md`
+
+### Regression
+5260 passed, 32 skipped, 0 failed (inherited from v0.12.0 — docs-only, no code changes).
+
+### Pilot status
+**NO-GO** 🔴 — all 7 approval tokens PENDING ⛔.
+Blockers: HW scanner E2E, controlled long-run, explicit physical delivery gate.
+
+### Commit
+78339aa — tag v0.12.1-pilot-runbook-go-no-go-baseline
+
+---
 
 ## Release v0.12.0 — Product Workflow Backend Manifest Baseline (2026-06-16)
 
