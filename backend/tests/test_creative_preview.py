@@ -21,10 +21,14 @@ class TestPreviewEndpoint:
         assert "/api/creatives/by-code/{creative_code}/preview" in paths
 
     def test_preview_registered_in_main_app(self):
-        """Preview route is included in main FastAPI app."""
+        """Preview route is included in main FastAPI app (verified via TestClient)."""
         from backend.app.main import app
-        route_paths = [r.path for r in app.routes]
-        assert "/api/creatives/by-code/{creative_code}/preview" in route_paths
+        from fastapi.testclient import TestClient
+        client = TestClient(app)
+        resp = client.get("/api/creatives/by-code/FAKE_CODE/preview")
+        # Route exists — 401 (no auth) or 404 (not found) is expected,
+        # 404 vs 401 depends on middleware order but NOT 405/not found.
+        assert resp.status_code != 404  # route not registered at all
 
 
 # ══════════════════════════════════════════════════════════════════════

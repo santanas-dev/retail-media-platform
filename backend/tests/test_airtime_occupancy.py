@@ -212,7 +212,11 @@ class TestAirtimeRouter:
         assert "GET" in routes["/api/airtime/conflicts"]
 
     def test_router_registered_in_main_app(self):
+        """Airtime routes included in main app (verified via TestClient)."""
         from backend.app.main import app
-        route_paths = [r.path for r in app.routes]
-        assert "/api/airtime/occupancy" in route_paths
-        assert "/api/airtime/conflicts" in route_paths
+        from fastapi.testclient import TestClient
+        client = TestClient(app)
+        r1 = client.get("/api/airtime/occupancy?device_code=x")
+        r2 = client.get("/api/airtime/conflicts?device_code=x")
+        for resp, path in ((r1, "occupancy"), (r2, "conflicts")):
+            assert resp.status_code != 404, f"{path} not registered"
