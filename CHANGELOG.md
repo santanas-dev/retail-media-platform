@@ -7,6 +7,23 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [41.5-pilot-runbook-go-no-go-pack] — 2026-06-16
+
+**Pilot Runbook & GO/NO-GO Pack — decision-ready documentation for physical pilot.**
+
+### Created
+- docs/pilot/one-kso-pilot-runbook.md — full pilot runbook
+- docs/pilot/go-no-go-checklist.md — GO/NO-GO decision matrix
+- docs/pilot/physical-approval-tokens.md — 7 approval tokens
+- docs/pilot/evidence-checklist.md — 21 backend + 12 physical items
+- docs/pilot/known-risks-and-deferred-items.md — 3 blockers + 5 tech-debt
+
+### Verdict: NO-GO (3 blockers). Docs-only, no code changes.
+
+---
+
+
+
 ## Release v0.12.0 — Product Workflow Backend Manifest Baseline (2026-06-16)
 
 **Full backend product workflow: creative upload → campaign creation → approval → publication batch → manifest generation N+1. Backend-only — no physical KSO delivery.**

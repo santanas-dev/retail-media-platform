@@ -660,3 +660,19 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 **NO-GO** for physical KSO delivery. Backend-only product workflow is green
 (5260 passed, 32 skipped, 0 failed). All critical RBAC/RLS/audit gates passed.
 No secrets, no JS/CDN/localStorage.
+
+## 41.5 — Pilot Runbook & GO/NO-GO Pack (2026-06-16)
+
+### Status
+- ✅ docs/pilot/one-kso-pilot-runbook.md — full pilot runbook
+- ✅ docs/pilot/go-no-go-checklist.md — GO/NO-GO decision matrix across all domains
+- ✅ docs/pilot/physical-approval-tokens.md — 7 approval tokens with lifecycle rules
+- ✅ docs/pilot/evidence-checklist.md — 21 backend + 12 physical evidence items
+- ✅ docs/pilot/known-risks-and-deferred-items.md — blockers, tech-debt, accepted risks
+- ✅ CHANGELOG.md updated with 41.5 entry
+
+### Verdict: NO-GO
+3 blockers remain: HW scanner E2E, controlled long-run, physical KSO delivery.
+
+### No code changes
+Docs-only step.
