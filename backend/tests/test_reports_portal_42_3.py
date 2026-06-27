@@ -26,7 +26,7 @@ class TestReportsPage42_3:
 
     def test_reports_shows_planned_disclaimer(self):
         html = _load()
-        assert "Это плановая отчётность" in html
+        assert "Данные ниже — плановые" in html
 
     def test_reports_shows_pilot_nogo(self):
         html = _load()
@@ -39,16 +39,16 @@ class TestReportsPage42_3:
 
     def test_reports_shows_publication_batch_export(self):
         html = _load()
-        assert "Publication Batches" in html
-        assert "publication_batches_export.csv" in html
+        assert "Пакеты публикации" in html
+        assert "publications.csv" in html
 
     def test_reports_shows_manifest_status(self):
         html = _load()
-        assert "Manifest publish status" in html
+        assert "manifest_statuses" in html
 
     def test_reports_shows_airtime_export_links(self):
         html = _load()
-        assert "airtime_occupancy_export.csv" in html
+        assert "airtime.csv" in html
         assert "conflicts_export.csv" in html
 
 

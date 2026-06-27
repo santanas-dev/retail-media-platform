@@ -196,7 +196,7 @@ class TestPublicationsTemplateBatches(unittest.TestCase):
     def test_physical_delivery_warning(self):
         """Shows warning that physical KSO delivery is disabled."""
         content = self._get_content()
-        self.assertIn("Доставка отключена", content)
+        self.assertIn("Доставка и sidecar sync отключены", content)
 
     def test_no_javascript(self):
         """No <script>, onclick, confirm, CDN, localStorage."""
@@ -210,7 +210,7 @@ class TestPublicationsTemplateBatches(unittest.TestCase):
     def test_backend_only_mode(self):
         """Shows backend-only mode info."""
         content = self._get_content()
-        self.assertIn("backend-only", content)
+        self.assertIn("Backend-only", content)
 
 
 class TestPortalMainHandlerExists(unittest.TestCase):
@@ -443,7 +443,7 @@ class TestPublicationsTemplateBatchActions(unittest.TestCase):
         """Request approval button exists in template."""
         content = self._get_content()
         self.assertIn("request-approval", content)
-        self.assertIn("Согласование", content)
+        self.assertIn("На согласование", content)
 
     def test_batch_generate_action_present(self):
         """Generate button exists in template."""

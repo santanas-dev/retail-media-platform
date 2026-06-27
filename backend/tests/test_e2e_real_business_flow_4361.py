@@ -590,7 +590,7 @@ class TestPortalStateAfterE2EFlow(unittest.TestCase):
         """Readiness page remains NO-GO even after full backend flow."""
         resp = self.client.get("/readiness")
         self.assertIn("NO-GO", resp.text)
-        self.assertIn("Сканер отсутствует", resp.text)
+        self.assertIn("Сканер не подключён", resp.text)
 
     def test_readiness_has_acceptance_checklist(self):
         resp = self.client.get("/readiness")
