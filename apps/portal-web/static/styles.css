@@ -495,6 +495,88 @@ h1, h2, h3, h4 { text-wrap: balance; }
 .legend h3 { margin-top: 0; }
 .legend-row { display: flex; align-items: center; gap: 0.75rem; margin: 0.5rem 0; font-size: 0.9rem; }
 
+/* ── Business Campaign Form ─────────────────────── */
+.business-form fieldset.form-fieldset {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.business-form legend {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--color-text, #111827);
+  padding: 0 0.5rem;
+}
+.days-group .days-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+}
+.day-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  background: var(--color-bg, #fff);
+}
+.day-label:has(input:checked) {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+.day-label input[type="checkbox"] {
+  margin: 0;
+}
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.time-sep {
+  color: #6b7280;
+  font-weight: 600;
+}
+.time-row input[type="time"] {
+  width: 110px;
+}
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+.summary-section {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.summary-item {
+  font-size: 0.9rem;
+}
+.summary-label {
+  font-weight: 600;
+  color: var(--color-text-secondary, #6b7280);
+}
+.action-bar {
+  margin-bottom: 1rem;
+}
+.action-bar .btn-primary {
+  display: inline-block;
+  text-decoration: none;
+}
+
 /* ── Reduced motion ─────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

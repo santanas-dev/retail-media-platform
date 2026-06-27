@@ -1,91 +1,79 @@
-# Campaigns Core
+# Campaign Workflow
 
-## Overview
+## Business Principle
 
-Core campaign management — lifecycle, channel assignment, infrastructure targeting,
-and validated rendition assignment.
+**Campaign adds ad material to schedule. Publication builds full manifest/playlist for KSO. Local KSO playlist is never mutated piecemeal.**
 
-## Models
-
-### Campaign
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | UUID | PK |
-| `order_id` | UUID → orders | FK, NOT NULL |
-| `advertiser_id` | UUID → advertisers | Auto-populated from order |
-| `brand_id` | UUID → brands | Nullable, must match order.brand_id if set |
-| `name` | String(255) | |
-| `objective` | String(100) | e.g. brand_awareness, sales, promo |
-| `status` | String(20) | draft, in_review, approved, rejected, paused, cancelled, completed |
-| `planned_start_date` | Date | |
-| `planned_end_date` | Date | Must be >= start, within order bounds |
-| `priority` | Integer | >= 0, default 0 |
-| `budget` | Numeric(15,2) | >= 0 |
-| `currency` | String(3) | Default RUB |
-| `comment` | Text | |
-| `created_by` | UUID → users | |
-| `approved_by` | UUID → users | Set on approve |
-| `approved_at` | DateTime | Set on approve |
-| `rejection_reason` | Text | Set on reject |
-| `created_at`, `updated_at` | DateTime | |
-
-### CampaignChannel
-Links campaign to media channels. UNIQUE(campaign_id, channel_id).
-
-### CampaignTarget
-Infrastructure targeting: all_stores, branch, cluster, store, logical_carrier, display_surface.
-Only one id field filled per target, matching the target_type.
-
-### CampaignRendition
-Links campaign to validated renditions. UNIQUE(campaign_id, rendition_id).
-
-## Lifecycle
+## Workflow
 
 ```
-draft → submit → in_review → approve → approved
-  ↑                   ↓
-  └── (resubmit) ── rejected ← reject
+1. Create Campaign (draft)     →  /campaigns/create (business form)
+2. Bind Creatives              →  POST /campaigns/by-code/{code}/creatives
+3. Configure Schedule          →  /campaigns/create creates Schedule + Slots
+4. Submit for Review           →  POST /campaigns/by-code/{code}/submit (draft → in_review)
+5. Approve                     →  POST /api/campaigns/{id}/approve (in_review → approved)
+6. Generate Manifest           →  POST /api/manifests
+7. Publish                     →  POST /api/manifests/{code}/publish
+
+After publication:
+- KSO polls gateway for current manifest
+- Sidecar agent updates local cache
+- Player renders scheduled creatives
+- Proof of Play events flow from KSO → gateway → PoP pipeline
 ```
 
-| Action | From | To | Permission |
-|--------|------|----|-----------|
-| Create | — | draft | campaigns.create |
-| Edit | draft, rejected | — | campaigns.manage |
-| Submit | draft, rejected | in_review | campaigns.manage |
-| Approve | in_review | approved | campaigns.approve |
-| Reject | in_review | rejected | campaigns.approve |
+## Business Campaign Creation (41.2)
 
-Submit and approve both require: ≥1 channel, ≥1 target, ≥1 active valid rendition
-(with approved creative, matching campaign channel).
+The portal `/campaigns/create` page provides a business-friendly form:
 
-## API
+### Fields
 
-| Method | Path | Permission |
-|--------|------|-----------|
-| GET | /api/campaigns | campaigns.read |
-| POST | /api/campaigns | campaigns.create |
-| GET | /api/campaigns/{id} | campaigns.read |
-| PUT | /api/campaigns/{id} | campaigns.manage |
-| POST | /api/campaigns/{id}/submit | campaigns.manage |
-| POST | /api/campaigns/{id}/approve | campaigns.approve |
-| POST | /api/campaigns/{id}/reject | campaigns.approve |
-| GET | /api/campaigns/{id}/channels | campaigns.read |
-| PUT | /api/campaigns/{id}/channels | campaigns.manage |
-| GET | /api/campaigns/{id}/targets | campaigns.read |
-| PUT | /api/campaigns/{id}/targets | campaigns.manage |
-| GET | /api/campaigns/{id}/renditions | campaigns.read |
-| PUT | /api/campaigns/{id}/renditions | campaigns.manage |
+| Field | Required | Description |
+|---|---|---|
+| campaign_code | Yes | Unique code (a-z0-9_-), 3-64 chars |
+| name | Yes | Campaign name, 1-255 chars |
+| description | No | Free text, up to 500 chars |
+| advertiser_code | No | Informational dropdown |
+| creative_code | No | Creative to bind |
+| device_code | No | KSO device for placement |
+| date_from | Yes | Campaign start date |
+| date_to | Yes | Campaign end date |
+| timezone | Yes | Default: Europe/Moscow |
+| days_of_week | Yes | Checkboxes: Пн–Вс |
+| time_window_preset | Yes | all_day / morning / day / evening / custom |
+
+### Creation Pipeline
+
+On submit, the portal orchestrates 4 backend calls:
+
+1. **`POST /api/campaigns/by-code`** — Create campaign (draft) using internal technical context
+2. **`POST /api/placements`** — Create placement (campaign→creative→device) if device selected
+3. **`POST /api/schedules`** — Create schedule linked to campaign
+4. **`POST /api/schedules/{code}/items`** — Create schedule slots (one per selected day_of_week)
+
+### Submit for Approval
+
+- `POST /campaigns/by-code/{code}/submit` → campaign status: draft → in_review
+- Requires `campaigns.manage` permission
+- RLS: advertiser scope enforced
+- Audit: campaign.submit event written
+
+### Approval
+
+See [Approvals domain documentation](../backend/app/domains/approvals/) for approval workflow.
+
+### Manifest Generation & Publication
+
+After a campaign is approved, it is included in the next manifest generation cycle.
+Publication creates a full manifest/playlist — KSO playlist is never mutated piecemeal.
 
 ## Permissions
 
-| Role | read | create | manage | approve |
-|------|:----:|:------:|:------:|:-------:|
+| Role | create | read | manage | approve |
+|---|---|---|---|---|
 | system_admin | ✓ | ✓ | ✓ | ✓ |
 | ad_manager | ✓ | ✓ | ✓ | — |
-| approver | ✓ | — | — | ✓ |
-| analyst | ✓ | — | — | — |
-| security_admin | ✓ | — | — | — |
-| operations | ✓ | — | — | — |
-
-Using existing permissions only — no new permissions created.
+| approver | — | ✓ | — | ✓ |
+| analyst | — | ✓ | — | — |
+| security_admin | — | ✓ | — | — |
+| operations | — | ✓ | — | — |

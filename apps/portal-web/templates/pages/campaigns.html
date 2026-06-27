@@ -8,40 +8,9 @@
 <div class="flash-message flash-{{ flash_type }}">{{ flash_msg }}</div>
 {% endif %}
 
-<!-- Create Campaign Form -->
-<div class="form-section">
-  <div class="form-title">Создать кампанию</div>
-  <form method="post" action="/campaigns/create" class="create-form">
-    <div class="form-row">
-      <div class="form-group">
-        <label for="campaign_code">Код кампании*</label>
-        <input type="text" id="campaign_code" name="campaign_code"
-               placeholder="winter_promo_2026" minlength="3" maxlength="64"
-               pattern="[a-z0-9_-]+" required>
-        <span class="form-hint">Строчные латинские буквы, цифры, дефис, подчёркивание. 3–64.</span>
-      </div>
-      <div class="form-group">
-        <label for="name">Название*</label>
-        <input type="text" id="name" name="name"
-               placeholder="Зимняя промо-кампания" minlength="1" maxlength="255" required>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label for="description">Описание</label>
-        <input type="text" id="description" name="description"
-               placeholder="Описание кампании" maxlength="500">
-      </div>
-      <div class="form-group">
-        <label for="creative_code">Код креатива</label>
-        <input type="text" id="creative_code" name="creative_code"
-               placeholder="demo_creative_001" minlength="1" maxlength="64"
-               pattern="[a-z0-9_-]+">
-        <span class="form-hint">Необязательно. creative_code ранее загруженного креатива.</span>
-      </div>
-    </div>
-    <button type="submit" class="btn-primary">Создать кампанию</button>
-  </form>
+<!-- Create Campaign Button -->
+<div class="action-bar">
+  <a href="/campaigns/create" class="btn-primary">+ Создать кампанию</a>
 </div>
 
 <!-- Backend Unavailable -->
@@ -78,7 +47,7 @@
       <td>{{ c.created_at }}</td>
       <td>
         {% if c.status != 'archived' %}
-        <form method="post" action="/campaigns/{{ c.campaign_code }}/archive" style="display:inline" onsubmit="return confirm('Архивировать кампанию {{ c.campaign_code }}?')">
+        <form method="post" action="/campaigns/{{ c.campaign_code }}/archive" style="display:inline">
           <button type="submit" class="btn-sm btn-danger">Архив</button>
         </form>
         {% endif %}
@@ -101,6 +70,13 @@
           <input type="text" name="creative_code" placeholder="Код креатива*" minlength="1" maxlength="64" pattern="[a-z0-9_-]+" required style="width:140px">
           <button type="submit" class="btn-sm btn-primary">+ Привязать</button>
         </form>
+        <!-- Submit for Approval -->
+        {% if c.status in ('draft', 'rejected') %}
+        <form method="post" action="/campaigns/{{ c.campaign_code }}/submit" class="inline-form">
+          <span class="form-title-sm">Согласование:</span>
+          <button type="submit" class="btn-sm btn-success">→ На согласование</button>
+        </form>
+        {% endif %}
       </td>
     </tr>
     {% endif %}
@@ -111,7 +87,9 @@
         <div class="table-empty-state">
           <div class="table-empty-icon">📢</div>
           <div class="table-empty-title">Пока нет рекламных кампаний</div>
-          <div class="table-empty-text">Создайте кампанию через форму выше, чтобы связать её с загруженными креативами.</div>
+          <div class="table-empty-text">
+            <a href="/campaigns/create" class="btn-primary">Создать первую кампанию</a>
+          </div>
         </div>
       </td>
     </tr>
@@ -127,6 +105,6 @@
 </div>
 <div class="note-box">
   <span class="note-icon">📋</span>
-  <span class="note-text">Production Campaign API: создание, редактирование, архивация и привязка креативов через production code-based endpoints (POST by-code, PATCH by-code, archive, creatives). Test KSO placement endpoint сохранён как legacy/dev helper.</span>
+  <span class="note-text">Production Campaign API: создание, редактирование, архивация, привязка креативов и отправка на согласование через production code-based endpoints.</span>
 </div>
 {% endblock %}

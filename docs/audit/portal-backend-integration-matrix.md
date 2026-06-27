@@ -29,11 +29,13 @@
 | | | | `list_manifests` | `GET /api/manifests` | | `publications.read` | — | manifest_code, status | | ✅ |
 | | | | `list_approvals_prod` | `GET /api/approvals` | | `campaigns.approve` | — | status (pending/in_review count) | | ✅ |
 | 2 | `/campaigns` | `pages/campaigns.html` | `list_campaigns_prod` | `GET /api/campaigns` | `campaigns.read` | `campaigns.read` | campaign_scope | campaign_code, name, status, creative_codes | Fallback: empty + "Данные временно недоступны" | ✅ |
-| | POST `/campaigns/create` | | `create_campaign` | `POST /api/campaigns/by-code` | | `campaigns.create` | | | Flash → redirect | ✅ |
+| | GET `/campaigns/create` | `pages/campaigns_create.html` | `list_advertisers`, `list_creatives`, `list_kso_devices` | Advertiser/Creative/Device APIs | `campaigns.read` | `campaigns.read` | campaign_scope | Dropdown data (advertiser, creative, device codes) | Fallback: empty dropdowns | ✅ (new 41.2) |
+| | POST `/campaigns/create` | — | `create_campaign` + `bind_campaign_creative` + `create_placement` + `create_schedule` + `create_schedule_slot` | 4-step orchestration via `POST /api/campaigns/by-code`, `POST /api/placements`, `POST /api/schedules`, `POST /api/schedules/{code}/items` | `campaigns.create`, `scheduling.manage` | `campaigns.create`, `scheduling.manage` | campaign_scope | campaign_code, name, placement_code, schedule_code, slot_count | Summary page with all created objects | ✅ (new 41.2) |
 | | POST `/{code}/edit` | | `update_campaign_by_code` | `PATCH /api/campaigns/by-code/{code}` | | `campaigns.manage` | | | Flash → redirect | ✅ |
 | | POST `/{code}/archive` | | `archive_campaign_by_code` | `POST /api/campaigns/by-code/{code}/archive` | | `campaigns.manage` | | | Flash → redirect | ✅ |
 | | POST `/{code}/bind-creative` | | `bind_campaign_creative` | `POST /api/campaigns/by-code/{code}/creatives` | | `campaigns.manage` | | | Flash → redirect | ✅ |
 | | POST `/{code}/unbind-creative/{cc}` | | `unbind_campaign_creative` | `DELETE /api/campaigns/by-code/{code}/creatives/{cc}` | | `campaigns.manage` | | | Flash → redirect | ✅ |
+| | POST `/{code}/submit` | — | `submit_campaign` | `POST /api/campaigns/by-code/{code}/submit` | | `campaigns.manage` | campaign_scope | draft → in_review | Flash → redirect | ✅ (new 41.2) |
 | 3 | `/creatives` | `pages/creatives.html` | `list_creatives` | `GET /api/creatives` | `media.read` | `media.read` | creative_scope | creative_code, name, status, content_type, width, height | Fallback: empty + "Данные временно недоступны" | ✅ |
 | | POST `/creatives/upload` | | `upload_creative` | `POST /api/creatives/upload` | | `media.manage` | | | Flash → redirect | ✅ |
 | 4 | `/schedule` | `pages/schedule.html` | `list_schedules` | `GET /api/schedules` | `scheduling.read` | `scheduling.read` | schedule_scope | schedule_code, name, status, campaign_code, slot_count | Fallback: empty + "Данные временно недоступны" | ✅ |

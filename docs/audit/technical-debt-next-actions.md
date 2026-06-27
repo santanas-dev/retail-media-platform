@@ -543,6 +543,23 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - Full fluid typography/spacing system
 - Pico CSS framework evaluation
 
+## 41.2 — Business Campaign Creation UX (2026-06-16)
+
+### Status
+- ✅ `/campaigns` → list with create link, inline edit/bind/submit per-campaign
+- ✅ `/campaigns/create` → business form: campaign_code, name, description, advertiser, creative, device, dates, timezone, days of week, time window (presets + custom)
+- ✅ `POST /campaigns/create` → orchestrates 4 API calls: campaign + placement + schedule + schedule slots
+- ✅ `POST /campaigns/{code}/submit` → draft → in_review (via new code-based backend endpoint)
+- ✅ `POST /api/campaigns/by-code/{code}/submit` — new backend endpoint (RLS, audit)
+- ✅ JS removed: archive button no longer has `onsubmit="return confirm(...)"`
+- ✅ No `<script>`, `onclick`, `confirm()` on `/campaigns` or `/campaigns/create`
+- ✅ Portal regression: 474 passed (+13 new), 20 skipped
+
+### Deferred / Next
+- 41.3: Campaign/Schedule UX — calendar view, rich schedule edit
+- Full approval UX (approve/reject buttons in portal)
+- Approval requires campaigns.approve permission (separate from campaigns.manage)
+
 ## 40.3 — Pilot Readiness Gates Plan (2026-06-26)
 
 ### Status

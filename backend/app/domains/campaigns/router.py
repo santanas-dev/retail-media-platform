@@ -378,6 +378,43 @@ async def archive_campaign_by_code(
     return result
 
 
+@router.post(
+    "/campaigns/by-code/{campaign_code}/submit",
+    response_model=schemas.CampaignSafeResponse,
+)
+async def submit_campaign_by_code(
+    campaign_code: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("campaigns.manage")),
+):
+    """Submit campaign for review by campaign_code. RLS: advertiser scope enforced."""
+    from fastapi import HTTPException
+    campaign = await service.get_campaign_by_code(db, campaign_code)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "submit campaign")
+    result = await service.submit_campaign(db, campaign.id)
+    creative_codes = sorted([
+        cc.creative_code for cc in (result.creatives or [])
+    ])
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="campaign.submit", target_type="campaign",
+        target_ref=campaign_code,
+        details={"new_status": result.status},
+    )
+    return schemas.CampaignSafeResponse(
+        campaign_code=result.campaign_code or campaign_code,
+        name=result.name,
+        status=result.status,
+        description=result.comment,
+        creative_codes=creative_codes,
+        created_at=result.created_at,
+        updated_at=result.updated_at,
+    )
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Campaign-Creative Binding (production API)
 # ═══════════════════════════════════════════════════════════════════════════

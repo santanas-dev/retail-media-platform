@@ -970,6 +970,9 @@ async def campaigns_page(request: Request):
     elif raw == "ok:unbound":
         flash_type = "success"
         flash_msg = "Креатив отвязан."
+    elif raw == "ok:submitted":
+        flash_type = "success"
+        flash_msg = "Кампания отправлена на согласование."
     elif raw == "error":
         flash_type = "error"
         flash_msg = request.session.pop("camp_flash_msg", "Ошибка.")[:200]
@@ -1160,6 +1163,358 @@ async def campaigns_unbind_creative(
         request.session["camp_flash_msg"] = result.get("error", "Ошибка отвязки")[:200]
 
     return RedirectResponse(url="/campaigns", status_code=303)
+
+
+@app.post("/campaigns/{campaign_code}/submit", response_class=HTMLResponse)
+async def campaigns_submit(
+    request: Request,
+    campaign_code: str,
+):
+    """Submit campaign for review via POST /api/campaigns/by-code/{code}/submit."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/campaigns", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.submit_campaign(access_token, campaign_code)
+
+    if result["ok"]:
+        request.session["camp_flash"] = "ok:submitted"
+    else:
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = result.get("error", "Ошибка отправки")[:200]
+
+    return RedirectResponse(url="/campaigns", status_code=303)
+
+
+@app.get("/campaigns/create", response_class=HTMLResponse)
+async def campaigns_create_page(request: Request):
+    """Business campaign creation form with dropdowns."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    # Load dropdowns
+    advertisers = []
+    creatives = []
+    devices = []
+
+    if access_token:
+        # Advertisers
+        adv_result = await backend.list_advertisers(access_token)
+        if adv_result["ok"]:
+            for a in adv_result.get("data", []):
+                advertisers.append({
+                    "code": a.get("advertiser_code", a.get("name", "")),
+                    "name": a.get("name", a.get("advertiser_code", "")),
+                })
+
+        # Creatives (approved only)
+        cr_result = await backend.list_creatives(access_token)
+        if cr_result["ok"]:
+            for c in cr_result.get("data", []):
+                status = c.get("status", "")
+                if status not in ("archived", "rejected"):
+                    creatives.append({
+                        "code": c.get("creative_code", ""),
+                        "name": c.get("name", c.get("creative_code", "")),
+                    })
+
+        # Devices (active only)
+        dev_result = await backend.list_kso_devices(access_token)
+        if dev_result["ok"]:
+            for d in dev_result.get("data", []):
+                status = d.get("status", "")
+                if status not in ("archived", "decommissioned"):
+                    devices.append({
+                        "code": d.get("device_code", ""),
+                        "display_name": d.get("display_name", ""),
+                    })
+
+    # Form defaults
+    form = {
+        "campaign_code": "",
+        "name": "",
+        "description": "",
+        "advertiser_code": "",
+        "creative_code": "",
+        "device_code": "",
+        "date_from": "",
+        "date_to": "",
+        "timezone": "Europe/Moscow",
+        "days_of_week": [],
+        "time_window_preset": "all_day",
+        "start_time": "",
+        "end_time": "",
+    }
+
+    return templates.TemplateResponse(request, "pages/campaigns_create.html", {
+        "request": request,
+        "title": "Создание кампании",
+        "active": "campaigns",
+        "current_user": current_user,
+        "form": form,
+        "advertisers": advertisers,
+        "creatives": creatives,
+        "devices": devices,
+        "flash_msg": "",
+        "flash_type": "",
+        "errors": [],
+        "summary": None,
+    })
+
+
+@app.post("/campaigns/create", response_class=HTMLResponse)
+async def campaigns_create_submit(
+    request: Request,
+    campaign_code: str = Form(..., min_length=3, max_length=64),
+    name: str = Form(..., min_length=1, max_length=255),
+    description: str = Form("", max_length=500),
+    advertiser_code: str = Form(""),
+    creative_code: str = Form(""),
+    device_code: str = Form(""),
+    date_from: str = Form(..., min_length=1),
+    date_to: str = Form(..., min_length=1),
+    timezone: str = Form("Europe/Moscow"),
+    days_of_week: list[str] = Form(default_factory=list),
+    time_window_preset: str = Form("all_day"),
+    start_time: str = Form(""),
+    end_time: str = Form(""),
+):
+    """Create a full business campaign: campaign + creative binding + placement + schedule + slots."""
+    from datetime import date as date_type, datetime, time as time_type
+    from urllib.parse import urlencode
+
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        return RedirectResponse(url="/login", status_code=303)
+
+    backend = BackendClient()
+
+    # ══════════════════════════════════════════════════════════════════
+    # Validation
+    # ══════════════════════════════════════════════════════════════════
+    errors = []
+    form = {
+        "campaign_code": campaign_code.strip(),
+        "name": name.strip(),
+        "description": description.strip(),
+        "advertiser_code": advertiser_code.strip(),
+        "creative_code": creative_code.strip(),
+        "device_code": device_code.strip(),
+        "date_from": date_from,
+        "date_to": date_to,
+        "timezone": timezone,
+        "days_of_week": days_of_week,
+        "time_window_preset": time_window_preset,
+        "start_time": start_time,
+        "end_time": end_time,
+    }
+
+    # Date validation
+    try:
+        d_from = date_type.fromisoformat(date_from)
+        d_to = date_type.fromisoformat(date_to)
+        if d_from > d_to:
+            errors.append("Дата начала должна быть не позже даты окончания.")
+    except ValueError:
+        errors.append("Некорректный формат даты. Используйте ГГГГ-ММ-ДД.")
+
+    # Days of week
+    if not days_of_week:
+        errors.append("Выберите хотя бы один день недели.")
+
+    # Time window
+    st = "00:00"
+    et = "23:59"
+    preset_times = {
+        "all_day": ("00:00", "23:59"),
+        "morning": ("08:00", "12:00"),
+        "day": ("12:00", "17:00"),
+        "evening": ("17:00", "22:00"),
+    }
+    if time_window_preset in preset_times:
+        st, et = preset_times[time_window_preset]
+    elif time_window_preset == "custom":
+        st, et = start_time, end_time
+        if not st or not et:
+            errors.append("Для своего времени укажите start_time и end_time.")
+        else:
+            try:
+                t_st = time_type.fromisoformat(st)
+                t_et = time_type.fromisoformat(et)
+                if t_st >= t_et:
+                    errors.append("start_time должен быть раньше end_time.")
+            except ValueError:
+                errors.append("Некорректный формат времени. Используйте ЧЧ:ММ.")
+    else:
+        errors.append("Некорректный time_window_preset.")
+
+    # Unique campaign_code — check with backend
+    if not errors:
+        existing = await backend.get_campaign_by_code(access_token, form["campaign_code"])
+        if existing["ok"]:
+            errors.append(f"Код кампании '{form['campaign_code']}' уже занят.")
+
+    if errors:
+        return templates.TemplateResponse(request, "pages/campaigns_create.html", {
+            "request": request,
+            "title": "Создание кампании",
+            "active": "campaigns",
+            "current_user": current_user,
+            "form": form,
+            "advertisers": [],
+            "creatives": [],
+            "devices": [],
+            "flash_msg": "",
+            "flash_type": "",
+            "errors": errors,
+            "summary": None,
+        })
+
+    # ══════════════════════════════════════════════════════════════════
+    # Step 1: Create Campaign
+    # ══════════════════════════════════════════════════════════════════
+    creative_codes_list = [creative_code.strip()] if creative_code.strip() else []
+    campaign_payload = {
+        "campaign_code": form["campaign_code"],
+        "name": form["name"],
+        "description": form["description"] if form["description"] else None,
+        "creative_codes": creative_codes_list,
+    }
+    camp_result = await backend.create_campaign(access_token, campaign_payload)
+    if not camp_result["ok"]:
+        errors.append(f"Ошибка создания кампании: {camp_result.get('error', 'неизвестно')}")
+        return templates.TemplateResponse(request, "pages/campaigns_create.html", {
+            "request": request, "title": "Создание кампании", "active": "campaigns",
+            "current_user": current_user, "form": form,
+            "advertisers": [], "creatives": [], "devices": [],
+            "flash_msg": "", "flash_type": "", "errors": errors, "summary": None,
+        })
+
+    placement_code = None
+    schedule_code = None
+    slot_count = 0
+
+    # ══════════════════════════════════════════════════════════════════
+    # Step 2: Create Placement (if device selected)
+    # ══════════════════════════════════════════════════════════════════
+    if device_code.strip() and not errors:
+        placement_payload = {
+            "placement_code": f"{form['campaign_code']}_placement",
+            "campaign_code": form["campaign_code"],
+            "creative_code": creative_code.strip() if creative_code.strip() else form["campaign_code"],
+            "device_code": device_code.strip(),
+            "starts_at": f"{date_from}T00:00:00",
+            "ends_at": f"{date_to}T23:59:59",
+            "slot_order": 0,
+        }
+        placement_result = await backend.create_placement(access_token, placement_payload)
+        if placement_result["ok"]:
+            placement_code = placement_result["data"].get("placement_code", "")
+
+    # ══════════════════════════════════════════════════════════════════
+    # Step 3: Create Schedule
+    # ══════════════════════════════════════════════════════════════════
+    if not errors:
+        schedule_payload = {
+            "schedule_code": f"{form['campaign_code']}_schedule",
+            "name": f"Schedule: {form['name']}",
+            "campaign_code": form["campaign_code"],
+            "valid_from": date_from,
+            "valid_to": date_to,
+            "timezone": timezone,
+        }
+        schedule_result = await backend.create_schedule(access_token, schedule_payload)
+        if schedule_result["ok"]:
+            schedule_code = schedule_result["data"].get("schedule_code", "")
+
+            # ══════════════════════════════════════════════════════════
+            # Step 4: Create Schedule Slots (one per day_of_week)
+            # ══════════════════════════════════════════════════════════
+            for idx, dow in enumerate(days_of_week):
+                slot_payload = {
+                    "slot_code": f"{schedule_code}_slot_{dow}",
+                    "placement_code": placement_code,
+                    "day_of_week": int(dow),
+                    "start_time": st,
+                    "end_time": et,
+                    "slot_order": idx,
+                }
+                slot_result = await backend.create_schedule_slot(
+                    access_token, schedule_code, slot_payload,
+                )
+                if slot_result["ok"]:
+                    slot_count += 1
+
+    # ══════════════════════════════════════════════════════════════════
+    # Summary
+    # ══════════════════════════════════════════════════════════════════
+    day_names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+    days_display = ", ".join([day_names[int(d)] for d in sorted(days_of_week, key=int)]) if days_of_week else "—"
+
+    preset_labels = {
+        "all_day": "Весь день (00:00–23:59)",
+        "morning": "Утро (08:00–12:00)",
+        "day": "День (12:00–17:00)",
+        "evening": "Вечер (17:00–22:00)",
+        "custom": f"{st} – {et}",
+    }
+    time_display = preset_labels.get(time_window_preset, f"{st} – {et}")
+
+    # Resolve advertiser name
+    adv_name = advertiser_code if advertiser_code else "—"
+    # Resolve device name
+    dev_name = device_code if device_code else "—"
+
+    summary = {
+        "campaign_code": form["campaign_code"],
+        "name": form["name"],
+        "advertiser_name": adv_name,
+        "creative_code": creative_code.strip() if creative_code.strip() else None,
+        "device_name": dev_name,
+        "date_from": date_from,
+        "date_to": date_to,
+        "days_display": days_display,
+        "time_display": time_display,
+        "placement_code": placement_code,
+        "schedule_code": schedule_code,
+        "slot_count": slot_count,
+    }
+
+    return templates.TemplateResponse(request, "pages/campaigns_create.html", {
+        "request": request,
+        "title": "Кампания создана",
+        "active": "campaigns",
+        "current_user": current_user,
+        "form": {},
+        "advertisers": [],
+        "creatives": [],
+        "devices": [],
+        "flash_msg": "",
+        "flash_type": "",
+        "errors": [],
+        "summary": summary,
+    })
 
 
 def _campaigns_fallback(request: Request, current_user) -> HTMLResponse:

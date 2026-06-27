@@ -74,6 +74,70 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [41.2-business-campaign-creation-ux] — 2026-06-16
+
+**Business Campaign Creation UX — business form with advertiser, creative, device, dates, schedule, and submit.**
+
+Campaign adds ad material to schedule. Publication builds full manifest/playlist for KSO.
+Local KSO playlist is never mutated piecemeal.
+
+### Backend
+
+- `POST /api/campaigns/by-code/{code}/submit` — new endpoint (code-based submit, RLS enforced, audit trail)
+
+### Portal
+
+- `/campaigns` — list page now links to `/campaigns/create` (business form), inline edit/bind/submit per-campaign
+- `/campaigns/create` — **new business form** with:
+  - campaign_code, name, description, advertiser dropdown
+  - creative dropdown (non-archived/rejected), device dropdown (active)
+  - date_from, date_to, timezone (9 RU zones)
+  - days of week checkboxes (Пн–Вс)
+  - time window presets: all_day, morning, day, evening, custom
+  - server-side validation: date range, unique code, days required, time window
+- `POST /campaigns/create` — orchestrates 4-step creation:
+  1. Create campaign via `POST /api/campaigns/by-code`
+  2. Create placement via `POST /api/placements` (if device selected)
+  3. Create schedule via `POST /api/schedules`
+  4. Create schedule slots (one per day_of_week × time window)
+- `POST /campaigns/{code}/submit` — → `POST /api/campaigns/by-code/{code}/submit` (draft→in_review)
+- Summary page after creation: campaign_code, name, advertiser, creative, device, period, days, time, status, placement_code, schedule_code, slot count
+
+### BackendClient
+
+- `submit_campaign()` — new method for code-based submit
+
+### JS Removal
+
+- Archive button `onsubmit="return confirm(...)"` removed from campaigns page
+- No `<script>`, `onclick`, `confirm()` on `/campaigns` or `/campaigns/create`
+
+### No JS/CDN/localStorage
+
+- ✅ Server-side forms only
+- ✅ Pure CSS styling
+- ✅ No external CDN
+
+### Security/RBAC/RLS/Audit
+
+- Campaign create: `campaigns.create`
+- Campaign edit/archive/submit/bind: `campaigns.manage`
+- RLS: advertiser scope enforced via campaign_code resolution
+- Audit: `campaign.create`, `campaign.submit`, `campaign.bind_creative`
+
+### Tests
+
+| Suite | Passed | Skipped | Failed |
+|---|---|---|---|
+| Portal | **474** (+13) | 20 | 0 |
+
+### Campaign workflow statement
+
+> Campaign adds ad material to schedule. Publication builds full manifest/playlist for KSO.
+> Local KSO playlist is never mutated piecemeal.
+
+---
+
 ## [v0.11.1-pre-pilot-access-integration-hotfix] — 2026-06-16
 
 ### What's included

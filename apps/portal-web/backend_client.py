@@ -452,6 +452,19 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    async def submit_campaign(
+        self, access_token: str, campaign_code: str,
+    ) -> dict:
+        """POST /api/campaigns/by-code/{code}/submit → {ok, data: {campaign_code, status, ...}}.
+
+        Submits campaign for review: draft/rejected → in_review.
+        Requires campaigns.manage permission on the backend.
+        """
+        return await self._request(
+            "POST", f"/api/campaigns/by-code/{campaign_code}/submit",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
     # ── Schedule Placement (Step 37.5) ─────────────────────────────────
 
     async def list_placements(self, access_token: str) -> dict:
