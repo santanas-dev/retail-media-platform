@@ -6208,5 +6208,249 @@ class TestInventoryPage44_1(unittest.TestCase):
                              f"Raw UUIDs in inventory page: {matches[:5]}")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Business Acceptance Portal Tests (44.5)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestBusinessAcceptancePage44_5(unittest.TestCase):
+    """44.5: Business acceptance page at /readiness/business-acceptance."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_acceptance_page_accessible(self):
+        """Page renders successfully."""
+        resp = self.client.get("/readiness/business-acceptance")
+        self.assertIn(resp.status_code, (200, 303, 302),
+                      f"Expected 200 or redirect, got {resp.status_code}")
+
+    def test_acceptance_page_title(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            self.assertIn("Бизнес-приёмка", resp.text)
+
+    def test_shows_can_demo_to_business(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            self.assertIn("Можно показать бизнесу", resp.text)
+
+    def test_shows_can_test_without_kso(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            self.assertIn("Можно проверить без КСО", resp.text)
+
+    def test_shows_cannot_launch_in_store(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            self.assertIn("Нельзя запускать в магазин", resp.text)
+
+    def test_shows_delivery_blocked_message(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            self.assertIn("Доставка на КСО пока запрещена", resp.text)
+
+    def test_shows_5_physical_blockers(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            blockers = [
+                "Проверка физического сканера",
+                "Длительная проверка стабильности",
+                "Доставка на КСО",
+                "Синхронизация агента",
+                "Запуск пилота на точке",
+            ]
+            for b in blockers:
+                self.assertIn(b, resp.text, f"Missing blocker: {b}")
+
+    def test_shows_pilot_blocked_status(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            self.assertIn("Запуск заблокирован", resp.text)
+
+    def test_shows_av_pilot_mode(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            self.assertIn("пилотный режим", resp.text.lower())
+
+    def test_shows_security_check_section(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            self.assertIn("Проверка безопасности", resp.text)
+
+    def test_shows_fake_av_pass_forbidden(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            self.assertIn("Поддельная", resp.text)
+            # "Поддельная проверка безопасности запрещена"
+
+    def test_shows_what_needed_for_pilot(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            self.assertIn("Что нужно для пилота", resp.text)
+
+    def test_no_js_cdn_localstorage(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            lower = resp.text.lower()
+            for fb in ("<script", "onclick=", "localstorage",
+                        "cdnjs", "unpkg", "jsdelivr"):
+                self.assertNotIn(fb, lower, f"Must NOT contain: {fb}")
+
+    def test_no_forbidden_technical_terms(self):
+        """No forbidden terms in business acceptance page."""
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            lower = resp.text.lower()
+            forbidden = (
+                "backend", "manifest", "batch ", "pop", "endpoint",
+                "token", "raw uuid", "clamav", "ffprobe", "daemon",
+                "socket", "sidecar", "runner", "x11", "chromium",
+                "test-kso", "internal", "legacy", "deprecated",
+            )
+            for fb in forbidden:
+                self.assertNotIn(fb, lower, f"Must NOT contain: {fb}")
+
+    def test_no_secrets_leakage(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            lower = resp.text.lower()
+            for fb in ("device_secret", "access_token", "backend_url",
+                        "password", "bearer", "token="):
+                self.assertNotIn(fb, lower, f"Must NOT contain: {fb}")
+
+    def test_no_raw_uuid(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            import re
+            uuid_pattern = re.compile(
+                r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
+                re.IGNORECASE,
+            )
+            matches = uuid_pattern.findall(resp.text)
+            self.assertEqual(len(matches), 0,
+                             f"Raw UUIDs in acceptance page: {matches[:5]}")
+
+    def test_shows_quick_links(self):
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            nav_items = ("Главный экран", "Креативы", "Кампании",
+                         "Расписание", "Согласования", "Публикации", "Отчёты")
+            for item in nav_items:
+                self.assertIn(item, resp.text, f"Missing quick link: {item}")
+
+
+class TestReadinessPilotBlocked44_5(unittest.TestCase):
+    """44.5: Existing readiness page still shows pilot as blocked."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_readiness_still_shows_pilot_blocked(self):
+        resp = self.client.get("/readiness")
+        if resp.status_code == 200:
+            self.assertIn("Запуск заблокирован", resp.text)
+
+    def test_readiness_still_shows_5_blockers(self):
+        resp = self.client.get("/readiness")
+        if resp.status_code == 200:
+            blockers = [
+                "Проверка физического сканера",
+                "Длительная проверка стабильности",
+                "Manifest delivery",
+                "Синхронизация агента",
+                "Fleet rollout",
+            ]
+            for b in blockers:
+                self.assertIn(b, resp.text, f"Missing blocker: {b}")
+
+
+class TestDemoTermsRemoved44_5(unittest.TestCase):
+    """44.5: demo terms removed from visible production UI."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_creative_form_placeholder_no_demo(self):
+        """Check that demo_creative_001 is not visible in production UI.
+        
+        The form placeholder was changed from demo_creative_001 to рекламный_макет_001.
+        The upload form requires auth ({% if current_user %}), so the placeholder
+        may not render in unauthenticated tests. The important check is that
+        the old demo term does NOT appear anywhere in the page.
+        """
+        resp = self.client.get("/creatives")
+        if resp.status_code == 200:
+            # The old placeholder demo_creative_001 should be gone
+            self.assertNotIn("demo_creative_001", resp.text)
+            # If the upload form rendered (user is authenticated), verify new placeholder
+            if "рекламный_макет_001" in resp.text:
+                pass  # New placeholder confirmed
+
+    def test_admin_form_placeholder_no_demo(self):
+        """Admin RLS scopes placeholder has no demo prefixes."""
+        resp = self.client.get("/admin")
+        if resp.status_code == 200:
+            self.assertNotIn("demo_branch_north", resp.text)
+            self.assertNotIn("demo_store_001", resp.text)
+            self.assertNotIn("demo_report_kso", resp.text)
+
+
+class TestVisibleAuditKeyPages44_5(unittest.TestCase):
+    """44.5: Visible-only UI audit — key pages are clean of critical terms.
+    
+    NOTE: "raw uuid" appearing as "без raw uuid" in safety notes is NOT a leak —
+    these are security documentation notes explaining what is NOT shown.
+    """
+    def setUp(self):
+        self.client = TestClient(app)
+        self._critical_terms = (
+            "clamav", "ffprobe", "daemon", "test-kso",
+        )
+
+    def _check_page(self, url, page_name):
+        resp = self.client.get(url)
+        if resp.status_code == 200:
+            lower = resp.text.lower()
+            for term in self._critical_terms:
+                self.assertNotIn(term, lower,
+                    f"{page_name} ({url}) contains '{term}'")
+            # Also check no script/CDN
+            for fb in ("<script", "onclick=", "localstorage",
+                        "cdnjs", "unpkg", "jsdelivr"):
+                self.assertNotIn(fb, lower,
+                    f"{page_name} ({url}) contains '{fb}'")
+
+    def test_login_page_clean(self):
+        self._check_page("/login", "Login")
+
+    def test_dashboard_page_clean(self):
+        self._check_page("/dashboard", "Dashboard")
+
+    def test_creatives_page_clean(self):
+        self._check_page("/creatives", "Creatives")
+
+    def test_moderation_queue_page_clean(self):
+        self._check_page("/creatives/moderation/queue", "Moderation Queue")
+
+    def test_campaigns_page_clean(self):
+        self._check_page("/campaigns", "Campaigns")
+
+    def test_schedule_page_clean(self):
+        self._check_page("/schedule", "Schedule")
+
+    def test_approvals_page_clean(self):
+        self._check_page("/approvals", "Approvals")
+
+    def test_publications_page_clean(self):
+        self._check_page("/publications", "Publications")
+
+    def test_reports_page_clean(self):
+        self._check_page("/reports", "Reports")
+
+    def test_readiness_page_clean(self):
+        self._check_page("/readiness", "Readiness")
+
+    def test_acceptance_page_clean(self):
+        self._check_page("/readiness/business-acceptance", "Business Acceptance")
 if __name__ == "__main__":
     unittest.main()

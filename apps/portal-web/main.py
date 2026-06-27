@@ -968,6 +968,33 @@ def _readiness_fallback(
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Business Acceptance — Статическая страница бизнес-приёмки
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/readiness/business-acceptance", response_class=HTMLResponse)
+async def business_acceptance_page(request: Request):
+    """Business acceptance page: static informational page.
+
+    Summarises what can be shown to business stakeholders,
+    what can be tested without physical KSO, what is blocked,
+    security posture, and the pilot readiness checklist.
+    No dynamic data — pure informational page.
+    """
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/readiness/business-acceptance")
+    if guard is not None:
+        return guard
+
+    return templates.TemplateResponse(request, "pages/readiness_business_acceptance.html", {
+        "request": request,
+        "title": "Бизнес-приёмка",
+        "active": "readiness",
+        "demo": False,
+        "current_user": current_user,
+    })
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Hierarchy & KSO Devices — Backend API Integration (Step 37.2)
 # ══════════════════════════════════════════════════════════════════════
 

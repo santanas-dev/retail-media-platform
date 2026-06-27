@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">🎯 Бизнес-приёмка</h1>
+<p class="page-description">
+  Готовность портала к бизнес-демонстрации. Сводка сценариев, доступных для показа бизнесу,
+  и перечень физических ограничений, блокирующих запуск в магазин.
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     SECTION 1: МОЖНО ПОКАЗАТЬ БИЗНЕСУ
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<div class="section-card section-card-border-success">
+  <div class="section-card-header section-card-border-success">
+    <span class="section-card-icon">✅</span>
+    <span class="section-card-title">Можно показать бизнесу</span>
+  </div>
+  <div class="section-card-body">
+    <!-- Pipeline: полный цикл -->
+    <div class="pipeline">
+      <a href="/creatives" class="pipeline-step">
+        <span class="pipeline-step-num">1</span>
+        <span class="pipeline-step-icon">🎨</span>
+        <span class="pipeline-step-label">Креатив</span>
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <a href="/campaigns" class="pipeline-step">
+        <span class="pipeline-step-num">2</span>
+        <span class="pipeline-step-icon">📢</span>
+        <span class="pipeline-step-label">Кампания</span>
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <a href="/schedule" class="pipeline-step">
+        <span class="pipeline-step-num">3</span>
+        <span class="pipeline-step-icon">🗓</span>
+        <span class="pipeline-step-label">Расписание</span>
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <a href="/approvals" class="pipeline-step">
+        <span class="pipeline-step-num">4</span>
+        <span class="pipeline-step-icon">📝</span>
+        <span class="pipeline-step-label">Согласование</span>
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <a href="/publications" class="pipeline-step">
+        <span class="pipeline-step-num">5</span>
+        <span class="pipeline-step-icon">📋</span>
+        <span class="pipeline-step-label">Публикация</span>
+      </a>
+      <span class="pipeline-arrow">→</span>
+      <a href="/reports" class="pipeline-step">
+        <span class="pipeline-step-num">6</span>
+        <span class="pipeline-step-icon">📈</span>
+        <span class="pipeline-step-label">Отчёт</span>
+      </a>
+    </div>
+
+    <p class="text-sm text-secondary mt-16">
+      <strong>Полный цикл рекламной кампании в портале:</strong> креатив → кампания → расписание → согласование → публикация → отчёты.
+      Все этапы выполняются в системе без физической КСО.
+    </p>
+
+    <div class="checklist mt-12">
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Полный цикл рекламной кампании</strong> — от загрузки креатива до выгрузки отчётов, все этапы в портале</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Загрузка и проверка креативов</strong> — изображения (PNG/JPEG), видео (MP4), анимация (GIF), портрет 768×1024</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Модерация креативов</strong> — очередь на проверку, согласование, отклонение с комментариями</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Управление кампаниями и расписанием</strong> — создание, редактирование, привязка креативов, настройка слотов</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Согласование кампаний</strong> — maker-checker, запрос решения, утверждение или отклонение</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Подготовка пакетов публикации</strong> — формирование пакетов рекламных материалов, публикация в систему</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Плановая отчётность с выгрузкой CSV</strong> — занятость эфира, кампании по статусам, экспорт в файл</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Безопасность</strong> — контроль доступа (RBAC), разделение данных (RLS), журнал действий</span>
+      </div>
+    </div>
+  </div>
+  <div class="section-card-footer">
+    <a href="/creatives" class="btn btn-sm btn-primary">🎨 Начать с креатива</a>
+    <a href="/dashboard" class="btn btn-sm btn-ghost">📊 Главный экран</a>
+    <a href="/reports" class="btn btn-sm btn-ghost">📈 Отчёты</a>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     SECTION 2: МОЖНО ПРОВЕРИТЬ БЕЗ КСО
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🧪</span>
+    <span class="section-card-title">Можно проверить без КСО</span>
+  </div>
+  <div class="section-card-body">
+    <p class="text-sm text-secondary mb-12">
+      Все сценарии рекламной кампании работают полностью в портале. Физическая КСО не требуется —
+      загрузка, создание, настройка, согласование и отчётность выполняются в системе.
+    </p>
+
+    <div class="checklist">
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Все сценарии работают в портале</strong> — полный цикл без внешних систем</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Физическая КСО не требуется</strong> — демонстрация полностью в портале</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Загрузка креатива, создание кампании, настройка расписания</strong> — полностью в портале</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Согласование, пакетирование публикаций</strong> — в портале</span>
+      </div>
+      <div class="checklist-item done">
+        <span class="checklist-icon">✅</span>
+        <span class="checklist-label"><strong>Отчёты формируются по плановым данным</strong> — CSV-выгрузка доступна</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     SECTION 3: НЕЛЬЗЯ ЗАПУСКАТЬ В МАГАЗИН
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<div class="section-card section-card-error">
+  <div class="section-card-header section-card-error">
+    <span class="section-card-icon">🚫</span>
+    <span class="section-card-title">Нельзя запускать в магазин</span>
+    <span class="pilot-status no-go ml-auto text-xs">🚫 Запуск заблокирован</span>
+  </div>
+  <div class="section-card-body">
+    <p class="text-sm text-secondary mb-12">
+      <strong>5 физических P0 блокеров.</strong> Все перечисленные ниже проверки требуют физического доступа
+      к оборудованию и не могут быть выполнены в портале. До закрытия всех блокеров запуск пилота запрещён.
+    </p>
+
+    <div class="blocker-grid">
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Проверка физического сканера</span>
+        <span class="blocker-detail">Не выполнен — требуется подключение физического сканера к КСО</span>
+      </div>
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Длительная проверка стабильности</span>
+        <span class="blocker-detail">Не выполнялась — требуется непрерывный прогон 48+ часов с мониторингом</span>
+      </div>
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Доставка на КСО</span>
+        <span class="blocker-detail">Доставка на КСО пока запрещена</span>
+      </div>
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Синхронизация агента</span>
+        <span class="blocker-detail">Не выполнялась — требуется запуск агента на физической КСО</span>
+      </div>
+      <div class="blocker-item">
+        <span class="blocker-status pending">⏳</span>
+        <span class="blocker-label">Запуск пилота на точке</span>
+        <span class="blocker-detail">Не утверждён — требуется решение GO/NO-GO после закрытия P0</span>
+      </div>
+    </div>
+
+    <p class="text-xs text-secondary mt-12">
+      <strong>Физический сканер не подключён — запуск пилота заблокирован.</strong>
+      Без физического оборудования нельзя выполнить проверку сканера, доставку рекламных материалов,
+      синхронизацию агента, длительную проверку стабильности и утвердить запуск на точке.
+    </p>
+  </div>
+  <div class="section-card-footer section-card-error">
+    <a href="/publications" class="btn btn-sm btn-ghost">📋 Статус публикаций</a>
+    <span class="text-xs text-muted">
+      Все 5 блокеров должны быть закрыты до запуска пилота
+    </span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     SECTION 4: БЕЗОПАСНОСТЬ ФАЙЛОВ
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<div class="note-box">
+  <span class="note-icon">🔐</span>
+  <span class="note-text">
+    <strong>Безопасность файлов — пилотный режим.</strong>
+    Все загружаемые файлы проходят ручную проверку модератором.
+    Автоматическая проверка безопасности будет включена отдельным решением при переходе к промышленной эксплуатации.
+    Поддельная проверка безопасности запрещена — файлы не могут быть помечены как проверенные без реальной проверки.
+  </span>
+</div>
+
+<div class="section-card mt-16">
+  <div class="section-card-header">
+    <span class="section-card-icon">🔐</span>
+    <span class="section-card-title">Проверка безопасности — пилотный режим</span>
+  </div>
+  <div class="section-card-body">
+    <div class="checklist">
+      <div class="checklist-item">
+        <span class="checklist-icon">⚠️</span>
+        <span class="checklist-label"><strong>Файлы проходят ручную проверку модератором</strong> — каждый загруженный креатив проверяется вручную перед публикацией</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">⚠️</span>
+        <span class="checklist-label"><strong>Автоматическая проверка безопасности будет включена отдельным решением</strong> — при переходе к промышленной эксплуатации</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">🚫</span>
+        <span class="checklist-label"><strong>Поддельная проверка безопасности запрещена</strong> — файлы не могут быть помечены как проверенные без фактической проверки</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     SECTION 5: ЧТО НУЖНО ДЛЯ ПИЛОТА
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📋</span>
+    <span class="section-card-title">Что нужно для пилота</span>
+  </div>
+  <div class="section-card-body">
+    <p class="text-sm text-secondary mb-12">
+      План действий для перехода от бизнес-демонстрации к пилотному запуску на одной КСО.
+      Каждый пункт — последовательный шаг, требующий отдельного разрешения.
+    </p>
+
+    <div class="checklist">
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Подключить физический сканер</strong> → выполнить проверку сканера на КСО</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Доставить рекламные материалы на КСО</strong> → проверить отображение на физическом устройстве</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Запустить синхронизацию на КСО</strong> → убедиться в доставке данных между системой и КСО</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Выполнить длительную проверку стабильности</strong> → 48+ часов непрерывной работы с мониторингом</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Закрыть все P0</strong> → получить решение о запуске пилота</span>
+      </div>
+      <div class="checklist-item">
+        <span class="checklist-icon">☐</span>
+        <span class="checklist-label"><strong>Пилот одного КСО</strong> → сбор данных о работе → решение о расширении на другие точки</span>
+      </div>
+    </div>
+
+    <p class="text-xs text-muted mt-12">
+      Все шаги выполняются последовательно. Каждый требует отдельного разрешения.
+      После успешного пилота одного КСО — решение о расширении на другие торговые точки.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     QUICK LINKS
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🔗</span>
+    <span class="section-card-title">Быстрые ссылки</span>
+  </div>
+  <div class="section-card-body">
+    <div class="next-actions-grid">
+      <a href="/dashboard" class="next-action-card">
+        <span class="next-action-label">📊 Главный экран</span>
+      </a>
+      <a href="/creatives" class="next-action-card">
+        <span class="next-action-label">🎨 Креативы</span>
+      </a>
+      <a href="/campaigns" class="next-action-card">
+        <span class="next-action-label">📢 Кампании</span>
+      </a>
+      <a href="/schedule" class="next-action-card">
+        <span class="next-action-label">🗓 Расписание</span>
+      </a>
+      <a href="/approvals" class="next-action-card">
+        <span class="next-action-label">📝 Согласования</span>
+      </a>
+      <a href="/publications" class="next-action-card">
+        <span class="next-action-label">📋 Публикации</span>
+      </a>
+      <a href="/reports" class="next-action-card">
+        <span class="next-action-label">📈 Отчёты</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Footer note -->
+<div class="note-box mt-16">
+  <span class="note-icon">🎯</span>
+  <span class="note-text">Бизнес-приёмка: портал готов к демонстрации бизнесу. Физическая КСО, сканер, доставка рекламных материалов и синхронизация агента не запускались. Пилот: 🚫 Запуск заблокирован (5 физических P0 блокеров).</span>
+</div>
+{% endblock %}
