@@ -1,289 +1,293 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Расписание</h1>
-<p class="page-description">Управление расписаниями показов — создание, слоты, привязка к кампаниям и размещениям. Production Schedule API.</p>
+<p class="page-description">Управление расписаниями показов — создание, слоты с днями недели и временными окнами. Production Schedule API.</p>
+
+<!-- Flow breadcrumbs -->
+<div class="flow-breadcrumbs">
+  <a href="/creatives" class="flow-step">🎨 Креативы</a>
+  <span class="flow-arrow">→</span>
+  <a href="/campaigns" class="flow-step">📢 Кампании</a>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step active">🗓 Расписание</span>
+  <span class="flow-arrow">→</span>
+  <a href="/approvals" class="flow-step">📝 Согласования</a>
+  <span class="flow-arrow">→</span>
+  <a href="/publications" class="flow-step">📋 Публикации</a>
+</div>
 
 <!-- Flash Messages -->
 {% if flash_msg %}
 <div class="flash-message flash-{{ flash_type }}">{{ flash_msg }}</div>
 {% endif %}
 
-<!-- Create Schedule Form -->
-<div class="form-section">
-  <div class="form-title">Создать расписание</div>
-  <form method="post" action="/schedule/create" class="create-form">
-    <div class="form-row">
-      <div class="form-group">
-        <label for="schedule_code">Код расписания*</label>
-        <input type="text" id="schedule_code" name="schedule_code"
-               placeholder="winter_promo" minlength="3" maxlength="64"
-               pattern="[a-z0-9_-]+" required>
-        <span class="form-hint">Строчные латинские буквы, цифры, дефис, подчёркивание. 3–64.</span>
-      </div>
-      <div class="form-group">
-        <label for="name">Название*</label>
-        <input type="text" id="name" name="name"
-               placeholder="Зимняя промо-кампания" minlength="1" maxlength="255" required>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label for="valid_from">Действует с*</label>
-        <input type="text" id="valid_from" name="valid_from"
-               placeholder="2026-01-01" minlength="10" maxlength="10" required>
-        <span class="form-hint">YYYY-MM-DD</span>
-      </div>
-      <div class="form-group">
-        <label for="valid_to">Действует по*</label>
-        <input type="text" id="valid_to" name="valid_to"
-               placeholder="2026-01-31" minlength="10" maxlength="10" required>
-        <span class="form-hint">YYYY-MM-DD. Должно быть ≥ valid_from.</span>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label for="timezone">Часовой пояс</label>
-        <input type="text" id="timezone" name="timezone"
-               value="Europe/Moscow" maxlength="50">
-      </div>
-      <div class="form-group">
-        <label for="campaign_code">Код кампании</label>
-        <input type="text" id="campaign_code" name="campaign_code"
-               placeholder="demo_campaign_001" maxlength="64">
-        <span class="form-hint">Необязательно. campaign_code существующей кампании.</span>
-      </div>
-    </div>
-    <button type="submit" class="btn-primary">Создать расписание</button>
-  </form>
-</div>
-
 <!-- Backend Unavailable -->
 {% if backend_unavailable %}
-<div class="note-box warning">
-  <span class="note-icon">⚠️</span>
-  <span class="note-text">{{ backend_message }}</span>
+<div class="banner banner-warning">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body"><div class="banner-text">{{ backend_message }}</div></div>
 </div>
 {% endif %}
 
+<!-- Next Step -->
+{% if schedules %}
+  {% if schedules|selectattr('status', 'equalto', 'draft')|list|length > 0 %}
+<div class="banner banner-info">
+  <span class="banner-icon">🗓</span>
+  <div class="banner-body">
+    <div class="banner-title">Следующее действие</div>
+    <div class="banner-text">У вас есть черновики расписаний. После заполнения слотов отправьте кампанию на <a href="/approvals">согласование</a>.</div>
+  </div>
+</div>
+  {% endif %}
+{% endif %}
+
+<!-- Action Bar -->
+<div class="action-bar">
+  <a href="/campaigns" class="btn btn-secondary">📢 Кампании</a>
+  <a href="/approvals" class="btn btn-secondary">📝 Согласования</a>
+  <a href="/reports" class="btn btn-secondary">📈 Отчёты</a>
+</div>
+
+<!-- Create Schedule Form -->
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">+</span>
+    <span class="section-card-title">Создать расписание</span>
+  </div>
+  <div class="section-card-body">
+    <form method="post" action="/schedule/create" class="form-inline">
+      <div class="form-group">
+        <label class="form-label">Код <span style="color:var(--color-error);">*</span></label>
+        <input type="text" name="schedule_code" placeholder="winter_promo" minlength="3" maxlength="64"
+               pattern="[a-z0-9_-]+" required class="form-input" style="width:160px;">
+        <span class="form-hint">Латинские строчные, 3–64</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Название <span style="color:var(--color-error);">*</span></label>
+        <input type="text" name="name" placeholder="Зимняя промо-кампания" minlength="1" maxlength="255"
+               required class="form-input" style="width:220px;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Действует с <span style="color:var(--color-error);">*</span></label>
+        <input type="text" name="valid_from" placeholder="2026-01-01" minlength="10" maxlength="10"
+               required class="form-input" style="width:120px;">
+        <span class="form-hint">YYYY-MM-DD</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Действует по <span style="color:var(--color-error);">*</span></label>
+        <input type="text" name="valid_to" placeholder="2026-01-31" minlength="10" maxlength="10"
+               required class="form-input" style="width:120px;">
+        <span class="form-hint">≥ valid_from</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Часовой пояс</label>
+        <input type="text" name="timezone" value="Europe/Moscow" maxlength="50"
+               class="form-input" style="width:150px;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Код кампании</label>
+        <input type="text" name="campaign_code" placeholder="camp_code" maxlength="64"
+               class="form-input" style="width:150px;">
+        <span class="form-hint">Необязательно</span>
+      </div>
+      <div class="form-group">
+        <button type="submit" class="btn btn-primary">Создать расписание</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Schedules List -->
-<div class="table-container">
-<table class="data-table">
-  <thead>
-    <tr>
-      <th>Код</th>
-      <th>Название</th>
-      <th>Статус</th>
-      <th>Кампания</th>
-      <th>Действует с</th>
-      <th>Действует по</th>
-      <th>Часовой пояс</th>
-      <th>Слотов</th>
-      <th>Действия</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% if schedules %}
-  {% for s in schedules %}
-    <tr>
-      <td><code>{{ s.schedule_code }}</code></td>
-      <td>{{ s.name }}</td>
-      <td><span class="badge badge-{{ 'draft' if s.status == 'draft' else 'active' if s.status == 'active' else '' }}"></span> {{ s.status }}</td>
-      <td>{{ s.campaign_code }}</td>
-      <td>{{ s.valid_from }}</td>
-      <td>{{ s.valid_to }}</td>
-      <td>{{ s.timezone }}</td>
-      <td>{{ s.slot_count }}</td>
-      <td>
+{% if schedules %}
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🗓</span>
+    <span class="section-card-title">Расписания</span>
+    <span class="section-card-badge">{{ schedules|length }}</span>
+  </div>
+  <div class="section-card-body" style="padding:0;">
+    {% for s in schedules %}
+    <!-- Schedule row -->
+    <div style="padding:14px 20px;border-bottom:1px solid var(--color-border-light);">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <code style="font-weight:600;">{{ s.schedule_code }}</code>
+        <span style="font-weight:600;">{{ s.name }}</span>
+        <span class="status-badge status-badge-{{ 'draft' if s.status == 'draft' else 'approved' if s.status == 'active' else 'draft' }}">{{ s.status }}</span>
+        {% if s.campaign_code != '—' %}<span style="font-size:11px;color:var(--color-text-secondary);">📢 {{ s.campaign_code }}</span>{% endif %}
+        <span style="font-size:11px;color:var(--color-text-secondary);">{{ s.valid_from }} – {{ s.valid_to }}</span>
+        <span style="font-size:11px;color:var(--color-text-secondary);">🕐 {{ s.timezone }}</span>
+        <span style="font-size:11px;color:var(--color-text-secondary);">📋 {{ s.slot_count }} слотов</span>
+        <span style="flex:1;"></span>
         {% if s.status != 'archived' %}
-        <form method="post" action="/schedule/{{ s.schedule_code }}/archive" style="display:inline">
-          <button type="submit" class="btn-sm btn-danger">Архив</button>
+        <form method="post" action="/schedule/{{ s.schedule_code }}/archive" style="display:inline;">
+          <button type="submit" class="btn btn-sm btn-ghost">Архив</button>
         </form>
         {% endif %}
-      </td>
-    </tr>
-    <!-- Slots for this schedule -->
+      </div>
+    </div>
+
+    <!-- Slots -->
     {% set slots = schedule_slots.get(s.schedule_code, []) %}
     {% if slots %}
-    <tr class="slot-header">
-      <td colspan="9">
-        <strong>Слоты расписания {{ s.schedule_code }}:</strong>
-      </td>
-    </tr>
-    <tr class="slot-subheader">
-      <td></td>
-      <td>Код слота</td>
-      <td>Размещение</td>
-      <td>День недели</td>
-      <td>Начало</td>
-      <td>Конец</td>
-      <td>Порядок</td>
-      <td>Активен</td>
-      <td></td>
-    </tr>
-    {% set days = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"] %}
-    {% for sl in slots %}
-    <tr class="slot-row">
-      <td></td>
-      <td><code>{{ sl.slot_code }}</code></td>
-      <td>{{ sl.placement_code }}</td>
-      <td>{{ days[sl.day_of_week] }}</td>
-      <td>{{ sl.start_time }}</td>
-      <td>{{ sl.end_time }}</td>
-      <td>{{ sl.slot_order }}</td>
-      <td>{% if sl.is_active %}✅{% else %}❌{% endif %}</td>
-      <td>
-        {% if sl.is_active %}
-        <form method="post" action="/schedule/{{ s.schedule_code }}/items/{{ sl.slot_code }}/disable" style="display:inline">
-          <button type="submit" class="btn-sm btn-warn">Откл</button>
-        </form>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
+    <div style="padding:8px 20px 12px 28px;background:var(--color-bg);border-bottom:1px solid var(--color-border-light);">
+      <table class="data-table data-table-compact" style="margin-bottom:0;">
+        <thead><tr>
+          <th>Слот</th><th>Размещение</th><th>День</th><th>Начало</th><th>Конец</th><th>Порядок</th><th>Активен</th><th></th>
+        </tr></thead>
+        <tbody>
+        {% set days = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"] %}
+        {% for sl in slots %}
+        <tr>
+          <td><code>{{ sl.slot_code }}</code></td>
+          <td>{{ sl.placement_code }}</td>
+          <td>{{ days[sl.day_of_week] }}</td>
+          <td>{{ sl.start_time }}</td>
+          <td>{{ sl.end_time }}</td>
+          <td>{{ sl.slot_order }}</td>
+          <td>{% if sl.is_active %}✅{% else %}❌{% endif %}</td>
+          <td>
+            {% if sl.is_active %}
+            <form method="post" action="/schedule/{{ s.schedule_code }}/items/{{ sl.slot_code }}/disable" style="display:inline;">
+              <button type="submit" class="btn btn-sm btn-ghost">Откл</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="padding:12px 28px;font-size:12px;color:var(--color-warning);background:var(--color-warning-bg);border-bottom:1px solid var(--color-border-light);">
+      ⚠️ Нет слотов. Добавьте хотя бы один слот для активации расписания.
+    </div>
     {% endif %}
-    <!-- Add Slot Form (inline) -->
+
+    <!-- Add Slot Form -->
     {% if s.status != 'archived' %}
-    <tr class="add-slot-row">
-      <td colspan="9">
-        <form method="post" action="/schedule/{{ s.schedule_code }}/create-slot" class="inline-form">
-          <span class="form-title-sm">Добавить слот в {{ s.schedule_code }}:</span>
-          <input type="text" name="slot_code" placeholder="Код слота*" minlength="3" maxlength="64" pattern="[a-z0-9_-]+" required style="width:120px">
-          <input type="text" name="placement_code" placeholder="Код размещения" maxlength="64" style="width:130px">
-          <select name="day_of_week" required style="width:80px">
-            <option value="0">Пн</option>
-            <option value="1">Вт</option>
-            <option value="2">Ср</option>
-            <option value="3">Чт</option>
-            <option value="4">Пт</option>
-            <option value="5">Сб</option>
-            <option value="6">Вс</option>
-          </select>
-          <input type="text" name="start_time" placeholder="09:00*" minlength="5" maxlength="8" required style="width:70px">
-          <input type="text" name="end_time" placeholder="21:00*" minlength="5" maxlength="8" required style="width:70px">
-          <input type="number" name="slot_order" value="0" min="0" max="99" style="width:50px">
-          <button type="submit" class="btn-sm btn-primary">+ Добавить</button>
-        </form>
-      </td>
-    </tr>
+    <div style="padding:10px 20px 12px 28px;background:var(--color-bg);border-bottom:1px solid var(--color-border-light);">
+      <form method="post" action="/schedule/{{ s.schedule_code }}/create-slot" class="form-inline" style="gap:8px;">
+        <span style="font-size:11px;font-weight:600;color:var(--color-text-secondary);white-space:nowrap;">+ Слот:</span>
+        <input type="text" name="slot_code" placeholder="Код слота*" minlength="3" maxlength="64"
+               pattern="[a-z0-9_-]+" required class="form-input" style="width:120px;padding:4px 8px;font-size:12px;">
+        <input type="text" name="placement_code" placeholder="Код размещения" maxlength="64"
+               class="form-input" style="width:130px;padding:4px 8px;font-size:12px;">
+        <select name="day_of_week" required class="form-select" style="width:70px;font-size:12px;padding:4px 8px;">
+          <option value="0">Пн</option><option value="1">Вт</option><option value="2">Ср</option>
+          <option value="3">Чт</option><option value="4">Пт</option><option value="5">Сб</option><option value="6">Вс</option>
+        </select>
+        <input type="text" name="start_time" placeholder="09:00*" minlength="5" maxlength="8"
+               required class="form-input" style="width:70px;padding:4px 8px;font-size:12px;">
+        <input type="text" name="end_time" placeholder="21:00*" minlength="5" maxlength="8"
+               required class="form-input" style="width:70px;padding:4px 8px;font-size:12px;">
+        <input type="number" name="slot_order" value="0" min="0" max="99"
+               class="form-input" style="width:50px;padding:4px 8px;font-size:12px;">
+        <button type="submit" class="btn btn-sm btn-primary">+ Добавить</button>
+      </form>
+    </div>
     {% endif %}
-  {% endfor %}
-  {% else %}
-    <tr class="empty-row">
-      <td colspan="9">
-        <div class="table-empty-state">
-          <div class="table-empty-icon">🗓</div>
-          <div class="table-empty-title">Пока нет расписаний</div>
-          <div class="table-empty-text">Создайте расписание через форму выше, чтобы назначить слоты с днями недели и временными окнами.</div>
-        </div>
-      </td>
-    </tr>
-  {% endif %}
-  </tbody>
-</table>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">🗓</div>
+  <div class="empty-state-title">Пока нет расписаний</div>
+  <div class="empty-state-text">Создайте расписание через форму выше, чтобы назначить слоты с днями недели и временными окнами.</div>
+</div>
+{% endif %}
+
+<!-- Airtime Occupancy -->
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📊</span>
+    <span class="section-card-title">Плановая занятость эфира</span>
+  </div>
+  <div class="section-card-body">
+    <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:14px;">
+      Плановая занятость по расписанию. <strong>Не факт показа PoP.</strong>
+    </p>
+    <form method="get" action="/schedule" class="form-inline" style="margin-bottom:14px;">
+      <div class="form-group">
+        <label class="form-label" style="font-size:11px;">КСО</label>
+        <input type="text" name="at_device" value="{{ at_device if at_device else '' }}"
+               placeholder="device_code" maxlength="64" class="form-input" style="width:150px;padding:6px 10px;font-size:13px;">
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="font-size:11px;">Дата с</label>
+        <input type="date" name="at_from" value="{{ at_from if at_from else '' }}"
+               class="form-input" style="width:140px;padding:6px 10px;font-size:13px;">
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="font-size:11px;">Дата по</label>
+        <input type="date" name="at_to" value="{{ at_to if at_to else '' }}"
+               class="form-input" style="width:140px;padding:6px 10px;font-size:13px;">
+      </div>
+      <div class="form-group">
+        <button type="submit" class="btn btn-primary btn-sm">Проверить</button>
+      </div>
+    </form>
+
+    {% if airtime %}
+    <div class="summary-stats" style="margin-bottom:14px;">
+      <div class="summary-stat"><div class="summary-stat-value">{{ airtime.total_available_minutes }}</div><div class="summary-stat-label">Всего мин.</div></div>
+      <div class="summary-stat"><div class="summary-stat-value">{{ airtime.occupied_minutes }}</div><div class="summary-stat-label">Занято</div></div>
+      <div class="summary-stat"><div class="summary-stat-value" style="{% if airtime.occupancy_percent|int >= 80 %}color:var(--color-error);{% elif airtime.occupancy_percent|int >= 50 %}color:var(--color-warning);{% endif %}">{{ airtime.occupancy_percent }}%</div><div class="summary-stat-label">Загрузка</div></div>
+      <div class="summary-stat"><div class="summary-stat-value">{{ airtime.campaign_count }}</div><div class="summary-stat-label">Кампаний</div></div>
+      <div class="summary-stat"><div class="summary-stat-value" style="{% if airtime.conflict_count > 0 %}color:var(--color-error);{% endif %}">{{ airtime.conflict_count }}</div><div class="summary-stat-label">Конфликтов</div></div>
+    </div>
+
+    {% if airtime.conflicts %}
+    <div class="table-container" style="border:none;box-shadow:none;margin-bottom:0;">
+    <table class="data-table data-table-compact">
+      <thead><tr><th>Кампания</th><th>Конфликт с</th><th>Даты</th><th>День</th><th>Время</th><th>Конфликтное</th></tr></thead>
+      <tbody>
+      {% for c in airtime.conflicts[:10] %}
+      <tr>
+        <td><code>{{ c.campaign_code }}</code></td><td><code>{{ c.conflict_with_code }}</code></td>
+        <td>{{ c.date_from }}–{{ c.date_to }}</td><td>{{ c.day_label }}</td>
+        <td>{{ c.time_window }}</td><td>{{ c.conflict_time_window }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% elif airtime.occupied_minutes == 0 %}
+    <div style="text-align:center;padding:12px;color:var(--color-success);font-size:13px;">
+      ✅ Эфир полностью свободен в выбранном диапазоне.
+    </div>
+    {% endif %}
+
+    <div class="note-box" style="margin-top:12px;">
+      <span class="note-icon">⚠️</span>
+      <span class="note-text">Конфликты — предупреждение, не блокировка. Policy: warning-only.</span>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:16px;color:var(--color-text-muted);font-size:13px;">
+      Укажите КСО и диапазон дат для проверки занятости эфира.
+    </div>
+    {% endif %}
+  </div>
+  <div class="section-card-footer">
+    <a href="/reports" class="btn btn-sm btn-ghost">📈 Подробнее в отчётах →</a>
+    Плановая занятость — backend-only. Фактические показы — после physical gate.
+  </div>
 </div>
 
-<!-- Safe Projection Notes -->
+{% if schedules %}
+<div class="banner banner-info">
+  <span class="banner-icon">👉</span>
+  <div class="banner-body">
+    <div class="banner-title">Следующий шаг</div>
+    <div class="banner-text">После настройки расписания отправьте кампанию на <a href="/approvals">согласование</a>, затем <a href="/publications">подготовьте публикацию</a>.</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Safety Notes -->
 <div class="note-box">
   <span class="note-icon">🔒</span>
-  <span class="note-text">Безопасная проекция: отображаются только schedule_code, name, status, campaign_code, valid_from/to, timezone, slot_code, day_of_week, start/end_time. Внутренние идентификаторы, токены и секреты не отображаются.</span>
-</div>
-<div class="note-box">
-  <span class="note-icon">📅</span>
-  <span class="note-text">Production Schedule API: управление расписаниями и слотами через backend. Действия архивирования/отключения проверяются backend. Test KSO placement endpoints сохранены как legacy.</span>
-</div>
-
-<!-- ── Airtime Occupancy (42.1.1) ────────────────────────────────── -->
-<div class="requirements-box">
-  <div class="requirements-title">📊 Плановая занятость эфира</div>
-  <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;">
-    Это плановая занятость по расписанию. Это <strong>не факт показа PoP</strong>.
-  </p>
-
-  <!-- Filter form (server-side GET, no JS) -->
-  <form method="get" action="/schedule" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:16px;">
-    <div style="display:flex;flex-direction:column;gap:3px;">
-      <label style="font-size:11px;color:#64748b;">КСО</label>
-      <input type="text" name="at_device" value="{{ at_device if at_device else '' }}"
-             placeholder="device_code" maxlength="64"
-             style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;width:150px;">
-    </div>
-    <div style="display:flex;flex-direction:column;gap:3px;">
-      <label style="font-size:11px;color:#64748b;">Дата с</label>
-      <input type="date" name="at_from" value="{{ at_from if at_from else '' }}"
-             style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;width:140px;">
-    </div>
-    <div style="display:flex;flex-direction:column;gap:3px;">
-      <label style="font-size:11px;color:#64748b;">Дата по</label>
-      <input type="date" name="at_to" value="{{ at_to if at_to else '' }}"
-             style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;width:140px;">
-    </div>
-    <button type="submit" class="btn-primary" style="padding:7px 16px;font-size:13px;">🔍 Проверить</button>
-  </form>
-
-  {% if airtime %}
-  <div class="summary-stats" style="margin-bottom:16px;">
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ airtime.total_available_minutes }}</div>
-      <div class="summary-stat-label">Всего минут</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ airtime.occupied_minutes }}</div>
-      <div class="summary-stat-label">Занято</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ airtime.free_minutes }}</div>
-      <div class="summary-stat-label">Свободно</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ airtime.occupancy_percent }}%</div>
-      <div class="summary-stat-label">Загрузка</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ airtime.campaign_count }}</div>
-      <div class="summary-stat-label">Кампаний</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">{{ airtime.conflict_count }}</div>
-      <div class="summary-stat-label">Конфликтов</div>
-    </div>
-  </div>
-
-  {% if airtime.conflicts %}
-  <div class="table-container" style="margin-top:12px;">
-  <table class="data-table">
-    <thead><tr>
-      <th>Кампания</th><th>Конфликт с</th><th>Даты</th><th>День</th><th>Время</th><th>Конфликтное время</th><th>Severity</th>
-    </tr></thead>
-    <tbody>
-    {% for c in airtime.conflicts %}
-    <tr>
-      <td><code>{{ c.campaign_code }}</code></td>
-      <td><code>{{ c.conflict_with_code }}</code></td>
-      <td>{{ c.date_from }} – {{ c.date_to }}</td>
-      <td>{{ c.day_label }}</td>
-      <td>{{ c.time_window }}</td>
-      <td>{{ c.conflict_time_window }}</td>
-      <td><span class="status-badge status-badge-pending">⚠️ warning</span></td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  </div>
-  {% elif airtime.occupied_minutes == 0 %}
-  <div style="text-align:center;padding:16px;color:#64748b;font-size:13px;">
-    Эфир полностью свободен в выбранном диапазоне.
-  </div>
-  {% endif %}
-
-  <div class="note-box" style="margin-top:12px;">
-    <span class="note-icon">⚠️</span>
-    <span class="note-text">Конфликты — предупреждение, не блокировка. Policy: warning-only.</span>
-  </div>
-
-  {% else %}
-  <div style="text-align:center;padding:16px;color:#94a3b8;font-size:13px;">
-    Укажите КСО и диапазон дат для проверки занятости эфира.
-  </div>
-  {% endif %}
+  <span class="note-text">Отображаются только schedule_code, name, status, campaign_code, valid_from/to, timezone, slot_code, day_of_week, start/end_time. Без raw UUID, tokens, secrets.</span>
 </div>
 {% endblock %}

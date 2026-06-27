@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Кампании</h1>
-<p class="page-description">Управление рекламными кампаниями — создание, редактирование, архивация, привязка креативов и публикация. Production Campaign API.</p>
+<p class="page-description">Управление рекламными кампаниями — создание, редактирование, привязка креативов, отправка на согласование и подготовка публикации.</p>
 
 <!-- Flow breadcrumbs -->
 <div class="flow-breadcrumbs">
@@ -21,143 +21,164 @@
 <div class="flash-message flash-{{ flash_type }}">{{ flash_msg }}</div>
 {% endif %}
 
+<!-- Backend Unavailable -->
+{% if backend_unavailable %}
+<div class="banner banner-warning">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body"><div class="banner-text">{{ backend_message }}</div></div>
+</div>
+{% endif %}
+
 <!-- Next Action -->
 {% if campaigns %}
   {% if campaigns_by_status.draft > 0 %}
-<div class="next-action">
-  <span class="next-action-icon">📋</span>
-  <span class="next-action-text"><strong>Следующее действие:</strong> у вас есть кампании в статусе «Черновик» — отправьте их на согласование, нажав «Запросить» под кампанией.</span>
+<div class="banner banner-info">
+  <span class="banner-icon">📋</span>
+  <div class="banner-body">
+    <div class="banner-title">Следующее действие</div>
+    <div class="banner-text">У вас {{ campaigns_by_status.draft }} кампаний в статусе «Черновик». Отправьте их на согласование через кнопку «Запросить» или <a href="/approvals">перейдите в согласования</a>.</div>
+  </div>
 </div>
   {% elif campaigns_by_status.approved > 0 %}
-<div class="next-action">
-  <span class="next-action-icon">📦</span>
-  <span class="next-action-text"><strong>Следующее действие:</strong> у вас есть одобренные кампании — нажмите «Подготовить публикацию» для создания publication batch.</span>
+<div class="banner banner-info">
+  <span class="banner-icon">📦</span>
+  <div class="banner-body">
+    <div class="banner-title">Следующее действие</div>
+    <div class="banner-text">У вас {{ campaigns_by_status.approved }} одобренных кампаний. Нажмите «Подготовить» для создания publication batch или <a href="/publications">перейдите в публикации</a>.</div>
+  </div>
 </div>
   {% endif %}
 {% endif %}
 
-<!-- Create Campaign Button -->
-<div class="action-bar">
-  <a href="/campaigns/create" class="btn-primary">+ Создать кампанию</a>
-</div>
-
-<!-- Backend Unavailable -->
-{% if backend_unavailable %}
-<div class="note-box warning">
-  <span class="note-icon">⚠️</span>
-  <span class="note-text">{{ backend_message }}</span>
+<!-- Status Summary -->
+{% if campaigns %}
+<div class="summary-panel" style="margin-bottom:16px;">
+  <div class="summary-stats">
+    <div class="summary-stat"><div class="summary-stat-value">{{ campaigns|length }}</div><div class="summary-stat-label">Всего</div></div>
+    <div class="summary-stat"><div class="summary-stat-value">{{ campaigns_by_status.draft }}</div><div class="summary-stat-label">Черновик</div></div>
+    <div class="summary-stat"><div class="summary-stat-value">{{ campaigns_by_status.pending_approval }}</div><div class="summary-stat-label">На согласовании</div></div>
+    <div class="summary-stat"><div class="summary-stat-value">{{ campaigns_by_status.approved }}</div><div class="summary-stat-label">Одобрено</div></div>
+    <div class="summary-stat"><div class="summary-stat-value">{{ campaigns_by_status.rejected }}</div><div class="summary-stat-label">Отклонено</div></div>
+  </div>
 </div>
 {% endif %}
+
+<!-- Action Bar -->
+<div class="action-bar">
+  <a href="/campaigns/create" class="btn btn-primary">+ Создать кампанию</a>
+  <a href="/creatives" class="btn btn-secondary">🎨 Креативы</a>
+  <a href="/schedule" class="btn btn-secondary">🗓 Расписание</a>
+  <a href="/approvals" class="btn btn-secondary">📝 Согласования</a>
+</div>
 
 <!-- Campaigns Table -->
-<div class="table-container">
-<table class="data-table">
-  <thead>
-    <tr>
-      <th>Код</th>
-      <th>Название</th>
-      <th>Статус</th>
-      <th>Описание</th>
-      <th>Креативы</th>
-      <th>Создана</th>
-      <th>Действия</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% if campaigns %}
-  {% for c in campaigns %}
-    <tr>
-      <td><code>{{ c.campaign_code }}</code></td>
-      <td>{{ c.name }}</td>
-      <td>
-        {% if c.status == 'draft' %}
-        <span class="status-badge status-badge-draft">Черновик</span>
-        {% elif c.status == 'pending_approval' %}
-        <span class="status-badge status-badge-pending_approval">На согласовании</span>
-        {% elif c.status == 'approved' %}
-        <span class="status-badge status-badge-approved">Одобрено</span>
-        {% elif c.status == 'rejected' %}
-        <span class="status-badge status-badge-rejected">Отклонено</span>
-        {% elif c.status == 'archived' %}
-        <span class="status-badge status-badge-archived">Архив</span>
-        {% else %}
-        <span class="status-badge status-badge-draft">{{ c.status }}</span>
-        {% endif %}
-      </td>
-      <td>{{ c.description }}</td>
-      <td>{{ c.creative_codes }}</td>
-      <td>{{ c.created_at }}</td>
-      <td>
+{% if campaigns %}
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📢</span>
+    <span class="section-card-title">Список кампаний</span>
+    <span class="section-card-badge">{{ campaigns|length }}</span>
+  </div>
+  <div class="section-card-body" style="padding:0;">
+    <div class="table-container" style="border:none;box-shadow:none;margin-bottom:0;">
+    <table class="data-table">
+      <thead><tr>
+        <th>Код</th><th>Название</th><th>Статус</th><th>Креативы</th><th>Создана</th><th>Действия</th>
+      </tr></thead>
+      <tbody>
+      {% for c in campaigns %}
+        <tr>
+          <td><code>{{ c.campaign_code }}</code></td>
+          <td>{{ c.name }}</td>
+          <td>
+            {% if c.status == 'draft' %}<span class="status-badge status-badge-draft">Черновик</span>
+            {% elif c.status == 'pending_approval' %}<span class="status-badge status-badge-pending_approval">На согласовании</span>
+            {% elif c.status == 'approved' %}<span class="status-badge status-badge-approved">Одобрено</span>
+            {% elif c.status == 'rejected' %}<span class="status-badge status-badge-rejected">Отклонено</span>
+            {% elif c.status == 'archived' %}<span class="status-badge status-badge-archived">Архив</span>
+            {% else %}<span class="status-badge status-badge-draft">{{ c.status }}</span>{% endif %}
+          </td>
+          <td>
+            {% if c.creative_count == 0 %}
+            <span style="color:var(--color-warning);font-size:11px;">⚠️ Нет креативов</span>
+            {% else %}
+            {{ c.creative_codes }}
+            {% endif %}
+          </td>
+          <td>{{ c.created_at }}</td>
+          <td>
+            {% if c.status != 'archived' %}
+            <form action="/campaigns/{{ c.campaign_code }}/archive" method="POST" style="display:inline;">
+              <button type="submit" class="btn btn-sm btn-ghost">Архив</button>
+            </form>
+            {% else %}<span style="color:var(--color-text-muted);font-size:11px;">—</span>{% endif %}
+          </td>
+        </tr>
         {% if c.status != 'archived' %}
-        <form method="post" action="/campaigns/{{ c.campaign_code }}/archive" style="display:inline">
-          <button type="submit" class="btn-sm btn-danger">Архив</button>
-        </form>
+        <tr class="inline-actions-row">
+          <td colspan="6">
+            <div class="form-inline" style="gap:10px;padding:8px 12px;">
+              <!-- Edit -->
+              <form method="post" action="/campaigns/{{ c.campaign_code }}/edit" style="display:flex;gap:6px;align-items:center;">
+                <span style="font-size:11px;font-weight:600;color:var(--color-text-secondary);white-space:nowrap;">Ред.:</span>
+                <input type="text" name="name" value="{{ c.name }}" minlength="1" maxlength="255" required class="form-input" style="width:160px;padding:4px 8px;font-size:12px;">
+                <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
+              </form>
+              <!-- Bind Creative -->
+              <form method="post" action="/campaigns/{{ c.campaign_code }}/bind-creative" style="display:flex;gap:6px;align-items:center;">
+                <span style="font-size:11px;font-weight:600;color:var(--color-text-secondary);white-space:nowrap;">+Креатив:</span>
+                <input type="text" name="creative_code" placeholder="Код" minlength="1" maxlength="64" pattern="[a-z0-9_-]+" required class="form-input" style="width:120px;padding:4px 8px;font-size:12px;">
+                <button type="submit" class="btn btn-sm btn-primary">Привязать</button>
+              </form>
+              <!-- Submit -->
+              {% if c.status in ('draft', 'rejected') %}
+              <form method="post" action="/campaigns/{{ c.campaign_code }}/submit" style="display:inline;">
+                <button type="submit" class="btn btn-sm btn-secondary">→ Запросить согласование</button>
+              </form>
+              {% endif %}
+              <!-- Publication -->
+              {% if c.status == 'approved' %}
+              <form method="post" action="/campaigns/{{ c.campaign_code }}/create-publication-batch" style="display:inline;">
+                <button type="submit" class="btn btn-sm" style="background:var(--color-purple);color:#fff;">📦 Подготовить публикацию</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
         {% endif %}
-      </td>
-    </tr>
-    <!-- Edit + Binding row -->
-    {% if c.status != 'archived' %}
-    <tr class="inline-actions-row">
-      <td colspan="7">
-        <!-- Edit Form -->
-        <form method="post" action="/campaigns/{{ c.campaign_code }}/edit" class="inline-form">
-          <span class="form-title-sm">Редактировать {{ c.campaign_code }}:</span>
-          <input type="text" name="name" value="{{ c.name }}" minlength="1" maxlength="255" required style="width:180px">
-          <input type="text" name="description" value="{{ c.description if c.description != '—' else '' }}" placeholder="Описание" maxlength="500" style="width:180px">
-          <button type="submit" class="btn-sm btn-primary">Сохранить</button>
-        </form>
-        <!-- Bind Creative Form -->
-        <form method="post" action="/campaigns/{{ c.campaign_code }}/bind-creative" class="inline-form">
-          <span class="form-title-sm">Привязать креатив:</span>
-          <input type="text" name="creative_code" placeholder="Код креатива*" minlength="1" maxlength="64" pattern="[a-z0-9_-]+" required style="width:140px">
-          <button type="submit" class="btn-sm btn-primary">+ Привязать</button>
-        </form>
-        <!-- Submit for Approval -->
-        {% if c.status in ('draft', 'rejected') %}
-        <form method="post" action="/campaigns/{{ c.campaign_code }}/submit" class="inline-form">
-          <span class="form-title-sm">Согласование:</span>
-          <button type="submit" class="btn-sm btn-success">→ Запросить</button>
-        </form>
-        {% endif %}
-        <!-- Prepare Publication (approved only) -->
-        {% if c.status == 'approved' %}
-        <form method="post" action="/campaigns/{{ c.campaign_code }}/create-publication-batch" class="inline-form">
-          <span class="form-title-sm">Публикация:</span>
-          <button type="submit" class="btn-sm" style="background:var(--color-accent,#8e44ad);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer">📦 Подготовить</button>
-        </form>
-        {% endif %}
-      </td>
-    </tr>
-    {% endif %}
-  {% endfor %}
-  {% else %}
-    <tr class="empty-row">
-      <td colspan="7">
-        <div class="table-empty-state">
-          <div class="table-empty-icon">📢</div>
-          <div class="table-empty-title">Пока нет рекламных кампаний</div>
-          <div class="table-empty-text">
-            Создайте кампанию, чтобы начать. Сначала <a href="/creatives">загрузите креатив</a>, затем <a href="/campaigns/create">создайте кампанию</a>.
-          </div>
-        </div>
-      </td>
-    </tr>
-  {% endif %}
-  </tbody>
-</table>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
 </div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">📢</div>
+  <div class="empty-state-title">Пока нет рекламных кампаний</div>
+  <div class="empty-state-text">Сначала <a href="/creatives">загрузите креатив</a>, затем <a href="/campaigns/create">создайте кампанию</a>.</div>
+  <div class="empty-state-action">
+    <a href="/campaigns/create" class="btn btn-primary">+ Создать кампанию</a>
+  </div>
+</div>
+{% endif %}
 
-<!-- Safe Projection Notes -->
+<!-- Cross-page links -->
+{% if campaigns %}
+<div class="banner banner-info" style="margin-top:16px;">
+  <span class="banner-icon">👉</span>
+  <div class="banner-body">
+    <div class="banner-title">Дальнейшие шаги</div>
+    <div class="banner-text">
+      Кампания → <a href="/schedule">Расписание</a> → <a href="/approvals">Согласование</a> → <a href="/publications">Публикация</a> → <a href="/reports">Отчёт</a>.
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Safety Notes -->
 <div class="note-box">
   <span class="note-icon">🔒</span>
-  <span class="note-text">Безопасная проекция: отображаются только код кампании, название, статус, описание, связанные креативы и даты. Внутренние идентификаторы, коммерческие поля и пути к файлам не отображаются.</span>
-</div>
-<div class="note-box">
-  <span class="note-icon">📋</span>
-  <span class="note-text">Production Campaign API: создание, редактирование, архивация, привязка креативов и отправка на согласование через production code-based endpoints.</span>
-</div>
-<div class="note-box">
-  <span class="note-icon">📦</span>
-  <span class="note-text">После согласования кампании доступна кнопка «Подготовить публикацию» — создаёт backend publication batch (draft) без доставки на КСО. Физическая доставка — отдельный approval gate.</span>
+  <span class="note-text">Безопасная проекция: только код, название, статус, креативы и даты. Без raw UUID, backend URL, storage paths.</span>
 </div>
 {% endblock %}

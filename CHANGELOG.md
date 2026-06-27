@@ -7,6 +7,42 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [43.3-campaign-creative-schedule-workflow] — 2026-06-16
+
+**Campaign / Creative / Schedule Workflow — продуктовый hardening портала.**
+
+### Creatives
+- Визуальная карточка с preview, баджами статуса, проверкой 768×1024
+- Upload-форма в visual system (form-inline, form-group, form-label, form-hint)
+- Баннер «Следующий шаг» с кросс-ссылкой на создание кампании
+- Warning при отсутствии approved/ready креативов
+- Flow breadcrumbs на всех страницах
+
+### Campaigns
+- Панель сводки по статусам (summary-stats: всего/черновик/согласование/одобрено/отклонено)
+- Action bar с кросс-ссылками (креативы/расписание/согласования)
+- Inline-формы: edit, bind creative, submit, publication в visual system
+- Баннер «Дальнейшие шаги» с полным pipeline
+- Warning при нуле креативов у кампании
+
+### Schedule
+- Create schedule форма с form-label/form-hint (visual system)
+- Слоты в компактной таблице с днями недели
+- Warning «Нет слотов» + inline add-slot форма
+- Airtime section с progress bar, конфликтами, кросс-ссылкой на отчёты
+- Баннер «Следующий шаг» → согласование → публикация
+
+### Policy
+- No JS/CDN/localStorage ✅
+- No physical KSO changes
+- Без raw UUID, backend URL, storage paths в rendered HTML
+- Production BackendClient endpoints only
+
+### Tests
+- +TestCampaignCreativeScheduleWorkflow (23 tests): render, формы, флоу, безопасность, empty states
+
+---
+
 ## [43.2-dashboard-reports-visualization] — 2026-06-16
 
 **Dashboard & Reports Visualization — управленческая аналитика и плановая отчётность.**
