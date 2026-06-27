@@ -10,7 +10,7 @@ prior migration), but SQLAlchemy model was missing.
 """
 
 from sqlalchemy import (
-    Column, Date, DateTime, ForeignKey, Integer, String, Time, Boolean,
+    Column, Date, DateTime, ForeignKey, Integer, String, Time, Boolean, Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -201,3 +201,65 @@ class ScheduleSlot(Base):
     )
 
     schedule = relationship("Schedule", back_populates="slots")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ScheduleRun — ORM model for existing schedule_runs table (41.4.1)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ScheduleRun(Base):
+    """ScheduleRun — one scheduling run for a campaign+booking pair.
+
+    Table ``schedule_runs`` was created by alembic migration 008 but the
+    ORM model was missing.  Added in 41.4.1 to enable the full publication
+    batch workflow (generate_manifests).  No migration needed — table
+    already exists.
+    """
+
+    __tablename__ = "schedule_runs"
+
+    id = Column(
+        UUID(as_uuid=True), primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    booking_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("campaign_bookings.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    campaign_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("campaigns.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    status = Column(
+        String(32), nullable=False, server_default="draft",
+    )
+    created_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    generated_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    generated_at = Column(DateTime(timezone=True))
+    approved_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    approved_at = Column(DateTime(timezone=True))
+    comment = Column(Text)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+
+    items = relationship(
+        "ScheduleItem", backref="schedule_run", lazy="selectin",
+    )

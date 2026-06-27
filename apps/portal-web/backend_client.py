@@ -727,6 +727,42 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    async def request_batch_approval(
+        self, access_token: str, batch_id: str,
+    ) -> dict:
+        """POST /api/publication-batches/{id}/request-approval → {ok, data}."""
+        return await self._request(
+            "POST", f"/api/publication-batches/{batch_id}/request-approval",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def approve_batch(
+        self, access_token: str, batch_id: str,
+    ) -> dict:
+        """POST /api/publication-batches/{id}/approve → {ok, data}."""
+        return await self._request(
+            "POST", f"/api/publication-batches/{batch_id}/approve",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def generate_batch_manifests(
+        self, access_token: str, batch_id: str,
+    ) -> dict:
+        """POST /api/publication-batches/{id}/generate → {ok, data}."""
+        return await self._request(
+            "POST", f"/api/publication-batches/{batch_id}/generate",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def cancel_batch(
+        self, access_token: str, batch_id: str,
+    ) -> dict:
+        """POST /api/publication-batches/{id}/cancel → {ok, data}."""
+        return await self._request(
+            "POST", f"/api/publication-batches/{batch_id}/cancel",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
     # ── Proof of Play KSO List (Step 37.11) ───────────────────────────
 
     async def list_pop_events(

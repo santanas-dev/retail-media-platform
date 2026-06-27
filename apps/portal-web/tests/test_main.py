@@ -964,8 +964,8 @@ class TestPublicationsPage(unittest.TestCase):
         self.assertIn("batch", self.html.lower())
 
     def test_has_publish_form(self):
-        # Old publish form removed; published status shown in batches table
-        self.assertIn("Доставка на КСО отключена", self.html)
+        # Old publish form removed; physical delivery warning shown
+        self.assertIn("Доставка отключена", self.html)
 
     def test_has_manifest_table(self):
         # Batches table replaces old manifest table

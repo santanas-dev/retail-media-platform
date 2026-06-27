@@ -600,7 +600,7 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - ✅ Portal `/campaigns` — «Подготовить публикацию» button for approved campaigns (no JS)
 - ✅ Portal `/publications` — rewritten to show batches with campaign context
 - ✅ Physical KSO delivery NOT triggered — backend-only mode confirmed
-- ✅ Backend: 528 (+26), Portal: 518, Full regression: 5269 green
+- ✅ Backend: 528, Portal: 498 (+20 skipped), Full regression: 5237 passed + 32 skipped = 5269 total, 0 failed
 
 ### Key decisions
 - Batch starts as `draft` — state machine unchanged
@@ -612,3 +612,23 @@ Preflight doc: `test-kso-phase-c-manifest-media-cache-preflight.md` (13265 bytes
 - Full batch workflow execution (request_approval → approve → generate_manifests → publish)
 - Manifest version N+1 generation for campaign material inclusion
 - Physical KSO delivery gate (separate approval)
+
+## 41.4.1 — Full Publication Batch Workflow & Manifest Generation (2026-06-16)
+
+### Status
+- ✅ ScheduleRun ORM model added — table already existed (migration 008), ORM was missing
+- ✅ generate_manifests() now functional — creates manifest version N+1
+- ✅ Batch lifecycle: draft → pending_approval → approved → manifest_generated → published
+- ✅ Portal: batch action buttons per status (request-approval, generate, publish, cancel)
+- ✅ All actions server-side POST, no JS
+- ✅ Physical KSO delivery NOT triggered
+- ✅ Backend: 551, Portal: 498 (+20 skipped), Full regression: 5292 total, 0 failed
+
+### Key decisions
+- ScheduleRun ORM: minimal model, no migration needed
+- Manifest generation: version N+1, old preserved, old draft versions → cancelled on regenerate
+- Physical KSO delivery remains disabled (separate gate)
+
+### Remaining
+- Physical KSO delivery gate
+- Controlled long-run with manifest delivery

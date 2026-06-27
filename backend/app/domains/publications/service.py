@@ -127,7 +127,6 @@ async def create_batch(
         .where(ScheduleRun.id == UUID(data.schedule_run_id))
         .options(
             selectinload(ScheduleRun.items),
-            selectinload(ScheduleRun.conflicts),
         )
     )
     run = run_result.scalar_one_or_none()

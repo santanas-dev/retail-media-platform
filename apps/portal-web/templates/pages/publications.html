@@ -6,7 +6,7 @@
 <!-- Flash messages -->
 {% if pub_flash and pub_flash.startswith('ok:') %}
 <div class="flash-ok">
-  {% if pub_flash == 'ok:batch_created' %}✅ Publication batch создан.{% elif pub_flash == 'ok:published' %}✅ Manifest опубликован (backend status).{% else %}✅ Успешно.{% endif %}
+  {% if pub_flash == 'ok:batch_approval_requested' %}✅ Запрос на согласование отправлен.{% elif pub_flash == 'ok:manifest_generated' %}✅ Manifest сгенерирован (backend status).{% elif pub_flash == 'ok:batch_published' %}✅ Batch опубликован (backend status only).{% elif pub_flash == 'ok:batch_cancelled' %}✅ Batch отменён.{% else %}✅ Успешно.{% endif %}
 </div>
 {% elif pub_flash == 'error' %}
 <div class="flash-error">❌ Ошибка: {{ pub_flash_msg }}</div>
@@ -15,7 +15,7 @@
 <!-- Info: Physical delivery disabled -->
 <div class="form-panel" style="border-left: 4px solid #f59e0b;">
   <h2>⚠️ Режим backend-only</h2>
-  <p>Публикация в этом шаге формирует backend manifest. <strong>Доставка на КСО отключена</strong> до отдельного approval gate. Физические устройства не затрагиваются.</p>
+  <p>Публикация формирует backend manifest без доставки на КСО. <strong>Доставка отключена</strong> до отдельного approval gate.</p>
 </div>
 
 <!-- Batches Table -->
@@ -26,7 +26,6 @@
       <th>Batch</th>
       <th>Кампания</th>
       <th>Статус</th>
-      <th>Комментарий</th>
       <th>Создан</th>
       <th>Действия</th>
     </tr>
@@ -36,22 +35,40 @@
   {% for b in batches %}
     <tr>
       <td><code>{{ b.batch_ref }}</code></td>
-      <td><code>{{ b.campaign_code }}</code> — {{ b.campaign_name }}</td>
+      <td><code>{{ b.campaign_code }}</code></td>
       <td><span class="badge badge-{{ 'draft' if b.status == 'draft' else 'review' if b.status == 'pending_approval' else 'ready' if b.status in ('approved', 'manifest_generated') else 'ready' if b.status == 'published' else '' }}"></span> {{ b.status }}</td>
-      <td>{{ b.comment or '—' }}</td>
       <td>{{ b.created_at[:19] if b.created_at else '—' }}</td>
       <td>
-        {% if b.status == 'published' %}
-        <span class="badge badge-ready">published</span>
-        {% else %}
-        <span class="text-muted">—</span>
+        <!-- Draft → Request Approval -->
+        {% if b.status == 'draft' %}
+        <form method="post" action="/publications/batch/{{ b.batch_id }}/request-approval" style="display:inline">
+          <button type="submit" class="btn-sm" style="background:var(--color-success,#27ae60);color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer">→ Согласование</button>
+        </form>
+        {% endif %}
+        <!-- Approved → Generate Manifests -->
+        {% if b.status == 'approved' %}
+        <form method="post" action="/publications/batch/{{ b.batch_id }}/generate" style="display:inline">
+          <button type="submit" class="btn-sm" style="background:var(--color-accent,#8e44ad);color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer">📋 Generate</button>
+        </form>
+        {% endif %}
+        <!-- Manifest Generated → Publish (backend only) -->
+        {% if b.status == 'manifest_generated' %}
+        <form method="post" action="/publications/batch/{{ b.batch_id }}/publish" style="display:inline">
+          <button type="submit" class="btn-sm" style="background:var(--color-primary,#3498db);color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer">🚀 Publish</button>
+        </form>
+        {% endif %}
+        <!-- Cancel (non-terminal states) -->
+        {% if b.status not in ('published', 'rejected', 'cancelled') %}
+        <form method="post" action="/publications/batch/{{ b.batch_id }}/cancel" style="display:inline">
+          <button type="submit" class="btn-sm btn-danger">✕</button>
+        </form>
         {% endif %}
       </td>
     </tr>
   {% endfor %}
   {% else %}
     <tr class="empty-row">
-      <td colspan="6">
+      <td colspan="5">
         <div class="table-empty-state">
           <div class="table-empty-icon">📦</div>
           <div class="table-empty-title">Пока нет publication batches</div>
@@ -73,12 +90,9 @@
     <tr>
       <th>Manifest Code</th>
       <th>Device</th>
-      <th>Placement</th>
       <th>Campaign</th>
       <th>Status</th>
       <th>Items</th>
-      <th>Generated</th>
-      <th>Published</th>
     </tr>
   </thead>
   <tbody>
@@ -86,17 +100,9 @@
     <tr>
       <td><code>{{ m.manifest_code }}</code></td>
       <td><code>{{ m.device_code }}</code></td>
-      <td><code>{{ m.placement_code }}</code></td>
       <td><code>{{ m.campaign_code }}</code></td>
-      <td>
-        {% if m.status == 'published' %}<span class="badge badge-published">published</span>
-        {% elif m.status == 'generated' %}<span class="badge badge-ready">generated</span>
-        {% else %}<span class="badge">{{ m.status }}</span>
-        {% endif %}
-      </td>
+      <td><span class="badge badge-{{ 'ready' if m.status == 'published' else '' }}"></span> {{ m.status }}</td>
       <td>{{ m.item_count }}</td>
-      <td>{{ m.generated_at[:19] if m.generated_at else '—' }}</td>
-      <td>{{ m.published_at[:19] if m.published_at else '—' }}</td>
     </tr>
   {% endfor %}
   </tbody>
@@ -113,10 +119,10 @@
 {% endif %}
 <div class="note-box">
   <span class="note-icon">📦</span>
-  <span class="note-text">Publication batch создаётся из approved кампании через кнопку «Подготовить публикацию» на странице Кампании. Статусы: draft → pending_approval → approved → manifest_generated → published.</span>
+  <span class="note-text">Workflow: draft → request_approval → pending_approval → (approve via /approvals) → approved → generate → manifest_generated → publish (backend only). Доставка на КСО — отдельный gate.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Безопасная проекция: токены, backend URL, raw UUID не отображаются. Доставка манифеста на физическую КСО — следующий этап.</span>
+  <span class="note-text">Безопасная проекция: токены, backend URL, raw UUID не отображаются. Физическая доставка манифеста отключена.</span>
 </div>
 {% endblock %}

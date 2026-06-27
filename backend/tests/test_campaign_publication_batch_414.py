@@ -196,7 +196,7 @@ class TestPublicationsTemplateBatches(unittest.TestCase):
     def test_physical_delivery_warning(self):
         """Shows warning that physical KSO delivery is disabled."""
         content = self._get_content()
-        self.assertIn("Доставка на КСО отключена", content)
+        self.assertIn("Доставка отключена", content)
 
     def test_no_javascript(self):
         """No <script>, onclick, confirm, CDN, localStorage."""
@@ -256,3 +256,233 @@ class TestPortalMainHandlerExists(unittest.TestCase):
         # Read ~500 chars after function start to capture docstring
         func_source = source[idx:idx + 800]
         self.assertIn("NOT triggered", func_source)
+
+
+class TestScheduleRunOrmModel(unittest.TestCase):
+    """41.4.1 — ScheduleRun ORM model tests."""
+
+    def _get_scheduling_source(self):
+        path = os.path.join(
+            os.path.dirname(__file__), "..",
+            "app", "domains", "scheduling", "models.py",
+        )
+        with open(path) as f:
+            return f.read()
+
+    def test_schedulerun_class_defined_in_source(self):
+        """ScheduleRun class is defined in scheduling/models.py."""
+        source = self._get_scheduling_source()
+        self.assertIn("class ScheduleRun(Base):", source)
+        self.assertIn('__tablename__ = "schedule_runs"', source)
+
+    def test_schedulerun_has_required_columns_in_source(self):
+        """ScheduleRun has id, campaign_id, booking_id, status, created_by."""
+        source = self._get_scheduling_source()
+        idx = source.find("class ScheduleRun")
+        class_source = source[idx:]
+        for col in ("id", "campaign_id", "booking_id", "status", "created_by"):
+            self.assertIn(f"{col} = Column", class_source,
+                          f"Missing column: {col}")
+
+    def test_schedulerun_imports_in_generate_manifests(self):
+        """generate_manifests imports ScheduleRun from scheduling.models."""
+        import os
+        path = os.path.join(
+            os.path.dirname(__file__), "..",
+            "app", "domains", "publications", "service.py",
+        )
+        with open(path) as f:
+            source = f.read()
+        start = source.find("def generate_manifests")
+        func_source = source[start:]
+        self.assertIn("from app.domains.scheduling.models import ScheduleRun", func_source)
+
+    def test_create_batch_no_conflicts_selectinload(self):
+        """create_batch no longer references ScheduleRun.conflicts."""
+        import os
+        path = os.path.join(
+            os.path.dirname(__file__), "..",
+            "app", "domains", "publications", "service.py",
+        )
+        with open(path) as f:
+            source = f.read()
+        start = source.find("def create_batch")
+        func_source = source[start:]
+        self.assertNotIn("selectinload(ScheduleRun.conflicts)", func_source)
+
+
+class TestPublicationBatchWorkflow(unittest.TestCase):
+    """41.4.1 — Full batch workflow state machine tests."""
+
+    def _get_schemas_source(self):
+        path = os.path.join(
+            os.path.dirname(__file__), "..",
+            "app", "domains", "publications", "schemas.py",
+        )
+        with open(path) as f:
+            return f.read()
+
+    def _get_router_source(self):
+        path = os.path.join(
+            os.path.dirname(__file__), "..",
+            "app", "domains", "publications", "router.py",
+        )
+        with open(path) as f:
+            return f.read()
+
+    def test_draft_to_pending_approval_in_source(self):
+        """draft → pending_approval transition defined in schemas."""
+        source = self._get_schemas_source()
+        self.assertIn('DRAFT: frozenset({', source)
+        self.assertIn('PENDING_APPROVAL', source)
+
+    def test_approved_to_manifest_generated_in_source(self):
+        """approved → manifest_generated transition defined."""
+        source = self._get_schemas_source()
+        self.assertIn('APPROVED: frozenset({', source)
+        self.assertIn('MANIFEST_GENERATED', source)
+
+    def test_manifest_generated_to_published_in_source(self):
+        """manifest_generated → published transition defined."""
+        source = self._get_schemas_source()
+        self.assertIn('MANIFEST_GENERATED: frozenset({', source)
+        self.assertIn('PUBLISHED', source)
+
+    def test_backend_routers_include_batch_actions(self):
+        """All batch lifecycle endpoints are registered."""
+        source = self._get_router_source()
+        for action in ("request-approval", "approve", "generate", "publish", "cancel"):
+            path = f"/publication-batches/{{batch_id}}/{action}"
+            self.assertIn(path, source,
+                          f"Missing route: {path}")
+
+    def test_generate_requires_approved_status(self):
+        """generate_manifests checks batch.status == 'approved'."""
+        import os
+        path = os.path.join(
+            os.path.dirname(__file__), "..",
+            "app", "domains", "publications", "service.py",
+        )
+        with open(path) as f:
+            source = f.read()
+        start = source.find("def generate_manifests")
+        func_source = source[start:]
+        self.assertIn("batch.status not in (\"approved\",)", func_source)
+
+    def test_no_physical_delivery_in_publish(self):
+        """publish_batch docstring confirms no physical delivery."""
+        import os
+        path = os.path.join(
+            os.path.dirname(__file__), "..",
+            "app", "domains", "publications", "service.py",
+        )
+        with open(path) as f:
+            source = f.read()
+        # Check batch workflow functions document no physical KSO delivery
+        self.assertIn("Physical KSO delivery is NOT triggered", source)
+
+
+class TestPortalBatchActionHandlers(unittest.TestCase):
+    """41.4.1 — Portal batch action handlers."""
+
+    def _get_main_source(self):
+        path = os.path.join(
+            os.path.dirname(__file__), "..", "..",
+            "apps", "portal-web", "main.py",
+        )
+        with open(path) as f:
+            return f.read()
+
+    def test_request_approval_handler_exists(self):
+        """Handler for POST /publications/batch/{id}/request-approval."""
+        source = self._get_main_source()
+        self.assertIn("def publications_batch_request_approval", source)
+
+    def test_generate_handler_exists(self):
+        """Handler for POST /publications/batch/{id}/generate."""
+        source = self._get_main_source()
+        self.assertIn("def publications_batch_generate", source)
+
+    def test_publish_handler_exists(self):
+        """Handler for POST /publications/batch/{id}/publish."""
+        source = self._get_main_source()
+        self.assertIn("def publications_batch_publish", source)
+
+    def test_cancel_handler_exists(self):
+        """Handler for POST /publications/batch/{id}/cancel."""
+        source = self._get_main_source()
+        self.assertIn("def publications_batch_cancel", source)
+
+    def test_all_handlers_use_backend_client(self):
+        """All handlers call backend methods."""
+        source = self._get_main_source()
+        for action in ("request_batch_approval", "generate_batch_manifests",
+                       "publish_batch", "cancel_batch"):
+            self.assertIn(action, source,
+                          f"Missing backend call: {action}")
+
+    def test_no_physical_delivery_in_handlers(self):
+        """Docstrings confirm no physical delivery."""
+        source = self._get_main_source()
+        idx = source.find("def publications_batch_publish")
+        self.assertIn("No physical delivery", source[idx:idx + 500])
+
+
+class TestPublicationsTemplateBatchActions(unittest.TestCase):
+    """41.4.1 — Publications template batch actions."""
+
+    def _get_content(self):
+        path = os.path.join(
+            os.path.dirname(__file__), "..", "..",
+            "apps", "portal-web", "templates", "pages", "publications.html",
+        )
+        with open(path) as f:
+            return f.read()
+
+    def test_batch_approval_action_present(self):
+        """Request approval button exists in template."""
+        content = self._get_content()
+        self.assertIn("request-approval", content)
+        self.assertIn("Согласование", content)
+
+    def test_batch_generate_action_present(self):
+        """Generate button exists in template."""
+        content = self._get_content()
+        self.assertIn("/generate", content)
+        self.assertIn("Generate", content)
+
+    def test_batch_publish_action_present(self):
+        """Publish button exists in template."""
+        content = self._get_content()
+        self.assertIn("/publish", content)
+
+    def test_batch_cancel_action_present(self):
+        """Cancel button exists in template."""
+        content = self._get_content()
+        self.assertIn("/cancel", content)
+
+    def test_no_javascript(self):
+        """No <script>, onclick, confirm."""
+        content = self._get_content()
+        self.assertNotIn("<script", content)
+        self.assertNotIn("onclick", content)
+        self.assertNotIn("confirm(", content)
+
+    def test_batch_id_in_forms(self):
+        """Forms include batch_id in URL."""
+        content = self._get_content()
+        self.assertIn("b.batch_id", content)
+
+
+class TestBackendClientBatchLifecycle(unittest.TestCase):
+    """41.4.1 — BackendClient batch lifecycle methods."""
+
+    def test_client_has_all_methods(self):
+        """BackendClient has all batch lifecycle methods."""
+        import sys
+        sys.path.insert(0, "apps/portal-web")
+        from backend_client import BackendClient
+        for method in ("request_batch_approval", "approve_batch",
+                       "generate_batch_manifests", "cancel_batch"):
+            self.assertTrue(hasattr(BackendClient, method),
+                            f"Missing: BackendClient.{method}")

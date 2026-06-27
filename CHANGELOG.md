@@ -35,10 +35,17 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ### Tests
 
-| Suite | Passed | +New |
+| Suite | Passed | Skipped |
 |---|---|---|
-| Backend | **528** | +26 |
-| Portal | 518 (20 skipped) | — |
+| Backend | **528** | 0 |
+| Portal | 498 | 20 |
+| KSO SA | 86 | 0 |
+| Player | 2060 | 12 |
+| Sidecar | 1838 | 0 |
+| Infra | 227 | 0 |
+| **Total** | **5237** | **32** |
+
+Full regression: **5269 total (5237 passed + 32 skipped), 0 failed.** Delta from 41.3 baseline (5210): +59.
 
 ### Key decisions
 
@@ -55,7 +62,65 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [41.3.1-campaign-creative-compat-guard] — 2026-06-16
+## [41.4.1-batch-workflow-manifest-generation] — 2026-06-16
+
+**Full Publication Batch Workflow & Manifest Generation — batch lifecycle + ScheduleRun ORM.**
+
+### Backend
+
+- `ScheduleRun` ORM model added (`backend/app/domains/scheduling/models.py`)
+  - Table `schedule_runs` already existed (migration 008); ORM model was missing
+  - Enables `generate_manifests()` to work with ORM instead of failing on import
+- `create_batch()` — removed dangling `selectinload(ScheduleRun.conflicts)` (ScheduleConflict doesn't exist)
+- Batch lifecycle endpoints (pre-existing, now functional): request-approval, approve, generate, publish, cancel
+
+### Portal
+
+- `/publications` — batch action buttons per status:
+  - `draft` → «→ Согласование» (request-approval)
+  - `approved` → «📋 Generate» (generate manifests)
+  - `manifest_generated` → «🚀 Publish» (backend status only)
+  - `✕` Cancel (non-terminal states)
+- All actions are server-side POST forms, batch_id in URL, no JS
+- BackendClient: `request_batch_approval()`, `approve_batch()`, `generate_batch_manifests()`, `cancel_batch()`
+- Batch comment parsing: campaign_code extracted via regex from batch comment
+- Handler flash messages: `ok:batch_approval_requested`, `ok:manifest_generated`, `ok:batch_published`, `ok:batch_cancelled`
+
+### Manifest generation
+
+- `generate_manifests()` now functional (ScheduleRun ORM exists)
+- Creates manifest version N+1 with full playlist
+- Previous manifest not mutated on regenerate (old draft versions → cancelled)
+- Backend publish status only — physical KSO delivery NOT triggered
+
+### Tests
+
+| Suite | Passed | Skipped |
+|---|---|---|
+| Backend | **551** | 0 |
+| Portal | 498 | 20 |
+| KSO SA | 86 | 0 |
+| Player | 2060 | 12 |
+| Sidecar | 1838 | 0 |
+| Infra | 227 | 0 |
+| **Total** | **5260** | **32** |
+
+Full regression: **5292 total, 0 failed.** Delta from 41.4 (5269): +23.
+
+### Key decisions
+
+- `ScheduleRun` ORM: minimal model covering existing table — no migration needed
+- Batch workflow: draft → pending_approval → approved → manifest_generated → published
+- Manifest generation creates version N+1 (new full playlist, old versions preserved)
+- Previous manifest not mutated on regenerate (old draft versions → cancelled)
+- Physical KSO delivery remains disabled (separate gate)
+
+### Remaining
+
+- Physical KSO delivery gate
+- Controlled long-run with manifest delivery
+
+---
 
 **CampaignCreative is_active compatibility guard — safe helper without ORM column.**
 

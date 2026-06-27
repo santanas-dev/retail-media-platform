@@ -1869,25 +1869,22 @@ async def publications_page(request: Request):
         batch_result = await backend.list_publication_batches(access_token)
         if batch_result["ok"]:
             raw_batches = batch_result.get("data", [])
-            # Enrich with campaign info via the test-kso list
-            campaigns_r = await backend.list_campaigns(access_token)
-            campaigns_by_id = {}
-            if campaigns_r["ok"]:
-                for c in campaigns_r.get("data", []):
-                    campaigns_by_id[c.get("campaign_code")] = c
             for b in raw_batches:
-                batch_ref = str(b.get("id", ""))[:8]
-                cid = b.get("campaign_id", "")
-                # Try to match campaign_id with campaign_code
-                cam_code = "?"
-                cam_name = "?"
-                status = b.get("status", "draft")
+                batch_id = str(b.get("id", ""))
+                batch_ref = batch_id[:8]
                 comment = b.get("comment", "")
+                # Extract campaign_code from comment: "Publication batch for campaign 'CODE'"
+                cam_code = "?"
+                import re
+                m = re.search(r"campaign '([^']+)'", comment)
+                if m:
+                    cam_code = m.group(1)
+                status = b.get("status", "draft")
                 created_at = b.get("created_at", "")
                 batches.append({
+                    "batch_id": batch_id,
                     "batch_ref": batch_ref,
                     "campaign_code": cam_code,
-                    "campaign_name": cam_name,
                     "status": status,
                     "comment": comment,
                     "created_at": created_at,
@@ -1920,6 +1917,115 @@ async def publications_page(request: Request):
     })
 
 
+@app.post("/publications/batch/{batch_id}/request-approval", response_class=HTMLResponse)
+async def publications_batch_request_approval(
+    request: Request,
+    batch_id: str,
+):
+    """Request approval for a publication batch (draft → pending_approval)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/publications")
+    if guard is not None:
+        return guard
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["pub_flash"] = "error"
+        request.session["pub_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/publications", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.request_batch_approval(access_token, batch_id)
+    if result["ok"]:
+        request.session["pub_flash"] = "ok:batch_approval_requested"
+    else:
+        request.session["pub_flash"] = "error"
+        request.session["pub_flash_msg"] = result.get("error", "Ошибка")[:200]
+    return RedirectResponse(url="/publications", status_code=303)
+
+
+@app.post("/publications/batch/{batch_id}/generate", response_class=HTMLResponse)
+async def publications_batch_generate(
+    request: Request,
+    batch_id: str,
+):
+    """Generate manifests for an approved batch (approved → manifest_generated)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/publications")
+    if guard is not None:
+        return guard
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["pub_flash"] = "error"
+        request.session["pub_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/publications", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.generate_batch_manifests(access_token, batch_id)
+    if result["ok"]:
+        request.session["pub_flash"] = "ok:manifest_generated"
+    else:
+        request.session["pub_flash"] = "error"
+        request.session["pub_flash_msg"] = result.get("error", "Ошибка генерации")[:200]
+    return RedirectResponse(url="/publications", status_code=303)
+
+
+@app.post("/publications/batch/{batch_id}/publish", response_class=HTMLResponse)
+async def publications_batch_publish(
+    request: Request,
+    batch_id: str,
+):
+    """Publish batch backend status (manifest_generated → published). No physical delivery."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/publications")
+    if guard is not None:
+        return guard
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["pub_flash"] = "error"
+        request.session["pub_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/publications", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.publish_batch(access_token, batch_id)
+    if result["ok"]:
+        request.session["pub_flash"] = "ok:batch_published"
+    else:
+        request.session["pub_flash"] = "error"
+        request.session["pub_flash_msg"] = result.get("error", "Ошибка публикации")[:200]
+    return RedirectResponse(url="/publications", status_code=303)
+
+
+@app.post("/publications/batch/{batch_id}/cancel", response_class=HTMLResponse)
+async def publications_batch_cancel(
+    request: Request,
+    batch_id: str,
+):
+    """Cancel a publication batch."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/publications")
+    if guard is not None:
+        return guard
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["pub_flash"] = "error"
+        request.session["pub_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/publications", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.cancel_batch(access_token, batch_id)
+    if result["ok"]:
+        request.session["pub_flash"] = "ok:batch_cancelled"
+    else:
+        request.session["pub_flash"] = "error"
+        request.session["pub_flash_msg"] = result.get("error", "Ошибка отмены")[:200]
+    return RedirectResponse(url="/publications", status_code=303)
+
+
+# Legacy generate/publish handlers preserved for backward compat
 @app.post("/publications/generate", response_class=HTMLResponse)
 async def publications_generate(
     request: Request,
