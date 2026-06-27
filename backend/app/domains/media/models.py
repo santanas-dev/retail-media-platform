@@ -47,6 +47,9 @@ class Creative(Base):
     status = Column(
         String(20), nullable=False, server_default="draft"
     )
+    scan_status = Column(
+        String(20), nullable=False, server_default="not_configured"
+    )  # not_configured / pending / clean / infected / failed
     comment = Column(Text)
     created_by = Column(
         UUID(as_uuid=True),

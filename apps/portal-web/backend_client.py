@@ -393,6 +393,35 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Moderation (44.2) ──────────────────────────────────────────────
+
+    async def submit_creative_review(
+        self, access_token: str, creative_code: str, comment: str = "",
+    ) -> dict:
+        return await self._request(
+            "POST", f"/api/creatives/by-code/{creative_code}/submit-review",
+            json={"action": "submit_review", "comment": comment},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def approve_creative(
+        self, access_token: str, creative_code: str, comment: str = "",
+    ) -> dict:
+        return await self._request(
+            "POST", f"/api/creatives/by-code/{creative_code}/approve",
+            json={"action": "approve", "comment": comment},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def reject_creative(
+        self, access_token: str, creative_code: str, comment: str = "",
+    ) -> dict:
+        return await self._request(
+            "POST", f"/api/creatives/by-code/{creative_code}/reject",
+            json={"action": "reject", "comment": comment},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
     # ── Campaign Production API (39.2.2) ─────────────────────────────────
 

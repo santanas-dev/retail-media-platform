@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Креативы</h1>
-<p class="page-description">Библиотека рекламных материалов. Загрузка изображений (PNG/JPEG) и видео (MP4). Рекомендованный формат для КСО: портрет 768×1024.</p>
+<p class="page-description">Библиотека рекламных материалов. Загрузка изображений PNG/JPEG, портрет 768×1024 для КСО. Видео отложено до отдельного шага.</p>
 
 <!-- Flow breadcrumbs -->
 <div class="flow-breadcrumbs">
@@ -12,8 +12,6 @@
   <a href="/approvals" class="flow-step">📝 Согласования</a>
   <span class="flow-arrow">→</span>
   <a href="/publications" class="flow-step">📋 Публикации</a>
-  <span class="flow-arrow">→</span>
-  <a href="/reports" class="flow-step">📈 Отчёты</a>
 </div>
 
 <!-- Flash Messages -->
@@ -29,24 +27,52 @@
 </div>
 {% endif %}
 
-<!-- Next Step / Empty State -->
-{% if not creatives %}
-<div class="banner banner-info">
-  <span class="banner-icon">⬆️</span>
-  <div class="banner-body">
-    <div class="banner-title">Начните с загрузки креатива</div>
-    <div class="banner-text">Загрузите изображение 768×1024 через форму ниже. Затем <a href="/campaigns/create">создайте кампанию</a>.</div>
+<!-- ── Summary Cards ── -->
+{% if creatives %}
+{% set total = creatives|length %}
+{% set approved = creatives|selectattr('status', 'equalto', 'approved')|list|length %}
+{% set pending = creatives|selectattr('status', 'in', ['pending_review', 'in_review'])|list|length %}
+{% set rejected = creatives|selectattr('status', 'equalto', 'rejected')|list|length %}
+{% set blocked = creatives|selectattr('scan_status', 'in', ['infected', 'failed'])|list|length %}
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">Всего креативов</div>
+    <div class="kpi-value">{{ total }}</div>
   </div>
-</div>
-{% elif creatives|selectattr('status', 'in', ['approved','ready'])|list|length == 0 %}
-<div class="banner banner-warning">
-  <span class="banner-icon">⚠️</span>
-  <div class="banner-body">
-    <div class="banner-title">Нет одобренных креативов</div>
-    <div class="banner-text">Для создания кампании нужен хотя бы один approved/ready креатив. Всего загружено: {{ creatives|length }}.</div>
+  <div class="kpi-card">
+    <div class="kpi-label">Готовы к использованию</div>
+    <div class="kpi-value">{{ approved }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Ожидают проверки</div>
+    <div class="kpi-value">{{ pending }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Отклонены</div>
+    <div class="kpi-value">{{ rejected }}</div>
   </div>
 </div>
 {% endif %}
+
+<!-- Warning: no approved creatives -->
+{% if creatives and approved == 0 and total > 0 %}
+<div class="banner banner-warning">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body">
+    <div class="banner-title">Нет креативов, готовых к использованию</div>
+    <div class="banner-text">Креатив должен пройти проверку и модерацию (статус «Одобрен») перед привязкой к кампании. Загружено: {{ total }}.</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Safety notice -->
+<div class="banner banner-warning">
+  <span class="banner-icon">🛡️</span>
+  <div class="banner-body">
+    <div class="banner-title">Проверка безопасности не настроена</div>
+    <div class="banner-text">Антивирусный сканер не подключён. Креатив может использоваться после ручной модерации. HTML5/JS/ZIP/исполняемые файлы запрещены.</div>
+  </div>
+</div>
 
 <!-- Upload Form -->
 {% if current_user %}
@@ -54,6 +80,7 @@
   <div class="section-card-header">
     <span class="section-card-icon">⬆</span>
     <span class="section-card-title">Загрузить креатив</span>
+    <span class="text-xs text-muted">Требования: PNG/JPEG, 768×1024 портрет, до 50 МБ</span>
   </div>
   <div class="section-card-body">
     <form action="/creatives/upload" method="POST" enctype="multipart/form-data" class="form-inline">
@@ -61,7 +88,6 @@
         <label class="form-label">Код <span class="form-hint">*</span></label>
         <input type="text" name="creative_code" required pattern="[a-z0-9_-]+" maxlength="64"
                placeholder="demo_creative_001" class="form-input" style="width:180px;">
-        <span class="form-hint">Латинские строчные, цифры, _ —</span>
       </div>
       <div class="form-group">
         <label class="form-label">Название <span class="form-hint">*</span></label>
@@ -70,22 +96,14 @@
       </div>
       <div class="form-group">
         <label class="form-label">Файл <span class="form-hint">*</span></label>
-        <input type="file" name="file" required accept="image/png,image/jpeg,video/mp4"
+        <input type="file" name="file" required accept="image/png,image/jpeg"
                style="padding:7px 0;">
-        <span class="form-hint">PNG/JPEG/MP4, до 50 МБ</span>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Описание</label>
-        <input type="text" name="description" maxlength="500"
-               placeholder="Опционально" class="form-input" style="width:200px;">
+        <span class="form-hint">PNG/JPEG, до 50 МБ, 768×1024</span>
       </div>
       <div class="form-group">
         <button type="submit" class="btn btn-primary">⬆ Загрузить</button>
       </div>
     </form>
-  </div>
-  <div class="section-card-footer">
-    Требования: PNG/JPEG (рекомендовано 768×1024 портрет), MP4, до 50 МБ. Аудио запрещено.
   </div>
 </div>
 {% endif %}
@@ -99,11 +117,10 @@
     <span class="section-card-badge">{{ creatives|length }}</span>
   </div>
   <div class="section-card-body p-0">
-    <div class="table-container table-clean">
     <table class="data-table">
       <thead><tr>
-        <th></th><th>Код</th><th>Название</th><th>Статус</th><th>Тип</th>
-        <th>Разрешение</th><th>Размер</th><th>Создан</th><th></th>
+        <th></th><th>Код</th><th>Название</th><th>Статус</th><th>Формат</th>
+        <th>Разрешение</th><th>Размер</th><th>Безопасность</th><th>Действия</th>
       </tr></thead>
       <tbody>
       {% for c in creatives %}
@@ -113,48 +130,69 @@
             <img src="/preview/{{ c.creative_code }}" alt="" loading="lazy"
                  style="width:48px;height:64px;object-fit:cover;border-radius:3px;border:1px solid var(--color-border);">
             {% else %}
-            <span style="font-size:20px;">{% if c.content_type and 'video' in c.content_type %}🎬{% else %}📄{% endif %}</span>
+            <span style="font-size:20px;">📄</span>
             {% endif %}
           </td>
           <td><code>{{ c.creative_code }}</code></td>
           <td>{{ c.name }}</td>
           <td>
-            {% if c.status == 'draft' %}<span class="status-badge status-badge-draft">Черновик</span>
-            {% elif c.status in ('approved','ready') %}<span class="status-badge status-badge-ready">Готово</span>
-            {% elif c.status == 'in_review' %}<span class="status-badge status-badge-in_review">Проверка</span>
-            {% elif c.status == 'rejected' %}<span class="status-badge status-badge-rejected">Отклонено</span>
-            {% elif c.status == 'archived' %}<span class="status-badge status-badge-archived">Архив</span>
-            {% else %}<span class="status-badge status-badge-draft">{{ c.status_label }}</span>{% endif %}
+            {% if c.status == 'approved' %}<span class="status-success">Одобрен</span>
+            {% elif c.status == 'pending_review' %}<span class="status-warning">Ожидает проверки</span>
+            {% elif c.status == 'in_review' %}<span class="status-warning">На проверке</span>
+            {% elif c.status == 'draft' %}<span class="status-muted">Черновик</span>
+            {% elif c.status == 'rejected' %}<span class="status-danger">Отклонён</span>
+            {% elif c.status == 'validation_failed' %}<span class="status-danger">Ошибка проверки</span>
+            {% elif c.status == 'archived' %}<span class="status-muted">Архив</span>
+            {% else %}<span class="status-muted">{{ c.status }}</span>{% endif %}
           </td>
-          <td>{{ c.content_type }}</td>
-          <td>{% if c.dimensions %}{{ c.dimensions }}{% else %}—{% endif %}
-            {% if c.width == 768 and c.height == 1024 %}<br><span class="text-xs" style="color:var(--color-success);">✅ 768×1024</span>
-            {% elif c.width and c.height %}<br><span class="text-xs text-warning">⚠️ {{ c.width }}×{{ c.height }}</span>{% endif %}
+          <td>{{ c.content_type or '—' }}</td>
+          <td>
+            {% if c.width and c.height %}{{ c.width }}×{{ c.height }}
+            {% if c.width == 768 and c.height == 1024 %}<br><span class="text-xs status-success">✅ 768×1024</span>
+            {% else %}<br><span class="text-xs status-warning">⚠️ Нестандартное</span>{% endif %}
+            {% else %}—{% endif %}
           </td>
           <td>{% if c.file_size_bytes %}{{ (c.file_size_bytes / 1024)|round|int }} КБ{% else %}—{% endif %}</td>
-          <td>{{ c.created_at }}</td>
           <td>
-            {% if c.status != 'archived' %}
-            <form action="/creatives/{{ c.creative_code }}/archive" method="POST" class="inline">
-              <button type="submit" class="btn btn-sm btn-ghost text-sm">Архив</button>
-            </form>
-            {% else %}<span class="text-sm text-muted">—</span>{% endif %}
+            {% if c.scan_status == 'clean' %}<span class="status-success">✅ Чисто</span>
+            {% elif c.scan_status == 'pending' %}<span class="status-warning">⏳ Ожидает</span>
+            {% elif c.scan_status == 'infected' %}<span class="status-danger">🚫 Заблокирован</span>
+            {% elif c.scan_status == 'failed' %}<span class="status-muted">⚠️ Ошибка</span>
+            {% else %}<span class="status-muted">Не настроена</span>{% endif %}
+          </td>
+          <td>
+            <div class="form-inline gap-4">
+              {% if c.status in ('pending_review', 'draft', 'validation_failed') %}
+              <form method="post" action="/creatives/{{ c.creative_code }}/submit-review" class="inline">
+                <button type="submit" class="btn btn-sm">На проверку</button>
+              </form>
+              {% endif %}
+              {% if c.status in ('in_review', 'pending_review') %}
+              <form method="post" action="/creatives/{{ c.creative_code }}/approve" class="inline">
+                <button type="submit" class="btn btn-sm btn-success">Одобрить</button>
+              </form>
+              <form method="post" action="/creatives/{{ c.creative_code }}/reject" class="inline">
+                <button type="submit" class="btn btn-sm btn-danger">Отклонить</button>
+              </form>
+              {% endif %}
+              {% if c.status != 'archived' %}
+              <form action="/creatives/{{ c.creative_code }}/archive" method="POST" class="inline">
+                <button type="submit" class="btn btn-sm btn-ghost">Архив</button>
+              </form>
+              {% endif %}
+            </div>
           </td>
         </tr>
       {% endfor %}
       </tbody>
     </table>
-    </div>
   </div>
 </div>
 {% else %}
 <div class="empty-state">
   <div class="empty-state-icon">🎨</div>
   <div class="empty-state-title">Креативы ещё не загружены</div>
-  <div class="empty-state-text">Загрузите первый креатив через форму выше. Код должен быть уникальным (строчные буквы, цифры, _ —).</div>
-  <div class="empty-state-action">
-    <span class="btn btn-sm btn-ghost" style="cursor:default;">⬆ Используйте форму загрузки выше</span>
-  </div>
+  <div class="empty-state-text">Загрузите первый креатив через форму выше. Формат: PNG/JPEG, 768×1024, до 50 МБ.</div>
 </div>
 {% endif %}
 
@@ -164,14 +202,8 @@
   <span class="banner-icon">👉</span>
   <div class="banner-body">
     <div class="banner-title">Следующий шаг</div>
-    <div class="banner-text">После загрузки и проверки креатива <a href="/campaigns/create">создайте кампанию</a> и привяжите к ней креатив.</div>
+    <div class="banner-text">После одобрения креатива <a href="/campaigns/create">создайте кампанию</a> и привяжите к ней креатив.</div>
   </div>
 </div>
 {% endif %}
-
-<!-- Safety Notes -->
-<div class="note-box">
-  <span class="note-icon">🔐</span>
-  <span class="note-text"><code>media.read</code> — просмотр. <code>media.manage</code> — загрузка и архивирование. RLS enforced. Storage path, checksum не отображаются.</span>
-</div>
 {% endblock %}

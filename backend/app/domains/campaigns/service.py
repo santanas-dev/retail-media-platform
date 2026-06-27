@@ -867,6 +867,14 @@ async def bind_campaign_creative(
     if not creative:
         raise HTTPException(status_code=404, detail="Creative not found")
 
+    # Reject if creative is not approved
+    if creative.status != "approved":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Креатив '{creative_code}' имеет статус '{creative.status}'. "
+                   f"Для привязки к кампании требуется статус 'approved'.",
+        )
+
     # Check existing binding
     existing_result = await db.execute(
         select(models.CampaignCreative).where(

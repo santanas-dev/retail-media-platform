@@ -19,15 +19,28 @@ from app.core.config import get_settings
 ALLOWED_MIME_TYPES = frozenset({
     "image/jpeg",
     "image/png",
-    "video/mp4",
-    "video/webm",
+    # "video/mp4",   # deferred — needs codec/duration/audio validation
+    # "video/webm",  # deferred
 })
 
 # ── Allowed extensions ───────────────────────────────────────────────
-ALLOWED_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".mp4", ".webm"})
+ALLOWED_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png"})
+
+# ── Blocked dangerous extensions (rejected immediately, no MIME check) 
+BLOCKED_EXTENSIONS = frozenset({
+    ".html", ".htm", ".js", ".mjs", ".cjs",
+    ".zip", ".tar", ".gz", ".bz2", ".7z", ".rar",
+    ".exe", ".dll", ".so", ".sh", ".bat", ".cmd",
+    ".py", ".rb", ".pl", ".php", ".jar", ".class",
+    ".svg",  # SVG can contain JS
+})
 
 # ── Max upload size (bytes) ──────────────────────────────────────────
 MAX_UPLOAD_SIZE = 500 * 1024 * 1024  # 500 MB
+
+# ── KSO v1 Profile (physical test device) ───────────────────────────
+KSO_PORTRAIT_WIDTH = 768
+KSO_PORTRAIT_HEIGHT = 1024
 
 
 def _get_client() -> Minio:
@@ -93,6 +106,14 @@ async def upload_to_minio(
 
     # Build object key
     object_key = _safe_object_key(creative_id, version, original_filename)
+
+    # Block dangerous extensions BEFORE MIME detection
+    suffix = PurePath(original_filename).suffix.lower()
+    if suffix in BLOCKED_EXTENSIONS:
+        raise ValueError(
+            f"Запрещённый тип файла: {suffix}. "
+            f"Разрешены: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+        )
 
     # Determine content-type from the upload data
     content_type = _detect_mime_type(original_filename, file_content[:2048])

@@ -19,7 +19,7 @@ class CreativeCreate(BaseModel):
 class CreativeUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     status: str | None = Field(
-        None, pattern=r"^(draft|in_review|approved|rejected|archived)$"
+        None, pattern=r"^(draft|pending_review|validation_failed|in_review|approved|rejected|archived)$"
     )
     comment: str | None = None
 
@@ -27,14 +27,14 @@ class CreativeUpdate(BaseModel):
 class CreativeResponse(BaseModel):
     id: UUID
     advertiser_id: UUID | None
-    advertiser_code: str | None = None  # populated from advertiser relationship
-    advertiser_name: str | None = None  # human-readable advertiser name
+    advertiser_code: str | None = None
+    advertiser_name: str | None = None
     brand_id: UUID | None
     creative_code: str
     name: str
     status: str
+    scan_status: str = "not_configured"
     comment: str | None
-    # Latest version metadata (populated from versions relationship)
     content_type: str | None = None
     width: int | None = None
     height: int | None = None
@@ -152,3 +152,43 @@ class ValidationResponse(BaseModel):
     checked_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── Moderation (44.2) ──────────────────────────────────────────────────────
+
+class ModerationAction(BaseModel):
+    action: str = Field(pattern=r"^(approve|reject|submit_review)$")
+    reason_code: str | None = Field(None, max_length=50)
+    comment: str | None = Field(None, max_length=500)
+
+
+class ModerationResponse(BaseModel):
+    creative_code: str
+    status: str
+    action: str
+    comment: str | None = None
+    ok: bool = True
+
+
+# ── Creative QA Policy (44.2) ──────────────────────────────────────────────
+
+class CreativePolicyResponse(BaseModel):
+    profile: str = "KSO_PORTRAIT_768x1024_v1"
+    allowed_mime_types: list[str] = ["image/jpeg", "image/png"]
+    allowed_extensions: list[str] = [".jpg", ".jpeg", ".png"]
+    required_width: int = 768
+    required_height: int = 1024
+    max_file_size_bytes: int = 50 * 1024 * 1024
+    blocked_extensions: list[str] = [
+        ".html", ".htm", ".js", ".svg",
+        ".zip", ".tar", ".gz", ".exe", ".dll", ".sh",
+    ]
+    deferred_types: list[str] = ["video/mp4", "video/webm", "image/gif"]
+    av_scanner: str = "not_configured"
+    notes: list[str] = [
+        "Видео отложено до отдельного шага валидации (требуется проверка кодека, длительности, звука)",
+        "GIF запрещён — нет проверки длительности/CPU",
+        "HTML5/JS/ZIP/исполняемые — запрещены без решения ИБ",
+        "SVG запрещён — может содержать JavaScript",
+        "Проверка безопасности (AV) не настроена — креатив может использоваться после ручной модерации",
+    ]

@@ -303,6 +303,7 @@ async def _enrich_creatives(db: AsyncSession, creatives: list) -> list[schemas.C
             creative_code=c.creative_code,
             name=c.name,
             status=c.status,
+            scan_status=getattr(c, 'scan_status', 'not_configured'),
             comment=c.comment,
             content_type=latest.mime_type if latest else None,
             width=latest.width if latest else None,
@@ -461,3 +462,110 @@ async def preview_creative_by_code(
         },
         background=_close,
     )
+
+
+# ── Moderation Actions (44.2) ────────────────────────────────────────────
+
+@router.post(
+    "/creatives/by-code/{creative_code}/submit-review",
+    response_model=schemas.ModerationResponse,
+)
+async def submit_creative_for_review(
+    creative_code: str,
+    data: schemas.ModerationAction,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("media.manage")),
+):
+    creative = await service.get_creative_by_code(db, creative_code)
+    if not creative:
+        raise HTTPException(status_code=404, detail="Creative not found")
+    if creative.status not in ("draft", "validation_failed", "pending_review"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Нельзя отправить на проверку креатив в статусе '{creative.status}'",
+        )
+    creative.status = "in_review"
+    await db.commit()
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="creative.submit_review", target_type="creative",
+        target_ref=creative_code,
+        details={"comment": data.comment},
+    )
+    return schemas.ModerationResponse(
+        creative_code=creative_code, status="in_review",
+        action="submit_review", comment=data.comment,
+    )
+
+
+@router.post(
+    "/creatives/by-code/{creative_code}/approve",
+    response_model=schemas.ModerationResponse,
+)
+async def approve_creative(
+    creative_code: str,
+    data: schemas.ModerationAction,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("media.approve")),
+):
+    creative = await service.get_creative_by_code(db, creative_code)
+    if not creative:
+        raise HTTPException(status_code=404, detail="Creative not found")
+    if creative.status not in ("in_review", "pending_review"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Нельзя согласовать креатив в статусе '{creative.status}'",
+        )
+    creative.status = "approved"
+    await db.commit()
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="creative.approve", target_type="creative",
+        target_ref=creative_code,
+        details={"reason_code": data.reason_code, "comment": data.comment},
+    )
+    return schemas.ModerationResponse(
+        creative_code=creative_code, status="approved",
+        action="approve", comment=data.comment,
+    )
+
+
+@router.post(
+    "/creatives/by-code/{creative_code}/reject",
+    response_model=schemas.ModerationResponse,
+)
+async def reject_creative(
+    creative_code: str,
+    data: schemas.ModerationAction,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("media.approve")),
+):
+    creative = await service.get_creative_by_code(db, creative_code)
+    if not creative:
+        raise HTTPException(status_code=404, detail="Creative not found")
+    if creative.status not in ("in_review", "pending_review"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Нельзя отклонить креатив в статусе '{creative.status}'",
+        )
+    creative.status = "rejected"
+    await db.commit()
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="creative.reject", target_type="creative",
+        target_ref=creative_code,
+        details={"reason_code": data.reason_code, "comment": data.comment},
+    )
+    return schemas.ModerationResponse(
+        creative_code=creative_code, status="rejected",
+        action="reject", comment=data.comment,
+    )
+
+
+# ── Creative QA Policy (44.2) ─────────────────────────────────────────────
+
+@router.get("/creatives/policy", response_model=schemas.CreativePolicyResponse)
+async def creative_policy(
+    _: identity_models.User = Depends(require_permission("media.read")),
+):
+    return schemas.CreativePolicyResponse()

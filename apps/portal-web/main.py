@@ -1231,6 +1231,75 @@ async def creatives_archive(
     return RedirectResponse(url="/creatives", status_code=303)
 
 
+@app.post("/creatives/{creative_code}/submit-review", response_class=HTMLResponse)
+async def creatives_submit_review(request: Request, creative_code: str):
+    """Submit creative for moderation review (44.2)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/creatives")
+    if guard is not None:
+        return guard
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    if not at:
+        request.session["creative_flash"] = "error"
+        request.session["creative_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/creatives", status_code=303)
+    backend = BackendClient()
+    result = await backend.submit_creative_review(at, creative_code.strip())
+    if result.get("ok"):
+        request.session["creative_flash"] = "ok:submitted"
+    else:
+        request.session["creative_flash"] = "error"
+        request.session["creative_flash_msg"] = result.get("error", "Ошибка")[:200]
+    return RedirectResponse(url="/creatives", status_code=303)
+
+
+@app.post("/creatives/{creative_code}/approve", response_class=HTMLResponse)
+async def creatives_approve(request: Request, creative_code: str):
+    """Approve creative (44.2)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/creatives")
+    if guard is not None:
+        return guard
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    if not at:
+        request.session["creative_flash"] = "error"
+        request.session["creative_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/creatives", status_code=303)
+    backend = BackendClient()
+    result = await backend.approve_creative(at, creative_code.strip())
+    if result.get("ok"):
+        request.session["creative_flash"] = "ok:approved"
+    else:
+        request.session["creative_flash"] = "error"
+        request.session["creative_flash_msg"] = result.get("error", "Ошибка")[:200]
+    return RedirectResponse(url="/creatives", status_code=303)
+
+
+@app.post("/creatives/{creative_code}/reject", response_class=HTMLResponse)
+async def creatives_reject(request: Request, creative_code: str):
+    """Reject creative (44.2)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/creatives")
+    if guard is not None:
+        return guard
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    if not at:
+        request.session["creative_flash"] = "error"
+        request.session["creative_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url="/creatives", status_code=303)
+    backend = BackendClient()
+    result = await backend.reject_creative(at, creative_code.strip())
+    if result.get("ok"):
+        request.session["creative_flash"] = "ok:rejected"
+    else:
+        request.session["creative_flash"] = "error"
+        request.session["creative_flash_msg"] = result.get("error", "Ошибка")[:200]
+    return RedirectResponse(url="/creatives", status_code=303)
+
+
 def _creatives_fallback(request: Request, current_user) -> HTMLResponse:
     return templates.TemplateResponse(request, "pages/creatives.html", {
         "request": request,

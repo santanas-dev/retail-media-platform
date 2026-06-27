@@ -480,10 +480,10 @@ async def list_validations(
 
 # ── Combined Creative Upload (Step 37.3) ─────────────────────────────────
 
-# KSO-specific constraints
+# KSO-specific constraints (v1 — physical test device 768×1024 portrait)
 KSO_MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
-KSO_REQUIRED_WIDTH = 1440
-KSO_REQUIRED_HEIGHT = 1080
+KSO_REQUIRED_WIDTH = 768   # matches physical test KSO portrait
+KSO_REQUIRED_HEIGHT = 1024
 
 
 async def upload_creative_combined(
@@ -495,21 +495,22 @@ async def upload_creative_combined(
     """Create a creative + upload its first version in one call (Step 37.3).
 
     Validation:
-    - MIME type: image/png, image/jpeg, video/mp4 only
-    - Image dimensions: must be 1440×1080 for image/* types
-    - Audio: rejected (video/mp4 accepted, audio/ is forbidden)
+    - MIME type: image/png, image/jpeg only (video deferred to v2)
+    - Image dimensions: must be 768×1024 portrait (physical test KSO)
+    - Audio: rejected
     - Max size: 50 MB
     - creative_code: unique, ^[a-z0-9_-]+$
+    - Duplicate SHA-256: rejected (same file already uploaded)
 
     Does NOT expose file_path, sha256, or storage_ref in response.
     """
-    # 1. Validate MIME type
+    # 1. Validate MIME type (client-reported)
     content_type = file.content_type or ""
-    if content_type not in ("image/png", "image/jpeg", "video/mp4"):
+    if content_type not in ("image/png", "image/jpeg"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported content type: {content_type}. "
-                   f"Allowed: image/png, image/jpeg, video/mp4",
+            detail=f"Неподдерживаемый формат: {content_type}. "
+                   f"Разрешены: PNG, JPEG. Видео отложено до отдельного шага.",
         )
 
     # 2. Read file content with size limit
@@ -517,10 +518,19 @@ async def upload_creative_combined(
     if len(content) > KSO_MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File too large: {len(content)} bytes (max {KSO_MAX_FILE_SIZE})",
+            detail=f"Файл слишком большой: {len(content)} байт (макс {KSO_MAX_FILE_SIZE})",
         )
 
-    # 3. Image dimension validation
+    # 3. Reject video disguised as image
+    if content_type.startswith("image/") and len(content) > 0:
+        head = content[:12]
+        if head[:4] == b"\x00\x00\x00\x18" or head[4:12] == b"ftyp":  # MP4 magic
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Видеофайл замаскирован под изображение. Загрузка видео отложена.",
+            )
+
+    # 4. Image dimension validation
     width, height = None, None
     if content_type.startswith("image/"):
         try:
@@ -529,27 +539,44 @@ async def upload_creative_combined(
             if width != KSO_REQUIRED_WIDTH or height != KSO_REQUIRED_HEIGHT:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Image dimensions must be {KSO_REQUIRED_WIDTH}×{KSO_REQUIRED_HEIGHT}, "
-                           f"got {width}×{height}",
+                    detail=f"Разрешение должно быть {KSO_REQUIRED_WIDTH}×{KSO_REQUIRED_HEIGHT}, "
+                           f"получено {width}×{height}",
                 )
         except HTTPException:
             raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot read image: {str(e)[:100]}",
+                detail=f"Не удалось прочитать изображение: {str(e)[:100]}",
             )
 
-    # 4. Create Creative record
+    # 5. Check duplicate SHA-256 BEFORE upload
+    import hashlib
+    new_sha256 = hashlib.sha256(content).hexdigest()
+    existing = await db.execute(
+        select(models.CreativeVersion).where(
+            models.CreativeVersion.sha256 == new_sha256
+        ).limit(1)
+    )
+    dup = existing.scalar_one_or_none()
+    if dup is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Такой файл уже загружен (SHA-256: {new_sha256[:16]}...). "
+                   f"Версия {dup.version} креатива.",
+        )
+
+    # 6. Create Creative record with status 'pending_review'
     creative = models.Creative(
         creative_code=data.creative_code,
         name=data.name,
+        status="pending_review",  # requires moderation, not auto-approved
         created_by=user_id,
     )
     db.add(creative)
     await db.flush()  # Get ID without committing
 
-    # 5. Upload to MinIO
+    # 7. Upload to MinIO
     try:
         metadata = await storage.upload_to_minio(
             content, file.filename or "untitled",

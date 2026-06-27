@@ -546,14 +546,16 @@ class TestCreativesPage(unittest.TestCase):
         main.get_current_portal_user = self._orig_gcpu
 
     def test_has_kso_requirements(self):
-        # 43.3: requirements in section-card footer, audio forbidden noted
-        for req in ("PNG", "JPEG", "MP4", "50 МБ", "Аудио"):
+        # 44.2: PNG/JPEG only, 768×1024, no MP4/video
+        for req in ("PNG", "JPEG", "768×1024", "50 МБ"):
             self.assertIn(req, self.html,
                           f"Requirements must mention '{req}'")
+        # Video NOT allowed in v1
+        self.assertNotIn("MP4", self.html)
 
     def test_requirements_audio_forbidden(self):
-        self.assertIn("Аудио", self.html)
-        self.assertIn("запрещено", self.html.lower())
+        # Video deferred entirely — no audio mentioning needed
+        self.assertIn("Видео отложено", self.html)
 
     def test_filters_disabled(self):
         """Upload form is present, actions are disabled."""
@@ -565,9 +567,9 @@ class TestCreativesPage(unittest.TestCase):
         self.assertIn("name=\"file\"", self.html)
 
     def test_has_table_structure(self):
-        # 43.3: simplified table columns
-        for col in ("Код", "Название", "Тип", "Размер",
-                     "Разрешение", "Статус"):
+        # 44.2: updated columns — Тип→Формат, added Безопасность, Действия
+        for col in ("Код", "Название", "Формат", "Размер",
+                     "Разрешение", "Статус", "Безопасность", "Действия"):
             self.assertIn(col, self.html,
                           f"Creatives table must have column '{col}'")
 
@@ -4413,8 +4415,8 @@ class TestUXStatusBadges(unittest.TestCase):
         resp = self.client.get("/creatives")
         self.assertEqual(resp.status_code, 200)
         html = resp.text
-        # Mock data has creative → "Черновик" badge renders, legend has "Архив"
-        for label in ("Черновик", "status-badge-draft"):
+        # Mock data has creative → "Черновик" badge renders, uses status-muted class
+        for label in ("Черновик", "status-muted"):
             self.assertIn(label, html, f"Creatives must contain '{label}'")
 
     def test_publications_page_has_status_badges(self):
