@@ -285,7 +285,7 @@ class TestNavigation(unittest.TestCase):
 
     def test_header_shows_login_link(self):
         # With mock auth, header shows authenticated user, not login link
-        self.assertIn("Retail Media Platform", self.html,
+        self.assertIn("Рекламный портал", self.html,
                       "Header must show platform name")
 
 
@@ -1663,9 +1663,9 @@ class TestAuthPages(unittest.TestCase):
 
     def test_login_mentions_corporate_sso(self):
         resp = self.client.get("/login")
-        # New auth_base.html: login is minimal, no SSO references
-        self.assertIn("Retail Media Platform", resp.text)
-        self.assertIn("Управление рекламными показами", resp.text)
+        # auth_base.html: isolated login, Russian branding only
+        self.assertIn("Рекламный портал", resp.text)
+        self.assertIn("Управление рекламой", resp.text)
 
     def test_login_has_password_field(self):
         """Login now has a real server-side password form."""
@@ -1919,6 +1919,61 @@ class TestLoginLocalAuth(unittest.TestCase):
         resp = self.client.get("/login")
         self.assertIn("Войти", resp.text)
         self.assertNotIn("SSO", resp.text)
+
+    # ── 43.7.2: Login isolation guards ──────────────────
+
+    def test_login_no_sidebar(self):
+        """Login page must NOT contain sidebar."""
+        resp = self.client.get("/login")
+        self.assertNotIn("sidebar", resp.text)
+
+    def test_login_no_navigation_sections(self):
+        """Login page must NOT contain internal section names."""
+        resp = self.client.get("/login")
+        for forbidden in ("Главный экран", "Кампании", "Креативы", "Расписание",
+                           "Согласования", "Публикации", "Отчёты",
+                           "Панель КСО", "Администрирование", "Готовность",
+                           "Фактические показы", "Магазины", "Развёртывание"):
+            self.assertNotIn(forbidden, resp.text,
+                             f"Login must NOT contain '{forbidden}'")
+
+    def test_login_no_technical_labels(self):
+        """Login page must NOT contain technical jargon."""
+        resp = self.client.get("/login")
+        lower = resp.text.lower()
+        for fb in ("sso", "active directory", "httponly", "cookie",
+                    "режим", "способы входа"):
+            self.assertNotIn(fb, lower,
+                             f"Login must NOT contain '{fb}'")
+
+    def test_login_has_russian_brand(self):
+        """Login page uses Russian business brand."""
+        resp = self.client.get("/login")
+        self.assertIn("Рекламный портал", resp.text)
+        self.assertNotIn("Retail Media Platform", resp.text)
+
+    def test_login_has_only_login_form(self):
+        """Login page has only the login card — no extra sections."""
+        resp = self.client.get("/login")
+        self.assertIn("auth-card", resp.text)
+        self.assertIn("auth-body", resp.text)
+
+    def test_protected_routes_redirect_to_login(self):
+        """Protected routes without session redirect to isolated login."""
+        _enable_real_auth()
+        try:
+            from main import app as _app
+            from starlette.testclient import TestClient as _TC
+            client = _TC(_app)
+            for route in ["/dashboard", "/reports", "/campaigns",
+                           "/publications", "/readiness", "/admin"]:
+                resp = client.get(route, follow_redirects=True)
+                self.assertIn("Войти", resp.text,
+                              f"{route} must redirect to login")
+                self.assertNotIn("sidebar", resp.text,
+                                 f"{route} redirected page must NOT have sidebar")
+        finally:
+            _disable_real_auth()
 
     def test_login_mentions_safe_password_storage(self):
         resp = self.client.get("/login")
@@ -4426,9 +4481,9 @@ class TestUXFlowBreadcrumbs(unittest.TestCase):
     def test_sidebar_has_flow_section(self):
         resp = self.client.get("/dashboard")
         html = resp.text
-        # 43.1: flow section uses numbered items under "Flow (1 → 5)" header
-        self.assertIn("Этапы (1 → 5)", html, "Sidebar must have flow section header")
-        self.assertIn("nav-label\">Отчёты</span>", html, "Sidebar must have flow step 5")
+        # 43.7.2: Flow section removed from sidebar — stages shown in page pipeline instead
+        self.assertNotIn("Этапы (1 → 5)", html, "Sidebar must NOT have flow section header")
+        self.assertIn("Процесс рекламной кампании", html, "Pipeline must be in page content")
 
 
 class TestUXPilotStatus(unittest.TestCase):
@@ -4761,9 +4816,9 @@ class TestVisualSystem(unittest.TestCase):
         self.assertIn('class="active"', resp.text)
 
     def test_flow_section_exists(self):
-        """Sidebar has Этапы (1→5) section."""
+        """Sidebar must NOT have Этапы section — removed in 43.7.2."""
         resp = self.client.get("/dashboard")
-        self.assertIn("Этапы", resp.text)
+        self.assertNotIn("Этапы (1 → 5)", resp.text)
 
     # ── Dashboard visual shell ──────────────────────────
 
