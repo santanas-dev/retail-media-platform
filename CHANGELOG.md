@@ -7,6 +7,38 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [43.4-approval-publication-ux] — 2026-06-16
+
+**Approval / Publication UX — продуктовый hardening финальных этапов workflow.**
+
+### Approvals
+- Request approval форма в visual system (form-inline, form-select, form-label, form-hint)
+- Card-based список заявок с campaign detail enrichment
+- Status badges с dots: pending/approved/rejected
+- Approve/reject формы в visual system с полем комментария для отказа
+- Maker-Checker warning баннер
+- Flow breadcrumbs, empty state, cross-page links → publications
+
+### Publications
+- **Physical delivery NO-GO banner**: «Manifest delivery to physical KSO is blocked until approval gate»
+- **Backend-only warning**: «Публикация в backend не означает доставку на физическую КСО»
+- Batch lifecycle pipeline (draft→pending→approved→manifest→published)
+- Status badges, action buttons (согласование/generate/publish/cancel)
+- Pipeline dot indicator (5-stage progress)
+- Legacy manifests table (collapsed, marked as deprecated)
+- Cross-page links → reports, readiness
+
+### Policy
+- Production endpoints only (list_approvals_prod, create_approval, decide approval, list_publication_batches, request_batch_approval, generate, publish, cancel)
+- Явное отделение backend publication от physical delivery
+- No JS/CDN/localStorage ✅
+- No physical KSO changes
+
+### Tests
+- +TestApprovalPublicationWorkflow (22 tests): approval forms, maker-checker, NO-GO banner, pipeline, safety, cross-page links
+
+---
+
 ## [43.3-campaign-creative-schedule-workflow] — 2026-06-16
 
 **Campaign / Creative / Schedule Workflow — продуктовый hardening портала.**

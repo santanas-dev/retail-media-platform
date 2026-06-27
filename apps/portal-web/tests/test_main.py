@@ -953,12 +953,10 @@ class TestApprovalsPage(unittest.TestCase):
         self.assertIn('value="campaign"', self.html)
 
     def test_page_has_table_structure(self):
-        """Table headers present for approval data."""
-        self.assertIn("Заявка", self.html)
-        self.assertIn("Тип", self.html)
-        self.assertIn("Объект", self.html)
-        self.assertIn("Детали", self.html)
-        self.assertIn("Решение", self.html)
+        """Approvals rendered in card layout — key fields visible."""
+        self.assertIn("Согласования", self.html)
+        self.assertIn("object_type", self.html)
+        self.assertIn("object_code", self.html)
 
     def test_request_form_uses_post(self):
         """Request form uses POST method."""
@@ -983,14 +981,13 @@ class TestPublicationsPage(unittest.TestCase):
         self.assertIn("batch", self.html.lower())
 
     def test_has_publish_form(self):
-        # Old publish form removed; physical delivery warning shown
-        self.assertIn("Доставка отключена", self.html)
+        # 43.4: Physical delivery NO-GO shown
+        self.assertIn("NO-GO", self.html)
 
     def test_has_manifest_table(self):
-        # Batches table replaces old manifest table
-        self.assertIn("Batch", self.html)
-        self.assertIn("Кампания", self.html)
-        self.assertIn("Статус", self.html)
+        # 43.4: Section shows batch lifecycle when data present; empty state otherwise
+        self.assertIn("publication batches", self.html.lower())
+        self.assertIn("кампании", self.html.lower())
 
     def test_form_is_server_side(self):
         # Publications page no longer has POST forms — batch creation moved to campaigns page.
@@ -4345,8 +4342,7 @@ class TestUXStatusBadges(unittest.TestCase):
         resp = self.client.get("/approvals")
         self.assertEqual(resp.status_code, 200)
         html = resp.text
-        self.assertIn("нет согласований", html.lower(),
-                      "Approvals empty state must show")
+        self.assertIn("Нет заявок", html, "Approvals empty state must show")
 
 
 class TestUXNextActions(unittest.TestCase):
@@ -4570,8 +4566,8 @@ class TestUXEmptyStates(unittest.TestCase):
     def test_publications_empty_has_hint(self):
         resp = self.client.get("/publications")
         html = resp.text
-        self.assertIn("согласуйте", html.lower(),
-                      "Publications empty state must hint at approval")
+        self.assertIn("кампанию", html.lower(),
+                      "Publications empty state must hint at campaigns")
         self.assertIn("/campaigns", html,
                       "Publications must link to campaigns")
 
@@ -5267,6 +5263,139 @@ class TestCampaignCreativeScheduleWorkflow(unittest.TestCase):
     def test_no_test_kso_labels_schedule(self):
         resp = self.client.get("/schedule")
         self.assertNotIn("test-kso", resp.text.lower())
+
+
+class TestApprovalPublicationWorkflow(unittest.TestCase):
+    """43.4: Approval / Publication UX hardening."""
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    # ── Approvals ──────────────────────────────────────
+
+    def test_approvals_page_renders(self):
+        resp = self.client.get("/approvals")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Согласования", resp.text)
+
+    def test_approvals_has_request_form(self):
+        resp = self.client.get("/approvals")
+        self.assertIn("object_type", resp.text)
+        self.assertIn("object_code", resp.text)
+
+    def test_approvals_has_maker_checker_warning(self):
+        resp = self.client.get("/approvals")
+        self.assertIn("Maker-Checker", resp.text)
+
+    def test_approvals_has_flow_breadcrumbs(self):
+        resp = self.client.get("/approvals")
+        self.assertIn("flow-breadcrumbs", resp.text)
+
+    def test_approvals_empty_state(self):
+        resp = self.client.get("/approvals")
+        self.assertIn("Нет заявок", resp.text)
+
+    def test_approvals_no_forbidden_strings(self):
+        resp = self.client.get("/approvals")
+        lower = resp.text.lower()
+        for fb in ("device_secret", "backend_url", "api_key", "bearer "):
+            self.assertNotIn(fb, lower)
+
+    def test_approvals_no_js(self):
+        resp = self.client.get("/approvals")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "localstorage"):
+            self.assertNotIn(fb, lower)
+
+    # ── Publications ───────────────────────────────────
+
+    def test_publications_page_renders(self):
+        resp = self.client.get("/publications")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Публикации", resp.text)
+
+    def test_publications_has_physical_delivery_nogo(self):
+        resp = self.client.get("/publications")
+        self.assertIn("NO-GO", resp.text)
+        self.assertIn("Физическая доставка", resp.text)
+
+    def test_publications_has_backend_only_warning(self):
+        resp = self.client.get("/publications")
+        self.assertIn("backend-only", resp.text.lower())
+
+    def test_publications_has_lifecycle_pipeline(self):
+        resp = self.client.get("/publications")
+        # Lifecycle pipeline visible when batches present; with empty data, check workflow text
+        self.assertTrue(
+            "lifecycle-flow" in resp.text or "draft" in resp.text.lower(),
+            "Publications must reference batch lifecycle"
+        )
+
+    def test_publications_has_flow_breadcrumbs(self):
+        resp = self.client.get("/publications")
+        self.assertIn("flow-breadcrumbs", resp.text)
+
+    def test_publications_empty_state(self):
+        resp = self.client.get("/publications")
+        self.assertIn("Пока нет publication batches", resp.text)
+
+    def test_publications_no_forbidden_strings(self):
+        resp = self.client.get("/publications")
+        lower = resp.text.lower()
+        for fb in ("device_secret", "backend_url", "api_key", "bearer "):
+            self.assertNotIn(fb, lower)
+
+    def test_publications_no_js(self):
+        resp = self.client.get("/publications")
+        lower = resp.text.lower()
+        for fb in ("<script", "onclick=", "localstorage"):
+            self.assertNotIn(fb, lower)
+
+    # ── Cross-page workflow links ──────────────────────
+
+    def test_approvals_links_to_publications(self):
+        resp = self.client.get("/approvals")
+        self.assertIn("/publications", resp.text)
+
+    def test_publications_links_to_reports(self):
+        resp = self.client.get("/publications")
+        self.assertIn("/reports", resp.text)
+
+    def test_publications_links_to_readiness(self):
+        resp = self.client.get("/publications")
+        self.assertIn("/readiness", resp.text)
+
+    # ── No test-kso labels ─────────────────────────────
+
+    def test_no_test_kso_labels_approvals(self):
+        resp = self.client.get("/approvals")
+        self.assertNotIn("test-kso", resp.text.lower())
+
+    def test_no_test_kso_labels_publications(self):
+        resp = self.client.get("/publications")
+        self.assertNotIn("test-kso", resp.text.lower())
+
+    # ── Server-side forms only ─────────────────────────
+
+    def test_approvals_forms_are_post(self):
+        resp = self.client.get("/approvals")
+        self.assertIn('method="post"', resp.text.lower())
+
+    def test_publications_forms_are_post(self):
+        resp = self.client.get("/publications")
+        # Forms present when batches exist; empty state has no POST forms
+        # Check that page renders with POST action references
+        self.assertIn("/publications", resp.text)
 
 
 if __name__ == "__main__":

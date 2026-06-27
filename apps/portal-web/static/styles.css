@@ -1196,6 +1196,16 @@ code {
 .section-card-badge.ok       { background: var(--color-success-bg); color: var(--color-success-text); }
 
 /* ═══════════════════════════════════════════════════════════════════
+   PIPELINE DOTS (publication lifecycle)
+   ═══════════════════════════════════════════════════════════════════ */
+.pipeline-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--color-border); flex-shrink: 0;
+}
+.pipeline-dot.dot-active { background: var(--color-primary); }
+.pipeline-dot.dot-past   { background: var(--color-success); }
+
+/* ═══════════════════════════════════════════════════════════════════
    REDUCED MOTION
    ═══════════════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {

@@ -1,143 +1,171 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Согласования</h1>
-<p class="page-description">Production approval workflow. Запрос и принятие решений по кампаниям, размещениям и публикационным пакетам.</p>
+<p class="page-description">Запрос и принятие решений по кампаниям, размещениям и публикационным пакетам. Production Approval API.</p>
+
+<!-- Flow breadcrumbs -->
+<div class="flow-breadcrumbs">
+  <a href="/creatives" class="flow-step">🎨 Креативы</a>
+  <span class="flow-arrow">→</span>
+  <a href="/campaigns" class="flow-step">📢 Кампании</a>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step active">📝 Согласования</span>
+  <span class="flow-arrow">→</span>
+  <a href="/publications" class="flow-step">📋 Публикации</a>
+  <span class="flow-arrow">→</span>
+  <a href="/reports" class="flow-step">📈 Отчёты</a>
+</div>
 
 <!-- Flash Messages -->
 {% if flash_msg %}
 <div class="flash-message flash-{{ flash_type }}">{{ flash_msg }}</div>
 {% endif %}
 
+<!-- Backend Unavailable -->
+{% if backend_unavailable %}
+<div class="banner banner-warning">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body"><div class="banner-text">{{ backend_message }}</div></div>
+</div>
+{% endif %}
+
+<!-- Maker-Checker Warning -->
+<div class="banner banner-info">
+  <span class="banner-icon">🛡️</span>
+  <div class="banner-body">
+    <div class="banner-title">Maker-Checker</div>
+    <div class="banner-text">Пользователь не может согласовать собственный запрос. Решение принимает другой пользователь с ролью approver.</div>
+  </div>
+</div>
+
 <!-- Request Approval Form -->
-<div class="form-section">
-  <div class="form-title">Запросить согласование</div>
-  <form method="post" action="/approvals/request" class="create-form">
-    <div class="form-row">
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">+</span>
+    <span class="section-card-title">Запросить согласование</span>
+  </div>
+  <div class="section-card-body">
+    <form method="post" action="/approvals/request" class="form-inline">
       <div class="form-group">
-        <label for="object_type">Тип объекта*</label>
-        <select id="object_type" name="object_type" required>
+        <label class="form-label">Тип объекта <span style="color:var(--color-error);">*</span></label>
+        <select name="object_type" required class="form-select" style="min-width:200px;">
           <option value="campaign">Кампания</option>
           <option value="placement">Размещение</option>
           <option value="publication_batch">Публикационный пакет</option>
         </select>
       </div>
       <div class="form-group">
-        <label for="object_code">Код объекта*</label>
-        <input type="text" id="object_code" name="object_code"
-               placeholder="campaign_code или placement_code" minlength="1" maxlength="64" required>
-        <span class="form-hint">campaign_code, placement_code или batch UUID.</span>
+        <label class="form-label">Код объекта <span style="color:var(--color-error);">*</span></label>
+        <input type="text" name="object_code" placeholder="campaign_code или batch UUID" minlength="1" maxlength="64" required
+               class="form-input" style="width:220px;">
+        <span class="form-hint">campaign_code, placement_code или batch ID</span>
       </div>
-    </div>
-    <div class="form-row">
       <div class="form-group">
-        <label for="req_comment">Комментарий</label>
-        <input type="text" id="req_comment" name="comment"
-               placeholder="Причина запроса" maxlength="500">
+        <label class="form-label">Комментарий</label>
+        <input type="text" name="comment" placeholder="Причина запроса" maxlength="500"
+               class="form-input" style="width:220px;">
       </div>
-    </div>
-    <button type="submit" class="btn-primary">Отправить на согласование</button>
-  </form>
+      <div class="form-group">
+        <button type="submit" class="btn btn-primary">Отправить на согласование</button>
+      </div>
+    </form>
+  </div>
+  <div class="section-card-footer">
+    Код должен соответствовать существующему объекту. Кампании также можно отправить со страницы <a href="/campaigns">Кампании</a>.
+  </div>
 </div>
 
-<!-- Backend Unavailable -->
-{% if backend_unavailable %}
-<div class="note-box warning">
-  <span class="note-icon">⚠️</span>
-  <span class="note-text">{{ backend_message }}</span>
+<!-- Approvals List -->
+{% if approvals %}
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📝</span>
+    <span class="section-card-title">Заявки на согласование</span>
+    <span class="section-card-badge">{{ approvals|length }}</span>
+  </div>
+  <div class="section-card-body" style="padding:0;">
+    {% for a in approvals %}
+    <div style="padding:16px 20px;border-bottom:1px solid var(--color-border-light);">
+      <!-- Header row -->
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+        <code style="font-weight:600;">{{ a.approval_code }}</code>
+        <span class="status-badge status-badge-{{ 'pending' if a.status == 'pending' else 'approved' if a.status == 'approved' else 'rejected' if a.status == 'rejected' else 'draft' }}">
+          {{ 'На согласовании' if a.status == 'pending' else 'Одобрено' if a.status == 'approved' else 'Отклонено' if a.status == 'rejected' else a.status }}
+        </span>
+        <span style="font-size:12px;color:var(--color-text-secondary);">{{ a.object_type }} → {{ a.object_code }}</span>
+        <span style="font-size:11px;color:var(--color-text-muted);">Запрошен: {{ a.requested_at }}</span>
+        {% if a.decided_at and a.decided_at != '—' %}
+        <span style="font-size:11px;color:var(--color-text-muted);">Решение: {{ a.decided_at }}</span>
+        {% endif %}
+      </div>
+
+      <!-- Campaign detail -->
+      {% if a.object_type == 'campaign' %}
+      <div style="background:var(--color-bg);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:8px;">
+        <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:12px;">
+          <span><strong>Кампания:</strong> {{ a.campaign_name }}</span>
+          <span><strong>Статус:</strong> <span class="lifecycle-step lifecycle-{{ a.campaign_status }}">{{ a.campaign_status }}</span></span>
+          <span><strong>Креативы:</strong> {{ a.campaign_creatives }}</span>
+          <span><strong>Расписание:</strong> <code>{{ a.schedule_code }}</code> ({{ a.schedule_slot_count }} слотов)</span>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Decision -->
+      {% if a.status == 'pending' %}
+      <div class="form-inline" style="gap:10px;">
+        <form method="post" action="/approvals/decide" style="display:flex;gap:8px;align-items:center;">
+          <input type="hidden" name="approval_code" value="{{ a.approval_code }}">
+          <input type="hidden" name="decision" value="approve">
+          <button type="submit" class="btn btn-sm" style="background:var(--color-success);color:#fff;">✓ Одобрить</button>
+        </form>
+        <form method="post" action="/approvals/decide" style="display:flex;gap:8px;align-items:center;">
+          <input type="hidden" name="approval_code" value="{{ a.approval_code }}">
+          <input type="hidden" name="decision" value="reject">
+          <input type="text" name="comment" placeholder="Причина отказа" maxlength="500"
+                 class="form-input" style="width:160px;padding:4px 8px;font-size:12px;">
+          <button type="submit" class="btn btn-sm btn-danger">✗ Отклонить</button>
+        </form>
+      </div>
+      {% else %}
+      <div style="font-size:12px;color:var(--color-text-secondary);">
+        <strong>Решение:</strong> {{ a.decision }}
+        {% if a.comment and a.comment != '—' %} — {{ a.comment }}{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">📝</div>
+  <div class="empty-state-title">Нет заявок на согласование</div>
+  <div class="empty-state-text">Кампании отправляются на согласование со страницы <a href="/campaigns">Кампании</a> или через форму выше.</div>
+  <div class="empty-state-action">
+    <a href="/campaigns" class="btn btn-primary">📢 К кампаниям</a>
+  </div>
 </div>
 {% endif %}
 
-<!-- Approvals Table -->
-<div class="table-container">
-<table class="data-table">
-  <thead>
-    <tr>
-      <th>Заявка</th>
-      <th>Тип</th>
-      <th>Объект</th>
-      <th>Статус</th>
-      <th>Детали</th>
-      <th>Запрошен</th>
-      <th>Решение</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% if approvals %}
-  {% for a in approvals %}
-    <tr>
-      <td><code>{{ a.approval_code }}</code></td>
-      <td>{{ a.object_type }}</td>
-      <td>{{ a.object_code }}</td>
-      <td>
-        {% if a.status == 'pending' %}
-        <span class="status-badge status-badge-pending">На согласовании</span>
-        {% elif a.status == 'approved' %}
-        <span class="status-badge status-badge-approved">Одобрено</span>
-        {% elif a.status == 'rejected' %}
-        <span class="status-badge status-badge-rejected">Отклонено</span>
-        {% else %}
-        <span class="status-badge">{{ a.status }}</span>
-        {% endif %}
-      </td>
-      <td>
-        {% if a.object_type == 'campaign' %}
-        <div class="approval-campaign-detail">
-          <strong>{{ a.campaign_name }}</strong><br>
-          Креативы: {{ a.campaign_creatives }}<br>
-          Расписание: <code>{{ a.schedule_code }}</code> ({{ a.schedule_slot_count }} слотов)<br>
-          Статус кампании: <span class="status-badge status-badge-pending_approval">На согласовании</span>
-        </div>
-        {% else %}
-        {{ a.decision }}
-        {% endif %}
-      </td>
-      <td>{{ a.requested_at }}</td>
-      <td>
-        {% if a.is_pending %}
-        <div class="approval-actions">
-          <!-- Approve Form -->
-          <form method="post" action="/approvals/decide" class="inline-form approval-decision-form">
-            <input type="hidden" name="approval_code" value="{{ a.approval_code }}">
-            <input type="hidden" name="decision" value="approve">
-            <button type="submit" class="btn-sm btn-success">✓ Одобрить</button>
-          </form>
-          <!-- Reject Form -->
-          <form method="post" action="/approvals/decide" class="inline-form approval-decision-form">
-            <input type="hidden" name="approval_code" value="{{ a.approval_code }}">
-            <input type="hidden" name="decision" value="reject">
-            <input type="text" name="comment" placeholder="Причина отказа" maxlength="500" style="width:140px">
-            <button type="submit" class="btn-sm btn-danger">✗ Отклонить</button>
-          </form>
-        </div>
-        {% else %}
-        <span>{{ a.decision }}</span>
-        {% if a.comment and a.comment != '—' %}<br><small>{{ a.comment }}</small>{% endif %}
-        {% endif %}
-      </td>
-    </tr>
-  {% endfor %}
-  {% else %}
-    <tr class="empty-row">
-      <td colspan="7">
-        <div class="table-empty-state">
-          <div class="table-empty-icon">📝</div>
-          <div class="table-empty-title">Пока нет согласований</div>
-          <div class="table-empty-text">Кампании отправляются на согласование со страницы <a href="/campaigns">Кампании</a>.</div>
-        </div>
-      </td>
-    </tr>
-  {% endif %}
-  </tbody>
-</table>
+<!-- Next Step -->
+{% if approvals %}
+<div class="banner banner-info" style="margin-top:16px;">
+  <span class="banner-icon">👉</span>
+  <div class="banner-body">
+    <div class="banner-title">Следующий шаг</div>
+    <div class="banner-text">После одобрения кампании — <a href="/publications">подготовьте публикацию</a>. После публикации backend статуса — <a href="/reports">выгрузите отчёты</a>.</div>
+  </div>
 </div>
+{% endif %}
 
-<!-- Safe Projection Notes -->
+<!-- Safety Notes -->
 <div class="note-box">
   <span class="note-icon">🔒</span>
-  <span class="note-text">Безопасная проекция: отображаются только approval_code, object_type, object_code, status, decision, comment и даты. Идентификаторы пользователей и системные поля не отображаются.</span>
+  <span class="note-text">Безопасная проекция: approval_code, object_type, object_code, status, decision, dates. Raw UUID, backend URL, storage paths не отображаются.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Maker-checker: пользователь не может принять решение по собственному запросу. Публикация манифеста — следующий шаг после approval (backend status only, без доставки на КСО).</span>
+  <span class="note-text">Maker-checker enforced. Публикация манифеста — следующий шаг после approval (backend status only, без доставки на КСО).</span>
 </div>
 {% endblock %}
