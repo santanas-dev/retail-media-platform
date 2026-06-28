@@ -7,6 +7,45 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [45.4.2-business-demo-cleanup] — 2026-06-16
+
+**Business User Demo Cleanup — full P0/P1/P2 closure, UI-only, no business logic changes.**
+
+### P0 (critical blockers closed)
+- `/campaigns`: single-row table, no inline-edit rows, compact edit form in same row
+- `/dashboard`: big technical NO-GO banner → business «ℹ️ Физический запуск требует отдельного подтверждения»
+- `/reports`: test event filter `_is_test_pop_event()` in portal main.py
+
+### P1 (high priority closed)
+- Dashboard title: «Главный экран», no alarming «Часть данных недоступна»
+- Campaign statuses: «Активна», creative count: «Креатив не выбран» (calm, not ⚠️)
+- Publications: limit 20, sorted desc, «N из M» badge
+- Reports: EN labels → RU (Событие, статусы через |sanitize), placeholders RU
+- Navigation: «Основное»/«Аналитика»/«Администрирование», КСО-разделы сгруппированы
+
+### P2 (quick fixes)
+- Duplicate action-bar/breadcrumbs removed from campaigns & publications
+- Publications workflow note: EN → «Процесс: Черновик → Согласование → ...»
+- Reports: «NO-GO» → «не запущен»
+- Admin: «MFA» → «2FA»
+- Reports placeholders: camp_code → «Кампания», cr_code → «Креатив»
+
+### Creative detail
+- Added `/creatives/{code}` link from creatives list (clickable business-chip)
+
+### Tests
+- +17 guard tests (TestBusinessDemoCleanup45_4_2)
+- Updated 12 pre-existing portal tests + 5 backend tests for new UI
+
+### Regression
+- Portal: 756 passed, 0 failed (+20 skipped)
+- Backend: 807 passed, 0 failed
+
+### Docs
+- `docs/audit/business-user-demo-cleanup-45-4-2.md`
+
+---
+
 ## [44.1-inventory-engine] — 2026-06-16
 
 **Inventory Engine: availability, sold out, forecast v1, reservation types, portal page.**
