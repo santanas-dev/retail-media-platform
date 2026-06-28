@@ -138,9 +138,9 @@
 
       <!-- Lifecycle position indicator -->
       <div class="flex-center gap-4 mb-8 text-muted" style="font-size:10px;">
-        {% set stages = ['draft', 'pending_approval', 'approved', 'manifest_generated', 'published'] %}
+        {% set stages = ['draft', 'pending_approval', 'approved', 'manifest_generated', 'published', 'rejected', 'cancelled'] %}
         {% for stage in stages %}
-        <span class="pipeline-dot {{ 'dot-active' if stage == b.status or (stages.index(stage) < stages|length and stages.index(b.status) > stages|length) }}"></span>
+        <span class="pipeline-dot {{ 'dot-active' if stage == b.status or (stage in stages and b.status in stages and stages.index(stage) < stages.index(b.status)) }}"></span>
         {% if not loop.last %}<span style="width:16px;height:1px;background:var(--color-border);"></span>{% endif %}
         {% endfor %}
       </div>

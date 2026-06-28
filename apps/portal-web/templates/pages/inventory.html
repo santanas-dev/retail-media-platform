@@ -34,18 +34,18 @@
   </div>
   <div class="kpi-card">
     <div class="kpi-label">Занятость</div>
-    <div class="kpi-value">{{ s.occupancy_pct_avg }}%</div>
+    <div class="kpi-value">{{ s.get('occupancy_pct_avg', 0) }}%</div>
   </div>
-  {% if s.sold_out_units > 0 %}
+  {% if s.get('sold_out_units', 0) > 0 %}
   <div class="kpi-card kpi-card-warning">
     <div class="kpi-label">Нет свободного времени</div>
-    <div class="kpi-value">{{ s.sold_out_units }}</div>
+    <div class="kpi-value">{{ s.get('sold_out_units', 0) }}</div>
   </div>
   {% endif %}
-  {% if s.limited_units > 0 %}
+  {% if s.get('limited_units', 0) > 0 %}
   <div class="kpi-card kpi-card-warning">
     <div class="kpi-label">Ограниченная доступность</div>
-    <div class="kpi-value">{{ s.limited_units }}</div>
+    <div class="kpi-value">{{ s.get('limited_units', 0) }}</div>
   </div>
   {% endif %}
 </div>
@@ -61,39 +61,39 @@
   </div>
   <div class="info-panel" style="margin-bottom:16px;">
     <span class="info-panel-icon">ℹ️</span>
-    <span>{{ f.disclaimer }}</span>
+    <span>{{ f.get('disclaimer', '') }}</span>
   </div>
   <div class="kpi-grid">
     <div class="kpi-card">
       <div class="kpi-label">Устройств (всего)</div>
-      <div class="kpi-value">{{ f.total_devices }}</div>
+      <div class="kpi-value">{{ f.get('total_devices', 0) }}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Активных устройств</div>
-      <div class="kpi-value">{{ f.active_devices }}</div>
+      <div class="kpi-value">{{ f.get('active_devices', 0) }}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Слотов в расписании</div>
-      <div class="kpi-value">{{ f.total_capacity_spots }}</div>
+      <div class="kpi-value">{{ f.get('total_capacity_spots', 0) }}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Ожидаемых показов</div>
-      <div class="kpi-value">{{ f.expected_impressions }}</div>
+      <div class="kpi-value">{{ f.get('expected_impressions', 0) }}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Занятость (оценка)</div>
-      <div class="kpi-value">{{ f.occupancy_estimate_pct }}%</div>
+      <div class="kpi-value">{{ f.get('occupancy_estimate_pct', 0) }}%</div>
     </div>
   </div>
   <div class="note-panel" style="margin-top:16px;">
-    <span>Период: {{ f.date_from }} → {{ f.date_to }} ({{ (f.date_to + '-' + f.date_from)|length }} дней)</span>
+    <span>Период: {{ f.get('date_from', date_from) }} → {{ f.get('date_to', date_to) }} ({{ f.get('days_count', 30) }} дней)</span>
   </div>
 </div>
 {% endif %}
 
 <!-- ── Availability Table ── -->
-{% if availability.ok and availability.data.items %}
-{% set items = availability.data.items %}
+{% if availability.ok and availability.data.get('items') %}
+{% set items = availability.data.get('items', []) %}
 <div class="content-card">
   <div class="content-card-header">
     <h2 class="content-card-title">Доступность рекламного времени</h2>
@@ -116,41 +116,41 @@
     <tbody>
       {% for item in items %}
       <tr>
-        <td><code>{{ item.inventory_unit_code }}</code></td>
-        <td>{{ item.store_name or item.store_code or '—' }}</td>
-        <td>{{ item.capacity_total }}</td>
-        <td>{{ item.confirmed_booked }}</td>
-        <td>{{ item.reserved_booked }}</td>
-        <td>{{ item.internal_booked }}</td>
-        <td>{{ item.emergency_booked }}</td>
-        <td><strong>{{ item.available }}</strong></td>
+        <td><code>{{ item.get('inventory_unit_code', '') }}</code></td>
+        <td>{{ item.get('store_name') or item.get('store_code') or '—' }}</td>
+        <td>{{ item.get('capacity_total', 0) }}</td>
+        <td>{{ item.get('confirmed_booked', 0) }}</td>
+        <td>{{ item.get('reserved_booked', 0) }}</td>
+        <td>{{ item.get('internal_booked', 0) }}</td>
+        <td>{{ item.get('emergency_booked', 0) }}</td>
+        <td><strong>{{ item.get('available', 0) }}</strong></td>
         <td>
-          {% if item.sold_out %}
+          {% if item.get('sold_out') %}
           <span class="status-danger">Нет свободного времени</span>
-          {% elif item.status == 'limited' %}
+          {% elif item.get('status') == 'limited' %}
           <span class="status-warning">Ограниченная доступность</span>
-          {% elif item.status == 'unavailable' %}
+          {% elif item.get('status') == 'unavailable' %}
           <span class="status-muted">Недоступно</span>
           {% else %}
           <span class="status-success">Свободно</span>
           {% endif %}
-          {% if item.occupancy_pct > 0 %}
+          {% if item.get('occupancy_pct', 0) > 0 %}
           <div class="fill-bar" style="margin-top:4px;">
-            <div class="fill-bar-inner fill-{{ (item.occupancy_pct/10)|round|int * 10 }}" style="width:{{ item.occupancy_pct }}%;"></div>
+            <div class="fill-bar-inner fill-{{ (item.get('occupancy_pct', 0)/10)|round|int * 10 }}" style="width:{{ item.get('occupancy_pct', 0) }}%;"></div>
           </div>
-          <small>{{ item.occupancy_pct }}% занято</small>
+          <small>{{ item.get('occupancy_pct', 0) }}% занято</small>
           {% endif %}
         </td>
       </tr>
-      {% if item.reasons %}
+      {% if item.get('reasons') %}
       <tr class="row-detail">
         <td colspan="9">
-          {% for reason in item.reasons %}
+          {% for reason in item.get('reasons', []) %}
           <span class="status-badge status-warning" style="margin-right:8px;">{{ reason }}</span>
           {% endfor %}
-          {% if item.alternatives %}
+          {% if item.get('alternatives') %}
           <br>
-          {% for alt in item.alternatives %}
+          {% for alt in item.get('alternatives', []) %}
           <span class="note-text">{{ alt }}</span>
           {% endfor %}
           {% endif %}

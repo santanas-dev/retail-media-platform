@@ -1076,9 +1076,9 @@ class BackendClient:
         self, access_token: str, payload: dict,
     ) -> dict:
         """POST /api/inventory/availability → {ok, data: {items, summary}}."""
-        return await self._request_json(
+        return await self._request(
             "POST", "/api/inventory/availability",
-            json=payload,
+            json_data=payload,
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
@@ -1086,9 +1086,9 @@ class BackendClient:
         self, access_token: str, payload: dict,
     ) -> dict:
         """POST /api/inventory/forecast → {ok, data: ForecastResponse}."""
-        return await self._request_json(
+        return await self._request(
             "POST", "/api/inventory/forecast",
-            json=payload,
+            json_data=payload,
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
@@ -1099,6 +1099,7 @@ class BackendClient:
         store_id: str | None = None,
     ) -> dict:
         """GET /api/inventory/snapshot → {ok, data: snapshot}."""
+        import urllib.parse
         params = {}
         if branch_id:
             params["branch_id"] = branch_id
@@ -1106,9 +1107,9 @@ class BackendClient:
             params["cluster_id"] = cluster_id
         if store_id:
             params["store_id"] = store_id
-        return await self._request_json(
-            "GET", "/api/inventory/snapshot",
-            params=params,
+        query = f"?{urllib.parse.urlencode(params)}" if params else ""
+        return await self._request(
+            "GET", f"/api/inventory/snapshot{query}",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 

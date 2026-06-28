@@ -2450,7 +2450,7 @@ async def publications_page(request: Request):
             for b in raw_batches:
                 batch_id = str(b.get("id", ""))
                 batch_ref = batch_id[:8]
-                comment = b.get("comment", "")
+                comment = b.get("comment") or ""
                 # Extract campaign_code from comment: "Publication batch for campaign 'CODE'"
                 cam_code = "?"
                 import re
