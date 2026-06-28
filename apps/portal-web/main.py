@@ -1697,7 +1697,7 @@ async def campaigns_bind_creative(
         request.session["camp_flash"] = "error"
         request.session["camp_flash_msg"] = result.get("error", "Ошибка привязки")[:200]
 
-    return RedirectResponse(url="/campaigns", status_code=303)
+    return RedirectResponse(url=f"/campaigns/{campaign_code}", status_code=303)
 
 
 @app.post("/campaigns/{campaign_code}/create-publication-batch", response_class=HTMLResponse)
@@ -1736,7 +1736,7 @@ async def campaigns_create_publication_batch(
         request.session["camp_flash"] = "error"
         request.session["camp_flash_msg"] = result.get("error", "Ошибка создания batch")[:200]
 
-    return RedirectResponse(url="/campaigns", status_code=303)
+    return RedirectResponse(url=f"/campaigns/{campaign_code}", status_code=303)
 
 
 @app.post(
@@ -1772,7 +1772,7 @@ async def campaigns_unbind_creative(
         request.session["camp_flash"] = "error"
         request.session["camp_flash_msg"] = result.get("error", "Ошибка отвязки")[:200]
 
-    return RedirectResponse(url="/campaigns", status_code=303)
+    return RedirectResponse(url=f"/campaigns/{campaign_code}", status_code=303)
 
 
 @app.post("/campaigns/{campaign_code}/submit", response_class=HTMLResponse)
@@ -1802,7 +1802,7 @@ async def campaigns_submit(
         request.session["camp_flash"] = "error"
         request.session["camp_flash_msg"] = result.get("error", "Ошибка отправки")[:200]
 
-    return RedirectResponse(url="/campaigns", status_code=303)
+    return RedirectResponse(url=f"/campaigns/{campaign_code}", status_code=303)
 
 
 @app.get("/campaigns/create", response_class=HTMLResponse)
@@ -2148,6 +2148,222 @@ async def campaigns_create_submit(
         "errors": [],
         "summary": summary,
     })
+
+
+@app.get("/campaigns/{campaign_code}", response_class=HTMLResponse)
+async def campaigns_detail(request: Request, campaign_code: str):
+    """Campaign detail card with creatives, placements, submit readiness, approval."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    if not access_token:
+        return RedirectResponse(url="/login", status_code=303)
+
+    # Fetch campaign
+    camp_result = await backend.get_campaign_by_code(access_token, campaign_code)
+    if not camp_result.get("ok"):
+        if camp_result.get("code") == 404:
+            return templates.TemplateResponse(request, "pages/campaigns_detail.html", {
+                "request": request, "title": "Кампания не найдена", "active": "campaigns",
+                "current_user": current_user, "campaign": None, "not_found": True,
+                "bound_creatives": [], "approved_creatives": [],
+                "schedules": [], "readiness": {}, "approval_info": None,
+                "publication_ready": False,
+            }, status_code=404)
+        request.session["camp_flash"] = "error"
+        request.session["camp_flash_msg"] = camp_result.get("error", "Ошибка загрузки")[:200]
+        return RedirectResponse(url="/campaigns", status_code=303)
+
+    campaign = camp_result.get("data", {})
+    status = campaign.get("status", "")
+
+    # Fetch bound creatives
+    bound_creatives = []
+    cr_result = await backend.list_campaign_creatives(access_token, campaign_code)
+    if cr_result.get("ok"):
+        for cr in cr_result.get("data", []):
+            fs = cr.get("file_size", 0)
+            if fs > 1024 * 1024:
+                size_str = f"{fs / (1024*1024):.1f} МБ"
+            elif fs > 1024:
+                size_str = f"{fs / 1024:.0f} КБ"
+            elif fs:
+                size_str = f"{fs} Б"
+            else:
+                size_str = "—"
+            bound_creatives.append({
+                "creative_code": cr.get("creative_code", ""),
+                "name": cr.get("name", cr.get("creative_code", "")),
+                "mime_type": cr.get("mime_type", "—"),
+                "file_size_str": size_str,
+                "scan_status": cr.get("scan_status", "—"),
+                "status": cr.get("status", "—"),
+            })
+
+    # Fetch approved creatives for dropdown
+    approved_creatives = []
+    all_creatives = await backend.list_creatives(access_token)
+    if all_creatives.get("ok"):
+        bound_codes = {bc["creative_code"] for bc in bound_creatives}
+        for c in all_creatives.get("data", []):
+            if c.get("status") == "approved" and c.get("creative_code", "") not in bound_codes:
+                approved_creatives.append({
+                    "code": c.get("creative_code", ""),
+                    "name": c.get("name", c.get("creative_code", "")),
+                    "format": c.get("mime_type", "—"),
+                })
+
+    # Fetch schedules for this campaign
+    schedules = []
+    sched_result = await backend.list_schedules(access_token)
+    if sched_result.get("ok"):
+        for s in sched_result.get("data", []):
+            if s.get("campaign_code") == campaign_code:
+                # Fetch slots for each schedule
+                sched_code = s.get("schedule_code", "")
+                slots = []
+                slot_result = await backend.list_schedule_slots(access_token, sched_code)
+                if slot_result.get("ok"):
+                    for sl in slot_result.get("data", []):
+                        slots.append({
+                            "slot_code": sl.get("slot_code", ""),
+                            "day_of_week": sl.get("day_of_week"),
+                            "start_time": sl.get("start_time", "—"),
+                            "end_time": sl.get("end_time", "—"),
+                            "is_active": sl.get("is_active", True),
+                        })
+                schedules.append({
+                    "schedule_code": sched_code,
+                    "name": s.get("name", sched_code),
+                    "status": s.get("status", "draft"),
+                    "valid_from": s.get("valid_from", "—"),
+                    "valid_to": s.get("valid_to", "—"),
+                    "slot_count": s.get("slot_count", len(slots)),
+                    "slots": slots,
+                })
+
+    # Readiness checklist
+    has_creatives = len(bound_creatives) > 0
+    all_approved = has_creatives and all(cr["status"] == "approved" for cr in bound_creatives)
+    has_schedule = len(schedules) > 0
+    has_slots = has_schedule and any(s["slot_count"] > 0 for s in schedules)
+
+    readiness = {
+        "creatives_bound": has_creatives,
+        "creatives_approved": all_approved,
+        "has_schedule": has_schedule,
+        "has_slots": has_slots,
+        "can_submit": has_creatives and all_approved and has_schedule and has_slots,
+    }
+
+    # Publication readiness
+    publication_ready = status == "approved"
+
+    # Flash messages
+    flash_type = ""
+    flash_msg = ""
+    raw = request.session.pop("camp_detail_flash", "")
+    if raw == "ok:creatives":
+        flash_type, flash_msg = "success", "Креативы обновлены."
+    elif raw == "ok:schedule_created":
+        flash_type, flash_msg = "success", "Расписание создано."
+    elif raw == "ok:submitted":
+        flash_type, flash_msg = "success", "Кампания отправлена на согласование."
+    elif raw == "error":
+        flash_type, flash_msg = "error", request.session.pop("camp_detail_flash_msg", "Ошибка.")[:200]
+
+    # Approval info
+    approval_info = None
+    if status == "in_review":
+        approval_info = {"code": campaign_code, "status": "in_review"}
+
+    return templates.TemplateResponse(request, "pages/campaigns_detail.html", {
+        "request": request,
+        "title": campaign.get("name", "Кампания"),
+        "active": "campaigns",
+        "current_user": current_user,
+        "campaign": campaign,
+        "bound_creatives": bound_creatives,
+        "approved_creatives": approved_creatives,
+        "schedules": schedules,
+        "readiness": readiness,
+        "approval_info": approval_info,
+        "publication_ready": publication_ready,
+        "flash_msg": flash_msg,
+        "flash_type": flash_type,
+    })
+
+
+# ── Schedule creation from campaign detail ─────────────────────────────
+
+@app.post("/campaigns/{campaign_code}/create-schedule", response_class=HTMLResponse)
+async def campaigns_create_schedule(
+    request: Request,
+    campaign_code: str,
+    name: str = Form(..., min_length=1, max_length=255),
+    valid_from: str = Form(..., min_length=1),
+    valid_to: str = Form(..., min_length=1),
+    channel: str = Form(""),
+    target_group: str = Form(""),
+):
+    """Create a schedule for a campaign (demo-safe: channel=КСО, target=Тестовая группа)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        request.session["camp_detail_flash"] = "error"
+        request.session["camp_detail_flash_msg"] = "Нет доступа."
+        return RedirectResponse(url=f"/campaigns/{campaign_code}", status_code=303)
+
+    backend = BackendClient()
+    schedule_code = f"{campaign_code}_sched"
+
+    # Check for existing schedule
+    existing = await backend.get_schedule(access_token, schedule_code)
+    if existing.get("ok"):
+        request.session["camp_detail_flash"] = "error"
+        request.session["camp_detail_flash_msg"] = "Расписание уже существует."
+        return RedirectResponse(url=f"/campaigns/{campaign_code}", status_code=303)
+
+    # Create schedule
+    payload = {
+        "schedule_code": schedule_code,
+        "name": name.strip(),
+        "campaign_code": campaign_code,
+        "valid_from": valid_from,
+        "valid_to": valid_to,
+        "timezone": "Europe/Moscow",
+    }
+    result = await backend.create_schedule(access_token, payload)
+    if result.get("ok"):
+        # Auto-create one default slot (all day, every weekday)
+        sched_code = result["data"].get("schedule_code", schedule_code)
+        for dow in [0, 1, 2, 3, 4]:  # Mon-Fri
+            slot_payload = {
+                "slot_code": f"{sched_code}_slot_{dow}",
+                "placement_code": None,
+                "day_of_week": dow,
+                "start_time": "08:00",
+                "end_time": "22:00",
+                "slot_order": dow,
+            }
+            await backend.create_schedule_slot(access_token, sched_code, slot_payload)
+        request.session["camp_detail_flash"] = "ok:schedule_created"
+    else:
+        request.session["camp_detail_flash"] = "error"
+        request.session["camp_detail_flash_msg"] = result.get("error", "Ошибка создания расписания")[:200]
+
+    return RedirectResponse(url=f"/campaigns/{campaign_code}", status_code=303)
 
 
 def _campaigns_fallback(request: Request, current_user) -> HTMLResponse:

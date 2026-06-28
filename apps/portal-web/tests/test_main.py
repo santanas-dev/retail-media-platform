@@ -6896,5 +6896,162 @@ class TestBusinessDemoCleanup45_4_2(unittest.TestCase):
                                  f"{route}: must not contain '{fb}'")
 
 
+# ══════════════════════════════════════════════════════════════════════
+# 45.5: Campaign Detail Page tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestCampaignDetailPage(unittest.TestCase):
+    """45.5: Campaign detail card with creatives, placements, submit readiness."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+        # Detail page without auth renders fallback (no token → redirect/login)
+        resp = self.client.get("/campaigns/demo_promo_jan")
+        self.html = resp.text
+
+    def test_route_exists(self):
+        """Campaign detail route returns a valid response (200 or redirect)."""
+        code = self.client.get("/campaigns/test-code").status_code
+        self.assertIn(code, [200, 302, 303, 404],
+                      "Route must be reachable")
+
+    def test_template_renders_without_500(self):
+        """Campaign detail must not return 500 or contain traceback."""
+        resp = self.client.get("/campaigns/test-code")
+        self.assertNotEqual(resp.status_code, 500, "Campaign detail must not 500")
+        self.assertNotIn("Traceback", resp.text)
+
+    def test_campaign_list_has_open_link(self):
+        """Campaign list template must have Открыть button linking to detail."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns.html"
+        source = template_path.read_text()
+        self.assertIn("Открыть", source,
+                      "Campaign list template must have Открыть button")
+
+    def test_detail_has_creative_section(self):
+        """Campaign detail template must reference creative section."""
+        # Template-driven: read the source template
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertIn("Креативы кампании", source,
+                      "Detail template must have creative section")
+
+    def test_detail_has_placement_section(self):
+        """Campaign detail template must reference placement section."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertIn("Размещения", source,
+                      "Detail template must have placement section")
+
+    def test_detail_has_readiness_checklist(self):
+        """Campaign detail template must have submit readiness checklist."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertIn("Готовность к отправке", source,
+                      "Detail template must have readiness checklist")
+        self.assertIn("checklist-ok", source,
+                      "Detail template must have checklist styles")
+
+    def test_detail_has_reports_section(self):
+        """Campaign detail template must have reports block."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertIn("Отчёты", source,
+                      "Detail template must have reports section")
+
+    def test_detail_has_approval_section(self):
+        """Campaign detail template must have approval block."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertIn("Согласование", source,
+                      "Detail template must have approval section")
+
+    def test_detail_has_physical_kso_note(self):
+        """Detail page must state physical KSO not triggered."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertIn("Физическая отправка", source,
+                      "Detail template must have physical KSO safety note")
+        self.assertIn("Фактические показы появятся", source,
+                      "Detail template must state actual impressions pending")
+
+    def test_detail_no_js_cdn_localstorage(self):
+        """Campaign detail template must NOT contain JS/CDN/localStorage."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text().lower()
+        for fb in ("fonts.googleapis", "cdn.jsdelivr", "unpkg.com",
+                    "chart.js", "chartjs",
+                    "<script src=", "localstorage"):
+            self.assertNotIn(fb, source,
+                             f"Detail template must NOT contain '{fb}'")
+
+    def test_detail_no_forbidden_content(self):
+        """Campaign detail template must NOT leak secrets/ids/hashes."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text().lower()
+        for forbidden in ("device_secret", "access_token", "manifest_hash",
+                           "sha256", "file_path", "backend_url",
+                           "http://", "https://backend", "localhost:8001"):
+            self.assertNotIn(forbidden, source,
+                             f"Detail template must NOT contain '{forbidden}'")
+
+    def test_detail_has_add_creative_form(self):
+        """Campaign detail must have form to bind approved creatives."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertIn("bind-creative", source,
+                      "Detail template must have bind-creative form action")
+        self.assertIn("одобренный", source.lower(),
+                      "Detail template must mention approved creatives filter")
+
+    def test_detail_has_schedule_form(self):
+        """Campaign detail must have schedule creation form."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertIn("create-schedule", source,
+                      "Detail template must have create-schedule form action")
+
+    def test_campaign_list_has_creative_count(self):
+        """Campaign list template must reference creative count, not raw codes."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns.html"
+        source = template_path.read_text()
+        self.assertIn("креатив", source,
+                      "Campaign list must use 'креатив' word for creative count")
+        self.assertIn("creative_count", source,
+                      "Campaign list must reference creative_count field")
+
+    def test_campaign_detail_no_raw_technical_terms(self):
+        """45.5: detail page must not show raw technical terms."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        # No raw UUID patterns
+        uuid_pattern = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+        self.assertNotRegex(source, uuid_pattern,
+                            "Detail template must NOT contain raw UUIDs")
+        # No test/seed/None labels
+        for label in ("test-", "seed", "None"):
+            self.assertNotIn(label, source,
+                             f"Detail template must NOT contain '{label}'")
+
+    def test_detail_has_demo_safety_warning(self):
+        """Detail template must have demo-mode safety warning."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertIn("Демо-режим", source,
+                      "Detail template must have demo-mode warning")
+
+    def test_campaign_list_redirects_to_detail(self):
+        """Bind/unbind/submit actions must redirect to detail, not list."""
+        # Verify route definitions redirect to campaign detail
+        # Check main.py source for redirect patterns
+        main_path = Path(__file__).resolve().parent.parent / "main.py"
+        main_source = main_path.read_text()
+        # bind-creative redirect
+        self.assertIn('url=f"/campaigns/{campaign_code}"', main_source,
+                      "Bind/unbind/submit must redirect to detail page")
+        self.assertIn('camp_detail_flash', main_source,
+                      "Detail page must use camp_detail_flash for messages")
+
+
 if __name__ == "__main__":
     unittest.main()

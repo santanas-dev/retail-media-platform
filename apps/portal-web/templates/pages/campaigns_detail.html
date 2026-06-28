@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flow-breadcrumbs">
+  <a href="/creatives" class="flow-step">🎨 Креативы</a>
+  <span class="flow-arrow">→</span>
+  <a href="/campaigns" class="flow-step">📢 Кампании</a>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step active">{{ campaign.name | sanitize }}</span>
+</div>
+
+<!-- Flash Messages -->
+{% if flash_msg %}
+<div class="flash-message flash-{{ flash_type }}">{{ flash_msg }}</div>
+{% endif %}
+
+<!-- Header -->
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📢</span>
+    <span class="section-card-title">{{ campaign.name | sanitize }}</span>
+    <span class="status-badge status-badge-{{ campaign.status }}">{{ campaign.status | sanitize }}</span>
+  </div>
+  <div class="section-card-body">
+    <div class="detail-grid">
+      <div class="detail-item"><span class="detail-label">Код</span><span><code>{{ campaign.campaign_code | sanitize_code }}</code></span></div>
+      <div class="detail-item"><span class="detail-label">Статус</span><span class="status-badge status-badge-{{ campaign.status }}">{{ campaign.status | sanitize }}</span></div>
+      <div class="detail-item"><span class="detail-label">Описание</span><span>{{ campaign.description or "—" }}</span></div>
+      <div class="detail-item"><span class="detail-label">Создана</span><span>{{ campaign.created_at }}</span></div>
+      <div class="detail-item"><span class="detail-label">Обновлена</span><span>{{ campaign.updated_at }}</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Next Action Banner -->
+{% if campaign.status in ('draft', 'rejected') %}
+<div class="banner banner-info mt-16">
+  <span class="banner-icon">📋</span>
+  <div class="banner-body">
+    <div class="banner-title">Следующий шаг</div>
+    <div class="banner-text">Добавьте креативы, создайте размещения и отправьте кампанию на согласование.</div>
+  </div>
+</div>
+{% elif campaign.status == 'in_review' %}
+<div class="banner banner-info mt-16">
+  <span class="banner-icon">⏳</span>
+  <div class="banner-body">
+    <div class="banner-title">Ожидает согласования</div>
+    <div class="banner-text">Кампания отправлена на согласование. Перейдите в <a href="/approvals">согласования</a> для принятия решения.</div>
+  </div>
+</div>
+{% elif campaign.status == 'approved' %}
+<div class="banner banner-success mt-16">
+  <span class="banner-icon">✅</span>
+  <div class="banner-body">
+    <div class="banner-title">Кампания одобрена</div>
+    <div class="banner-text">Можно <a href="/publications">подготовить публикационный пакет</a>.</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- Creative Block -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="section-card mt-16">
+  <div class="section-card-header">
+    <span class="section-card-icon">🎨</span>
+    <span class="section-card-title">Креативы кампании</span>
+    <span class="section-card-badge">{{ bound_creatives|length }}</span>
+  </div>
+  <div class="section-card-body">
+    {% if bound_creatives %}
+    <div class="table-container table-clean">
+    <table class="data-table">
+      <thead><tr>
+        <th>Креатив</th><th>Формат</th><th>Размер</th><th>Статус проверки</th><th>Статус</th><th>Действия</th>
+      </tr></thead>
+      <tbody>
+      {% for cr in bound_creatives %}
+        <tr>
+          <td><a href="/creatives/{{ cr.creative_code }}" class="link">{{ cr.name | sanitize }}</a></td>
+          <td>{{ cr.mime_type or "—" }}</td>
+          <td>{{ cr.file_size_str or "—" }}</td>
+          <td>{{ cr.scan_status | sanitize }}</td>
+          <td><span class="status-badge status-badge-{{ cr.status }}">{{ cr.status | sanitize }}</span></td>
+          <td>
+            <div class="form-inline gap-4">
+              <a href="/creatives/{{ cr.creative_code }}" class="btn btn-sm btn-ghost">Открыть</a>
+              {% if campaign.status in ('draft', 'rejected') %}
+              <form method="post" action="/campaigns/{{ campaign.campaign_code }}/unbind-creative/{{ cr.creative_code }}" class="inline">
+                <button type="submit" class="btn btn-sm btn-ghost">✕</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">🎨</div>
+      <div class="empty-state-title">Креативы не привязаны</div>
+      <div class="empty-state-text">Добавьте одобренные креативы к кампании.</div>
+    </div>
+    {% endif %}
+
+    <!-- Add Creative Form -->
+    {% if campaign.status in ('draft', 'rejected') and approved_creatives %}
+    <div class="mt-16 p-12 bg-panel border-top">
+      <form method="post" action="/campaigns/{{ campaign.campaign_code }}/bind-creative" class="form-inline gap-8">
+        <span class="text-sm text-muted">Добавить креатив:</span>
+        <select name="creative_code" required class="form-input form-input-sm" style="min-width:180px;">
+          <option value="">Выберите одобренный креатив...</option>
+          {% for ac in approved_creatives %}
+          <option value="{{ ac.code }}">{{ ac.name | sanitize }} ({{ ac.code | sanitize_code }})</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">+ Добавить</button>
+      </form>
+      {% if not approved_creatives %}
+      <p class="text-sm text-muted mt-8">Нет одобренных креативов. <a href="/creatives" class="link">Загрузите и одобрите</a>.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- Placement / Schedule Block -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="section-card mt-16">
+  <div class="section-card-header">
+    <span class="section-card-icon">📅</span>
+    <span class="section-card-title">Размещения</span>
+    <span class="section-card-badge">{{ schedules|length }}</span>
+  </div>
+  <div class="section-card-body">
+    {% if schedules %}
+    {% for sched in schedules %}
+    <div class="placement-item mb-12 p-12 bg-panel border-light">
+      <div class="flex-between">
+        <div>
+          <strong>{{ sched.name | sanitize }}</strong>
+          <span class="text-sm text-muted ml-8">код: <code>{{ sched.schedule_code | sanitize_code }}</code></span>
+        </div>
+        <span class="status-badge status-badge-{{ sched.status }}">{{ sched.status | sanitize }}</span>
+      </div>
+      <div class="text-sm mt-4">
+        Период: {{ sched.valid_from or "—" }} → {{ sched.valid_to or "—" }}
+        {% if sched.slot_count %}<span class="ml-8">• {{ sched.slot_count }} слотов</span>{% endif %}
+      </div>
+      {% if sched.slots %}
+      <div class="mt-8 text-sm">
+        {% for slot in sched.slots %}
+        <span class="slot-badge">{{ slot.day_of_week or "—" }} {{ slot.start_time or "—" }}-{{ slot.end_time or "—" }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">📅</div>
+      <div class="empty-state-title">Размещения не созданы</div>
+      <div class="empty-state-text">Создайте расписание для кампании.</div>
+    </div>
+    {% endif %}
+
+    <!-- Create Schedule Form (demo-safe) -->
+    {% if campaign.status in ('draft', 'rejected') %}
+    <div class="mt-16 p-12 bg-panel border-top">
+      <div class="section-label mb-8">Создать размещение</div>
+      <form method="post" action="/campaigns/{{ campaign.campaign_code }}/create-schedule" class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Название расписания</label>
+          <input type="text" name="name" class="form-input" value="Расписание {{ campaign.name | sanitize }}" required maxlength="255">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Дата начала</label>
+          <input type="date" name="valid_from" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Дата окончания</label>
+          <input type="date" name="valid_to" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Канал</label>
+          <input type="text" name="channel" class="form-input" value="КСО" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Целевая группа</label>
+          <input type="text" name="target_group" class="form-input" value="Тестовая группа магазинов" readonly>
+        </div>
+        <div class="form-footer">
+          <button type="submit" class="btn btn-primary">+ Создать размещение</button>
+        </div>
+      </form>
+      <p class="text-sm text-muted mt-8">⚠️ Демо-режим: канал «КСО», целевая группа «Тестовая группа магазинов». Физическая отправка не выполняется.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- Submit Readiness Checklist -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+{% if campaign.status in ('draft', 'rejected') %}
+<div class="section-card mt-16">
+  <div class="section-card-header">
+    <span class="section-card-icon">✅</span>
+    <span class="section-card-title">Готовность к отправке</span>
+  </div>
+  <div class="section-card-body">
+    <ul class="checklist">
+      <li class="checklist-item {{ 'checklist-ok' if readiness.creatives_bound else 'checklist-fail' }}">
+        {% if readiness.creatives_bound %}✅{% else %}⬜{% endif %}
+        Креативы привязаны
+        {% if not readiness.creatives_bound %}<span class="text-sm text-muted"> — добавьте хотя бы один креатив</span>{% endif %}
+      </li>
+      <li class="checklist-item {{ 'checklist-ok' if readiness.creatives_approved else 'checklist-fail' }}">
+        {% if readiness.creatives_approved %}✅{% else %}⬜{% endif %}
+        Креативы одобрены
+        {% if not readiness.creatives_approved %}<span class="text-sm text-muted"> — все привязанные креативы должны быть одобрены</span>{% endif %}
+      </li>
+      <li class="checklist-item {{ 'checklist-ok' if readiness.has_schedule else 'checklist-fail' }}">
+        {% if readiness.has_schedule %}✅{% else %}⬜{% endif %}
+        Размещение создано
+        {% if not readiness.has_schedule %}<span class="text-sm text-muted"> — создайте расписание</span>{% endif %}
+      </li>
+      <li class="checklist-item {{ 'checklist-ok' if readiness.has_slots else 'checklist-fail' }}">
+        {% if readiness.has_slots %}✅{% else %}⬜{% endif %}
+        Период указан
+        {% if not readiness.has_slots %}<span class="text-sm text-muted"> — добавьте слоты в расписание</span>{% endif %}
+      </li>
+      <li class="checklist-item {{ 'checklist-ok' if True else 'checklist-fail' }}">
+        ✅ Канал выбран
+      </li>
+      <li class="checklist-item {{ 'checklist-ok' if True else 'checklist-fail' }}">
+        ✅ Целевая группа выбрана
+      </li>
+    </ul>
+
+    {% if readiness.can_submit %}
+    <form method="post" action="/campaigns/{{ campaign.campaign_code }}/submit" class="mt-16">
+      <button type="submit" class="btn btn-primary">→ Отправить на согласование</button>
+    </form>
+    <p class="text-sm text-muted mt-4">Кампания будет отправлена на согласование. Статус изменится на «На согласовании».</p>
+    {% else %}
+    <p class="text-sm text-muted mt-8">Заполните все пункты для отправки на согласование.</p>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- Approval Status -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+{% if campaign.status == 'in_review' or campaign.status == 'approved' or campaign.status == 'rejected' %}
+<div class="section-card mt-16">
+  <div class="section-card-header">
+    <span class="section-card-icon">📝</span>
+    <span class="section-card-title">Согласование</span>
+  </div>
+  <div class="section-card-body">
+    <div class="detail-grid">
+      <div class="detail-item"><span class="detail-label">Статус</span><span class="status-badge status-badge-{{ campaign.status }}">{{ campaign.status | sanitize }}</span></div>
+      {% if approval_info %}
+      <div class="detail-item"><span class="detail-label">Код согласования</span><span><code>{{ approval_info.code | sanitize_code }}</code></span></div>
+      {% endif %}
+    </div>
+    {% if campaign.status == 'in_review' %}
+    <p class="text-sm mt-8">Кампания ожидает решения. Перейдите в <a href="/approvals" class="link">согласования</a>.</p>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- Reports Preview -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="section-card mt-16">
+  <div class="section-card-header">
+    <span class="section-card-icon">📈</span>
+    <span class="section-card-title">Отчёты</span>
+  </div>
+  <div class="section-card-body">
+    <div class="detail-grid">
+      <div class="detail-item"><span class="detail-label">Кампания</span><span>{{ campaign.name | sanitize }}</span></div>
+      <div class="detail-item"><span class="detail-label">Креативов</span><span>{{ bound_creatives|length }}</span></div>
+      <div class="detail-item"><span class="detail-label">Размещений</span><span>{{ schedules|length }}</span></div>
+      <div class="detail-item"><span class="detail-label">Статус согласования</span><span>{{ campaign.status | sanitize }}</span></div>
+      {% if campaign.status == 'approved' %}
+      <div class="detail-item"><span class="detail-label">Публикационный пакет</span><span>{{ "Подготовлен" if publication_ready else "Не подготовлен" }}</span></div>
+      {% endif %}
+    </div>
+    <div class="banner banner-info mt-12">
+      <span class="banner-icon">📊</span>
+      <div class="banner-body">
+        <div class="banner-text">Фактические показы появятся после подключения физической КСО.</div>
+      </div>
+    </div>
+    <div class="mt-12">
+      <a href="/reports" class="btn btn-sm">Открыть отчёты</a>
+    </div>
+  </div>
+</div>
+
+<!-- Back Link -->
+<div class="mt-16">
+  <a href="/campaigns" class="btn btn-ghost">← Назад к списку</a>
+</div>
+
+<!-- Safety Notes -->
+<div class="note-box mt-16">
+  <span class="note-icon">🔒</span>
+  <span class="note-text">Безопасная проекция. Без технических кодов и скрытых данных. Канал «КСО» — демо-режим.</span>
+</div>
+{% endblock %}

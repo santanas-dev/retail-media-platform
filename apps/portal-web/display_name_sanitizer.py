@@ -55,7 +55,15 @@ _DISPLAY_NAME_MAP: dict[str, str] = {
     "in_review": "На согласовании",
     "rejected": "Отклонено",
     "archived": "Архив",
+    "draft": "Черновик",
     "manifest_generated": "Пакет показа",
+    # AV scan statuses
+    "clean": "Чист",
+    "not_configured": "Не проверен",
+    "unscanned": "Не проверен",
+    "infected": "Заражён",
+    "pending_review": "На проверке",
+    "validation_failed": "Ошибка проверки",
     # English status values
     "active": "Активен",
     "draft": "Черновик",

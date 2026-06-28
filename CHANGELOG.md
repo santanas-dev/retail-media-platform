@@ -7,6 +7,33 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [45.5-campaign-assembly-ux] — 2026-06-28
+
+**Campaign Assembly UX — multi-creative campaign management, schedule creation, submit readiness checklist.**
+
+### Added
+- Campaign detail page: `/campaigns/{code}` with full card (name, status, description, dates)
+- Creative block: table of bound creatives + add/remove forms + approved-only dropdown
+- Campaign list: creative count ("3 креатива") + "Открыть" link to detail
+- Placement/schedule block: server-side form (channel КСО, target Тестовая группа)
+- Demo safety note: "Физическая отправка не выполняется"
+- Submit readiness checklist: 6 items + "Отправить на согласование" button
+- Approval status section + Reports preview block
+- `POST /campaigns/{code}/create-schedule` — auto-creates 5 Mon-Fri slots
+- 17 new portal tests (TestCampaignDetailPage)
+- CSS: detail-grid, checklist, slot-badge, form-grid, link
+
+### Changed
+- bind/unbind/submit/create-batch redirects → campaign detail page
+- Creative display in campaign list: raw codes → count with link
+- display_name_sanitizer: added AV scan statuses
+
+### Regression
+- Portal: 826 passed, 0 failed
+- Backend: 766 passed, 24 pre-existing failures (inventory engine)
+
+---
+
 ## [45.4.2-business-demo-cleanup] — 2026-06-16
 
 **Business User Demo Cleanup — full P0/P1/P2 closure, UI-only, no business logic changes.**

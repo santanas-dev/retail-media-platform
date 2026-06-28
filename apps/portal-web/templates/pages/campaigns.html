@@ -100,12 +100,13 @@
             {% if c.creative_count == 0 %}
             <span class="text-sm text-muted">Креатив не выбран</span>
             {% else %}
-            <span class="text-sm">{{ c.creative_codes }}</span>
+            <a href="/campaigns/{{ c.campaign_code }}" class="link">{{ c.creative_count }} креатив{{ 'а' if 1 < c.creative_count < 5 else '' }}{{ 'ов' if c.creative_count >= 5 else '' }}</a>
             {% endif %}
           </td>
           <td>{{ c.created_at }}</td>
           <td>
             <div class="form-inline gap-4">
+              <a href="/campaigns/{{ c.campaign_code }}" class="btn btn-sm btn-ghost">Открыть</a>
               {% if c.status != 'archived' %}
               <!-- Edit name (compact) -->
               <form method="post" action="/campaigns/{{ c.campaign_code }}/edit" class="flex-center gap-4">
