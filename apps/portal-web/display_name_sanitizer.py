@@ -49,6 +49,12 @@ _DISPLAY_NAME_MAP: dict[str, str] = {
     "Test C": "Кампания",
     "syn-store": "Магазин",
     "sm001": "Магазин",
+    # Campaign statuses (reports distribution bars)
+    "approved": "Одобрено",
+    "pending_approval": "На согласовании",
+    "rejected": "Отклонено",
+    "archived": "Архив",
+    "manifest_generated": "Пакет показа",
     # English status values
     "active": "Активен",
     "draft": "Черновик",
