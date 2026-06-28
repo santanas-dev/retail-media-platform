@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Администрирование</h1>
-<p class="page-description">Управление платформой: пользователи, роли, области доступа, аудит. Данные загружены из системы. Создание пользователей доступно.</p>
+<p class="page-description">Управление платформой: пользователи, роли, области доступа, аудит. Создание и изменение пользователей выполняется администратором системы.</p>
 
 {% if flash_type == "success" %}
 <div class="success-banner">
@@ -247,46 +247,19 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- RLS Scopes (static reference) -->
+<!-- Области доступа (информационный блок) -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <div class="requirements-box">
-  <div class="requirements-title">Области доступа / RLS</div>
+  <div class="requirements-title">Области доступа</div>
   <div class="requirements-grid mt-12">
-    <div class="requirements-item"><span class="requirements-label">advertiser_scope</span><span class="requirements-value">По рекламодателю — только свои кампании</span></div>
-    <div class="requirements-item"><span class="requirements-label">branch_scope</span><span class="requirements-value">По филиалу — только магазины своего филиала</span></div>
-    <div class="requirements-item"><span class="requirements-label">store_scope</span><span class="requirements-value">По магазину — только свои КСО и показы</span></div>
-    <div class="requirements-item"><span class="requirements-label">campaign_scope</span><span class="requirements-value">По кампании — только свои кампании</span></div>
-    <div class="requirements-item"><span class="requirements-label">device_scope</span><span class="requirements-value">По устройству — только свои КСО</span></div>
-    <div class="requirements-item"><span class="requirements-label">approval_scope</span><span class="requirements-value">По согласованию — свои объекты</span></div>
-    <div class="requirements-item"><span class="requirements-label">report_scope</span><span class="requirements-value">По отчётам — агрегаты по своим scope</span></div>
+    <div class="requirements-item"><span class="requirements-label">По рекламодателю</span><span class="requirements-value">Пользователь видит только свои кампании и креативы</span></div>
+    <div class="requirements-item"><span class="requirements-label">По филиалу</span><span class="requirements-value">Доступ только к магазинам своего филиала</span></div>
+    <div class="requirements-item"><span class="requirements-label">По магазину</span><span class="requirements-value">Доступ только к своим устройствам и показам</span></div>
+    <div class="requirements-item"><span class="requirements-label">По кампании</span><span class="requirements-value">Доступ только к назначенным кампаниям</span></div>
+    <div class="requirements-item"><span class="requirements-label">По устройству</span><span class="requirements-value">Доступ только к своим КСО</span></div>
+    <div class="requirements-item"><span class="requirements-label">По отчётам</span><span class="requirements-value">Отчёты в рамках своей области доступа</span></div>
   </div>
-  <div class="export-action">
-    <!-- Assign RLS Scopes Form (server-side POST, Step 36.10) -->
-    <details class="mb-12">
-      <summary class="font-semibold text-md">✅ Назначить область</summary>
-      <form method="POST" action="/admin/users/assign-rls-scopes" class="login-form mt-12">
-        <div class="form-group">
-          <label class="form-label">Имя пользователя (логин)</label>
-          <input type="text" name="username" class="form-input" required
-                 minlength="1" maxlength="100" autocomplete="off"
-                 placeholder="user_login">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Области доступа (одна на строку, формат: scope_type:scope_value)</label>
-          <textarea name="rls_scopes_text" class="form-input" rows="5"
-                    maxlength="5000"
-                    placeholder="branch_scope:branch_north&#10;store_scope:store_001&#10;report_scope:report_kso"
-                    style="font-family:monospace; resize:vertical"></textarea>
-        </div>
-        <div class="form-hint text-meta text-secondary mt-4">
-          ⚠️ <strong>Заменяет</strong> полный список областей доступа пользователя. Допустимые типы: advertiser_scope, branch_scope, store_scope, campaign_scope, device_scope, approval_scope, report_scope. Без пробелов, @, телефонов, /, \.
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary">✅ Назначить</button>
-        </div>
-      </form>
-    </details>
-  </div>
+  <p class="note-text mt-12">Назначение областей доступа выполняется администратором системы.</p>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -336,18 +309,18 @@
     <div class="requirements-item"><span class="requirements-label">MFA для критичных ролей</span><span class="requirements-value requirements-forbidden">system_admin, security_admin требуют MFA</span></div>
     <div class="requirements-item"><span class="requirements-label">Аудит изменений</span><span class="requirements-value">Все изменения доступа аудируются</span></div>
     <div class="requirements-item"><span class="requirements-label">Удаление пользователей</span><span class="requirements-value">Логическое (archive), не физическое удаление</span></div>
-    <div class="requirements-item"><span class="requirements-label">RLS enforcement</span><span class="requirements-value">Ограничения доступа применяются в системе</span></div>
-    <div class="requirements-item"><span class="requirements-label">Хранение паролей</span><span class="requirements-value requirements-forbidden">Только безопасный hash (bcrypt/argon2)</span></div>
+    <div class="requirements-item"><span class="requirements-label">Контроль доступа</span><span class="requirements-value">Ограничения доступа применяются в системе</span></div>
+    <div class="requirements-item"><span class="requirements-label">Хранение паролей</span><span class="requirements-value requirements-forbidden">Только безопасное хранение (шифрование)</span></div>
   </div>
 </div>
 
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Все админ-действия активны: create, assign roles, assign RLS, block, archive. MFA будет доступен позже. Пароли никогда не отображаются в UI. Все изменения пользователей/ролей/RLS аудируются. Ограничения доступа применяются в системе.</span>
+  <span class="note-text">Управление пользователями, ролями и правами доступа выполняется администратором системы. Пароли никогда не отображаются. Все изменения записываются в журнал действий. Ограничения доступа применяются в системе.</span>
 </div>
 
 <div class="note-box">
   <span class="note-icon">🤖</span>
-  <span class="note-text"><strong>device_service</strong> — техническая роль для сервисного взаимодействия. Вход в пользовательский web-портал запрещён. Отображается только для governance.</span>
+  <span class="note-text"><strong>Сервисные учётные записи</strong> — используются для технического взаимодействия между системами. Вход в пользовательский портал для таких записей запрещён.</span>
 </div>
 {% endblock %}

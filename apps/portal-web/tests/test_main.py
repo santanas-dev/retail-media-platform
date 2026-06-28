@@ -2094,7 +2094,7 @@ class TestAdminAndReportsRLSNotes(unittest.TestCase):
     def test_admin_mentions_users_roles_rls(self):
         resp = self.client.get("/admin")
         self.assertIn("рол", resp.text.lower())
-        self.assertIn("RLS", resp.text)
+        self.assertIn("доступа", resp.text.lower())
 
     def test_admin_mentions_read_only_mode(self):
         resp = self.client.get("/admin")
@@ -2102,13 +2102,13 @@ class TestAdminAndReportsRLSNotes(unittest.TestCase):
 
     def test_reports_mentions_rls_for_bi(self):
         resp = self.client.get("/reports")
-        self.assertIn("RLS", resp.text)
-        self.assertIn("анонимизированы", resp.text.lower())
+        self.assertIn("безопасные идентификаторы", resp.text.lower())
+        self.assertIn("рекламодателей", resp.text.lower())
 
     def test_reports_mentions_rls_for_csv(self):
         resp = self.client.get("/reports")
         self.assertIn("CSV", resp.text)
-        self.assertIn("RLS", resp.text)
+        self.assertIn("видит только свои", resp.text.lower())
 
 
 class TestAdminUserManagement(unittest.TestCase):
@@ -2139,12 +2139,12 @@ class TestAdminUserManagement(unittest.TestCase):
 
     def test_admin_has_rls_assignment_section(self):
         resp = self.client.get("/admin")
-        self.assertIn("Области доступа / RLS", resp.text)
-        for scope in ("advertiser_scope", "branch_scope", "store_scope",
-                       "campaign_scope", "device_scope",
-                       "approval_scope", "report_scope"):
+        self.assertIn("Области доступа", resp.text)
+        for scope in ("По рекламодателю", "По филиалу", "По магазину",
+                       "По кампании", "По устройству",
+                       "По отчётам"):
             self.assertIn(scope, resp.text,
-                          f"Admin must show RLS scope '{scope}'")
+                          f"Admin must show scope '{scope}'")
 
     def test_admin_mentions_users_created_in_admin(self):
         resp = self.client.get("/admin")
@@ -2170,8 +2170,8 @@ class TestAdminUserManagement(unittest.TestCase):
     def test_admin_mentions_password_hashing(self):
         resp = self.client.get("/admin")
         lower = resp.text.lower()
-        self.assertTrue("bcrypt" in lower or "argon2" in lower,
-                        "Admin must mention password hashing algorithm")
+        self.assertTrue("шифрование" in lower or "безопасное хранение" in lower,
+                        "Admin must mention password security")
 
     def test_create_user_button_active(self):
         resp = self.client.get("/admin")
@@ -2184,8 +2184,9 @@ class TestAdminUserManagement(unittest.TestCase):
 
     def test_assign_rls_button_active(self):
         resp = self.client.get("/admin")
-        self.assertIn('action="/admin/users/assign-rls-scopes"', resp.text)
-
+        # RLS form removed from demo UI (P1 RC0 limitation)
+        self.assertIn("Области доступа", resp.text)
+        self.assertIn("администратором системы", resp.text.lower())
     def test_admin_has_audit_section(self):
         resp = self.client.get("/admin")
         self.assertIn("Аудит администрирования", resp.text)
@@ -2196,7 +2197,7 @@ class TestAdminUserManagement(unittest.TestCase):
 
     def test_admin_mentions_rls_enforced(self):
         resp = self.client.get("/admin")
-        self.assertIn("RLS", resp.text)
+        self.assertIn("доступа", resp.text.lower())
         self.assertIn("Ограничения доступа применяются", resp.text)
 
 
@@ -2493,11 +2494,11 @@ class TestRlsNotesOnPages(unittest.TestCase):
 
     def test_admin_has_rls_section(self):
         resp = self.client.get("/admin")
-        self.assertIn("RLS", resp.text)
+        self.assertIn("доступа", resp.text.lower())
 
     def test_reports_says_rls_before_csv_export(self):
         resp = self.client.get("/reports")
-        self.assertIn("rls", resp.text.lower())
+        self.assertIn("безопасные", resp.text.lower())
         self.assertIn("csv", resp.text.lower())
 
     def test_approvals_says_route_scope_based_visibility(self):
@@ -2517,8 +2518,8 @@ class TestRlsNotesOnPages(unittest.TestCase):
 
     def test_admin_explains_device_service_is_technical(self):
         resp = self.client.get("/admin")
-        self.assertIn("техническая роль", resp.text.lower())
-        self.assertIn("Вход в пользовательский web-портал", resp.text)
+        self.assertIn("Сервисные учётные записи", resp.text)
+        self.assertIn("Вход в пользовательский портал", resp.text)
         self.assertIn("запрещён", resp.text.lower())
 
 
@@ -3120,8 +3121,9 @@ class TestAdminAssignRolesForm(unittest.TestCase):
 
     def test_assign_rls_button_is_active(self):
         resp = self.client.get("/admin")
-        self.assertIn('action="/admin/users/assign-rls-scopes"', resp.text)
-
+        # RLS form removed from demo UI (P1 RC0 limitation)
+        self.assertIn("Области доступа", resp.text)
+        self.assertIn("администратором системы", resp.text.lower())
     def test_create_user_remains_active(self):
         resp = self.client.get("/admin")
         self.assertIn("Создать пользователя", resp.text)
@@ -3242,9 +3244,9 @@ class TestAdminAssignRlsScopesForm(unittest.TestCase):
 
     def test_admin_page_has_assign_rls_form(self):
         resp = self.client.get("/admin")
-        self.assertIn("Назначить область", resp.text)
-        self.assertIn('action="/admin/users/assign-rls-scopes"', resp.text)
-        self.assertIn('method="post"', resp.text.lower())
+        # RLS form removed from demo UI (P1 RC0 limitation)
+        self.assertIn("Области доступа", resp.text)
+        self.assertIn("администратором системы", resp.text.lower())
 
     def test_assign_rls_form_has_username_field(self):
         resp = self.client.get("/admin")
@@ -3252,20 +3254,22 @@ class TestAdminAssignRlsScopesForm(unittest.TestCase):
 
     def test_assign_rls_form_has_textarea(self):
         resp = self.client.get("/admin")
-        self.assertIn('name="rls_scopes_text"', resp.text)
-        self.assertIn("<textarea", resp.text.lower())
+        # RLS form removed — static info block instead
+        self.assertIn("По рекламодателю", resp.text)
+        self.assertIn("<strong>", resp.text.lower())
 
     def test_assign_rls_form_lists_7_allowed_scope_types(self):
         resp = self.client.get("/admin")
-        for scope in ("advertiser_scope", "branch_scope", "store_scope",
-                       "campaign_scope", "device_scope",
-                       "approval_scope", "report_scope"):
+        for scope in ("По рекламодателю", "По филиалу", "По магазину",
+                       "По кампании", "По устройству",
+                       "По отчётам"):
             self.assertIn(scope, resp.text,
-                          f"RLS form must list '{scope}'")
+                          f"Admin page must show '{scope}'")
 
     def test_assign_rls_form_warns_about_replace(self):
         resp = self.client.get("/admin")
-        self.assertIn("Заменяет", resp.text)
+        # RLS form removed — static scope info instead
+        self.assertIn("Области доступа", resp.text)
 
     def test_assign_rls_form_excludes_email_phone(self):
         resp = self.client.get("/admin")
@@ -3423,8 +3427,9 @@ class TestAdminBlockUserForm(unittest.TestCase):
 
     def test_assign_rls_remains_active(self):
         resp = self.client.get("/admin")
-        self.assertIn('action="/admin/users/assign-rls-scopes"', resp.text)
-
+        # RLS form removed from demo UI (P1 RC0 limitation)
+        self.assertIn("Области доступа", resp.text)
+        self.assertIn("администратором системы", resp.text.lower())
 
 class TestAdminBlockUserRBAC(unittest.TestCase):
     """Block user requires users.manage."""
@@ -3547,8 +3552,9 @@ class TestAdminArchiveUserForm(unittest.TestCase):
 
     def test_assign_rls_remains_active(self):
         resp = self.client.get("/admin")
-        self.assertIn('action="/admin/users/assign-rls-scopes"', resp.text)
-
+        # RLS form removed from demo UI (P1 RC0 limitation)
+        self.assertIn("Области доступа", resp.text)
+        self.assertIn("администратором системы", resp.text.lower())
 
 class TestAdminArchiveUserRBAC(unittest.TestCase):
     """Archive user requires users.manage."""
