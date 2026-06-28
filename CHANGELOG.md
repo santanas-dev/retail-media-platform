@@ -2465,3 +2465,49 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 - ✅ Существующие теги не переписаны
 - ✅ Visible forbidden terms: 0
 - ✅ JS/CDN/localStorage: 0
+
+---
+
+## [45.1.1-authenticated-walkthrough] — 2026-06-28
+
+**Authenticated Visual Demo Walkthrough.**
+
+Проверка всех 16 страниц под авторизованным пользователем после CSS-полиша.
+
+### Результат
+
+- 16/16 страниц — HTTP 200
+- Горизонтальный скролл: 0
+- Светлые inline-стили: 0 (запрещённые удалены)
+- Пустые note-text: 0
+
+### Исправления
+
+- `rbac.py`: 403-страница — хардкод `#64748b`, `#1a56db` → CSS-переменные
+
+### Регрессия
+
+- Portal: **738 пройдено**, 0 отказов
+- Backend: **736 пройдено**, 0 отказов
+
+---
+
+## [45.1.2-final-demo-baseline] — 2026-06-28
+
+**Final Demo Baseline Tag.**
+
+Зафиксирован финальный визуально проверенный baseline для бизнес-показа.
+
+### Теги (все)
+
+| Тег | HEAD | Назначение |
+|-----|------|------------|
+| `v0.9.0-rc0-business-demo` | `a9631af` | Исходная заморозка RC0 |
+| `v0.9.0-rc0-business-demo.1` | `6fac6a3` | Runtime smoke patch |
+| `v0.9.0-rc0-business-demo.2` | `76a9cd4` | **Финальный demo baseline** |
+
+### Для демонстрации использовать `v0.9.0-rc0-business-demo.2`
+
+- Старые теги не переписаны
+- Физический пилот остаётся заблокирован
+- Production AV не включён
