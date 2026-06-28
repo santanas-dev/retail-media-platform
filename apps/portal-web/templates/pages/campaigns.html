@@ -56,7 +56,7 @@
   <div class="summary-stats">
     <div class="summary-stat"><div class="summary-stat-value">{{ campaigns|length }}</div><div class="summary-stat-label">Всего</div></div>
     <div class="summary-stat"><div class="summary-stat-value">{{ campaigns_by_status.draft }}</div><div class="summary-stat-label">Черновик</div></div>
-    <div class="summary-stat"><div class="summary-stat-value">{{ campaigns_by_status.pending_approval }}</div><div class="summary-stat-label">На согласовании</div></div>
+    <div class="summary-stat"><div class="summary-stat-value">{{ campaigns_by_status.in_review }}</div><div class="summary-stat-label">На согласовании</div></div>
     <div class="summary-stat"><div class="summary-stat-value">{{ campaigns_by_status.approved }}</div><div class="summary-stat-label">Одобрено</div></div>
     <div class="summary-stat"><div class="summary-stat-value">{{ campaigns_by_status.rejected }}</div><div class="summary-stat-label">Отклонено</div></div>
   </div>
@@ -89,7 +89,7 @@
           <td>{{ c.name | sanitize }}</td>
           <td>
             {% if c.status == 'draft' %}<span class="status-badge status-badge-draft">Черновик</span>
-            {% elif c.status == 'pending_approval' %}<span class="status-badge status-badge-pending_approval">На согласовании</span>
+            {% elif c.status == 'in_review' %}<span class="status-badge status-badge-in_review">На согласовании</span>
             {% elif c.status == 'approved' %}<span class="status-badge status-badge-approved">Одобрено</span>
             {% elif c.status == 'rejected' %}<span class="status-badge status-badge-rejected">Отклонено</span>
             {% elif c.status == 'archived' %}<span class="status-badge status-badge-archived">Архив</span>

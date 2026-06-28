@@ -189,17 +189,16 @@ class TestProductionEndpointEnumeration(unittest.TestCase):
 class TestFullFlowStateMachine(unittest.TestCase):
     """Verifies the campaign → batch → manifest state transitions form a valid pipeline."""
 
-    # Campaign statuses are DB strings: draft, pending_approval, approved, rejected, archived
-    CAMPAIGN_STATUSES = {"draft", "pending_approval", "approved", "rejected", "archived"}
+    # Campaign statuses are DB strings: draft, in_review, approved, rejected, archived
+    CAMPAIGN_STATUSES = {"draft", "in_review", "approved", "rejected", "archived"}
     # Approval statuses are DB strings: pending, approved, rejected
     APPROVAL_STATUSES = {"pending", "approved", "rejected"}
     # Manifest statuses (from code inspection)
     MANIFEST_STATUSES = {"draft", "generated", "published", "archived"}
 
     def test_campaign_status_flow_valid(self):
-        """Campaign has full lifecycle statuses: draft → pending_approval → approved/rejected → archived."""
-        self.assertIn("draft", self.CAMPAIGN_STATUSES)
-        self.assertIn("pending_approval", self.CAMPAIGN_STATUSES)
+        """Campaign has full lifecycle statuses: draft → in_review → approved/rejected → archived."""
+        self.assertIn("in_review", self.CAMPAIGN_STATUSES)
         self.assertIn("approved", self.CAMPAIGN_STATUSES)
         self.assertIn("rejected", self.CAMPAIGN_STATUSES)
 

@@ -178,9 +178,9 @@ class TestRealBackendOnlyBusinessFlow(unittest.TestCase):
 
     def test_campaign_statuses_are_valid_strings(self):
         """Campaign status values are the expected strings."""
-        valid = {"draft", "pending_approval", "approved", "rejected", "archived"}
+        valid = {"draft", "in_review", "approved", "rejected", "archived"}
         self.assertIn(self.campaign.status, valid)
-        self.assertIn("pending_approval", valid)
+        self.assertIn("in_review", valid)
         self.assertIn("approved", valid)
         self.assertIn("rejected", valid)
 

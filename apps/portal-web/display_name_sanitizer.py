@@ -52,6 +52,7 @@ _DISPLAY_NAME_MAP: dict[str, str] = {
     # Campaign statuses (reports distribution bars)
     "approved": "Одобрено",
     "pending_approval": "На согласовании",
+    "in_review": "На согласовании",
     "rejected": "Отклонено",
     "archived": "Архив",
     "manifest_generated": "Пакет показа",

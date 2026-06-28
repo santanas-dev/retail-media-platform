@@ -164,7 +164,7 @@ async def dashboard_page(request: Request):
     total_campaigns = len(campaigns)
     active_campaigns = sum(1 for c in campaigns if c.get("status") == "active")
     draft_campaigns = sum(1 for c in campaigns if c.get("status") == "draft")
-    pending_campaigns = sum(1 for c in campaigns if c.get("status") == "pending_approval")
+    pending_campaigns = sum(1 for c in campaigns if c.get("status") == "in_review")
     approved_campaigns = sum(1 for c in campaigns if c.get("status") == "approved")
     rejected_campaigns = sum(1 for c in campaigns if c.get("status") == "rejected")
     archived_campaigns = sum(1 for c in campaigns if c.get("status") == "archived")
@@ -182,11 +182,11 @@ async def dashboard_page(request: Request):
     maintenance_devices = sum(1 for d in devices if d.get("status") == "maintenance")
 
     total_schedules = len(schedules)
-    active_schedules = sum(1 for s in schedules if s.get("status") == "active")
     draft_schedules = sum(1 for s in schedules if s.get("status") == "draft")
+    archived_schedules = sum(1 for s in schedules if s.get("status") == "archived")
 
     total_manifests = len(manifests)
-    draft_manifests = sum(1 for m in manifests if m.get("status") == "draft")
+    generated_manifests = sum(1 for m in manifests if m.get("status") == "generated")
     published_manifests = sum(1 for m in manifests if m.get("status") in ("published", "manifest_generated"))
 
     total_batches = len(batches)
@@ -220,10 +220,10 @@ async def dashboard_page(request: Request):
         "blocked_devices": blocked_devices,
         "offline_devices": offline_devices,
         "total_schedules": total_schedules,
-        "active_schedules": active_schedules,
         "draft_schedules": draft_schedules,
+        "archived_schedules": archived_schedules,
         "total_manifests": total_manifests,
-        "draft_manifests": draft_manifests,
+        "generated_manifests": generated_manifests,
         "published_manifests": published_manifests,
         "total_publications": total_manifests,
         "total_batches": total_batches,
@@ -1462,7 +1462,7 @@ def _status_label(status: str) -> str:
     """Human-readable Russian status label."""
     labels = {
         "draft": "Черновик",
-        "in_review": "На проверке",
+        "in_review": "На согласовании",
         "approved": "Одобрен",
         "rejected": "Отклонён",
         "archived": "Архив",
@@ -1499,7 +1499,7 @@ async def campaigns_page(request: Request):
 
     campaigns = result.get("data", [])
     safe_rows = []
-    status_counts = {"draft": 0, "pending_approval": 0, "approved": 0, "rejected": 0, "archived": 0}
+    status_counts = {"draft": 0, "in_review": 0, "approved": 0, "rejected": 0, "archived": 0, "active": 0}
     for c in campaigns:
         code = c.get("campaign_code", "")
         status = c.get("status", "")
