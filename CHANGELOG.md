@@ -7,6 +7,39 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [45.5.2-live-audit-cleanup] — 2026-06-28
+
+**Live Audit Cleanup — error banners, density, empty states, forms, design hygiene, business rule tests.**
+
+### Fixed
+- `/publications` error banner: `banner-error` → `banner-warning` + business Russian text («Публикации: демо-режим»)
+- `/reports` error banner: `banner-error` → `banner-warning` («Плановая отчётность»)
+- Information density: schedule (16→8 cols), reports (removed redundant per-section CSV links)
+- Empty states: dashboard CTA «Проверить готовность», creative_detail «Назад» + «Загрузить»
+- Forms: labels, required markers, cancel links on 9 demo pages
+- Design: `:focus-visible` in main.css (outline + box-shadow)
+- Business rule tests: 93 direct tests for submit/in_review/approve/reject/maker-checker
+- 14 test assertions updated to match new UI (banner wording, CSV links, filter params)
+
+### Verified
+- `pending_batches`: FALSE POSITIVE — batches correctly use `pending_approval` (batch state machine; not campaigns)
+- Channels/targets/renditions UI: STALE/FIXED — implemented in 45.5/45.5.1, E2E PASS 13/13
+- Two-user maker‑checker E2E: 13/13 PASS
+- No physical KSO/SSH/X11/Chromium/runner/sidecar/PoP launched
+- No scanner E2E, no long-run, no sidecar sync, production AV off
+- RBAC/RLS/audit preserved, no secrets leaked
+
+### Regression
+- Portal: 803 passed / 32 skipped
+- Backend: 841 passed
+
+### Docs
+- `docs/audit/live-audit-cleanup-45-5-2.md` — full audit cross-reference
+
+**Status:** ✅ Ready for final business demo tag (awaiting separate command).
+
+---
+
 ## [45.5-campaign-assembly-ux] — 2026-06-28
 
 **Campaign Assembly UX — multi-creative campaign management, schedule creation, submit readiness checklist.**

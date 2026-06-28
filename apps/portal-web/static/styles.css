@@ -1354,3 +1354,13 @@ a.link:hover {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Focus Visible ──────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}

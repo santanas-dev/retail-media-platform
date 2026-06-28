@@ -19,11 +19,11 @@
 </div>
 {% endif %}
 
-<!-- Pilot status — business formulation -->
-<div class="banner banner-error">
-  <span class="banner-icon">🔴</span>
+<!-- Demo mode note -->
+<div class="banner banner-info">
+  <span class="banner-icon">📊</span>
   <div class="banner-body">
-    <div class="banner-title">Пилот: не запущен</div>
+    <div class="banner-title">Отчёты: демо-режим</div>
     <div class="banner-text">{{ pilot_nogo.reasons | join(' · ') }}</div>
   </div>
 </div>
@@ -59,9 +59,6 @@
         <span class="dist-legend-count">{{ count }}</span>
       </span>
       {% endfor %}
-    </div>
-    <div class="export-links mt-12">
-      <a href="/reports/export/campaigns" class="export-link">📥 Кампании (CSV)</a>
     </div>
     {% else %}
     <div class="table-empty-state">
@@ -179,7 +176,7 @@
     <div class="table-container table-clean">
     <table class="data-table">
       <thead><tr>
-        <th>Кампания</th><th>Конфликт с</th><th>Даты</th><th>День</th><th>Время</th><th>Конфликтное время</th>
+        <th>Кампания</th><th>Конфликт с</th><th>Даты</th><th>Пересечение</th>
       </tr></thead>
       <tbody>
       {% for c in planned_airtime.conflicts[:15] %}
@@ -187,13 +184,11 @@
         <td><code>{{ c.campaign_code | sanitize_code }}</code></td>
         <td><code>{{ c.conflict_with_code | sanitize_code }}</code></td>
         <td>{{ c.date_from }} – {{ c.date_to }}</td>
-        <td>{{ c.day_label }}</td>
-        <td>{{ c.time_window }}</td>
-        <td>{{ c.conflict_time_window }}</td>
+        <td>{{ c.time_window }} ⇄ {{ c.conflict_time_window }}</td>
       </tr>
       {% endfor %}
       {% if planned_airtime.conflicts | length > 15 %}
-      <tr><td colspan="6" class="text-center text-muted text-meta">Показаны первые 15 из {{ planned_airtime.conflicts | length }} конфликтов</td></tr>
+      <tr><td colspan="4" class="text-center text-muted text-meta">Показаны первые 15 из {{ planned_airtime.conflicts | length }} конфликтов</td></tr>
       {% endif %}
       </tbody>
     </table>
@@ -252,9 +247,6 @@
           {% endfor %}
         </div>
         {% endif %}
-        <div class="export-links mt-8">
-          <a href="/reports/export/publications" class="export-link">📥 Публикации (CSV)</a>
-        </div>
       </div>
 
       <!-- Manifest Status -->
@@ -315,12 +307,6 @@
                class="form-input form-input-sm">
       </div>
       <div class="form-group">
-        <label class="form-label text-xs">КСО</label>
-        <input type="text" name="device_code" value="{{ filters.device_code if filters.device_code else '' }}"
-               placeholder="КСО" maxlength="64"
-               class="form-input form-input-sm">
-      </div>
-      <div class="form-group">
         <label class="form-label text-xs">Дата с</label>
         <input type="date" name="date_from" value="{{ filters.date_from if filters.date_from else '' }}"
                class="form-input form-input-sm">
@@ -342,19 +328,16 @@
     <div class="table-container table-clean">
     <table class="data-table data-table-compact">
       <thead><tr>
-        <th>Событие</th><th>Кампания</th><th>Креатив</th><th>КСО</th>
-        <th>Тип</th><th>Статус</th><th>Сыграно</th>
+        <th>Кампания</th><th>Креатив</th>
+        <th>Тип</th><th>Статус</th>
       </tr></thead>
       <tbody>
       {% for e in pop_events[:20] %}
       <tr>
-        <td><code>{{ e.event_code | sanitize_code }}</code></td>
         <td>{{ e.campaign_code | sanitize_code }}</td>
         <td>{{ e.creative_code | sanitize_code }}</td>
-        <td>{{ e.device_code | sanitize_code }}</td>
         <td>{{ e.event_type | sanitize }}</td>
         <td><span class="lifecycle-step lifecycle-{{ e.status }}">{{ e.status | sanitize }}</span></td>
-        <td>{{ e.played_at | sanitize if e.played_at else 'Нет данных' }}</td>
       </tr>
       {% endfor %}
       </tbody>

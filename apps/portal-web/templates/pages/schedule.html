@@ -110,15 +110,13 @@
   </div>
   <div class="section-card-body p-0">
     {% for s in schedules %}
-    <!-- Schedule row -->
+    <!-- Schedule row (business-essential columns only) -->
     <div class="px-12 py-8" style="border-bottom:1px solid var(--color-border-light);">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <code class="font-semibold">{{ s.schedule_code }}</code>
         <span class="font-semibold">{{ s.name }}</span>
         <span class="status-badge status-badge-{{ 'draft' if s.status == 'draft' else 'approved' if s.status == 'active' else 'draft' }}">{{ s.status }}</span>
         {% if s.campaign_code != '—' %}<span class="text-sm text-secondary">📢 {{ s.campaign_code }}</span>{% endif %}
         <span class="text-sm text-secondary">{{ s.valid_from }} – {{ s.valid_to }}</span>
-        <span class="text-sm text-secondary">🕐 {{ s.timezone }}</span>
         <span class="text-sm text-secondary">📋 {{ s.slot_count }} слотов</span>
         <span class="flex-1"></span>
         {% if s.status != 'archived' %}
@@ -129,36 +127,31 @@
       </div>
     </div>
 
-    <!-- Slots -->
+    <!-- Slots (collapsed detail) -->
     {% set slots = schedule_slots.get(s.schedule_code, []) %}
     {% if slots %}
     <div class="pl-12 pr-8 py-8" style="background:var(--color-bg);border-bottom:1px solid var(--color-border-light);">
-      <table class="data-table data-table-compact mb-0">
-        <thead><tr>
-          <th>Слот</th><th>Размещение</th><th>День</th><th>Начало</th><th>Конец</th><th>Порядок</th><th>Активен</th><th></th>
-        </tr></thead>
-        <tbody>
-        {% set days = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"] %}
-        {% for sl in slots %}
-        <tr>
-          <td><code>{{ sl.slot_code }}</code></td>
-          <td>{{ sl.placement_code }}</td>
-          <td>{{ days[sl.day_of_week] }}</td>
-          <td>{{ sl.start_time }}</td>
-          <td>{{ sl.end_time }}</td>
-          <td>{{ sl.slot_order }}</td>
-          <td>{% if sl.is_active %}✅{% else %}❌{% endif %}</td>
-          <td>
-            {% if sl.is_active %}
-            <form method="post" action="/schedule/{{ s.schedule_code }}/items/{{ sl.slot_code }}/disable" class="inline">
-              <button type="submit" class="btn btn-sm btn-ghost">Откл</button>
-            </form>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-      </table>
+      <details class="slot-details">
+        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--color-text-secondary);padding:4px 0;">
+          📋 {{ slots|length }} слотов — развернуть
+        </summary>
+        <table class="data-table data-table-compact mb-0 mt-8">
+          <thead><tr>
+            <th>Слот</th><th>День</th><th>Время</th><th>Активен</th>
+          </tr></thead>
+          <tbody>
+          {% set days = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"] %}
+          {% for sl in slots %}
+          <tr>
+            <td><code>{{ sl.slot_code }}</code></td>
+            <td>{{ days[sl.day_of_week] }}</td>
+            <td>{{ sl.start_time }} – {{ sl.end_time }}</td>
+            <td>{% if sl.is_active %}✅{% else %}❌{% endif %}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </details>
     </div>
     {% else %}
     <div class="text-warning text-meta pl-12 pr-8 py-12" style="background:var(--color-warning-bg);border-bottom:1px solid var(--color-border-light);">
@@ -166,7 +159,7 @@
     </div>
     {% endif %}
 
-    <!-- Add Slot Form -->
+    <!-- Add Slot Form (simplified) -->
     {% if s.status != 'archived' %}
     <div class="px-12 py-8" style="background:var(--color-bg);border-bottom:1px solid var(--color-border-light);">
       <form method="post" action="/schedule/{{ s.schedule_code }}/create-slot" class="form-inline gap-8">
@@ -183,8 +176,6 @@
                required class="form-input form-input-xs">
         <input type="text" name="end_time" placeholder="21:00*" minlength="5" maxlength="8"
                required class="form-input form-input-xs">
-        <input type="number" name="slot_order" value="0" min="0" max="99"
-               class="form-input form-input-xs">
         <button type="submit" class="btn btn-sm btn-primary">+ Добавить</button>
       </form>
     </div>

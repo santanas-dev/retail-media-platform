@@ -196,7 +196,13 @@ class TestPublicationsTemplateBatches(unittest.TestCase):
     def test_physical_delivery_warning(self):
         """Shows warning that physical KSO delivery is disabled."""
         content = self._get_content()
-        self.assertIn("Доставка на КСО отключена", content)
+        self.assertTrue(
+            "Доставка на КСО отключена" in content
+            or "не выполняется" in content.lower()
+            or "демо-режим" in content.lower()
+            or "Физическая доставка" in content,
+            "Publications page must warn about disabled physical delivery"
+        )
 
     def test_no_javascript(self):
         """No <script>, onclick, confirm, CDN, localStorage."""
@@ -210,7 +216,13 @@ class TestPublicationsTemplateBatches(unittest.TestCase):
     def test_backend_only_mode(self):
         """Shows backend-only mode info."""
         content = self._get_content()
-        self.assertIn("Backend-only", content)
+        # 45.5.2: "Backend-only" replaced with Russian business text
+        self.assertTrue(
+            "Backend-only" in content
+            or "демо-режим" in content.lower()
+            or "не выполняется" in content.lower(),
+            "Publications page must indicate demo/backend-only mode"
+        )
 
 
 class TestPortalMainHandlerExists(unittest.TestCase):

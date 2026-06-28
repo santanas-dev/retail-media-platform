@@ -30,21 +30,12 @@
 <div class="flash-message flash-error">❌ Ошибка: {{ pub_flash_msg }}</div>
 {% endif %}
 
-<!-- Physical Delivery NO-GO -->
-<div class="banner banner-error">
-  <span class="banner-icon">🚫</span>
+<!-- Demo mode: publications form in system, physical KSO not triggered -->
+<div class="banner banner-info">
+  <span class="banner-icon">📋</span>
   <div class="banner-body">
-    <div class="banner-title">Физическая доставка на КСО: запуск заблокирован</div>
-    <div class="banner-text"><strong>Доставка на КСО заблокирована до получения отдельного разрешения.</strong> Публикация в системе формирует пакет показа без доставки на КСО. Физическая доставка требует отдельного approval gate. Подробнее: <a href="/readiness">Readiness</a>.</div>
-  </div>
-</div>
-
-<!-- Backend-only mode -->
-<div class="banner banner-warning">
-  <span class="banner-icon">⚠️</span>
-  <div class="banner-body">
-    <div class="banner-title">Режим подготовки в системе</div>
-    <div class="banner-text">Публикация формирует пакет показа в системе без доставки на устройство. Доставка на КСО отключена до отдельного approval.</div>
+    <div class="banner-title">Публикации: демо-режим</div>
+    <div class="banner-text">Публикационный пакет формируется в системе. Физическая доставка на КСО не выполняется — требуется отдельный approval gate. <a href="/readiness">Подробнее в готовности</a>.</div>
   </div>
 </div>
 
