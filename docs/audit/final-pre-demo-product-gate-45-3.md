@@ -1,9 +1,9 @@
-# Final Pre-Demo Product Gate — 45.3
+# Final Pre-Demo Product Gate — 45.3 + 45.3.1
 
-**Date:** 2026-06-28
+**Date:** 2026-07-01
 **Auditor:** Hermes Agent (browser + automated)
-**HEAD:** `ea83d05`-plus (pending commit)
-**Demo tag:** `v0.9.0-rc0-business-demo.3` → `ea83d05`
+**HEAD:** `5c386d4`
+**Demo tag:** **`v0.9.0-rc0-business-demo.4`** → `5c386d4`
 
 ---
 

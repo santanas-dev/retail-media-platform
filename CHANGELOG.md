@@ -2688,3 +2688,34 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 ### Commit
 
 `4f7cb0e` — ✅ Clean demo visible data artifacts (45.3.1)
+`5c386d4` — 📋 Add 45.3.1 changelog entry
+
+---
+
+## [45.3.2] — 2026-07-01
+
+**Final Clean Demo Baseline Tag.**
+
+### Tag
+
+`v0.9.0-rc0-business-demo.4` → HEAD `5c386d4`
+
+### Why .4 replaces .3
+
+Тег `.3` (`d78e23f`) содержит RLS fix, но не включает финальную очистку продукта (45.3)
+и visible data hygiene (45.3.1). На страницах видны 87 test/seed/legacy/None терминов —
+неприемлемо для бизнес-демонстрации.
+
+### Status
+
+- P0 = **0**
+- P1 = **0**
+- Visible data artifacts = **0** (87 → 0)
+- Demo route = **16/16** HTTP 200
+- Physical pilot = **blocked** (5 P0 блокировок)
+- Production AV = **not enabled**
+- User-management = **not shown as ready**
+
+### Commit
+
+`5c386d4` — 📌 Document final clean RC0 demo baseline (45.3.2)

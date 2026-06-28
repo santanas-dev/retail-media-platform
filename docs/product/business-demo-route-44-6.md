@@ -1,13 +1,14 @@
-# Маршрут бизнес-демонстрации — 44.6 / 45.2.1
+# Маршрут бизнес-демонстрации — 45.3.2 (final clean baseline)
 
 **Длительность:** 20–30 минут
 **Цель:** Показать полный цикл рекламной кампании в Retail Media Platform — от входа до подготовки пакета публикации.
 
-> **Для демонстрации использовать ТОЛЬКО тег `v0.9.0-rc0-business-demo.3` (HEAD `d78e23f`)** — secure demo baseline.
+> **Для демонстрации использовать ТОЛЬКО тег `v0.9.0-rc0-business-demo.4` (HEAD `5c386d4`)** — final clean demo baseline.
 > Содержит: runtime-исправления (45.0.1), полное CSS-покрытие (45.1), визуальную проверку (45.1.1),
-> **pre-demo security audit + RLS fix (45.2)**.
+> **pre-demo security audit + RLS fix (45.2)**, финальный product gate (45.3),
+> **visible data hygiene — 87→0 test/seed/legacy/None (45.3.1)**.
 >
-> ⚠️ **Тег `.2` (76a9cd4) НЕ использовать** — содержит CRITICAL RLS bypass (утечка данных между рекламодателями).
+> ⚠️ **Теги `.2` и `.3` НЕ использовать** — `.2` содержит CRITICAL RLS bypass, `.3` оставляет 87 видимых test/seed/legacy/None терминов.
 >
 > Подробнее: `docs/product/rc0-demo-launch-note-45-0-2.md`, `docs/audit/pre-demo-functional-audit-45-2.md`.
 

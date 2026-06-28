@@ -1,7 +1,7 @@
-# RC0 Demo Launch Note — 45.0.2 / 45.1.2 / 45.2 / 45.2.1
+# RC0 Demo Launch Note — 45.3.2 (final clean baseline)
 
-**Дата:** 2026-06-28
-**Версия:** 45.2.1 (secure demo baseline — RLS fix + demo boundaries)
+**Дата:** 2026-07-01
+**Версия:** 45.3.2 — final clean pre-demo baseline (RLS fix + visual polish + visible data hygiene)
 
 ---
 
@@ -12,13 +12,17 @@
 | `v0.9.0-rc0-business-demo` | `a9631af` | Исходная заморозка RC0 (НЕ использовать) |
 | `v0.9.0-rc0-business-demo.1` | `6fac6a3` | Runtime smoke patch (НЕ использовать) |
 | `v0.9.0-rc0-business-demo.2` | `76a9cd4` | Визуальный polish baseline **до RLS fix** (НЕ использовать) |
-| **`v0.9.0-rc0-business-demo.3`** | **`d78e23f`** | **Secure demo baseline — использовать для показа** |
+| `v0.9.0-rc0-business-demo.3` | `d78e23f` | Secure demo baseline — **до 45.3/45.3.1** (НЕ использовать) |
+| **`v0.9.0-rc0-business-demo.4`** | **`5c386d4`** | **Final clean baseline — использовать для показа** |
 
-> **Для бизнес-демонстрации используйте ТОЛЬКО `v0.9.0-rc0-business-demo.3` (HEAD `d78e23f`).**
-> Тег `.2` (`76a9cd4`) визуально готов, но содержит CRITICAL RLS bypass: любой пользователь с `campaigns.read`
-> может читать чужие кампании по UUID. Тег `.3` закрывает эту уязвимость + включает admin account unlock.
+> **Для бизнес-демонстрации используйте ТОЛЬКО `v0.9.0-rc0-business-demo.4` (HEAD `5c386d4`).**
 >
-> Предыдущие теги (.0, .1, .2) НЕ ИСПОЛЬЗОВАТЬ для демо.
+> Тег `.3` (`d78e23f`) содержит RLS fix, но НЕ включает финальную очистку продукта (45.3)
+> и visible data hygiene (45.3.1): на страницах видны test/seed/legacy данные (87 terms).
+>
+> Тег `.4` закрывает ВСЕ известные P0, P1, и visible data artifacts.
+>
+> Предыдущие теги (.0, .1, .2, .3) НЕ ИСПОЛЬЗОВАТЬ для демо.
 
 ---
 
@@ -60,16 +64,21 @@
 
 ---
 
-## Что проверено (45.2 + 45.2.1)
+## Что проверено (45.2 + 45.2.1 + 45.3 + 45.3.1)
 
 - ✅ **P0 admin lockout** — исправлен: `is_locked=false`, admin входит, `/admin` = 200
 - ✅ **P0 RLS bypass** — исправлен: 11 campaign UUID endpoints → 404 для кросс-доступа
+- ✅ **P0 misleading UI** — «Создание пользователей доступно» заменён на «выполняется администратором системы»
+- ✅ **P0 422 error** — RLS scope form удалён из `/admin` UI
+- ✅ **P1 технические термины** — RLS/RBAC/bcrypt/device_service убраны из видимого текста
+- ✅ **P2 visible data artifacts** — 87 test/seed/legacy/None/null terms → 0 (45.3.1)
 - ✅ **RLS 21/21 PASS** — advertiser isolation подтверждён
 - ✅ **RBAC матрица** — 8 ролей × 47 permissions проверены
 - ✅ **Persistence** — create → DB → refresh работает
 - ✅ **Audit trail** — login, user.create, campaign.create фиксируются
 - ✅ **Error pages** — 403/404 стилизованы, бизнес-язык, без traceback
 - ✅ **Видимых технических терминов** — 0
+- ✅ **Visible test/seed/legacy/None/null** — 0 (45.3.1)
 - ✅ **JS, CDN, localStorage** — 0
 - ✅ **Secrets/tokens/URLs в выводах** — 0
 
@@ -77,7 +86,7 @@
 
 | Слой | Пройдено | Отказов |
 |------|----------|---------|
-| Portal | **759** (+32 skipped) | **0** |
+| Portal | **760** (+32 skipped) | **0** |
 | Backend | **807** | **0** |
 
 ---
@@ -101,10 +110,10 @@
 ```bash
 # Проверить текущий HEAD
 git log --oneline -1
-# Должен быть: d78e23f (или новее)
+# Должен быть: 5c386d4 (или новее)
 
-# Если нет — переключиться на secure demo tag
-git checkout v0.9.0-rc0-business-demo.3
+# Если нет — переключиться на final clean demo tag
+git checkout v0.9.0-rc0-business-demo.4
 
 # Остановить старый процесс портала и backend
 pkill -f "uvicorn.*8422"
@@ -112,16 +121,18 @@ pkill -f "uvicorn.*8421"
 
 # Перезапустить
 cd backend && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8421 &
-cd apps/portal-web && python3 main.py &
+cd apps/portal-web && python3 -m uvicorn main:app --host 0.0.0.0 --port 8422 &
 ```
 
 ---
 
 ## Связанные документы
 
-- `docs/audit/pre-demo-functional-audit-45-2.md` — полный аудит
+- `docs/audit/pre-demo-functional-audit-45-2.md` — полный аудит 45.2
 - `docs/audit/rbac-rls-audit-45-2.md` — RBAC/RLS матрица
 - `docs/audit/frontend-backend-contract-matrix-45-2.md` — контракт frontend-backend
+- `docs/audit/final-pre-demo-product-gate-45-3.md` — product gate audit 45.3
+- `docs/audit/demo-boundaries-final-45-3.md` — demo boundaries 45.3
 - `docs/product/rc0-release-notes-44-6.md` — примечания к выпуску RC0
 - `docs/product/business-demo-route-44-6.md` — маршрут бизнес-демонстрации
 - `CHANGELOG.md` — история изменений

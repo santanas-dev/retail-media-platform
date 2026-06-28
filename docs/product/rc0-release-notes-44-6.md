@@ -1,13 +1,13 @@
-# RC0 Release Notes — 44.6 / 45.2.1
+# RC0 Release Notes — 45.3.2 (final clean baseline)
 
-**Дата выпуска:** 2026-06-28
-**Версия:** 45.2.1 (secure demo baseline)
-**Commit:** `d78e23f`
-**Patches:** v0.9.0-rc0-business-demo → a9631af | .1 → 6fac6a3 | .2 → 76a9cd4 | **.3 → d78e23f (secure demo)**
+**Дата выпуска:** 2026-07-01
+**Версия:** 45.3.2 (final clean pre-demo baseline)
+**Commit:** `5c386d4`
+**Patches:** v0.9.0-rc0-business-demo → a9631af | .1 → 6fac6a3 | .2 → 76a9cd4 | .3 → d78e23f | **.4 → 5c386d4 (final clean demo)**
 
-> **Для бизнес-демонстрации использовать ТОЛЬКО `v0.9.0-rc0-business-demo.3` (d78e23f).**
-> Тег `.2` (76a9cd4) содержит CRITICAL RLS bypass — утечка данных между рекламодателями.
-> Тег `.3` закрывает уязвимость + разблокирует admin account.
+> **Для бизнес-демонстрации использовать ТОЛЬКО `v0.9.0-rc0-business-demo.4` (5c386d4).**
+> Тег `.3` (d78e23f) содержит RLS fix, но оставляет 87 тестовых терминов (test/seed/legacy/None) видимыми.
+> Тег `.4` закрывает все P0/P1 + visible data artifacts (45.3 + 45.3.1).
 
 ---
 
