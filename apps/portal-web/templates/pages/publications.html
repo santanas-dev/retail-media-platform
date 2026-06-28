@@ -87,19 +87,12 @@
      PUBLICATION BATCHES
      ═══════════════════════════════════════════════════════════════════ -->
 
-<!-- Action Bar -->
-<div class="action-bar">
-  <a href="/campaigns" class="btn btn-secondary">📢 Кампании</a>
-  <a href="/approvals" class="btn btn-secondary">📝 Согласования</a>
-  <a href="/reports" class="btn btn-secondary">📈 Отчёты</a>
-</div>
-
 {% if batches %}
 <div class="section-card">
   <div class="section-card-header">
     <span class="section-card-icon">📦</span>
     <span class="section-card-title">Пакеты публикации</span>
-    <span class="section-card-badge">{{ batches|length }}</span>
+    <span class="section-card-badge">{% if total_batches_count is defined and total_batches_count > batches|length %}{{ batches|length }} из {{ total_batches_count }}{% else %}{{ batches|length }}{% endif %}</span>
   </div>
   <div class="section-card-body p-0">
 
@@ -171,6 +164,11 @@
       </div>
     </div>
     {% endfor %}
+    {% if total_batches_count is defined and total_batches_count > batches|length %}
+    <div class="px-12 py-8 text-sm text-muted text-center">
+      Показаны последние {{ batches|length }} из {{ total_batches_count }} пакетов
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -249,7 +247,7 @@
 <!-- Safety Notes -->
 <div class="note-box">
   <span class="note-icon">📦</span>
-  <span class="note-text">Workflow: draft → согласование → approved → формирование → пакет показа → публикация в системе. Доставка на КСО — после PHASE_MANIFEST_DELIVERY_APPROVED.</span>
+  <span class="note-text">Процесс: Черновик → Согласование → Утверждение → Подготовка пакета → Публикация. Физическая доставка на КСО — после отдельного подтверждения.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>

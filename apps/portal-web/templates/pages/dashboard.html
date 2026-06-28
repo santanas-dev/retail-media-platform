@@ -1,20 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">Dashboard</h1>
-<p class="page-description">Управленческий экран Рекламного портала. Данные из система.</p>
+<h1 class="page-title">Главный экран</h1>
+<p class="page-description">Обзор рекламного портала. Портал готов для демонстрации бизнес-процесса: креативы, кампании, расписание, согласование, публикации и отчёты.</p>
 
-<!-- Pilot Status -->
-<div class="pilot-status no-go">
-  <span class="pilot-status-icon">🔴</span>
-  <span><strong>Запуск заблокирован</strong> — система/продукт/портал ГОТОВ, физическая КСО: запуск заблокирован (5 этапов проверки). Сканер не подключён — физическая проверка не начата.</span>
+<!-- Physical KSO status — business formulation only -->
+<div class="banner banner-info">
+  <span class="banner-icon">ℹ️</span>
+  <div class="banner-body">
+    <div class="banner-title">Физический запуск</div>
+    <div class="banner-text">Физический запуск в магазин требует отдельного подтверждения. Портал готов для демонстрации бизнес-процесса: креативы, кампании, расписание, согласование, публикационные пакеты и отчёты.</div>
+  </div>
 </div>
-
-{% if backend_warning %}
-<div class="banner banner-warning">
-  <span class="banner-icon">⚠️</span>
-  <div class="banner-body"><div class="banner-text">{{ backend_warning }}</div></div>
-</div>
-{% endif %}
 
 {% if dashboard_backend %}
 
@@ -200,55 +196,7 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════
-     C. PILOT READINESS
-     ═══════════════════════════════════════════════════════════════════ -->
-
-<div class="section-card section-card-error">
-  <div class="section-card-header section-card-error">
-    <span class="section-card-icon">🚫</span>
-    <span class="section-card-title">Pilot Готовность</span>
-    <span class="pilot-status no-go ml-auto btn-sm">🚫 Запуск заблокирован</span>
-  </div>
-  <div class="section-card-body">
-    <p class="text-md text-error mb-12">
-      <strong>Сканер не подключён — физическая проверка не начата.</strong> Физический пилот невозможен до закрытия всех P0 blockers.
-    </p>
-    <div class="blocker-grid">
-      <div class="blocker-item">
-        <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">Проверка физического сканера</span>
-        <span class="blocker-detail">Физический сканер не протестирован</span>
-      </div>
-      <div class="blocker-item">
-        <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">Длительная проверка стабильности</span>
-        <span class="blocker-detail">Длительный прогон не выполнялся</span>
-      </div>
-      <div class="blocker-item">
-        <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">Доставка пакетов показа</span>
-        <span class="blocker-detail">Доставка на КСО не approved</span>
-      </div>
-      <div class="blocker-item">
-        <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">Синхронизация агента</span>
-        <span class="blocker-detail">Синхронизация не approved</span>
-      </div>
-      <div class="blocker-item">
-        <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">Fleet rollout</span>
-        <span class="blocker-detail">Не утверждён</span>
-      </div>
-    </div>
-  </div>
-  <div class="section-card-footer section-card-error">
-    <a href="/readiness" class="btn btn-sm btn-ghost">🧭 Readiness</a>
-    <a href="/publications" class="btn btn-sm btn-ghost">📋 Публикации</a>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════════
-     D. BUSINESS NEXT ACTIONS
+     C. BUSINESS NEXT ACTIONS
      ═══════════════════════════════════════════════════════════════════ -->
 
 <div class="section-card">

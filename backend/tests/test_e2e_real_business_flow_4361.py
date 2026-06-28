@@ -540,9 +540,9 @@ class TestPortalStateAfterE2EFlow(unittest.TestCase):
         self.assertIn("pipeline", resp.text.lower())
 
     def test_dashboard_shows_pilot_nogo_after_e2e(self):
-        """Even after full backend-only flow, pilot is NO-GO."""
+        """45.4.2: Even after full backend-only flow, dashboard shows honest business banner."""
         resp = self.client.get("/dashboard")
-        self.assertIn("запуск заблокирован", resp.text.lower())
+        self.assertIn("Физический запуск", resp.text)
 
     # ── Campaigns ───────────────────────────────────────
 

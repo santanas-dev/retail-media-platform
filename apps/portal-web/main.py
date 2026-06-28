@@ -341,6 +341,28 @@ def _pop_fallback(request: Request, current_user, reason: str = "") -> HTMLRespo
 # Reports — Backend-Driven PoP Integration (39.2.4)
 # ══════════════════════════════════════════════════════════════════════
 
+# Test event patterns — filtered out for business demo (45.4.2)
+_TEST_EVENT_PATTERNS = [
+    "test_", "d4-synth", "d4-direct", "synthetic", "seed-",
+]
+
+
+def _is_test_pop_event(event: dict) -> bool:
+    """Detect test/synthetic PoP events to hide from business demo."""
+    event_code = (event.get("event_code") or "").lower()
+    event_type = (event.get("event_type") or "").lower()
+    status = (event.get("status") or "").lower()
+    campaign_code = (event.get("campaign_code") or "").lower()
+
+    for field in (event_code, event_type, status, campaign_code):
+        for pat in _TEST_EVENT_PATTERNS:
+            if pat in field:
+                return True
+    # Also catch events with no real campaign (test data)
+    if event_code and event_code.startswith("d4-"):
+        return True
+    return False
+
 @app.get("/reports", response_class=HTMLResponse)
 async def reports_page(request: Request):
     """Reports: backend-driven PoP report data (39.2.4).
@@ -395,6 +417,8 @@ async def reports_page(request: Request):
             er = await client.get_pop_report(at, filters=ev_filters)
             if er["ok"]:
                 pop_events = er["data"]
+                # Filter out test/synthetic events for business demo (45.4.2)
+                pop_events = [e for e in pop_events if not _is_test_pop_event(e)]
                 pop_events_ok = True
 
         # Campaign & creative counts for supplemental KPI (unfiltered)
@@ -464,7 +488,7 @@ async def reports_page(request: Request):
 
         # ── Pilot NO-GO summary (42.3) ───────────────────────────
         pilot_nogo = {
-            "status": "NO-GO",
+            "status": "не запущен",
             "reasons": [
                 "HW scanner E2E не выполнен",
                 "Controlled long-run не выполнен",
@@ -537,7 +561,7 @@ def _reports_fallback(request: Request, current_user, *, reason: str = ""
         "campaign_statuses": {},
         "pub_batch_statuses": {},
         "manifest_statuses": {},
-        "pilot_nogo": {"status": "NO-GO", "reasons": ["Backend offline"], "blockers": -1},
+        "pilot_nogo": {"status": "не запущен", "reasons": ["Backend offline"], "blockers": -1},
     })
 app.add_api_route("/deployment", _page("pages/deployment.html", "Развёртывание", "deployment"),
                   methods=["GET"], response_class=HTMLResponse)
@@ -2448,6 +2472,7 @@ async def publications_page(request: Request):
     access_token = tokens.get("access_token", "")
 
     batches = []
+    total_batches_count = 0
     manifests = []
     backend_unavailable = False
     backend_message = ""
@@ -2459,7 +2484,15 @@ async def publications_page(request: Request):
         batch_result = await backend.list_publication_batches(access_token)
         if batch_result["ok"]:
             raw_batches = batch_result.get("data", [])
-            for b in raw_batches:
+            # Sort by created_at descending, limit to 20 for business demo (45.4.2)
+            raw_batches_sorted = sorted(
+                raw_batches,
+                key=lambda b: b.get("created_at", ""),
+                reverse=True,
+            )
+            raw_batches_limited = raw_batches_sorted[:20]
+            total_batches_count = len(raw_batches)
+            for b in raw_batches_limited:
                 batch_id = str(b.get("id", ""))
                 batch_ref = batch_id[:8]
                 comment = b.get("comment") or ""
@@ -2499,6 +2532,7 @@ async def publications_page(request: Request):
         "demo": False,
         "current_user": current_user,
         "batches": batches,
+        "total_batches_count": total_batches_count,
         "manifests": manifests,
         "backend_unavailable": backend_unavailable,
         "backend_message": backend_message,

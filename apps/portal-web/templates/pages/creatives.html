@@ -145,7 +145,7 @@
             <span class="preview-fallback">📄</span>
             {% endif %}
           </td>
-          <td><span class="business-chip">{{ c.creative_code | sanitize_code }}</span></td>
+          <td><a href="/creatives/{{ c.creative_code }}" class="business-chip">{{ c.creative_code | sanitize_code }}</a></td>
           <td>{{ c.name | sanitize }}</td>
           <td>
             {% if c.status == 'approved' %}<span class="status-pill status-pill-approved">Одобрен</span>

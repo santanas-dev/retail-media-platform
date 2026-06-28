@@ -69,7 +69,7 @@
     <thead>
       <tr>
         <th>Пользователь</th><th>Логин</th><th>Роли</th><th>Статус</th>
-        <th>Активен</th><th>MFA</th><th>Провайдер</th><th>Действия</th>
+        <th>Активен</th><th>2FA</th><th>Провайдер</th><th>Действия</th>
       </tr>
     </thead>
     <tbody>
@@ -106,7 +106,7 @@
   <div class="table-container mt-12">
   <table class="data-table">
     <thead>
-      <tr><th>Пользователь</th><th>Логин</th><th>Роли</th><th>Статус</th><th>Активен</th><th>MFA</th><th>Провайдер</th><th>Действия</th></tr>
+      <tr><th>Пользователь</th><th>Логин</th><th>Роли</th><th>Статус</th><th>Активен</th><th>2FA</th><th>Провайдер</th><th>Действия</th></tr>
     </thead>
     <tbody>
       <tr class="empty-row">
@@ -206,10 +206,10 @@
   {% else %}
   <div class="requirements-grid mt-12">
     <div class="requirements-item">
-      <span class="requirements-label">system_admin</span><span class="requirements-value requirements-forbidden">Требует MFA</span>
+      <span class="requirements-label">system_admin</span><span class="requirements-value requirements-forbidden">Требует 2FA</span>
     </div>
     <div class="requirements-item">
-      <span class="requirements-label">security_admin</span><span class="requirements-value requirements-forbidden">Требует MFA</span>
+      <span class="requirements-label">security_admin</span><span class="requirements-value requirements-forbidden">Требует 2FA</span>
     </div>
     <div class="requirements-item"><span class="requirements-label">ad_manager</span><span class="requirements-value">Менеджер рекламы</span></div>
     <div class="requirements-item"><span class="requirements-label">approver</span><span class="requirements-value">Согласующий</span></div>
@@ -310,7 +310,7 @@
   <div class="requirements-grid">
     <div class="requirements-item"><span class="requirements-label">Создание пользователей</span><span class="requirements-value">Пользователь создаётся в Admin администратором</span></div>
     <div class="requirements-item"><span class="requirements-label">Назначение ролей</span><span class="requirements-value">Роли назначаются администратором портала</span></div>
-    <div class="requirements-item"><span class="requirements-label">MFA для критичных ролей</span><span class="requirements-value requirements-forbidden">system_admin, security_admin требуют MFA</span></div>
+    <div class="requirements-item"><span class="requirements-label">2FA для критичных ролей</span><span class="requirements-value requirements-forbidden">system_admin, security_admin требуют 2FA</span></div>
     <div class="requirements-item"><span class="requirements-label">Аудит изменений</span><span class="requirements-value">Все изменения доступа аудируются</span></div>
     <div class="requirements-item"><span class="requirements-label">Удаление пользователей</span><span class="requirements-value">Логическое (archive), не физическое удаление</span></div>
     <div class="requirements-item"><span class="requirements-label">Контроль доступа</span><span class="requirements-value">Ограничения доступа применяются в системе</span></div>

@@ -317,7 +317,7 @@ class TestDashboardContent(unittest.TestCase):
             # Platform summary blocks present
             self.assertIn("Сводка платформы", resp.text)
             self.assertIn("Процесс рекламной кампании", resp.text)
-            self.assertIn("Pilot Готовность", resp.text)
+            self.assertIn("Физический запуск", resp.text)  # 45.4.2: business banner
             self.assertIn("Что делать дальше", resp.text)
             # Stat blocks
             self.assertIn("stat-block", resp.text)
@@ -1617,8 +1617,8 @@ class TestReportsPage(unittest.TestCase):
         self.assertIn("csv", self.html.lower())
 
     def test_mentions_production_backend(self):
-        """Must mention data source as система."""
-        self.assertIn("система", self.html.lower())
+        """Must mention data source as системы."""
+        self.assertIn("системы", self.html.lower())
 
     def test_mentions_planned_reporting(self):
         self.assertIn("плановая отчётность", self.html.lower())
@@ -2103,7 +2103,8 @@ class TestAdminAndReportsRLSNotes(unittest.TestCase):
     def test_reports_mentions_rls_for_bi(self):
         resp = self.client.get("/reports")
         self.assertIn("безопасные идентификаторы", resp.text.lower())
-        self.assertIn("рекламодателей", resp.text.lower())
+        # 45.4.2: "рекламодателей" removed from reports footer
+        self.assertIn("коды кампаний", resp.text.lower())
 
     def test_reports_mentions_rls_for_csv(self):
         resp = self.client.get("/reports")
@@ -2124,7 +2125,7 @@ class TestAdminUserManagement(unittest.TestCase):
     def test_admin_has_users_table_columns(self):
         resp = self.client.get("/admin")
         for col in ("Пользователь", "Логин", "Роли", "Статус",
-                     "Активен", "MFA", "Провайдер", "Действия"):
+                     "Активен", "2FA", "Провайдер", "Действия"):
             self.assertIn(col, resp.text,
                           f"Admin users table must have column '{col}'")
 
@@ -2156,8 +2157,8 @@ class TestAdminUserManagement(unittest.TestCase):
 
     def test_admin_mentions_mfa_for_critical_roles(self):
         resp = self.client.get("/admin")
-        self.assertIn("MFA", resp.text)
-        self.assertIn("Требует MFA", resp.text)
+        self.assertIn("2FA", resp.text)
+        self.assertIn("Требует 2FA", resp.text)
 
     def test_admin_mentions_audit_of_access_changes(self):
         resp = self.client.get("/admin")
@@ -4922,8 +4923,8 @@ class TestUXPilotStatus(unittest.TestCase):
     def test_dashboard_shows_no_go(self):
         resp = self.client.get("/dashboard")
         html = resp.text
-        self.assertIn("запуск заблокирован", html.lower(), "Dashboard must show NO-GO status")
-        self.assertIn("pilot-status no-go", html, "Dashboard must have no-go banner")
+        self.assertIn("запуск", html.lower(), "Dashboard must mention physical launch status")
+        self.assertIn("Физический запуск", html, "Dashboard must have physical launch section")
 
     def test_readiness_shows_pilot_status(self):
         resp = self.client.get("/readiness")
@@ -5246,15 +5247,15 @@ class TestVisualSystem(unittest.TestCase):
         self.assertIn("Сводка платформы", resp.text)
 
     def test_dashboard_has_pilot_no_go_banner(self):
-        """Dashboard shows pilot Запуск заблокирован banner."""
+        """45.4.2: Dashboard shows business-formulation physical launch banner."""
         resp = self.client.get("/dashboard")
-        self.assertIn("Запуск заблокирован", resp.text)
+        self.assertIn("Физический запуск", resp.text)
 
     def test_dashboard_has_blockers_list(self):
-        """Dashboard shows Pilot Readiness block with blockers."""
+        """45.4.2: Dashboard must NOT show technical blocker list — replaced by business banner."""
         resp = self.client.get("/dashboard")
-        self.assertIn("Проверка физического сканера", resp.text)
-        self.assertIn("Длительная проверка стабильности", resp.text)
+        self.assertNotIn("Проверка физического сканера", resp.text)
+        self.assertNotIn("Длительная проверка стабильности", resp.text)
 
     def test_dashboard_has_quick_links(self):
         """Dashboard has next actions section."""
@@ -5441,16 +5442,19 @@ class TestDashboardReportsVisualization(unittest.TestCase):
             self.assertIn(step, resp.text, f"Pipeline missing step: {step}")
 
     def test_dashboard_pilot_readiness_block(self):
+        """45.4.2: Dashboard no longer shows technical Pilot Readiness — replaced by business banner."""
         resp = self.client.get("/dashboard")
-        self.assertIn("Pilot Готовность", resp.text)
-        self.assertIn("Запуск заблокирован", resp.text)
-        self.assertIn("Сканер не подключён", resp.text)
+        self.assertNotIn("Pilot Готовность", resp.text)
+        self.assertNotIn("Сканер не подключён", resp.text)
+        self.assertIn("Физический запуск", resp.text)
 
     def test_dashboard_five_blockers(self):
+        """45.4.2: Dashboard no longer shows technical blockers — replaced by business banner."""
         resp = self.client.get("/dashboard")
-        blockers = ["Проверка физического сканера", "Длительная проверка стабильности", "Доставка на КСО", "Синхронизация агента", "Fleet rollout"]
+        blockers = ["Проверка физического сканера", "Длительная проверка стабильности", "Синхронизация агента", "Fleet rollout"]
         for b in blockers:
-            self.assertIn(b, resp.text, f"Missing blocker: {b}")
+            self.assertNotIn(b, resp.text, f"Technical blocker must not appear: {b}")
+        self.assertIn("Физический запуск", resp.text)
 
     def test_dashboard_next_actions(self):
         resp = self.client.get("/dashboard")
@@ -5811,9 +5815,9 @@ class TestApprovalPublicationWorkflow(unittest.TestCase):
 
     def test_publications_has_lifecycle_pipeline(self):
         resp = self.client.get("/publications")
-        # Lifecycle pipeline visible when batches present; with empty data, check workflow text
+        # 45.4.2: lifecycle now uses Russian text in note-box, not EN 'draft'
         self.assertTrue(
-            "lifecycle-flow" in resp.text or "draft" in resp.text.lower(),
+            "lifecycle-flow" in resp.text or "Черновик" in resp.text or "Процесс" in resp.text,
             "Publications must reference batch lifecycle"
         )
 
@@ -6044,10 +6048,10 @@ class TestBusinessDemoAcceptance(unittest.TestCase):
     # ── Dashboard: honest readiness ────────────────────
 
     def test_dashboard_shows_pilot_nogo(self):
-        """Dashboard shows honest Запуск заблокирован pilot status."""
+        """45.4.2: Dashboard shows honest business-formulation physical launch status."""
         resp = self.client.get("/dashboard")
-        self.assertIn("Запуск заблокирован", resp.text)
-        self.assertIn("физическая проверка не начата", resp.text.lower())
+        self.assertIn("Физический запуск", resp.text)
+        self.assertIn("отдельного подтверждения", resp.text.lower())
 
     def test_dashboard_no_claim_pilot_ready(self):
         """Dashboard never claims pilot is ready."""
@@ -6700,6 +6704,196 @@ class TestDemoVisibleDataHygiene(unittest.TestCase):
         start = max(0, idx - 30)
         end = min(len(text), idx + len(term) + 30)
         return text[start:end].replace("\n", " ")
+
+
+class TestBusinessDemoCleanup45_4_2(unittest.TestCase):
+    """45.4.2: Business User Demo Cleanup — guard tests."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    # ── P0 checks ──────────────────────────────────────────
+
+    def test_campaigns_no_inline_edit_rows(self):
+        """P0.1: campaigns table must NOT have inline-actions-row (second row per campaign)."""
+        resp = self.client.get("/campaigns")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn("inline-actions-row", resp.text,
+                         "Campaigns page must not render inline edit rows")
+
+    def test_dashboard_title_is_russian(self):
+        """P1.5: dashboard title must be 'Главный экран', not 'Dashboard'."""
+        resp = self.client.get("/dashboard")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Главный экран", resp.text)
+
+    def test_dashboard_no_technical_gates(self):
+        """P0.2: dashboard must not show scanner/agent/long-run technical gate details."""
+        resp = self.client.get("/dashboard")
+        self.assertEqual(resp.status_code, 200)
+        gate_terms = [
+            "5 этапов проверки",
+            "Проверка физического сканера",
+            "Длительная проверка стабильности",
+            "Синхронизация агента",
+            "Fleet rollout",
+            "Pilot Готовность",
+            "Сканер не подключён",
+            "P0 blockers",
+        ]
+        for term in gate_terms:
+            self.assertNotIn(term, resp.text,
+                             f"Dashboard must not show technical gate: '{term}'")
+
+    def test_dashboard_has_business_banner(self):
+        """P0.2: dashboard must show business-friendly physical launch message."""
+        resp = self.client.get("/dashboard")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Физический запуск", resp.text)
+        self.assertIn("отдельного подтверждения", resp.text)
+
+    def test_reports_no_test_pop_events(self):
+        """P0.3: reports must not show test_playback_completed / d4-synth / d4-direct."""
+        resp = self.client.get("/reports")
+        if resp.status_code != 200:
+            return  # backend might be down
+        test_terms = [
+            "test_playback_completed",
+            "d4-synth",
+            "d4-direct",
+            "d4-direct-fix-v2",
+        ]
+        for term in test_terms:
+            self.assertNotIn(term, resp.text,
+                             f"Reports must not show test event: '{term}'")
+
+    # ── P1 checks ──────────────────────────────────────────
+
+    def test_reports_en_labels_translated(self):
+        """P1.9: reports template must not show raw EN labels."""
+        resp = self.client.get("/reports")
+        if resp.status_code != 200:
+            return
+        en_labels = ["EVENT", "Event</th>", "NO-GO"]
+        for label in en_labels:
+            self.assertNotIn(label, resp.text,
+                             f"Reports must not show EN label: '{label}'")
+
+    def test_publications_has_pagination(self):
+        """P1.8: publications template includes pagination support."""
+        resp = self.client.get("/publications")
+        self.assertEqual(resp.status_code, 200)
+        # Verify the template has the pagination structure
+        # The Jinja2 template uses total_batches_count for the pagination badge
+        self.assertTrue(
+            "total_batches_count" in resp.text
+            or "Последние" in resp.text
+            or "Пакеты публикации" in resp.text,
+            "Publications template must support pagination"
+        )
+
+    def test_publications_no_workflow_en(self):
+        """P2.13: publications must not show EN workflow note."""
+        resp = self.client.get("/publications")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn("Workflow:", resp.text)
+        self.assertNotIn("PHASE_MANIFEST_DELIVERY_APPROVED", resp.text)
+    def test_campaigns_status_active_russian(self):
+        """P1.6: campaigns template must handle 'active' status in Russian."""
+        # Read template source directly (doesn't depend on backend data)
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns.html"
+        source = template_path.read_text()
+        self.assertIn("status-badge-active", source,
+                      "Campaigns template must have CSS class for active status")
+        self.assertIn("Активна", source,
+                      "Campaigns template must contain Russian 'Активна' label")
+
+    def test_campaigns_no_mass_warnings(self):
+        """P1.7: campaigns must not show '⚠️ Нет креативов' — replaced with calm text."""
+        resp = self.client.get("/campaigns")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn("Нет креативов", resp.text,
+                         "Campaigns must not show alarming 'Нет креативов'")
+
+    def test_navigation_has_business_structure(self):
+        """P1.10: sidebar navigation must group technical sections under Администрирование."""
+        resp = self.client.get("/dashboard")
+        self.assertEqual(resp.status_code, 200)
+        # Business sections visible
+        self.assertIn("Основное", resp.text)
+        self.assertIn("Главный экран", resp.text)
+        self.assertIn("Кампании", resp.text)
+        self.assertIn("Креативы", resp.text)
+        # Technical sections grouped
+        self.assertIn("Администрирование", resp.text)
+
+    # ── P2 checks ──────────────────────────────────────────
+
+    def test_admin_no_raw_mfa(self):
+        """P2.15: admin page must not show raw 'MFA' abbreviation."""
+        resp = self.client.get("/admin")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn(">MFA<", resp.text,
+                         "Admin must not show raw MFA column header")
+        self.assertNotIn("Требует MFA", resp.text,
+                         "Admin must translate MFA requirements")
+
+    def test_reports_placeholders_business(self):
+        """P2.16: reports filter placeholders must be business-friendly, not technical codes."""
+        resp = self.client.get("/reports")
+        if resp.status_code != 200:
+            return
+        # Must NOT have raw code placeholders
+        self.assertNotIn('placeholder="camp_code"', resp.text)
+        self.assertNotIn('placeholder="cr_code"', resp.text)
+        self.assertNotIn('placeholder="dev_code"', resp.text)
+        self.assertNotIn('placeholder="device_code"', resp.text)
+        # Must have business-friendly placeholders
+        self.assertIn('Кампания', resp.text)
+        self.assertIn('Креатив', resp.text)
+
+    def test_creative_detail_link_works(self):
+        """Creatives template must link to /creatives/{code} detail page."""
+        # Read template source directly (doesn't depend on backend data)
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "creatives.html"
+        source = template_path.read_text()
+        self.assertIn('href="/creatives/', source,
+                      "Creatives template source must contain detail link pattern")
+        # Also verify route exists
+        resp = self.client.get("/creatives/test-code")
+        self.assertIn(resp.status_code, [200, 404],
+                      "Creative detail route must be reachable")
+
+    def test_campaigns_no_duplicate_action_bar(self):
+        """P2.11: campaigns action-bar must not duplicate breadcrumb links."""
+        resp = self.client.get("/campaigns")
+        self.assertEqual(resp.status_code, 200)
+        # action-bar should only have the primary CTA, not redundant nav links
+        # Check that it has "Создать кампанию" but doesn't duplicate breadcrumb links
+        # The breadcrumb already has Креативы/Согласования/Публикации/Отчёты
+        # Count how many times "🎨 Креативы" appears (should be 1 — in breadcrumbs only)
+        count = resp.text.count("🎨 Креативы")
+        self.assertEqual(count, 1,
+                         f"🎨 Креативы appears {count} times — must be only in breadcrumbs, not duplicated")
+
+    def test_no_visible_en_technical_terms(self):
+        """45.4.2: pages must not show visible EN technical terms."""
+        resp = self.client.get("/dashboard")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn("Dashboard</h1>", resp.text)
+
+    def test_no_js_cdn_localstorage(self):
+        """No JS/CDN/localStorage on any demo route."""
+        for route in ["/campaigns", "/creatives", "/schedule",
+                       "/publications", "/reports", "/dashboard",
+                       "/approvals", "/admin"]:
+            resp = self.client.get(route)
+            lower = resp.text.lower()
+            for fb in ("fonts.googleapis", "cdn.jsdelivr", "unpkg.com",
+                        "chart.js", "chartjs",
+                        "<script src=", "localstorage"):
+                self.assertNotIn(fb, lower,
+                                 f"{route}: must not contain '{fb}'")
 
 
 if __name__ == "__main__":

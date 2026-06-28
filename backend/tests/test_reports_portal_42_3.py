@@ -30,17 +30,17 @@ class TestReportsPage42_3:
 
     def test_reports_shows_pilot_nogo(self):
         html = _load()
-        assert "NO-GO" in html
+        assert "не запущен" in html
 
     def test_reports_shows_campaign_status_export(self):
         html = _load()
         assert "Кампании по статусам" in html
-        assert "campaigns_export.csv" in html
+        assert "Кампании (CSV)" in html
 
     def test_reports_shows_publication_batch_export(self):
         html = _load()
         assert "Пакеты публикации" in html
-        assert "publications.csv" in html
+        assert "Публикации (CSV)" in html
 
     def test_reports_shows_manifest_status(self):
         html = _load()
@@ -48,8 +48,8 @@ class TestReportsPage42_3:
 
     def test_reports_shows_airtime_export_links(self):
         html = _load()
-        assert "airtime.csv" in html
-        assert "conflicts_export.csv" in html
+        assert "Занятость эфира (CSV)" in html
+        assert "Конфликты (CSV)" in html
 
 
 # ══════════════════════════════════════════════════════════════════════

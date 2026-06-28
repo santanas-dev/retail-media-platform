@@ -24,12 +24,10 @@
 
 <!-- Sidebar Navigation -->
 <div class="sidebar">
-  <div class="sidebar-section">Главное</div>
+  <div class="sidebar-section">Основное</div>
   <a href="/dashboard" class="{{ 'active' if active == 'dashboard' }}">
     <span class="nav-icon">📊</span><span class="nav-label">Главный экран</span>
   </a>
-
-  <div class="sidebar-section">Реклама</div>
   <a href="/campaigns" class="{{ 'active' if active == 'campaigns' }}">
     <span class="nav-icon">📢</span><span class="nav-label">Кампании</span>
   </a>
@@ -47,36 +45,34 @@
   </a>
 
   <div class="sidebar-section">Аналитика</div>
-  <a href="/inventory" class="{{ 'active' if active == 'inventory' }}">
-    <span class="nav-icon">⏱</span><span class="nav-label">Рекламное время</span>
-  </a>
   <a href="/reports" class="{{ 'active' if active == 'reports' }}">
     <span class="nav-icon">📈</span><span class="nav-label">Отчёты</span>
   </a>
 
-  <div class="sidebar-section">КСО</div>
+  <div class="sidebar-section">Администрирование</div>
+  <a href="/inventory" class="{{ 'active' if active == 'inventory' }}">
+    <span class="nav-icon">⏱</span><span class="nav-label">Рекламное время</span>
+  </a>
   <a href="/devices" class="{{ 'active' if active == 'devices' }}">
     <span class="nav-icon">🖥️</span><span class="nav-label">Устройства</span>
-  </a>
-  <a href="/readiness" class="{{ 'active' if active == 'readiness' }}">
-    <span class="nav-icon">🧭</span><span class="nav-label">Готовность</span>
-  </a>
-  <a href="/device-dashboard" class="{{ 'active' if active == 'device-dashboard' }}">
-    <span class="nav-icon">📡</span><span class="nav-label">Панель КСО</span>
-  </a>
-  <a href="/proof-of-play" class="{{ 'active' if active == 'pop' }}">
-    <span class="nav-icon">✅</span><span class="nav-label">Фактические показы</span>
   </a>
   <a href="/stores" class="{{ 'active' if active == 'stores' }}">
     <span class="nav-icon">🏪</span><span class="nav-label">Магазины</span>
   </a>
-
-  <div class="sidebar-section">Управление</div>
-  <a href="/admin" class="{{ 'active' if active == 'admin' }}">
-    <span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span>
+  <a href="/readiness" class="{{ 'active' if active == 'readiness' }}">
+    <span class="nav-icon">🧭</span><span class="nav-label">Готовность</span>
+  </a>
+  <a href="/proof-of-play" class="{{ 'active' if active == 'pop' }}">
+    <span class="nav-icon">✅</span><span class="nav-label">Фактические показы</span>
+  </a>
+  <a href="/device-dashboard" class="{{ 'active' if active == 'device-dashboard' }}">
+    <span class="nav-icon">📡</span><span class="nav-label">Панель КСО</span>
   </a>
   <a href="/deployment" class="{{ 'active' if active == 'deployment' }}">
     <span class="nav-icon">🚀</span><span class="nav-label">Развёртывание</span>
+  </a>
+  <a href="/admin" class="{{ 'active' if active == 'admin' }}">
+    <span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span>
   </a>
 
 </div>

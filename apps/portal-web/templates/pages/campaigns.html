@@ -44,7 +44,7 @@
   <span class="banner-icon">📦</span>
   <div class="banner-body">
     <div class="banner-title">Следующее действие</div>
-    <div class="banner-text">У вас {{ campaigns_by_status.approved }} одобренных кампаний. Нажмите «Подготовить» для создания пакет публикации или <a href="/publications">перейдите в публикации</a>.</div>
+    <div class="banner-text">У вас {{ campaigns_by_status.approved }} одобренных кампаний. Нажмите «Подготовить» для создания пакета публикации или <a href="/publications">перейдите в публикации</a>.</div>
   </div>
 </div>
   {% endif %}
@@ -66,9 +66,6 @@
 <!-- Action Bar -->
 <div class="action-bar">
   <a href="/campaigns/create" class="btn btn-primary">+ Создать кампанию</a>
-  <a href="/creatives" class="btn btn-secondary">🎨 Креативы</a>
-  <a href="/schedule" class="btn btn-secondary">🗓 Расписание</a>
-  <a href="/approvals" class="btn btn-secondary">📝 Согласования</a>
 </div>
 
 <!-- Campaigns Table -->
@@ -96,56 +93,48 @@
             {% elif c.status == 'approved' %}<span class="status-badge status-badge-approved">Одобрено</span>
             {% elif c.status == 'rejected' %}<span class="status-badge status-badge-rejected">Отклонено</span>
             {% elif c.status == 'archived' %}<span class="status-badge status-badge-archived">Архив</span>
-            {% else %}<span class="status-badge status-badge-draft">{{ c.status }}</span>{% endif %}
+            {% elif c.status == 'active' %}<span class="status-badge status-badge-active">Активна</span>
+            {% else %}<span class="status-badge status-badge-draft">{{ c.status | sanitize }}</span>{% endif %}
           </td>
           <td>
             {% if c.creative_count == 0 %}
-            <span class="text-sm text-warning">⚠️ Нет креативов</span>
+            <span class="text-sm text-muted">Креатив не выбран</span>
             {% else %}
-            {{ c.creative_codes }}
+            <span class="text-sm">{{ c.creative_codes }}</span>
             {% endif %}
           </td>
           <td>{{ c.created_at }}</td>
           <td>
-            {% if c.status != 'archived' %}
-            <form action="/campaigns/{{ c.campaign_code }}/archive" method="POST" class="inline">
-              <button type="submit" class="btn btn-sm btn-ghost">Архив</button>
-            </form>
-            {% else %}<span class="text-sm text-muted">—</span>{% endif %}
-          </td>
-        </tr>
-        {% if c.status != 'archived' %}
-        <tr class="inline-actions-row">
-          <td colspan="6">
-            <div class="form-inline" style="gap:10px;padding:8px 12px;">
-              <!-- Edit -->
-              <form method="post" action="/campaigns/{{ c.campaign_code }}/edit" class="flex-center gap-6">
-                <span class="text-sm font-semibold text-secondary nowrap">Ред.:</span>
-                <input type="text" name="name" value="{{ c.name }}" minlength="1" maxlength="255" required class="form-input form-input-md" style="padding:4px 8px;font-size:12px;">
-                <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
+            <div class="form-inline gap-4">
+              {% if c.status != 'archived' %}
+              <!-- Edit name (compact) -->
+              <form method="post" action="/campaigns/{{ c.campaign_code }}/edit" class="flex-center gap-4">
+                <input type="text" name="name" value="{{ c.name }}" minlength="1" maxlength="255" required
+                       class="form-input form-input-sm" style="width:100px;font-size:11px;">
+                <button type="submit" class="btn btn-sm btn-ghost" title="Сохранить название">✏️</button>
               </form>
-              <!-- Bind Creative -->
-              <form method="post" action="/campaigns/{{ c.campaign_code }}/bind-creative" class="flex-center gap-6">
-                <span class="text-sm font-semibold text-secondary nowrap">+Креатив:</span>
-                <input type="text" name="creative_code" placeholder="Код" minlength="1" maxlength="64" pattern="[a-z0-9_-]+" required class="form-input form-input-sm">
-                <button type="submit" class="btn btn-sm btn-primary">Привязать</button>
-              </form>
-              <!-- Submit -->
+              <!-- Submit for approval -->
               {% if c.status in ('draft', 'rejected') %}
               <form method="post" action="/campaigns/{{ c.campaign_code }}/submit" class="inline">
-                <button type="submit" class="btn btn-sm btn-secondary">→ Запросить согласование</button>
+                <button type="submit" class="btn btn-sm btn-primary">→ На согласование</button>
               </form>
               {% endif %}
-              <!-- Publication -->
+              <!-- Prepare publication -->
               {% if c.status == 'approved' %}
               <form method="post" action="/campaigns/{{ c.campaign_code }}/create-publication-batch" class="inline">
-                <button type="submit" class="btn btn-sm">📦 Подготовить публикацию</button>
+                <button type="submit" class="btn btn-sm">📦 Подготовить</button>
               </form>
+              {% endif %}
+              <!-- Archive -->
+              <form action="/campaigns/{{ c.campaign_code }}/archive" method="POST" class="inline">
+                <button type="submit" class="btn btn-sm btn-ghost">Архив</button>
+              </form>
+              {% else %}
+              <span class="text-sm text-muted">—</span>
               {% endif %}
             </div>
           </td>
         </tr>
-        {% endif %}
       {% endfor %}
       </tbody>
     </table>
