@@ -2511,3 +2511,54 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 - Старые теги не переписаны
 - Физический пилот остаётся заблокирован
 - Production AV не включён
+
+---
+
+## [45.2-pre-demo-audit] — 2026-06-28
+
+**Pre-Demo Functional, RBAC/RLS & Persistence Audit.**
+
+### P0 Fixes
+
+#### Admin Account Lockout
+- Admin account была заблокирована brute-force защитой: 9 failed attempts → 30-min lock
+- Разблокирована через БД: `is_locked=false, failed_attempts=0, locked_until=NULL`
+- Механизм: `backend/app/domains/identity/service.py:46-48`
+
+#### RLS Bypass — Campaign UUID Endpoints (CRITICAL)
+- 11 эндпоинтов не имели `assert_object_in_advertiser_scope()`
+- Любой пользователь с `campaigns.read` мог читать чужие кампании по UUID
+- Исправлено: все 11 эндпоинтов теперь проверяют advertiser scope → 404 для кросс-доступа
+
+### Аудит
+
+- **15/15 страниц** → HTTP 200 под system_admin
+- **Sidebar**: 15 пунктов, включая «⚙️ Администрирование»
+- **RBAC**: 8 ролей, 47 permissions, матрица проверена
+- **RLS**: 21/21 проверок PASS после фикса
+- **Persistence**: создание кампании → запись в БД → видна после refresh
+- **Audit trail**: фиксирует login, user.create, campaign.create
+- **Error pages**: 403/404 стилизованы, без traceback, бизнес-язык
+
+### Regression
+
+| Слой | Пройдено | Отказов |
+|------|----------|---------|
+| Portal | **759** (+32 skipped) | **0** |
+| Backend | **807** | **0** |
+
+### Документация
+
+- `docs/audit/pre-demo-functional-audit-45-2.md`
+- `docs/audit/rbac-rls-audit-45-2.md`
+- `docs/audit/frontend-backend-contract-matrix-45-2.md`
+
+### Ограничения RC0
+
+- Role assignment API (`PUT /api/users/{id}/roles`) → HTTP 500 — documented limitation
+- RLS scope API (`PATCH /api/users/{username}/rls-scopes`) → HTTP 422 — documented limitation
+- Создание пользователей через portal UI не реализовано
+
+### Commit
+
+`c000e67` — 🔒 Fix RLS bypass: add advertiser scope checks to 11 campaign UUID endpoints
