@@ -45,32 +45,35 @@
     <span class="section-card-title">Запросить согласование</span>
   </div>
   <div class="section-card-body">
-    <form method="post" action="/approvals/request" class="form-inline">
-      <div class="form-group">
-        <label class="form-label">Тип объекта <span class="text-error">*</span></label>
-        <select name="object_type" required class="form-select" style="min-width:200px;">
-          <option value="campaign">Кампания</option>
-          <option value="placement">Размещение</option>
-          <option value="publication_batch">Публикационный пакет</option>
-        </select>
+    <form method="post" action="/approvals/request" class="business-form">
+      <div class="form-grid">
+        <div class="form-field">
+          <label class="form-label form-label-required">Тип объекта</label>
+          <select name="object_type" required class="form-control">
+            <option value="campaign">Кампания</option>
+            <option value="placement">Размещение</option>
+            <option value="publication_batch">Публикационный пакет</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label form-label-required">Код объекта</label>
+          <input type="text" name="object_code" placeholder="campaign_code или код пакета" minlength="1" maxlength="64" required
+                 class="form-control">
+          <span class="form-help">campaign_code, placement_code или код пакета</span>
+        </div>
+        <div class="form-field form-field-full">
+          <label class="form-label">Комментарий</label>
+          <textarea name="comment" placeholder="Причина запроса" maxlength="500"
+                    class="form-control" rows="2"></textarea>
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Код объекта <span class="text-error">*</span></label>
-        <input type="text" name="object_code" placeholder="campaign_code или код пакета" minlength="1" maxlength="64" required
-               class="form-input form-input-lg">
-        <span class="form-hint">campaign_code, placement_code или код пакета</span>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Комментарий</label>
-        <input type="text" name="comment" placeholder="Причина запроса" maxlength="500"
-               class="form-input form-input-lg">
-      </div>
-      <div class="form-group">
+      <div class="form-actions">
         <button type="submit" class="btn btn-primary">Отправить на согласование</button>
       </div>
     </form>
   </div>
   <div class="section-card-footer">
+    <span class="form-note" style="margin-top:0;">После отправки запрос появится в отделе согласования. Проверяющий сможет одобрить или отклонить его. Комментарий необязателен, но помогает ускорить процесс.</span>
     Код должен соответствовать существующему объекту. Кампании также можно отправить со страницы <a href="/campaigns">Кампании</a>.
   </div>
 </div>

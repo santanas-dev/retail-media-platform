@@ -80,30 +80,38 @@
   <div class="section-card-header">
     <span class="section-card-icon">⬆</span>
     <span class="section-card-title">Загрузить креатив</span>
-    <span class="text-xs text-muted">Требования: PNG/JPEG/GIF/MP4/WebM, 768×1024 портрет, изображения до 50 МБ, видео до 100 МБ, GIF до 20 МБ</span>
   </div>
   <div class="section-card-body">
-    <form action="/creatives/upload" method="POST" enctype="multipart/form-data" class="form-inline">
-      <div class="form-group">
-        <label class="form-label">Код <span class="form-hint">*</span></label>
-        <input type="text" name="creative_code" required pattern="[a-z0-9_-]+" maxlength="64"
-               placeholder="рекламный_макет_001" class="form-input" style="width:180px;">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Название <span class="form-hint">*</span></label>
-        <input type="text" name="name" required maxlength="255"
-               placeholder="Новогодняя акция" class="form-input form-input-lg">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Файл <span class="form-hint">*</span></label>
-        <input type="file" name="file" required accept="image/png,image/jpeg,image/gif,video/mp4,video/webm"
-               style="padding:7px 0;">
-        <span class="form-hint">PNG/JPEG/GIF до 50/20 МБ, MP4/WebM до 100 МБ, 768×1024</span>
-      </div>
-      <div class="form-group">
-        <button type="submit" class="btn btn-primary">⬆ Загрузить</button>
-      </div>
-    </form>
+    <div class="upload-zone">
+      <div class="upload-zone-title">Новый рекламный макет</div>
+      <div class="upload-zone-formats">Форматы: PNG, JPEG, GIF, MP4, WebM. Размер экрана: 768×1024 портрет. До 50 МБ (изображения), 100 МБ (видео), 20 МБ (GIF).</div>
+      <form action="/creatives/upload" method="POST" enctype="multipart/form-data" class="business-form" style="padding:16px;margin-top:0;">
+        <div class="form-grid form-grid-3col">
+          <div class="form-field">
+            <label class="form-label form-label-required">Код</label>
+            <input type="text" name="creative_code" required pattern="[a-z0-9_-]+" maxlength="64"
+                   placeholder="рекламный_макет_001" class="form-control">
+            <span class="form-help">Строчные лат. буквы, цифры, дефис, подчёркивание</span>
+          </div>
+          <div class="form-field">
+            <label class="form-label form-label-required">Название</label>
+            <input type="text" name="name" required maxlength="255"
+                   placeholder="Новогодняя акция" class="form-control">
+          </div>
+          <div class="form-field">
+            <label class="form-label form-label-required">Файл</label>
+            <div class="file-input">
+              <input type="file" name="file" required
+                     accept="image/png,image/jpeg,image/gif,video/mp4,video/webm">
+            </div>
+            <span class="form-help">PNG/JPEG/GIF/MP4/WebM, 768×1024</span>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">⬆ Загрузить</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 {% endif %}
@@ -117,53 +125,53 @@
     <span class="section-card-badge">{{ creatives|length }}</span>
   </div>
   <div class="section-card-body p-0">
-    <table class="data-table">
+    <table class="data-table data-table-constrained">
       <thead><tr>
-        <th></th><th>Код</th><th>Название</th><th>Статус</th><th>Формат</th>
+        <th class="table-preview"></th><th>Код</th><th>Название</th><th>Статус</th><th>Формат</th>
         <th>Разрешение</th><th>Размер</th><th>Безопасность</th><th>Действия</th>
       </tr></thead>
       <tbody>
       {% for c in creatives %}
         <tr>
-          <td>
+          <td class="table-preview">
             {% if c.content_type in ('image/png', 'image/jpeg', 'image/gif') %}
-            <img src="/preview/{{ c.creative_code }}" alt="" loading="lazy"
-                 style="width:48px;height:64px;object-fit:cover;border-radius:3px;border:1px solid var(--color-border);">
+            <img src="/preview/{{ c.creative_code }}" alt="" loading="lazy">
             {% elif c.content_type and c.content_type.startswith('video/') %}
-            <span style="font-size:20px;">🎬</span>
+            <span class="preview-fallback">🎬</span>
             {% else %}
-            <span style="font-size:20px;">📄</span>
+            <span class="preview-fallback">📄</span>
             {% endif %}
           </td>
-          <td><code>{{ c.creative_code | sanitize_code }}</code></td>
+          <td><span class="business-chip">{{ c.creative_code | sanitize_code }}</span></td>
           <td>{{ c.name | sanitize }}</td>
           <td>
-            {% if c.status == 'approved' %}<span class="status-success">Одобрен</span>
-            {% elif c.status == 'pending_review' %}<span class="status-warning">Ожидает проверки</span>
-            {% elif c.status == 'in_review' %}<span class="status-warning">На проверке</span>
-            {% elif c.status == 'draft' %}<span class="status-muted">Черновик</span>
-            {% elif c.status == 'rejected' %}<span class="status-danger">Отклонён</span>
-            {% elif c.status == 'validation_failed' %}<span class="status-danger">Ошибка проверки</span>
-            {% elif c.status == 'archived' %}<span class="status-muted">Архив</span>
-            {% else %}<span class="status-muted">{{ c.status }}</span>{% endif %}
+            {% if c.status == 'approved' %}<span class="status-pill status-pill-approved">Одобрен</span>
+            {% elif c.status in ('pending_review', 'in_review') %}<span class="status-pill status-pill-pending">{{ 'Ожидает проверки' if c.status == 'pending_review' else 'На проверке' }}</span>
+            {% elif c.status == 'draft' %}<span class="status-pill status-pill-draft">Черновик</span>
+            {% elif c.status == 'rejected' %}<span class="status-pill status-pill-rejected">Отклонён</span>
+            {% elif c.status == 'validation_failed' %}<span class="status-pill status-pill-rejected">Ошибка</span>
+            {% elif c.status == 'archived' %}<span class="status-pill status-pill-archived">Архив</span>
+            {% else %}<span class="status-pill status-pill-draft">{{ c.status }}</span>{% endif %}
           </td>
           <td>{{ c.content_type or '—' }}</td>
-          <td>
-            {% if c.width and c.height %}{{ c.width }}×{{ c.height }}
-            {% if c.width == 768 and c.height == 1024 %}<br><span class="text-xs status-success">✅ 768×1024</span>
-            {% else %}<br><span class="text-xs status-warning">⚠️ Нестандартное</span>{% endif %}
+          <td class="dim-cell">
+            {% if c.width and c.height %}
+              {% if c.width == 768 and c.height == 1024 %}
+              <span class="dim-cell-ok">{{ c.width }}×{{ c.height }} ✅</span>
+              {% else %}
+              <span class="dim-cell-warn">{{ c.width }}×{{ c.height }}</span>
+              {% endif %}
             {% else %}—{% endif %}
           </td>
           <td>{% if c.file_size_bytes %}{{ (c.file_size_bytes / 1024)|round|int }} КБ{% else %}—{% endif %}</td>
           <td>
-            {% if c.scan_status == 'clean' %}<span class="status-success">✅ Чисто</span>
-            {% elif c.scan_status == 'pending' %}<span class="status-warning">⏳ Ожидает</span>
-            {% elif c.scan_status == 'infected' %}<span class="status-danger">🚫 Заблокирован</span>
-            {% elif c.scan_status == 'failed' %}<span class="status-muted">⚠️ Ошибка</span>
-            {% else %}<span class="status-muted">Не настроена</span>{% endif %}
+            {% if c.scan_status == 'clean' %}<span class="status-pill status-pill-approved">✅ Чисто</span>
+            {% elif c.scan_status == 'pending' %}<span class="status-pill status-pill-pending">⏳ Ожидает</span>
+            {% elif c.scan_status == 'infected' %}<span class="status-pill status-pill-rejected">🚫 Заблокирован</span>
+            {% else %}<span class="status-pill status-pill-draft">Не настроена</span>{% endif %}
           </td>
           <td>
-            <div class="form-inline gap-4">
+            <div class="table-actions">
               {% if c.status in ('pending_review', 'draft', 'validation_failed') %}
               <form method="post" action="/creatives/{{ c.creative_code }}/submit-review" class="inline">
                 <button type="submit" class="btn btn-sm">На проверку</button>

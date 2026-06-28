@@ -869,6 +869,316 @@ code {
 /* ── Row Detail (inventory expand) ─────────────── */
 .row-detail td { padding: 8px 14px; background: var(--color-bg); font-size: 11px; }
 
+/* ═══════════════════════════════════════════════════════════════════
+   Business Form Standard — unified grid layout for all forms
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Form container */
+.business-form {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Responsive form grid: 1-2 columns auto-fit */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px 20px;
+}
+
+/* Compact 3-column variant for short fields */
+.form-grid-3col {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+/* Full-width field (spans entire grid row) */
+.form-field-full {
+  grid-column: 1 / -1;
+}
+
+/* Individual field wrapper */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* Label on top */
+.form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.01em;
+}
+
+/* Required marker */
+.form-label-required::after {
+  content: " *";
+  color: var(--color-error);
+  font-weight: 700;
+}
+
+/* Universal form control (input, select, textarea) */
+.form-control {
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+  font-family: var(--font-ui);
+}
+
+.form-control:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+}
+
+.form-control::placeholder {
+  color: var(--color-text-muted);
+}
+
+select.form-control {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 70px;
+}
+
+/* Inline help text */
+.form-help {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+/* Action row: right-aligned buttons */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.form-actions-left {
+  justify-content: flex-start;
+}
+
+/* Info note block */
+.form-note {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  padding: 10px 14px;
+  margin-top: 16px;
+  line-height: 1.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   File Upload Zone — styled input[type=file]
+   ═══════════════════════════════════════════════════════════════════ */
+
+.upload-zone {
+  background: var(--color-bg);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.upload-zone-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.upload-zone-formats {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* Styled file input */
+.file-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-input input[type="file"] {
+  flex: 1;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.file-input input[type="file"]::file-selector-button {
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-right: 12px;
+  transition: background 0.15s;
+  font-family: var(--font-ui);
+}
+
+.file-input input[type="file"]::file-selector-button:hover {
+  background: var(--color-primary-dark);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Table — Business Data Table improvements
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Constrained preview cell */
+.table-preview {
+  width: 60px;
+  min-width: 60px;
+  max-width: 60px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.table-preview img {
+  width: 48px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid var(--color-border);
+  display: block;
+  margin: 0 auto;
+}
+
+/* Fallback for broken/missing preview */
+.preview-fallback {
+  width: 48px;
+  height: 64px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font-size: 18px;
+  color: var(--color-text-muted);
+  margin: 0 auto;
+}
+
+/* Business chip for codes */
+.business-chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-secondary);
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Status pill — pill-shaped badge for table cells */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.status-pill-draft {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+.status-pill-pending, .status-pill-pending_review, .status-pill-in_review {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
+}
+
+.status-pill-approved {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-success-border);
+}
+
+.status-pill-rejected, .status-pill-validation_failed {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+  border: 1px solid var(--color-error-border);
+}
+
+.status-pill-archived {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+/* Table row constraint */
+.data-table-constrained td {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Table actions compact */
+.table-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.table-actions .btn {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+/* Dimensions cell */
+.dim-cell {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.dim-cell-ok {
+  color: var(--color-success-text);
+}
+
+.dim-cell-warn {
+  color: var(--color-warning-text);
+}
+
 /* ── Reduced Motion ────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

@@ -56,42 +56,44 @@
     <span class="section-card-title">Создать расписание</span>
   </div>
   <div class="section-card-body">
-    <form method="post" action="/schedule/create" class="form-inline">
-      <div class="form-group">
-        <label class="form-label">Код <span class="text-error">*</span></label>
-        <input type="text" name="schedule_code" placeholder="winter_promo" minlength="3" maxlength="64"
-               pattern="[a-z0-9_-]+" required class="form-input form-input-md">
-        <span class="form-hint">Латинские строчные, 3–64</span>
+    <form method="post" action="/schedule/create" class="business-form">
+      <div class="form-grid form-grid-3col">
+        <div class="form-field">
+          <label class="form-label form-label-required">Код</label>
+          <input type="text" name="schedule_code" placeholder="winter_promo" minlength="3" maxlength="64"
+                 pattern="[a-z0-9_-]+" required class="form-control">
+          <span class="form-help">Латинские строчные, 3–64 символа</span>
+        </div>
+        <div class="form-field form-field-full">
+          <label class="form-label form-label-required">Название</label>
+          <input type="text" name="name" placeholder="Зимняя промо-кампания" minlength="1" maxlength="255"
+                 required class="form-control">
+        </div>
+        <div class="form-field">
+          <label class="form-label form-label-required">Действует с</label>
+          <input type="text" name="valid_from" placeholder="2026-01-01" minlength="10" maxlength="10"
+                 class="form-control">
+          <span class="form-help">YYYY-MM-DD</span>
+        </div>
+        <div class="form-field">
+          <label class="form-label form-label-required">Действует по</label>
+          <input type="text" name="valid_to" placeholder="2026-01-31" minlength="10" maxlength="10"
+                 class="form-control">
+          <span class="form-help">≥ valid_from</span>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Часовой пояс</label>
+          <input type="text" name="timezone" value="Europe/Moscow" maxlength="50"
+                 class="form-control">
+        </div>
+        <div class="form-field">
+          <label class="form-label">Код кампании</label>
+          <input type="text" name="campaign_code" placeholder="camp_code" maxlength="64"
+                 class="form-control">
+          <span class="form-help">Необязательно</span>
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Название <span class="text-error">*</span></label>
-        <input type="text" name="name" placeholder="Зимняя промо-кампания" minlength="1" maxlength="255"
-               required class="form-input form-input-lg">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Действует с <span class="text-error">*</span></label>
-        <input type="text" name="valid_from" placeholder="2026-01-01" minlength="10" maxlength="10"
-               pattern="[a-z0-9_-]+" required class="form-input form-input-sm">
-        <span class="form-hint">YYYY-MM-DD</span>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Действует по <span class="text-error">*</span></label>
-        <input type="text" name="valid_to" placeholder="2026-01-31" minlength="10" maxlength="10"
-               pattern="[a-z0-9_-]+" required class="form-input form-input-sm">
-        <span class="form-hint">≥ valid_from</span>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Часовой пояс</label>
-        <input type="text" name="timezone" value="Europe/Moscow" maxlength="50"
-               class="form-input w-150">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Код кампании</label>
-        <input type="text" name="campaign_code" placeholder="camp_code" maxlength="64"
-               class="form-input w-150">
-        <span class="form-hint">Необязательно</span>
-      </div>
-      <div class="form-group">
+      <div class="form-actions">
         <button type="submit" class="btn btn-primary">Создать расписание</button>
       </div>
     </form>

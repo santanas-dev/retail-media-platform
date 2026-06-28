@@ -4803,8 +4803,8 @@ class TestUXStatusBadges(unittest.TestCase):
         resp = self.client.get("/creatives")
         self.assertEqual(resp.status_code, 200)
         html = resp.text
-        # Mock data has creative → "Черновик" badge renders, uses status-muted class
-        for label in ("Черновик", "status-muted"):
+        # Mock data has creative → "Черновик" badge renders, uses status-pill class
+        for label in ("Черновик", "status-pill"):
             self.assertIn(label, html, f"Creatives must contain '{label}'")
 
     def test_publications_page_has_status_badges(self):
