@@ -353,12 +353,12 @@ class TestDeploymentPage(unittest.TestCase):
         self.assertIn("kso_state.json", self.html)
 
     def test_mentions_sidecar(self):
-        self.assertIn("Sidecar", self.html)
-        self.assertIn("manifest", self.html.lower())
+        self.assertIn("Агент КСО", self.html)
+        self.assertIn("пакетов показа", self.html.lower())
 
     def test_mentions_player(self):
         self.assertIn("Player", self.html)
-        self.assertIn("Chromium kiosk", self.html)
+        self.assertIn("Экран КСО", self.html)
 
     def test_mentions_bootstrap(self):
         self.assertIn("Bootstrap", self.html)
@@ -1065,7 +1065,7 @@ class TestCampaignsCreatePage(unittest.TestCase):
 
     def test_has_safe_notes(self):
         """Form has notes about manifest and playlist immutability."""
-        self.assertIn("manifest/playlist", self.html)
+        self.assertIn("пакета показа", self.html)
         self.assertIn("Локальный плейлист", self.html)
 
     def test_has_submit_button(self):
@@ -1162,7 +1162,7 @@ class TestSchedulePage(unittest.TestCase):
         self.assertIn("valid_to", self.html)
 
     def test_has_safe_notes(self):
-        self.assertIn("raw uuid", self.html.lower())
+        self.assertIn("технических кодов", self.html.lower())
 
     def test_no_js_in_form(self):
         self.assertNotIn("<script", self.html.lower())
@@ -1359,7 +1359,7 @@ class TestProductionApprovalsPortal(unittest.TestCase):
         """Publications clarifies backend status only, no KSO delivery."""
         resp = self.client.get("/publications")
         self.assertIn("публикации", resp.text.lower())
-        self.assertIn("status", resp.text.lower())
+        self.assertIn("в системе", resp.text.lower())
 
     def test_no_raw_ids_in_approvals(self):
         resp = self.client.get("/approvals")
@@ -1423,14 +1423,14 @@ class TestProofOfPlayPage(unittest.TestCase):
 
     def test_empty_state_when_no_data(self):
         """When no backend data, show empty state message."""
-        self.assertIn("Нет PoP событий", self.html)
+        self.assertIn("Нет событий показов", self.html)
 
     def test_mentions_backend_endpoint(self):
-        self.assertIn("POST /api/device-gateway/kso/", self.html)
+        self.assertIn("система", self.html.lower())
 
     def test_mentions_technical_chain(self):
         for term in ("creative", "campaign", "placement",
-                      "manifest", "pop ingest"):
+                      "пакет показа", "publish"):
             self.assertIn(term, self.html.lower(),
                           f"PoP page must mention '{term}'")
 
@@ -1587,7 +1587,7 @@ class TestReportsPage(unittest.TestCase):
         """43.2: Campaign/publication/manifest status blocks present."""
         self.assertIn("Кампании по статусам", self.html)
         self.assertIn("Пакеты публикации", self.html)
-        self.assertIn("Manifest status", self.html)
+        self.assertIn("Статус пакета показа", self.html)
 
     def test_no_js_chart_libraries(self):
         self.assertNotIn("Chart.js", self.html)
@@ -1603,7 +1603,7 @@ class TestReportsPage(unittest.TestCase):
         """When no PoP data, table shows empty state — not demo data."""
         self.assertNotIn("DEMO: Весенняя акция", self.html)
         self.assertNotIn("24.9%", self.html)
-        self.assertIn("Пока нет данных Proof of Play", self.html)
+        self.assertIn("Пока нет данных фактических показов", self.html)
 
     def test_has_csv_export_block(self):
         self.assertIn("csv", self.html.lower())
@@ -1830,7 +1830,7 @@ class TestDemoData(unittest.TestCase):
     def test_pop_has_demo_data(self):
         """PoP page is now backend-driven — no demo data, shows empty state."""
         resp = self.client.get("/proof-of-play")
-        self.assertIn("Нет PoP событий", resp.text)
+        self.assertIn("Нет событий показов", resp.text)
 
     def test_approvals_has_demo_data(self):
         """Approvals page is now backend-driven — forms + safe table, no demo."""
@@ -2197,7 +2197,7 @@ class TestAdminUserManagement(unittest.TestCase):
     def test_admin_mentions_rls_enforced(self):
         resp = self.client.get("/admin")
         self.assertIn("RLS", resp.text)
-        self.assertIn("backend/DB/API", resp.text)
+        self.assertIn("Ограничения доступа применяются", resp.text)
 
 
 class TestLoginLocalAuth(unittest.TestCase):
@@ -4881,7 +4881,7 @@ class TestUXPilotStatus(unittest.TestCase):
     def test_dashboard_shows_no_go(self):
         resp = self.client.get("/dashboard")
         html = resp.text
-        self.assertIn("NO-GO", html, "Dashboard must show NO-GO status")
+        self.assertIn("запуск заблокирован", html.lower(), "Dashboard must show NO-GO status")
         self.assertIn("pilot-status no-go", html, "Dashboard must have no-go banner")
 
     def test_readiness_shows_pilot_status(self):
@@ -5407,7 +5407,7 @@ class TestDashboardReportsVisualization(unittest.TestCase):
 
     def test_dashboard_five_blockers(self):
         resp = self.client.get("/dashboard")
-        blockers = ["Проверка физического сканера", "Длительная проверка стабильности", "Manifest delivery", "Синхронизация агента", "Fleet rollout"]
+        blockers = ["Проверка физического сканера", "Длительная проверка стабильности", "Доставка на КСО", "Синхронизация агента", "Fleet rollout"]
         for b in blockers:
             self.assertIn(b, resp.text, f"Missing blocker: {b}")
 
@@ -5896,8 +5896,8 @@ class TestBusinessDemoAcceptance(unittest.TestCase):
         self.assertIn("Расписание создано", resp.text)
         self.assertIn("Согласование запрошено", resp.text)
         self.assertIn("Пакет публикации создан", resp.text)
-        self.assertIn("Manifest сгенерирован", resp.text)
-        self.assertIn("Backend публикация выполнена", resp.text)
+        self.assertIn("Пакет показа сгенерирован", resp.text)
+        self.assertIn("Публикация выполнена", resp.text)
         self.assertIn("CSV export", resp.text)
         self.assertIn("Физическая доставка НЕ выполнялась", resp.text)
         self.assertIn("Фактические показы", resp.text)
@@ -5930,8 +5930,8 @@ class TestBusinessDemoAcceptance(unittest.TestCase):
         self.assertNotIn("Manifest (legacy)", resp.text)
         self.assertNotIn("Deprecated — use batches", resp.text)
         # New labels should be present
-        self.assertIn("Ранее созданные манифесты", resp.text)
-        self.assertIn("Созданы до внедрения batch-системы", resp.text)
+        self.assertIn("Ранее созданные пакеты показа", resp.text)
+        self.assertIn("Созданы до внедрения системы пакетов публикации", resp.text)
 
     def test_no_legacy_labels_in_readiness(self):
         """Readiness page has no legacy/deprecated/internal/dev labels."""
@@ -6356,7 +6356,7 @@ class TestReadinessPilotBlocked44_5(unittest.TestCase):
             blockers = [
                 "Проверка физического сканера",
                 "Длительная проверка стабильности",
-                "Manifest delivery",
+                "Доставка на КСО",
                 "Синхронизация агента",
                 "Fleet rollout",
             ]

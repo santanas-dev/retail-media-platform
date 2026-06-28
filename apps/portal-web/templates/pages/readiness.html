@@ -60,7 +60,7 @@
       <div class="card">
         <div class="card-title">Missing Пакеты показа</div>
         <div class="card-value">{{ kpi.get('missing_manifest', 0) }}</div>
-        <div class="card-hint">Нет applied manifest</div>
+        <div class="card-hint">Нет применённого пакета показа</div>
       </div>
     </div>
   </div>
@@ -97,9 +97,9 @@
       <th>Store</th>
       <th>Heartbeat</th>
       <th>Credential</th>
-      <th>Manifest</th>
-      <th>Sidecar</th>
-      <th>PoP</th>
+      <th>Пакет показа</th>
+      <th>Агент</th>
+      <th>Показы</th>
       <th>Readiness</th>
     </tr>
   </thead>
@@ -213,7 +213,7 @@
       </div>
       <div class="checklist-item done">
         <span class="checklist-icon">✅</span>
-        <span class="checklist-label"><a href="/publications">Публикация в backend</a> — batch lifecycle, manifest generation, в системе publish</span>
+        <span class="checklist-label"><a href="/publications">Публикация</a> — формирование пакета показа в системе</span>
       </div>
       <div class="checklist-item done">
         <span class="checklist-icon">✅</span>
@@ -225,7 +225,7 @@
       </div>
       <div class="checklist-item done">
         <span class="checklist-icon">✅</span>
-        <span class="checklist-label">Безопасность — RBAC, RLS, audit trail, safe projection (без raw UUID, secrets, backend URL)</span>
+        <span class="checklist-label">Безопасность — RBAC, RLS, audit trail, safe projection (без технических кодов и скрытых данных)</span>
       </div>
     </div>
   </div>
@@ -278,11 +278,11 @@
 
     <p class="text-sm text-secondary mt-16">
       <strong>Полный цикл рекламной кампании:</strong> загрузка креатива → создание кампании → настройка расписания → 
-      отправка на согласование → решение → подготовка публикации → генерация manifest → backend публикация → 
+      отправка на согласование → решение → подготовка публикации → формирование пакета показа → публикация → 
       выгрузка плановой отчётности в CSV.
     </p>
     <p class="text-xs text-muted">
-      Весь сценарий выполняется в backend без физической КСО. Manifest формируется, но не доставляется на устройство.
+      Весь сценарий выполняется в системе без физической КСО. Пакет показа формируется, но не доставляется на устройство.
     </p>
   </div>
   <div class="section-card-footer">
@@ -313,7 +313,7 @@
       </div>
       <div class="blocker-item">
         <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">Manifest delivery</span>
+        <span class="blocker-label">Доставка на КСО</span>
         <span class="blocker-detail">Доставка на КСО не approved</span>
       </div>
       <div class="blocker-item">
@@ -329,7 +329,7 @@
     </div>
     <p class="text-xs text-secondary mt-12">
       <strong>Сканер не подключён — физическая проверка не начата.</strong>
-      Без физического сканера нельзя выполнить scanner E2E, manifest delivery, sidecar sync, long-run и fleet rollout.
+      Без физического сканера нельзя выполнить проверку сканера, доставку на КСО, синхронизацию, длительный прогон и fleet rollout.
     </p>
   </div>
   <div class="section-card-footer section-card-error">
@@ -349,14 +349,14 @@
   <div class="section-card-body">
     <ol class="text-sm">
       <li>Подключить физический сканер к КСО → выполнить <strong>Проверка физического сканера</strong> (Разрешение на проверку сканера)</li>
-      <li>Доставить manifest на физическую КСО → проверить парсинг и отображение (Разрешение на доставку)</li>
-      <li>Запустить sidecar sync на КСО → убедиться, что PoP-события доходят до backend (Разрешение на синхронизацию)</li>
-      <li>Выполнить <strong>48h+ long-run</strong> с мониторингом — память, диск, Chromium, перезапуски (Разрешение на проверку стабильности)</li>
+      <li>Доставить пакет показа на физическую КСО → проверить парсинг и отображение (Разрешение на доставку)</li>
+      <li>Запустить синхронизацию агента на КСО → убедиться, что события показов доходят в систему (Разрешение на синхронизацию)</li>
+      <li>Выполнить <strong>48h+ длительный прогон</strong> с мониторингом — память, диск, экран КСО, перезапуски (Разрешение на проверку стабильности)</li>
       <li>После закрытия всех P0 — решение GO/NO-GO по пилоту (Разрешение на запуск)</li>
       <li>Пилот одного КСО → сбор evidence → решение о расширении fleet</li>
     </ol>
     <p class="text-xs text-muted mt-8">
-      Все approval tokens описаны в runbook. Каждый шаг требует отдельного разрешения, последовательно.
+      Все разрешения описаны в runbook. Каждый шаг требует отдельного разрешения, последовательно.
     </p>
   </div>
   <div class="section-card-footer">
@@ -418,11 +418,11 @@
       </div>
       <div class="checklist-item">
         <span class="checklist-icon">☐</span>
-        <span class="checklist-label"><strong>Manifest сгенерирован в backend</strong> — статус «Manifest готов» на /publications</span>
+        <span class="checklist-label"><strong>Пакет показа сгенерирован в системе</strong> — статус «Пакет показа готов» на /publications</span>
       </div>
       <div class="checklist-item">
         <span class="checklist-icon">☐</span>
-        <span class="checklist-label"><strong>Backend публикация выполнена</strong> — статус «Опубликовано» на /publications</span>
+        <span class="checklist-label"><strong>Публикация выполнена</strong> — статус «Опубликовано» на /publications</span>
       </div>
       <div class="checklist-item">
         <span class="checklist-icon">☐</span>
@@ -434,7 +434,7 @@
       </div>
       <div class="checklist-item text-muted">
         <span class="checklist-icon">—</span>
-        <span class="checklist-label"><strong>Фактические показы (PoP) не ожидаются</strong> — появятся после physical gate</span>
+        <span class="checklist-label"><strong>Фактические показы не ожидаются</strong> — появятся после physical gate</span>
       </div>
     </div>
   </div>
@@ -488,6 +488,6 @@
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Физическая КСО, сканер, sidecar, Chromium, manifest delivery — не запускались. Pilot: 🚫 Запуск заблокирован (5 P0 blockers).</span>
+  <span class="note-text">Физическая КСО, сканер, агент КСО, экран КСО, доставка на КСО — не запускались. Pilot: 🚫 Запуск заблокирован (5 P0 blockers).</span>
 </div>
 {% endblock %}

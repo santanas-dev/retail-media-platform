@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">Proof of Play</h1>
-<p class="page-description">Техническая валидация цепочки PoP: player → sidecar → backend → portal. Без BI-отчётности.</p>
+<h1 class="page-title">Фактические показы</h1>
+<p class="page-description">Проверка цепочки фактических показов: плеер → агент → система → портал. Без BI-отчётности.</p>
 
 <!-- KPI Cards -->
 <div class="cards">
   <div class="card">
     <div class="card-title">Всего событий</div>
     <div class="card-value">{{ kpi_total }}</div>
-    <div class="card-hint">Принято backend</div>
+    <div class="card-hint">Принято системой</div>
   </div>
   <div class="card">
     <div class="card-title">Уникальных КСО</div>
@@ -108,8 +108,8 @@
       <td colspan="11">
         <div class="table-empty-state">
           <div class="table-empty-icon">📡</div>
-          <div class="table-empty-title">Нет PoP событий</div>
-          <div class="table-empty-text">После публикации manifest и приёма PoP событий backend здесь появятся данные. Отправьте PoP через <code>POST /api/device-gateway/kso/{device_code}/pop</code>.</div>
+          <div class="table-empty-title">Нет событий показов</div>
+          <div class="table-empty-text">После публикации пакета показа и приёма событий показов здесь появятся данные. Отправьте данные через систему.</div>
         </div>
       </td>
     </tr>
@@ -121,10 +121,10 @@
 <!-- Notes -->
 <div class="note-box">
   <span class="note-icon">ℹ️</span>
-  <span class="note-text">Это технический отчёт для валидации цепочки PoP. Отображаются только безопасные поля: коды событий/устройств/кампаний/креативов, статусы и временные метки. Никакие внутренние идентификаторы, хэш-суммы, пути к файлам, ключи хранилища или токены не отображаются.</span>
+  <span class="note-text">Это технический отчёт для валидации цепочки показов. Отображаются только безопасные поля: коды событий/устройств/кампаний/креативов, статусы и временные метки. Никакие внутренние идентификаторы, хэш-суммы, пути к файлам, ключи хранилища или разрешения не отображаются.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🔗</span>
-  <span class="note-text">Цепочка: <strong>creative</strong> → <strong>campaign</strong> → <strong>placement</strong> → <strong>approval</strong> → <strong>manifest</strong> → <strong>publish</strong> → <strong>sidecar/player smoke</strong> → <strong>PoP ingest</strong> → <strong>portal PoP view</strong>. Техническая валидация завершена на уровне видимости в портале.</span>
+  <span class="note-text">Цепочка: <strong>creative</strong> → <strong>campaign</strong> → <strong>placement</strong> → <strong>approval</strong> → <strong>пакет показа</strong> → <strong>publish</strong> → <strong>проверка агента/плеера</strong> → <strong>приём показов</strong> → <strong>просмотр показов</strong>. Техническая валидация завершена на уровне видимости в портале.</span>
 </div>
 {% endblock %}

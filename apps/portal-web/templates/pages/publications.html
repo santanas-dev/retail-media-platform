@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Публикации</h1>
-<p class="page-description">Пакет публикацииes — от approved кампании до готового manifest. Backend status only: публикация в backend не означает доставку на физическую КСО.</p>
+<p class="page-description">Пакеты публикации — от одобренной кампании до готового пакета показа. Статус в системе: публикация в системе не означает доставку на физическую КСО.</p>
 
 <!-- Flow breadcrumbs -->
 <div class="flow-breadcrumbs">
@@ -20,10 +20,10 @@
 {% if pub_flash and pub_flash.startswith('ok:') %}
 <div class="flash-message flash-success">
   {% if pub_flash == 'ok:batch_approval_requested' %}✅ Запрос на согласование отправлен.
-  {% elif pub_flash == 'ok:manifest_generated' %}✅ Manifest сгенерирован (backend status).
-  {% elif pub_flash == 'ok:batch_published' %}✅ Batch опубликован (backend status only).
-  {% elif pub_flash == 'ok:batch_cancelled' %}✅ Batch отменён.
-  {% elif pub_flash == 'ok:generated' %}✅ Manifest сгенерирован.
+  {% elif pub_flash == 'ok:manifest_generated' %}✅ Пакет показа сформирован (статус в системе).
+  {% elif pub_flash == 'ok:batch_published' %}✅ Пакет опубликован (в системе).
+  {% elif pub_flash == 'ok:batch_cancelled' %}✅ Пакет отменён.
+  {% elif pub_flash == 'ok:generated' %}✅ Пакет показа сформирован.
   {% else %}✅ Успешно.{% endif %}
 </div>
 {% elif pub_flash == 'error' %}
@@ -34,8 +34,8 @@
 <div class="banner banner-error">
   <span class="banner-icon">🚫</span>
   <div class="banner-body">
-    <div class="banner-title">Физическая доставка на КСО: NO-GO</div>
-    <div class="banner-text"><strong>Доставка на КСО заблокирована до получения отдельного разрешения.</strong> Публикация в backend формирует manifest без доставки на КСО. Физическая доставка требует отдельного approval gate. Подробнее: <a href="/readiness">Readiness</a>.</div>
+    <div class="banner-title">Физическая доставка на КСО: запуск заблокирован</div>
+    <div class="banner-text"><strong>Доставка на КСО заблокирована до получения отдельного разрешения.</strong> Публикация в системе формирует пакет показа без доставки на КСО. Физическая доставка требует отдельного approval gate. Подробнее: <a href="/readiness">Readiness</a>.</div>
   </div>
 </div>
 
@@ -44,7 +44,7 @@
   <span class="banner-icon">⚠️</span>
   <div class="banner-body">
     <div class="banner-title">Режим подготовки в системе</div>
-    <div class="banner-text">Публикация формирует backend manifest без доставки на устройство. Доставка и sidecar sync отключены до отдельного approval.</div>
+    <div class="banner-text">Публикация формирует пакет показа в системе без доставки на устройство. Доставка на КСО отключена до отдельного approval.</div>
   </div>
 </div>
 
@@ -61,7 +61,7 @@
   <span class="banner-icon">📝</span>
   <div class="banner-body">
     <div class="banner-title">Следующее действие</div>
-    <div class="banner-text">{{ draft|length }} batch в статусе «Черновик». Отправьте на согласование через кнопку ниже.</div>
+    <div class="banner-text">{{ draft|length }} пакетов публикации в статусе «Черновик». Отправьте на согласование через кнопку ниже.</div>
   </div>
 </div>
   {% elif approved %}
@@ -69,7 +69,7 @@
   <span class="banner-icon">📋</span>
   <div class="banner-body">
     <div class="banner-title">Следующее действие</div>
-    <div class="banner-text">{{ approved|length }} одобренный batch. Нажмите «Generate» для создания manifest.</div>
+    <div class="banner-text">{{ approved|length }} одобренный пакет публикации. Нажмите «Сформировать» для создания пакета показа.</div>
   </div>
 </div>
   {% elif generated %}
@@ -77,7 +77,7 @@
   <span class="banner-icon">🚀</span>
   <div class="banner-body">
     <div class="banner-title">Следующее действие</div>
-    <div class="banner-text">{{ generated|length }} batch с готовым manifest. Нажмите «Publish» для backend публикации.</div>
+    <div class="banner-text">{{ generated|length }} пакетов публикации с готовым пакетом показа. Нажмите «Опубликовать» для публикации в системе.</div>
   </div>
 </div>
   {% endif %}
@@ -112,7 +112,7 @@
         <span class="lifecycle-arrow">→</span>
         <span class="lifecycle-step lifecycle-ready">approved</span>
         <span class="lifecycle-arrow">→</span>
-        <span class="lifecycle-step lifecycle-published">manifest</span>
+        <span class="lifecycle-step lifecycle-published">пакет показа</span>
         <span class="lifecycle-arrow">→</span>
         <span class="lifecycle-step lifecycle-completed">published</span>
       </div>
@@ -126,7 +126,7 @@
           {{ 'Черновик' if b.status == 'draft' else
              'На согласовании' if b.status == 'pending_approval' else
              'Одобрено' if b.status == 'approved' else
-             'Manifest готов' if b.status == 'manifest_generated' else
+             'Пакет показа готов' if b.status == 'manifest_generated' else
              'Опубликовано' if b.status == 'published' else
              'Отменено' if b.status == 'cancelled' else
              'Отклонено' if b.status == 'rejected' else b.status }}
@@ -192,7 +192,7 @@
 {% else %}
 <div class="empty-state">
   <div class="empty-state-icon">📦</div>
-  <div class="empty-state-title">Пока нет пакет публикацииes</div>
+  <div class="empty-state-title">Пока нет пакетов публикации</div>
   <div class="empty-state-text">Одобрите кампанию, затем нажмите «Подготовить публикацию» на странице <a href="/campaigns">Кампании</a>.</div>
   <div class="empty-state-action">
     <a href="/campaigns" class="btn btn-primary">📢 К кампаниям</a>
@@ -205,8 +205,8 @@
 <div class="section-card mt-16" style="opacity:0.8;">
   <div class="section-card-header">
     <span class="section-card-icon">📜</span>
-    <span class="section-card-title">Ранее созданные манифесты</span>
-    <span class="text-muted" style="font-size:10px;">Созданы до внедрения batch-системы</span>
+    <span class="section-card-title">Ранее созданные пакеты показа</span>
+    <span class="text-muted" style="font-size:10px;">Созданы до внедрения системы пакетов публикации</span>
   </div>
   <div class="section-card-body p-0">
     <table class="data-table data-table-compact">
@@ -241,7 +241,7 @@
   <span class="banner-icon">👉</span>
   <div class="banner-body">
     <div class="banner-title">Следующий шаг</div>
-    <div class="banner-text">После backend публикации — <a href="/reports">выгрузите отчёты</a>. Физическая доставка — после снятия approval gate, см. <a href="/readiness">Readiness</a>.</div>
+    <div class="banner-text">После публикации в системе — <a href="/reports">выгрузите отчёты</a>. Физическая доставка — после снятия approval gate, см. <a href="/readiness">Readiness</a>.</div>
   </div>
 </div>
 {% endif %}

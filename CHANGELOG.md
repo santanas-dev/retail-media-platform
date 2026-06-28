@@ -2296,3 +2296,47 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 - No secrets/tokens/full URLs/barcodes/storage paths/raw UUID leakage ✅
 - Физическая КСО/SSH/X11/Chromium/runner/sidecar/PoP не запускались
 - Проверка физического сканера E2E/long-run/синхронизация агента не выполнялись
+
+---
+
+## [44.5.1-visible-ui-wording-cleanup] — 2026-06-28
+
+**Visible UI Wording Cleanup & RC0 Gate Fix — очистка production UI от технических терминов для бизнес-демонстрации.**
+
+### Видимый UI — очистка запрещённых терминов
+
+- **13 production-шаблонов очищены** от видимых запрещённых терминов
+- **132 запрещённых термина заменены** на бизнес-формулировки в видимом интерфейсе
+- Заменённые термины: `backend`, `manifest`, `API`, `PoP`, `Proof of Play`, `batch`, `sidecar`, `Chromium`, `daemon`
+- **0 видимых запрещённых терминов** в production UI (grep подтверждён)
+
+### Что НЕ тронуто (невидимое, не блокирует)
+
+- CSS-классы (`.manifest-status`, `.api-error`) — не видны пользователю
+- HTML-комментарии — не рендерятся
+- Jinja2 variable names — не видны в финальном HTML
+- Python docstrings и internal variable names — не экспонируются в UI
+
+### Тесты
+
+- **20 тестов обновлены** под новые бизнес-формулировки
+- Portal regression: все production-тесты проходят с обновлёнными expected strings
+
+### UI_AUDIT_001
+
+- **Закрыт** (✅ RESOLVED by 44.5.1)
+- Production UI готов к бизнес-демонстрации без технического жаргона
+
+### Документация
+
+- **Обновлены:**
+  - `docs/audit/deviation-register-44-0.md` — UI_AUDIT_001 статус изменён на RESOLVED
+  - `docs/product/release-candidate-0-44-5.md` — добавлен раздел 44.5.1
+  - `docs/audit/tz-compliance-matrix-44-0.md` — раздел 21 обновлён (термины исправлены)
+  - `CHANGELOG.md` — настоящий раздел
+
+### Безопасность
+
+- No JS/CDN/localStorage ✅
+- No secrets/tokens/full URLs/barcodes/storage paths/raw UUID leakage ✅
+- Физическая КСО/SSH/X11/Chromium/runner/sidecar/PoP не запускались

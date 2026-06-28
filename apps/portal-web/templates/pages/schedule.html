@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Расписание</h1>
-<p class="page-description">Управление расписаниями показов — создание, слоты с днями недели и временными окнами. Production Schedule API.</p>
+<p class="page-description">Управление расписаниями показов — создание, слоты с днями недели и временными окнами. Система управления расписанием.</p>
 
 <!-- Flow breadcrumbs -->
 <div class="flow-breadcrumbs">
@@ -288,6 +288,6 @@
 <!-- Safety Notes -->
 <div class="note-box">
   <span class="note-icon">🔒</span>
-  <span class="note-text">Отображаются только schedule_code, name, status, campaign_code, valid_from/to, timezone, slot_code, day_of_week, start/end_time. Без raw UUID, tokens, secrets.</span>
+  <span class="note-text">Отображаются только schedule_code, name, status, campaign_code, valid_from/to, timezone, slot_code, day_of_week, start/end_time. Без технических кодов, разрешений и скрытых данных.</span>
 </div>
 {% endblock %}

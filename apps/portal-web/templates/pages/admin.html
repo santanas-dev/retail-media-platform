@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Администрирование</h1>
-<p class="page-description">Управление платформой: пользователи, роли, области доступа, аудит. Данные загружены из backend API. Создание пользователей доступно.</p>
+<p class="page-description">Управление платформой: пользователи, роли, области доступа, аудит. Данные загружены из системы. Создание пользователей доступно.</p>
 
 {% if flash_type == "success" %}
 <div class="success-banner">
@@ -18,7 +18,7 @@
 {% if not backend_available %}
 <div class="error-banner">
   <span class="error-banner-icon">⚠️</span>
-  <span class="error-banner-text">Backend API недоступен. Данные могут быть неактуальны. Повторите попытку позже.</span>
+  <span class="error-banner-text">Данные временно недоступны. Повторите попытку позже.</span>
 </div>
 {% endif %}
 
@@ -62,7 +62,7 @@
 <!-- Users Table (read-only from backend API) -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <div class="requirements-box">
-  <div class="requirements-title">Пользователи портала (backend API, read-only)</div>
+  <div class="requirements-title">Пользователи портала</div>
   {% if backend_available and users %}
   <div class="table-container mt-12">
   <table class="data-table">
@@ -110,7 +110,7 @@
           <div class="table-empty-state">
             <div class="table-empty-icon">👤</div>
             <div class="table-empty-title">{{ "Система недоступна" if not backend_available else "Нет данных" }}</div>
-            <div class="table-empty-text">{{ "Backend API временно недоступен. Данные пользователей не загружены." if not backend_available else "Пользователи будут отображены после загрузки из backend API." }}</div>
+            <div class="table-empty-text">{{ "Данные временно недоступны." if not backend_available else "Пользователи будут отображены после восстановления соединения." }}</div>
           </div>
         </td>
       </tr>
@@ -189,7 +189,7 @@
 <!-- Roles (read-only from backend API) -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <div class="requirements-box">
-  <div class="requirements-title">Роли (backend API, read-only)</div>
+  <div class="requirements-title">Роли</div>
   {% if backend_available and roles %}
   <div class="requirements-grid mt-12">
     {% for r in roles %}
@@ -293,7 +293,7 @@
 <!-- Admin Audit (read-only from backend API) -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <div class="requirements-box">
-  <div class="requirements-title">Аудит администрирования (backend API, read-only)</div>
+  <div class="requirements-title">Аудит администрирования</div>
   <div class="table-container mt-12">
   <table class="data-table">
     <thead>
@@ -315,7 +315,7 @@
           <div class="table-empty-state">
             <div class="table-empty-icon">📋</div>
             <div class="table-empty-title">{{ "Система недоступна" if not backend_available else "Нет записей аудита" }}</div>
-            <div class="table-empty-text">{{ "Backend API временно недоступен. Данные аудита не загружены." if not backend_available else "События аудита появятся здесь после выполнения действий администрирования." }}</div>
+            <div class="table-empty-text">{{ "Данные временно недоступны." if not backend_available else "События аудита появятся здесь после выполнения действий администрирования." }}</div>
           </div>
         </td>
       </tr>
@@ -336,14 +336,14 @@
     <div class="requirements-item"><span class="requirements-label">MFA для критичных ролей</span><span class="requirements-value requirements-forbidden">system_admin, security_admin требуют MFA</span></div>
     <div class="requirements-item"><span class="requirements-label">Аудит изменений</span><span class="requirements-value">Все изменения доступа аудируются</span></div>
     <div class="requirements-item"><span class="requirements-label">Удаление пользователей</span><span class="requirements-value">Логическое (archive), не физическое удаление</span></div>
-    <div class="requirements-item"><span class="requirements-label">RLS enforcement</span><span class="requirements-value">RLS применяется на backend/DB/API уровне</span></div>
+    <div class="requirements-item"><span class="requirements-label">RLS enforcement</span><span class="requirements-value">Ограничения доступа применяются в системе</span></div>
     <div class="requirements-item"><span class="requirements-label">Хранение паролей</span><span class="requirements-value requirements-forbidden">Только безопасный hash (bcrypt/argon2)</span></div>
   </div>
 </div>
 
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Все админ-действия активны: create, assign roles, assign RLS, block, archive. MFA будет доступен позже. Пароли никогда не отображаются в UI. Все изменения пользователей/ролей/RLS аудируются. RLS enforced на backend/DB/API.</span>
+  <span class="note-text">Все админ-действия активны: create, assign roles, assign RLS, block, archive. MFA будет доступен позже. Пароли никогда не отображаются в UI. Все изменения пользователей/ролей/RLS аудируются. Ограничения доступа применяются в системе.</span>
 </div>
 
 <div class="note-box">

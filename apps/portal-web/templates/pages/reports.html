@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Отчёты</h1>
-<p class="page-description">Плановая отчётность и выгрузки. Фактические показы появятся после approved physical PoP flow.</p>
+<p class="page-description">Плановая отчётность и выгрузки. Фактические показы появятся после проверки физических показов.</p>
 
 <!-- Disclaimer: planned vs factual -->
 <div class="banner banner-warning">
   <span class="banner-icon">⚠️</span>
   <div class="banner-body">
     <div class="banner-title">Плановая отчётность</div>
-    <div class="banner-text">Данные ниже — плановые (в системе). <strong>Фактические показы (Proof of Play) недоступны</strong> до physical delivery gate.</div>
+    <div class="banner-text">Данные ниже — плановые (в системе). <strong>Фактические показы недоступны</strong> до physical delivery gate.</div>
   </div>
 </div>
 
@@ -260,7 +260,7 @@
       <!-- Manifest Status -->
       <div class="stat-block">
         <div class="stat-block-header">
-          <span class="stat-block-label">Manifest status</span>
+          <span class="stat-block-label">Статус пакета показа</span>
           <span class="stat-block-total">{{ manifest_statuses.values() | sum if manifest_statuses else 0 }}</span>
         </div>
         {% if manifest_statuses %}
@@ -279,14 +279,14 @@
           {% endfor %}
         </div>
         {% else %}
-        <div class="text-muted text-meta py-8">Нет манифестов</div>
+        <div class="text-muted text-meta py-8">Нет пакетов показа</div>
         {% endif %}
       </div>
     </div>
   </div>
   <div class="section-card-footer">
     <a href="/publications" class="btn btn-sm btn-ghost">📋 Перейти к публикациям →</a>
-    Manifest status — backend publish status, не physical KSO delivery.
+    Статус пакета показа — статус публикации в системе, не физическая доставка на КСО.
   </div>
 </div>
 
@@ -366,20 +366,20 @@
     {% else %}
     <div class="table-empty-state" style="padding:28px 16px;">
       <div class="table-empty-icon">📈</div>
-      <div class="table-empty-title">Пока нет данных Proof of Play</div>
-      <div class="table-empty-text">Фактические показы появятся после approved physical PoP flow. Сейчас доступна только плановая отчётность.</div>
+      <div class="table-empty-title">Пока нет данных фактических показов</div>
+      <div class="table-empty-text">Фактические показы появятся после проверки физических показов. Сейчас доступна только плановая отчётность.</div>
     </div>
     {% endif %}
   </div>
   <div class="section-card-footer section-card-warning">
-    <strong>⚠️ Фактические показы появятся после approved physical PoP flow.</strong> Сейчас доступна только плановая отчётность (выше).
+    <strong>⚠️ Фактические показы появятся после проверки физических показов.</strong> Сейчас доступна только плановая отчётность (выше).
   </div>
 </div>
 
 <!-- Safety Notes -->
 <div class="note-box">
   <span class="note-icon">📊</span>
-  <span class="note-text">Отчёты используют данные из система. Плановые данные отделены от фактического PoP.</span>
+  <span class="note-text">Отчёты используют данные из система. Плановые данные отделены от фактических показов.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>

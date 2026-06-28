@@ -10,12 +10,12 @@
     <p>UKM 4 State Adapter — пишет kso_state.json, fail-closed (unknown). Поддерживает static и file source.</p>
   </div>
   <div class="component-item">
-    <h3><span class="component-status status-pending"></span> Sidecar Agent</h3>
-    <p>Синхронизация manifest/media с backend, отправка Proof of Play, daemon-режим.</p>
+    <h3><span class="component-status status-pending"></span> Агент КСО</h3>
+    <p>Синхронизация пакетов показа, отправка фактических показов, фоновый режим.</p>
   </div>
   <div class="component-item">
     <h3><span class="component-status status-pending"></span> KSO Player</h3>
-    <p>Chromium kiosk — показ рекламы. Runtime daemon, safety gate (idle-only play), completed PoP.</p>
+    <p>Экран КСО — показ рекламы. Фоновая служба, контроль безопасности (idle-only play), завершённые показы.</p>
   </div>
 </div>
 
@@ -27,11 +27,11 @@
   </div>
   <div class="component-item">
     <h3>Preflight</h3>
-    <p>Read-only валидатор готовности: каталоги, units, env, Chromium, player_shell, CLI. Не меняет систему.</p>
+    <p>Read-only валидатор готовности: каталоги, units, env, экран КСО, player_shell, CLI. Не меняет систему.</p>
   </div>
   <div class="component-item">
     <h3>Release Package Builder</h3>
-    <p>Сборка kso-runtime-&lt;version&gt;.tar.gz с VERSION, MANIFEST.json, CHECKSUMS.sha256.</p>
+    <p>Сборка kso-runtime-&lt;version&gt;.tar.gz с VERSION, файлом пакета показа, CHECKSUMS.sha256.</p>
   </div>
 </div>
 

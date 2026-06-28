@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Магазины</h1>
-<p class="page-description">Иерархия: филиалы → кластеры → магазины → КСО. Данные из backend hierarchy API.</p>
+<p class="page-description">Иерархия: филиалы → кластеры → магазины → КСО. Данные из системы.</p>
 
 <!-- Summary Cards -->
 <div class="cards">
@@ -77,7 +77,7 @@
         <div class="table-empty-state">
           <div class="table-empty-icon">🏪</div>
           <div class="table-empty-title">Пока нет данных по магазинам</div>
-          <div class="table-empty-text">После добавления филиалов, кластеров и магазинов через backend здесь появится иерархия сети.</div>
+          <div class="table-empty-text">После добавления филиалов, кластеров и магазинов через систему здесь появится иерархия сети.</div>
         </div>
       </td>
     </tr>
@@ -99,10 +99,10 @@
 <!-- RLS Note -->
 <div class="note-box">
   <span class="note-icon">🔐</span>
-  <span class="note-text">Данные проходят route-level RBAC. Business RLS по <strong>branch_scope</strong> и <strong>store_scope</strong> будет включён на backend query-level в следующем этапе. Сейчас отображаются все магазины, доступные по праву <code>organization.read</code>.</span>
+  <span class="note-text">Данные проходят route-level RBAC. Business RLS по <strong>branch_scope</strong> и <strong>store_scope</strong> будет включён на уровне системы в следующем этапе. Сейчас отображаются все магазины, доступные по праву <code>organization.read</code>.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">ℹ️</span>
-  <span class="note-text">Иерархия: Филиал → Кластер → Магазин → КСО. Данные загружаются из backend hierarchy API. Количество КСО рассчитывается из реестра устройств.</span>
+  <span class="note-text">Иерархия: Филиал → Кластер → Магазин → КСО. Данные загружаются из системы. Количество КСО рассчитывается из реестра устройств.</span>
 </div>
 {% endblock %}

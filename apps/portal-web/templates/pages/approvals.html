@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="page-title">Согласования</h1>
-<p class="page-description">Запрос и принятие решений по кампаниям, размещениям и публикационным пакетам. Production Approval API.</p>
+<p class="page-description">Запрос и принятие решений по кампаниям, размещениям и публикационным пакетам. Система согласования.</p>
 
 <!-- Flow breadcrumbs -->
 <div class="flow-breadcrumbs">
@@ -56,9 +56,9 @@
       </div>
       <div class="form-group">
         <label class="form-label">Код объекта <span class="text-error">*</span></label>
-        <input type="text" name="object_code" placeholder="campaign_code или batch UUID" minlength="1" maxlength="64" required
+        <input type="text" name="object_code" placeholder="campaign_code или код пакета" minlength="1" maxlength="64" required
                class="form-input form-input-lg">
-        <span class="form-hint">campaign_code, placement_code или batch ID</span>
+        <span class="form-hint">campaign_code, placement_code или код пакета</span>
       </div>
       <div class="form-group">
         <label class="form-label">Комментарий</label>
@@ -154,7 +154,7 @@
   <span class="banner-icon">👉</span>
   <div class="banner-body">
     <div class="banner-title">Следующий шаг</div>
-    <div class="banner-text">После одобрения кампании — <a href="/publications">подготовьте публикацию</a>. После публикации backend статуса — <a href="/reports">выгрузите отчёты</a>.</div>
+    <div class="banner-text">После одобрения кампании — <a href="/publications">подготовьте публикацию</a>. После публикации статуса в системе — <a href="/reports">выгрузите отчёты</a>.</div>
   </div>
 </div>
 {% endif %}
@@ -162,10 +162,10 @@
 <!-- Safety Notes -->
 <div class="note-box">
   <span class="note-icon">🔒</span>
-  <span class="note-text">Безопасная проекция: approval_code, object_type, object_code, status, decision, dates. Raw UUID, backend URL, storage paths не отображаются.</span>
+  <span class="note-text">Безопасная проекция: approval_code, object_type, object_code, status, decision, dates. Технические коды и скрытые данные не отображаются.</span>
 </div>
 <div class="note-box">
   <span class="note-icon">🛡️</span>
-  <span class="note-text">Maker-checker enforced. Публикация манифеста — следующий шаг после approval (backend status only, без доставки на КСО).</span>
+  <span class="note-text">Maker-checker enforced. Публикация пакета показа — следующий шаг после approval (в системе, без доставки на КСО).</span>
 </div>
 {% endblock %}

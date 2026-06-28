@@ -6,7 +6,7 @@
 <!-- Pilot Status -->
 <div class="pilot-status no-go">
   <span class="pilot-status-icon">🔴</span>
-  <span><strong>Запуск заблокирован</strong> — backend/product/portal GO, физическая КСО NO-GO (5 этапов проверки). Сканер не подключён — физическая проверка не начата.</span>
+  <span><strong>Запуск заблокирован</strong> — система/продукт/портал ГОТОВ, физическая КСО: запуск заблокирован (5 этапов проверки). Сканер не подключён — физическая проверка не начата.</span>
 </div>
 
 {% if backend_warning %}
@@ -123,7 +123,7 @@
           <span class="stat-detail approved">✅ {{ kpi.published_batches }} опубликовано</span>
         </div>
         <div class="stat-details mt-4">
-          <span class="stat-detail text-secondary">📜 {{ kpi.published_manifests }} манифестов</span>
+          <span class="stat-detail text-secondary">📜 {{ kpi.published_manifests }} пакетов показа</span>
           <span class="stat-detail text-secondary">{{ kpi.total_schedules }} расписаний</span>
         </div>
       </div>
@@ -226,7 +226,7 @@
       </div>
       <div class="blocker-item">
         <span class="blocker-status pending">⏳</span>
-        <span class="blocker-label">Manifest delivery</span>
+        <span class="blocker-label">Доставка пакетов показа</span>
         <span class="blocker-detail">Доставка на КСО не approved</span>
       </div>
       <div class="blocker-item">
@@ -281,7 +281,7 @@
       <a href="/publications" class="next-action-card {{ 'next-action-done' if kpi.total_batches > 0 }}">
         <span class="next-action-num">5</span>
         <span class="next-action-label">Подготовить публикацию</span>
-        <span class="next-action-hint">{{ kpi.total_batches }} batches</span>
+        <span class="next-action-hint">{{ kpi.total_batches }} пакетов публикации</span>
       </a>
       <a href="/reports" class="next-action-card">
         <span class="next-action-num">6</span>
@@ -296,7 +296,7 @@
 <div class="empty-state">
   <div class="empty-state-icon">📡</div>
   <div class="empty-state-title">Система недоступна</div>
-  <div class="empty-state-text">Метрики появятся после восстановления соединения с backend API.</div>
+  <div class="empty-state-text">Метрики появятся после восстановления соединения с системой.</div>
 </div>
 {% endif %}
 

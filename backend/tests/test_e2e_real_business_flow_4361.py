@@ -542,7 +542,7 @@ class TestPortalStateAfterE2EFlow(unittest.TestCase):
     def test_dashboard_shows_pilot_nogo_after_e2e(self):
         """Even after full backend-only flow, pilot is NO-GO."""
         resp = self.client.get("/dashboard")
-        self.assertIn("NO-GO", resp.text)
+        self.assertIn("запуск заблокирован", resp.text.lower())
 
     # ── Campaigns ───────────────────────────────────────
 
@@ -561,7 +561,7 @@ class TestPortalStateAfterE2EFlow(unittest.TestCase):
     def test_publications_shows_physical_nogo_after_e2e(self):
         """Even after backend publish, physical delivery is NO-GO."""
         resp = self.client.get("/publications")
-        self.assertIn("NO-GO", resp.text)
+        self.assertIn("запуск заблокирован", resp.text.lower())
         self.assertIn("Физическая доставка", resp.text)
 
     # ── Reports ─────────────────────────────────────────
@@ -589,7 +589,7 @@ class TestPortalStateAfterE2EFlow(unittest.TestCase):
     def test_readiness_still_shows_physical_nogo_after_e2e(self):
         """Readiness page remains NO-GO even after full backend flow."""
         resp = self.client.get("/readiness")
-        self.assertIn("NO-GO", resp.text)
+        self.assertIn("запуск заблокирован", resp.text.lower())
         self.assertIn("Сканер не подключён", resp.text)
 
     def test_readiness_has_acceptance_checklist(self):
@@ -692,7 +692,7 @@ class TestFactualPoPNotExpected(unittest.TestCase):
             rbac._get_perms = lambda req: _ALL_PERMS
             resp = TestClient(portal_main.app).get("/publications")
             found = (
-                "NO-GO" in resp.text
+                "запуск заблокирован" in resp.text.lower()
                 or "backend-only" in resp.text.lower()
                 or "Физическая доставка" in resp.text
             )

@@ -196,7 +196,7 @@ class TestPublicationsTemplateBatches(unittest.TestCase):
     def test_physical_delivery_warning(self):
         """Shows warning that physical KSO delivery is disabled."""
         content = self._get_content()
-        self.assertIn("Доставка и sidecar sync отключены", content)
+        self.assertIn("Доставка на КСО отключена", content)
 
     def test_no_javascript(self):
         """No <script>, onclick, confirm, CDN, localStorage."""
@@ -448,8 +448,8 @@ class TestPublicationsTemplateBatchActions(unittest.TestCase):
     def test_batch_generate_action_present(self):
         """Generate button exists in template."""
         content = self._get_content()
-        self.assertIn("/generate", content)
-        self.assertIn("Generate", content)
+        self.assertIn("/generate", content)  # URL path, button text is now "Сформировать"
+        self.assertIn("Сформировать", content)
 
     def test_batch_publish_action_present(self):
         """Publish button exists in template."""
