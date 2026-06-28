@@ -1,9 +1,10 @@
 # RC0 Freeze Checklist — 44.6
 
 **Дата:** 2026-06-28
-**RC0 Commit:** 1b9dd05
+**RC0 Commit:** 1b9dd05 (исходная заморозка) / 6fac6a3 (runtime patch)
 **Ветка:** main
 **Статус:** ✅ RC0 заморожен
+**Теги:** v0.9.0-rc0-business-demo (initial RC0) → a9631af | v0.9.0-rc0-business-demo.1 (patch baseline) → 6fac6a3
 
 ---
 

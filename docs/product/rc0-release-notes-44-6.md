@@ -2,7 +2,8 @@
 
 **Дата выпуска:** 2026-06-28
 **Версия:** 44.6 (RC0)
-**Commit:** 1b9dd05
+**Commit:** 1b9dd05 (initial) / 6fac6a3 (runtime patch)
+**Patches:** v0.9.0-rc0-business-demo → a9631af | v0.9.0-rc0-business-demo.1 → 6fac6a3
 
 ---
 

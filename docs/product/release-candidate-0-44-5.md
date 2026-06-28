@@ -221,12 +221,15 @@ Production UI полностью очищен от запрещённых тех
 ## 44.6: RC0 Freeze & Business Demo Package
 
 **Дата:** 2026-06-28
-**HEAD (RC0 commit):** 1b9dd05
+**HEAD (RC0 commit):** 1b9dd05 (исходный)
+**HEAD (patch baseline):** 6fac6a3 (45.0.1 runtime fix)
 **Статус:** ✅ RC0 заморожен — готов к бизнес-демонстрации
 
 ### Результат заморозки
 
-RC0 заморожен на коммите `1b9dd05`. Кодовая база и документация зафиксированы для проведения бизнес-демонстрации. Тег выпуска: `v0.9.0-rc0-business-demo`.
+RC0 заморожен на коммите `1b9dd05`. Кодовая база и документация зафиксированы для проведения бизнес-демонстрации.
+- Исходный тег выпуска: `v0.9.0-rc0-business-demo` → `a9631af`
+- **Патч-тег для демонстрации: `v0.9.0-rc0-business-demo.1` → `6fac6a3`** (runtime smoke fixes)
 
 ### Новые документы (4 файла)
 
@@ -256,3 +259,58 @@ RC0 готов к бизнес-демонстрации. Физический п
 - `docs/runbooks/one-kso-pilot-runbook.md` — пилотный runbook
 - `docs/runbooks/physical-approval-gates.md` — approval gates
 - `CHANGELOG.md` — история изменений
+
+---
+
+## 45.0.1: Runtime Refresh & RC0 Smoke Recheck
+
+**Дата:** 2026-06-28
+**HEAD:** 6fac6a3
+**Статус:** ✅ Завершён
+
+### Обнаруженные дефекты (3 страницы)
+
+При перезапуске портала на актуальном HEAD выявлены runtime-ошибки на страницах «Публикации» и «Рекламное время», вызванные stale-процессом и мелкими дефектами в шаблонах/клиенте.
+
+| # | Страница | Ошибка | Исправление |
+|---|----------|--------|-------------|
+| 1 | `/publications` | `'cancelled' is not in list` (pipeline stages) | Добавлены `rejected`, `cancelled` в stages + guard |
+| 2 | `/publications` | `TypeError: comment is None` | `b.get("comment", "")` → `b.get("comment") or ""` |
+| 3 | `/inventory` | `_request_json` не существует | Переписаны 3 метода на `_request` / `json_data` / query string |
+| 4 | `/inventory` | `sold_out_units`, `occupancy_pct` и др. отсутствуют | Все dot-access заменены на `.get()` с default'ами |
+| 5 | `/inventory` | `items` → метод dict `.items()` | `.data.items` → `.data.get('items', [])` |
+
+### Результат
+
+- Smoke-test: **18/18** страниц — 200 (или 303 для неаутентифицированных)
+- Visible forbidden terms: **0**
+- JS/CDN/localStorage: **0**
+- Regression: backend **807/0**, portal **756/0**
+- Commit: `6fac6a3` — 4 файла исправлено
+
+---
+
+## 45.0.2: RC0 Patch Baseline & Demo Tag Alignment
+
+**Дата:** 2026-06-28
+**HEAD:** 6fac6a3
+**Статус:** ✅ Завершён
+
+### Теги
+
+| Тег | Указывает на | Назначение |
+|-----|-------------|------------|
+| `v0.9.0-rc0-business-demo` | `a9631af` | Исходная заморозка RC0 (НЕ переписан) |
+| `v0.9.0-rc0-business-demo.1` | `6fac6a3` | **Патч-базовый уровень для демонстрации** |
+
+### Документы
+
+- Обновлены: `rc0-release-notes-44-6.md`, `rc0-freeze-checklist-44-6.md`, `business-demo-route-44-6.md`, `release-candidate-0-44-5.md`, `CHANGELOG.md`
+- Создан: `rc0-demo-launch-note-45-0-2.md` — инструкция по запуску демонстрации
+
+### Подтверждения
+
+- ✅ Старый тег не переписан
+- ✅ Для демонстрации использовать `v0.9.0-rc0-business-demo.1`
+- ✅ Физический пилот остаётся заблокирован
+- ✅ Production AV не включён

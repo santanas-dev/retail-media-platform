@@ -2375,3 +2375,60 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 - `docs/audit/pilot-readiness-gap-register.md` — статус RC0 freeze
 - `docs/audit/deviation-register-44-0.md` — подтверждение отсутствия новых отклонений
 - `docs/audit/tz-compliance-matrix-44-0.md` — раздел 23 (44.6 RC0 Freeze)
+
+---
+
+## [45.0.1-runtime-refresh] — 2026-06-28
+
+**Runtime Refresh & RC0 Smoke Recheck.**
+
+Перезапуск портала на актуальном HEAD и исправление runtime-ошибок.
+
+### Обнаруженные дефекты
+
+- `/publications`: `'cancelled' is not in list` (pipeline stages) → добавлены `rejected`, `cancelled` в stages
+- `/publications`: `TypeError: comment is None` → исправлена обработка None
+- `/inventory`: `_request_json` не существует → переписаны методы на `_request` / `json_data`
+- `/inventory`: `sold_out_units`, `occupancy_pct` и др. отсутствуют → dot-access заменены на `.get()`
+- `/inventory`: `items` → конфликт с методом dict `.items()` → `.data.get('items', [])`
+
+### Результат
+
+- Smoke-test: **18/18** страниц — 200/303
+- Visible forbidden terms: **0**
+- JS/CDN/localStorage: **0**
+- Commit: `6fac6a3` — 4 файла исправлено
+- **Тег НЕ создавался** — это runtime-fix на основном треке
+
+### Регрессия
+
+- Backend: **807 пройдено**, 0 отказов
+- Portal: **756 пройдено**, 0 отказов
+
+---
+
+## [45.0.2-patch-baseline] — 2026-06-28
+
+**RC0 Patch Baseline & Demo Tag Alignment.**
+
+Зафиксирован исправленный демонстрационный уровень после runtime-fix без перезаписи исходного тега.
+
+### Теги
+
+| Тег | Указывает на | Назначение |
+|-----|-------------|------------|
+| `v0.9.0-rc0-business-demo` | `a9631af` | Исходная заморозка RC0 (НЕ переписан) |
+| `v0.9.0-rc0-business-demo.1` | `6fac6a3` | **Патч-базовый уровень для демонстрации** |
+
+### Документы
+
+- Обновлены: `rc0-release-notes-44-6.md`, `rc0-freeze-checklist-44-6.md`, `business-demo-route-44-6.md`, `release-candidate-0-44-5.md`, `CHANGELOG.md`
+- Создан: `rc0-demo-launch-note-45-0-2.md` — инструкция по запуску демонстрации
+
+### Подтверждения
+
+- ✅ Старый тег не переписан
+- ✅ Для демонстрации использовать `v0.9.0-rc0-business-demo.1`
+- ✅ Физический пилот остаётся заблокирован
+- ✅ Production AV не включён
+- ✅ Smoke-test 18/18 подтверждён
