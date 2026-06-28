@@ -2596,3 +2596,50 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 ### Commit
 
 `d78e23f` — 📋 Document pre-demo functional RBAC RLS audit (45.2)
+
+---
+
+## [45.3-final-product-gate] — 2026-06-28
+
+**Final Pre-Demo Product Gate: UI, Actions, Roles, Persistence & Demo Boundaries.**
+
+Браузерный обход всех 16 страниц под system_admin, проверка кнопок/форм/терминов.
+
+### P0 Fixes
+
+- «Создание пользователей доступно» → «выполняется администратором системы» (вводило в заблуждение)
+- RLS scope assignment form удалена из `/admin` UI (вела к HTTP 422)
+
+### P1 Fixes
+
+- Технические термины заменены на бизнес-язык: RLS→«доступа», RBAC→убрано, MFA→оставлено, bcrypt→«шифрование», device_service→«Сервисные учётные записи»
+- `/admin`, `/stores`, `/reports` — очищены от технического жаргона
+- Обновлены guard-тесты (14 тестов) под новый demo-safe UI
+
+### Demo Route
+
+- Все 16 страниц → HTTP 200
+- Все кнопки/ссылки ведут на рабочие страницы (нет 403/404/500)
+- Горизонтального скролла нет
+- Пустых span/div нет
+- Светлых inline-стилей нет
+
+### Visible Forbidden Terms
+
+- RLS: 0 (было 6)
+- RBAC: 0 (было 2)
+- MFA: осталось в policy (информационно)
+- bcrypt/argon2: 0
+- device_service: 0
+- TODO/not implemented/None (visible): 0 (было 1 — «None» в reports)
+
+### Regression
+
+| Слой | Пройдено | Отказов |
+|------|----------|---------|
+| Portal | **759** (+32 skipped) | **0** |
+| Backend | **807** | **0** |
+
+### Commit
+
+`d457e7f` — ✅ Fix final pre-demo product gate issues (45.3)
