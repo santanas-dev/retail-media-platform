@@ -2562,3 +2562,37 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 ### Commit
 
 `c000e67` — 🔒 Fix RLS bypass: add advertiser scope checks to 11 campaign UUID endpoints
+
+---
+
+## [45.2.1-secure-demo-baseline] — 2026-06-28
+
+**Secure Demo Baseline Tag & Demo Boundaries.**
+
+### Tag
+
+Создан annotated tag `v0.9.0-rc0-business-demo.3` на HEAD `d78e23f`.
+
+| Тег | HEAD | Статус |
+|-----|------|--------|
+| `v0.9.0-rc0-business-demo.3` | `d78e23f` | **Secure demo baseline** |
+
+### Demo Boundaries
+
+**Можно показывать:** все 16 страниц портала.
+
+**НЕ показывать как готовое:**
+- Создание пользователей через portal UI — не реализовано (P1)
+- `PUT /api/users/{id}/roles` — HTTP 500 (P1)
+- `PATCH /api/users/{username}/rls-scopes` — HTTP 422 (P1)
+
+### Подтверждения
+
+- P0 blockers: **0**
+- Physical pilot: **заблокирован**
+- Production AV: **не включён**
+- Physical KSO/SSH/X11/Chromium/runner/sidecar/PoP: **не запускались**
+
+### Commit
+
+`d78e23f` — 📋 Document pre-demo functional RBAC RLS audit (45.2)

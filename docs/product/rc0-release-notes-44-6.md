@@ -1,9 +1,13 @@
-# RC0 Release Notes — 44.6
+# RC0 Release Notes — 44.6 / 45.2.1
 
 **Дата выпуска:** 2026-06-28
-**Версия:** 44.6 (RC0)
-**Commit:** 1b9dd05 (initial) / 6fac6a3 (runtime) / 76a9cd4 (visual)
-**Patches:** v0.9.0-rc0-business-demo → a9631af | .1 → 6fac6a3 | **.2 → 76a9cd4 (demo)**
+**Версия:** 45.2.1 (secure demo baseline)
+**Commit:** `d78e23f`
+**Patches:** v0.9.0-rc0-business-demo → a9631af | .1 → 6fac6a3 | .2 → 76a9cd4 | **.3 → d78e23f (secure demo)**
+
+> **Для бизнес-демонстрации использовать ТОЛЬКО `v0.9.0-rc0-business-demo.3` (d78e23f).**
+> Тег `.2` (76a9cd4) содержит CRITICAL RLS bypass — утечка данных между рекламодателями.
+> Тег `.3` закрывает уязвимость + разблокирует admin account.
 
 ---
 

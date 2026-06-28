@@ -3,6 +3,7 @@
 **Date:** 2026-06-28
 **Part of:** Pre-demo functional audit (45.2)
 **HEAD:** `c000e67`
+**Demo tag:** `v0.9.0-rc0-business-demo.3` → `d78e23f`
 
 ---
 

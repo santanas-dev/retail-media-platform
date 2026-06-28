@@ -4,6 +4,7 @@
 **Auditor:** Hermes Agent (automated + manual verification)
 **Scope:** Full functional, RBAC/RLS, persistence, error handling audit before business demo
 **HEAD:** `c000e67` (parent: `0aa4bda`)
+**Demo tag:** `v0.9.0-rc0-business-demo.3` → `d78e23f` (secure demo baseline)
 
 ---
 
