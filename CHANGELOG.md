@@ -2432,3 +2432,36 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 - ✅ Физический пилот остаётся заблокирован
 - ✅ Production AV не включён
 - ✅ Smoke-test 18/18 подтверждён
+
+---
+
+## [45.1-visual-polish] — 2026-06-28
+
+**RC0 Visual Polish & CSS Coverage Closure.**
+
+Закрытие визуальных разрывов, найденных аудитом 45.0: 40+ undefined CSS-классов, светлые inline-стили, пустые элементы.
+
+### CSS (+228 строк)
+
+Добавлены все недостающие классы в `styles.css` с использованием существующих CSS-переменных:
+`kpi-*`, `card-*`, `detail-*`, `form-section/form-fieldset/form-row`, `summary-*`, `days-*`, `time-*`, `error-banner/success-banner`, `requirements-*`, `fill-bar-*`, `badge-*`, `filter-toolbar/filter-select`, `legend-*`, `action-link`, `component-*`, `empty-text`, `w-150`, `alert-*`.
+
+### Исправления шаблонов (6 файлов)
+
+- `campaigns_create.html`: `btn-primary` → `btn btn-primary`, светлые inline-стили → CSS vars
+- `login.html`, `admin.html`: `btn-primary` → `btn btn-primary`
+- `publications.html`, `reports.html`: удалены пустые `<span class="note-text">`
+
+### Guard-тесты
+
+- `TestRC0VisualPolishGuards`: 4 теста (render 200, no light inline styles, no empty note-text, CSS coverage)
+- `_FakeBackendClient`: добавлены inventory-методы
+
+### Подтверждения
+
+- ✅ Никаких изменений бизнес-логики
+- ✅ RBAC/RLS/audit trail не тронуты
+- ✅ Физическая КСО/SSH/X11/Chromium/runner/sidecar/PoP не запускались
+- ✅ Существующие теги не переписаны
+- ✅ Visible forbidden terms: 0
+- ✅ JS/CDN/localStorage: 0

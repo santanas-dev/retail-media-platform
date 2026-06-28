@@ -648,6 +648,227 @@ code {
 /* ── Clean table variant (no border/shadow) ────── */
 .table-clean { border: none; box-shadow: none; margin-bottom: 0; }
 
+/* ═══════════════════════════════════════════════════════════════════
+   RC0 Visual Polish (45.1) — missing CSS classes from production templates
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── KPI Grid & Cards (creatives, inventory) ──── */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi-card {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: 14px 18px; box-shadow: var(--shadow-sm);
+}
+.kpi-card-warning { border-color: var(--color-warning-border); }
+.kpi-label { font-size: 11px; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; }
+.kpi-value { font-size: 28px; font-weight: 700; color: var(--color-text); }
+
+/* ── Creative Detail Card ──────────────────────── */
+.card-header {
+  display: flex; align-items: center; gap: 8px; padding: 12px 18px;
+  border-bottom: 1px solid var(--color-border); font-weight: 600; font-size: 14px;
+}
+.card-icon { font-size: 16px; }
+.card-badge {
+  margin-left: auto; font-family: var(--font-mono); font-size: 12px;
+  color: var(--color-primary-text); background: var(--color-bg);
+  padding: 2px 8px; border-radius: var(--radius-xs);
+}
+.card-body { padding: 16px 18px; }
+
+.detail-preview {
+  margin-bottom: 16px; border-radius: var(--radius-sm); overflow: hidden;
+  background: var(--color-bg); border: 1px solid var(--color-border);
+  display: flex; align-items: center; justify-content: center; min-height: 200px;
+}
+.preview-image { max-width: 100%; max-height: 400px; display: block; margin: 0 auto; }
+.preview-placeholder {
+  font-size: 48px; opacity: 0.3; padding: 40px; color: var(--color-text-muted);
+}
+.preview-placeholder.video { font-size: 64px; }
+.preview-placeholder.gif { font-size: 56px; }
+
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.detail-row {
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 14px;
+  background: var(--color-bg); border-radius: var(--radius-sm);
+}
+.detail-label { font-size: 11px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.detail-value { font-size: 13px; color: var(--color-text); word-break: break-word; }
+.detail-comment {
+  background: var(--color-warning-bg); border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-sm); padding: 8px 12px; color: var(--color-warning-text); font-size: 12px;
+}
+.detail-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--color-border); }
+
+/* ── Create Campaign Form ───────────────────────── */
+.form-section {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: 20px 24px; margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+}
+.form-title { font-size: 16px; font-weight: 700; color: var(--color-text); margin-bottom: 16px; }
+
+.form-fieldset {
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: 16px; margin-bottom: 16px; background: var(--color-bg);
+}
+.form-fieldset legend {
+  font-size: 12px; font-weight: 600; color: var(--color-text-secondary);
+  text-transform: uppercase; letter-spacing: 0.3px; padding: 0 8px;
+}
+
+.form-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.form-row .form-group { flex: 1; min-width: 200px; }
+.form-row .form-group label { font-size: 12px; font-weight: 600; color: var(--color-text-secondary); display: block; margin-bottom: 4px; }
+.form-row .form-group input,
+.form-row .form-group select,
+.form-row .form-group textarea {
+  width: 100%; padding: 8px 12px; font-size: 13px;
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-bg); color: var(--color-text);
+  outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-row .form-group input:focus,
+.form-row .form-group select:focus,
+.form-row .form-group textarea:focus {
+  border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+}
+.form-row .form-group textarea { resize: vertical; min-height: 56px; }
+.form-row .form-group .form-hint { font-size: 11px; color: var(--color-text-muted); margin-top: 4px; }
+
+.create-form, .business-form { display: flex; flex-direction: column; gap: 0; }
+
+.days-group { min-width: 280px; }
+.days-checkboxes { display: flex; gap: 6px; flex-wrap: wrap; }
+.day-label {
+  display: flex; align-items: center; gap: 4px; padding: 5px 10px;
+  background: var(--color-bg); border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); font-size: 12px; cursor: pointer;
+  transition: border-color 0.15s; user-select: none;
+}
+.day-label:hover { border-color: var(--color-primary); }
+.day-label input[type="checkbox"] { accent-color: var(--color-primary); }
+
+.time-window-group, .custom-time-group { min-width: 200px; }
+.time-row { display: flex; align-items: center; gap: 8px; }
+.time-sep { color: var(--color-text-muted); font-size: 14px; }
+
+/* ── Summary After Create ──────────────────────── */
+.summary-section {
+  background: var(--color-surface); border: 1px solid var(--color-success-border);
+  border-radius: var(--radius); padding: 20px 24px; margin-bottom: 16px;
+}
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.summary-item {
+  padding: 10px 14px; background: var(--color-bg); border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--color-text);
+}
+.summary-label { font-weight: 600; color: var(--color-text-secondary); margin-right: 6px; }
+
+/* ── Error / Success Banners (admin compat) ────── */
+.error-banner, .success-banner {
+  display: flex; align-items: center; gap: 10px; border-radius: var(--radius);
+  padding: 10px 16px; margin-bottom: 16px; font-size: 13px;
+}
+.error-banner { background: var(--color-error-bg); border: 1px solid var(--color-error-border); color: var(--color-error-text); }
+.success-banner { background: var(--color-success-bg); border: 1px solid var(--color-success-border); color: var(--color-success-text); }
+.error-banner-icon, .success-banner-icon { font-size: 16px; flex-shrink: 0; }
+.error-banner-text, .success-banner-text { flex: 1; }
+
+/* ── Requirements Box (admin, login compat) ────── */
+.requirements-box {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: 16px 20px; margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+}
+.requirements-title { font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 12px; }
+.requirements-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.requirements-item {
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 14px;
+  background: var(--color-bg); border-radius: var(--radius-sm);
+}
+.requirements-label { font-size: 11px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.requirements-value { font-size: 13px; color: var(--color-text); }
+.requirements-disabled { color: var(--color-text-muted); }
+.requirements-forbidden { color: var(--color-error-text); }
+
+.export-action { padding: 12px 0; }
+
+/* ── Fill Bars (inventory compact) ─────────────── */
+.fill-bar { height: 6px; background: var(--color-bg); border-radius: 3px; overflow: hidden; }
+.fill-bar-inner { height: 100%; border-radius: 3px; }
+
+/* ── Content Card Header/Title (inventory) ─────── */
+.content-card-header {
+  display: flex; align-items: center; gap: 8px; padding: 12px 18px;
+  border-bottom: 1px solid var(--color-border); margin: -18px -18px 16px -18px;
+}
+.content-card-title { font-size: 14px; font-weight: 600; color: var(--color-text); }
+
+/* ── Badges (stores, PoP, admin legacy) ────────── */
+.badge {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 4px; flex-shrink: 0; vertical-align: middle;
+}
+.badge-draft { background: var(--color-text-muted); }
+.badge-archived { background: var(--color-text-muted); }
+.badge-online, .badge-ready, .badge-active { background: var(--color-success); }
+.badge-offline, .badge-unknown { background: var(--color-text-muted); }
+.badge-hold, .badge-warning { background: var(--color-warning); }
+.badge-error, .badge-blocked { background: var(--color-error); }
+
+/* ── Filter Toolbar & Select ───────────────────── */
+.filter-toolbar { margin-bottom: 16px; }
+.filter-select {
+  padding: 6px 10px; font-size: 13px; border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-text);
+  outline: none; transition: border-color 0.15s;
+}
+.filter-select:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
+
+/* ── Legend ────────────────────────────────────── */
+.legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin: 12px 0; font-size: 12px; }
+.legend-title { font-weight: 600; color: var(--color-text-secondary); }
+.legend-item { display: flex; align-items: center; gap: 4px; color: var(--color-text-muted); }
+
+/* ── Action Link ───────────────────────────────── */
+.action-link {
+  color: var(--color-primary); text-decoration: none; font-size: 12px;
+  transition: color 0.15s;
+}
+.action-link:hover { color: var(--color-primary-text); }
+
+/* ── Deployment Components ─────────────────────── */
+.component-list { display: flex; flex-direction: column; gap: 8px; }
+.component-item {
+  padding: 14px 18px; background: var(--color-surface);
+  border: 1px solid var(--color-border); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.component-item h3 {
+  font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 4px;
+}
+.component-item p { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+.component-status {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 6px; vertical-align: middle;
+}
+.component-status.status-pending { background: var(--color-warning); }
+
+/* ── Empty Text ────────────────────────────────── */
+.empty-text { font-size: 13px; color: var(--color-text-secondary); text-align: center; padding: 20px; }
+
+/* ── Width Utility ─────────────────────────────── */
+.w-150 { width: 150px; padding: 6px 10px; font-size: 13px; }
+
+/* ── Alert ─────────────────────────────────────── */
+.alert { padding: 12px 16px; border-radius: var(--radius); margin-bottom: 12px; font-size: 13px; }
+.alert-warning { background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); color: var(--color-warning-text); }
+.alert-icon { font-size: 16px; flex-shrink: 0; }
+
+/* ── Row Detail (inventory expand) ─────────────── */
+.row-detail td { padding: 8px 14px; background: var(--color-bg); font-size: 11px; }
+
 /* ── Reduced Motion ────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

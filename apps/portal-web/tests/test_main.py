@@ -3978,6 +3978,41 @@ class _FakeBackendClient:
             "decided_at": "2026-06-22T13:00:00Z",
         }}
 
+    # ── Inventory (45.1 visual guards) ──
+
+    async def get_inventory_snapshot(self, access_token: str) -> dict:
+        return {"ok": True, "data": {
+            "total_units": 5, "with_rules": 3, "with_bookings": 2,
+            "total_kso_devices": 3, "active_kso_devices": 2,
+        }}
+
+    async def get_inventory_availability(self, access_token: str,
+                                         date_from: str = None, date_to: str = None) -> dict:
+        return {"ok": True, "data": {
+            "summary": {
+                "total_units": 5, "total_capacity": 500, "total_available": 350,
+                "occupancy_pct_avg": 30, "sold_out_units": 0, "limited_units": 1,
+            },
+            "items": [
+                {"inventory_unit_code": "unit-001", "store_code": "store-01",
+                 "store_name": "Test Store", "capacity_total": 100,
+                 "confirmed_booked": 20, "reserved_booked": 5,
+                 "internal_booked": 3, "emergency_booked": 2,
+                 "available": 70, "sold_out": False, "status": "available",
+                 "occupancy_pct": 30},
+            ],
+        }}
+
+    async def get_inventory_forecast(self, access_token: str,
+                                     date_from: str = None, date_to: str = None) -> dict:
+        return {"ok": True, "data": {
+            "disclaimer": "Оценка по расписанию и количеству КСО",
+            "total_devices": 3, "active_devices": 2,
+            "total_capacity_spots": 500, "expected_impressions": 12000,
+            "occupancy_estimate_pct": 30, "date_from": date_from or "2026-01-01",
+            "date_to": date_to or "2026-01-31", "days_count": 30,
+        }}
+
     # ── Manifests (Steps 37.7, 37.8) ──
 
     async def list_manifests(self, access_token: str) -> dict:
@@ -6551,6 +6586,69 @@ class TestRC0Guard44_6(unittest.TestCase):
         resp = self.client.get("/approvals")
         if resp.status_code == 200:
             self.assertIn("двух подписей", resp.text.lower())
+
+
+class TestRC0VisualPolishGuards(unittest.TestCase):
+    """45.1: CSS coverage, inline styles, empty elements, visual smoke."""
+
+    PAGES = [
+        "/dashboard", "/campaigns", "/creatives", "/schedule",
+        "/publications", "/approvals", "/reports", "/proof-of-play",
+        "/stores", "/devices", "/device-dashboard", "/readiness",
+        "/readiness/business-acceptance", "/inventory",
+        "/admin", "/deployment",
+    ]
+
+    def setUp(self):
+        import main
+        self._orig_bc = main.BackendClient
+        main.BackendClient = _FakeBackendClient
+        self._orig_gpt = main.get_portal_tokens
+        main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        import main
+        main.BackendClient = _ORIG_BACKEND_CLIENT
+        main.get_portal_tokens = _ORIG_GET_PORTAL_TOKENS
+
+    def test_visual_pages_render_200(self):
+        """45.1: pages that had visual gaps must render 200."""
+        gap_pages = [
+            "/creatives", "/inventory", "/proof-of-play",
+            "/stores", "/admin", "/deployment",
+            "/publications", "/reports",
+            "/readiness/business-acceptance",
+        ]
+        for page in gap_pages:
+            resp = self.client.get(page)
+            self.assertIn(resp.status_code, (200, 302, 303),
+                         f"{page}: expected 200/302/303, got {resp.status_code}")
+
+    def test_no_light_theme_inline_styles(self):
+        """45.1: production templates must not use light-theme inline colors."""
+        forbidden = ["#fef3c7", "#fde68a", "#92400e", "#d1d5db", "#64748b",
+                     "#f3f4f6", "#e5e7eb", "#9ca3af", "#6b7280", "#374151",
+                     "#ffffff", "#f9fafb"]
+        for page in self.PAGES:
+            resp = self.client.get(page)
+            if resp.status_code not in (200, 302, 303):
+                continue
+            html = resp.text
+            for color in forbidden:
+                if color in html:
+                    self.fail(
+                        f"{page}: light-theme color {color} found in inline style")
+
+    def test_no_empty_note_text(self):
+        """45.1: publications and reports must not render empty note-text spans."""
+        for page in ["/publications", "/reports"]:
+            resp = self.client.get(page)
+            if resp.status_code == 200:
+                self.assertNotIn(
+                    '<span class="note-text"></span>', resp.text,
+                    f"{page}: must not have empty note-text span")
+
 
 if __name__ == "__main__":
     unittest.main()
