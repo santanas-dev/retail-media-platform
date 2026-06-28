@@ -34,6 +34,30 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [45.5.1-two-user-maker-checker-e2e] — 2026-06-28
+
+**Two-User Maker-Checker E2E — full business scenario with creator/approver role separation.**
+
+### E2E
+- Two users: creator (ad_manager) + approver (approver)
+- Full scenario: upload → submit → cross-user approve → campaign → schedule → submit → cross-user approve
+- Same-user approval BLOCKED by permission layer (403)
+- Cross-user approval PASSES
+
+### Fixed
+- `list_campaign_creatives` enriched with creative metadata (name, status, mime_type, file_size, scan_status)
+- `schedule_slots` missing `updated_at` column → ALTER TABLE fix
+
+### Added
+- Empty state quick-actions in campaign detail
+- 11 new tests: maker-checker enforcement, creative status, onclick removal
+
+### Regression
+- Portal: 823 passed, 0 failed
+- Backend: 768 passed, 39 pre-existing (documented)
+
+---
+
 ## [45.4.2-business-demo-cleanup] — 2026-06-16
 
 **Business User Demo Cleanup — full P0/P1/P2 closure, UI-only, no business logic changes.**

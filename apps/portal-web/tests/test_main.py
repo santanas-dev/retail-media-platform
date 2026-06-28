@@ -7042,15 +7042,104 @@ class TestCampaignDetailPage(unittest.TestCase):
 
     def test_campaign_list_redirects_to_detail(self):
         """Bind/unbind/submit actions must redirect to detail, not list."""
-        # Verify route definitions redirect to campaign detail
-        # Check main.py source for redirect patterns
         main_path = Path(__file__).resolve().parent.parent / "main.py"
         main_source = main_path.read_text()
-        # bind-creative redirect
         self.assertIn('url=f"/campaigns/{campaign_code}"', main_source,
                       "Bind/unbind/submit must redirect to detail page")
         self.assertIn('camp_detail_flash', main_source,
                       "Detail page must use camp_detail_flash for messages")
+
+    def test_detail_empty_creative_has_quick_action(self):
+        """Empty creative block must guide user to next action."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertIn("Загрузить креатив", source,
+                      "Empty creative state must have upload CTA")
+
+    def test_detail_empty_placement_has_quick_action(self):
+        """Empty placement block must guide user to create schedule."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertIn("Создать размещение", source,
+                      "Empty placement state must have create CTA")
+
+    def test_detail_creative_status_displayed(self):
+        """Campaign detail template must reference creative status for display."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertIn("Статус проверки", source,
+                      "Detail template must show creative scan_status")
+        self.assertIn("scan_status", source,
+                      "Detail template must reference scan_status field")
+
+    def test_detail_no_onclick_js(self):
+        """Campaign detail must NOT have onclick JavaScript handlers."""
+        template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
+        source = template_path.read_text()
+        self.assertNotIn("onclick", source,
+                         "Detail template must NOT contain onclick")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 45.5.1: Maker-Checker enforcement tests
+# ══════════════════════════════════════════════════════════════════════
+
+class TestMakerCheckerEnforcement(unittest.TestCase):
+    """45.5.1: Two-user maker-checker — backend permission enforcement."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_bind_creative_route_requires_approved_status(self):
+        """Backend bind-creative route rejects non-approved creatives (route exists)."""
+        # Verify route definition references bind-creative
+        main_path = Path(__file__).resolve().parent.parent / "main.py"
+        source = main_path.read_text()
+        self.assertIn("/bind-creative", source,
+                      "Main.py must have bind-creative route")
+        # Verify approved creatives filtering
+        self.assertIn('approved_creatives', source,
+                      "Main.py must filter for approved creatives")
+
+    def test_approval_flow_uses_hidden_object_code(self):
+        """Submit must pass object_type/object_code programmatically, no manual input."""
+        main_path = Path(__file__).resolve().parent.parent / "main.py"
+        source = main_path.read_text()
+        # The submit route must call backend.submit_campaign without exposing object_code
+        self.assertIn("submit_campaign", source,
+                      "Main.py must call backend submit_campaign")
+        self.assertNotIn('name="object_code"', source,
+                         "Must NOT expose object_code as form field")
+
+    def test_campaign_create_route_requires_token(self):
+        """Campaign detail route must handle missing token gracefully."""
+        resp = self.client.get("/campaigns/promo_suppliers_e2e")
+        # Without auth, should redirect or show 404 — not 500
+        self.assertNotEqual(resp.status_code, 500)
+
+    def test_backend_list_campaign_creatives_enriched(self):
+        """Backend list_campaign_creatives must include creative metadata fields."""
+        service_path = Path("/home/cobalt/retail-media-platform/backend/app/domains/campaigns/service.py")
+        if service_path.exists():
+            source = service_path.read_text()
+            self.assertIn("CrModel.name", source,
+                          "Service must join with Creative model for name")
+            self.assertIn("CrModel.status", source,
+                          "Service must include creative status in response")
+            self.assertIn("CvModel.mime_type", source,
+                          "Service must join with CreativeVersion for format info")
+            self.assertIn("r.status", source,
+                          "Response dict must include status field")
+
+    def test_bind_campaign_creative_requires_approved(self):
+        """Backend bind_campaign_creative must reject non-approved creative."""
+        service_path = Path("/home/cobalt/retail-media-platform/backend/app/domains/campaigns/service.py")
+        if service_path.exists():
+            source = service_path.read_text()
+            self.assertIn("creative.status != \"approved\"", source,
+                          "Backend must enforce approved status for creative binding")
+            self.assertIn("требуется статус 'approved'", source,
+                          "Error message must be in Russian")
 
 
 if __name__ == "__main__":

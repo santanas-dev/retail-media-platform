@@ -831,20 +831,53 @@ def _is_campaign_creative_active(link) -> bool:
 async def list_campaign_creatives(
     db: AsyncSession, campaign_id: UUID,
 ) -> list[dict]:
-    """List active creative bindings for a campaign."""
-    result = await db.execute(
-        select(models.CampaignCreative).where(
-            models.CampaignCreative.campaign_id == campaign_id,
-        ).order_by(models.CampaignCreative.created_at)
+    """List creative bindings enriched with creative metadata (45.5.1)."""
+    from app.domains.media.models import Creative as CrModel, CreativeVersion as CvModel
+    from sqlalchemy import func
+
+    # Subquery: latest version per creative
+    latest_v = (
+        select(
+            CvModel.creative_id,
+            func.max(CvModel.version).label("max_v"),
+        )
+        .group_by(CvModel.creative_id)
+        .subquery()
     )
-    bindings = result.scalars().all()
+
+    result = await db.execute(
+        select(
+            models.CampaignCreative.creative_code,
+            models.CampaignCreative.created_at,
+            CrModel.name,
+            CrModel.status,
+            CrModel.scan_status,
+            CvModel.mime_type,
+            CvModel.file_size,
+            CvModel.width,
+            CvModel.height,
+        )
+        .join(CrModel, models.CampaignCreative.creative_code == CrModel.creative_code)
+        .join(CvModel, CvModel.creative_id == CrModel.id)
+        .join(latest_v, (CvModel.creative_id == latest_v.c.creative_id) & (CvModel.version == latest_v.c.max_v))
+        .where(models.CampaignCreative.campaign_id == campaign_id)
+        .order_by(models.CampaignCreative.created_at)
+    )
+    rows = result.all()
     return [
         {
-            "creative_code": b.creative_code,
-            "is_active": True,  # existence = active (is_active column unmapped)
-            "created_at": b.created_at,
+            "creative_code": r.creative_code,
+            "name": r.name,
+            "status": r.status,
+            "mime_type": r.mime_type,
+            "file_size": r.file_size,
+            "scan_status": r.scan_status or "not_configured",
+            "width": r.width,
+            "height": r.height,
+            "is_active": True,
+            "created_at": r.created_at,
         }
-        for b in bindings
+        for r in rows
     ]
 
 

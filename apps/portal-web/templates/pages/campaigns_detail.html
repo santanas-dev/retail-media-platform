@@ -102,6 +102,15 @@
       <div class="empty-state-icon">🎨</div>
       <div class="empty-state-title">Креативы не привязаны</div>
       <div class="empty-state-text">Добавьте одобренные креативы к кампании.</div>
+      {% if approved_creatives %}
+      <div class="empty-state-action mt-12">
+        <span class="text-sm text-muted">Выберите креатив из списка ниже и нажмите «+ Добавить».</span>
+      </div>
+      {% else %}
+      <div class="empty-state-action mt-12">
+        <a href="/creatives" class="btn btn-primary">+ Загрузить креатив</a>
+      </div>
+      {% endif %}
     </div>
     {% endif %}
 
@@ -164,6 +173,9 @@
       <div class="empty-state-icon">📅</div>
       <div class="empty-state-title">Размещения не созданы</div>
       <div class="empty-state-text">Создайте расписание для кампании.</div>
+      <div class="empty-state-action mt-12">
+        <span class="text-sm text-muted">Заполните форму ниже и нажмите «+ Создать размещение».</span>
+      </div>
     </div>
     {% endif %}
 
