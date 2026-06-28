@@ -117,7 +117,8 @@ async def upload_to_minio(
         )
 
     # Determine content-type from the upload data
-    content_type = _detect_mime_type(original_filename, file_content[:2048])
+    # Pass full content — Pillow verify() needs the complete file for CRC validation
+    content_type = _detect_mime_type(original_filename, file_content)
 
     if content_type not in ALLOWED_MIME_TYPES:
         raise ValueError(

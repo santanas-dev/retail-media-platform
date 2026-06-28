@@ -636,7 +636,7 @@ async def _ensure_technical_order(
         brand_id=brand_id,
         number=_TECH_ORDER_NUMBER,
         name="Technical Order (dev only)",
-        status="active",
+        status="draft",
         planned_start_date=_TECH_DRAFT_START,
         planned_end_date=_TECH_DRAFT_END,
     )

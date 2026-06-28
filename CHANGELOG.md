@@ -2834,3 +2834,56 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 **Regression**: portal 760/0 (+32 skipped), backend 807/0
 
 **Commit**: `3474b62`
+
+---
+
+## [45.4.3-business-logic-consistency] — 2026-06-28
+
+**Portal business logic status consistency fix.**
+
+### Status mismatch: pending_approval → in_review
+- Backend writes `in_review` after campaign submit; portal was counting `pending_approval` → always 0
+- Fixed in: dashboard KPI, campaign list, `_status_label`, sanitizer
+- `in_review` → «На согласовании» (label stays same)
+
+### Removed nonexistent status counters
+- `active_schedules` (backend never writes `active`) → removed
+- `draft_manifests` (backend never writes `draft`) → replaced with `generated_manifests`
+- Added `archived_schedules` counter
+
+### Canonical status table documented
+- Campaign: draft → in_review → approved/rejected → archived
+- Approval: pending → approved/rejected
+- Batch: draft → pending_approval → … → published
+- Schedule: draft → archived
+- Manifest: generated → published
+
+**Regression**: portal 756/0, backend 807/0
+**Commit**: `69998f0`
+
+---
+
+## [45.4.4-manual-e2e-scenario] — 2026-06-28
+
+**Manual E2E Demo Scenario Closure — prepared-data demo (Вариант Б).**
+
+### Backend fixes
+- **Storage:** `_detect_mime_type` Pillow verify bug — pass full content instead of 2048 bytes (`storage.py`)
+- **Orders:** status constraint fix — `"active"` → `"draft"` (`campaigns/service.py`)
+- **DB migration:** `033_schedules_and_slots` — creates `schedules` and `schedule_slots` tables
+
+### Upload verified
+- 2 real PNG 768×1024 creatives uploaded and approved via API
+
+### Readiness gap confirmed
+- Campaign submit requires schedule + slots — schedule API returns 500
+- Portal does not display bound creatives («Креатив не выбран»)
+- No UI for placements/schedules/slots
+- **Decision:** Demo on prepared seed data (Вариант Б)
+
+### Documentation
+- `docs/audit/manual-e2e-demo-scenario-45-4-4.md` — full E2E report
+- Untracked audit files (`business-logic-audit*.md`) added to repo
+
+**Regression**: portal 777/0 (+32 skipped), backend 807/0
+**Commit**: (pending)
