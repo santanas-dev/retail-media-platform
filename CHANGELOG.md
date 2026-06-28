@@ -2766,3 +2766,32 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 ### Commit
 
 `277ba4a` — 🎨 Manual business UI polish: forms, uploads, tables (45.4)
+## 45.4.1 — Full Authenticated Visual Screenshot Gate (2026-06-16)
+
+**Goal**: verify all 17 business-demo pages visually under system_admin auth, fix EN→RU headers, test/seed data leaks, and default browser controls.
+
+**Fixes**:
+
+### Sanitizer (display_name_sanitizer.py)
+- +45 display name mappings: Synthetic Campaign/Advertiser/Branch/Cluster/Store, Wrong Advertiser Inc., After Role Change → business names
+- EN statuses: active→Активен, published→Опубликовано, accepted→Принято, draft→Черновик, cancelled→Отменён, generated→Сформирован
+- EN roles: advertiser→Рекламодатель, analyst→Аналитик, ad_manager→Менеджер рекламы, device_service→Служба устройств, operations→Оператор, security_admin→Администратор безопасности
+- Test PoP events: test_playback_completed→Воспроизведён, d4-synth-*→Событие показа
+- local→Система, V22/PubTest/RLS test users → business names
+- unknown No heartbeat received→Нет heartbeat, warning Heartbeat stale→Heartbeat устарел
+
+### Templates
+- **publications.html**: EN headers (Code/Device/Campaign/Status/Items) → RU; lifecycle EN→RU; `|sanitize` on manifest status
+- **readiness.html**: EN headers → RU; filter dropdown EN→RU; `|sanitize` on heartbeat/credential status, readiness_reasons; events→соб.
+- **proof-of-play.html**: media_ref→Медиа; `|sanitize` on event_type/status
+- **admin.html**: roles via `|sanitize` loop; `|sanitize` on auth_provider
+- **creatives.html**: custom file input with hidden native + styled label «Выберите файл» (no JS)
+
+### CSS
+- `.file-input-native` — visually hidden accessible input
+- `.file-input-label` — styled button replacement for file selector
+- `.file-input-name` — filename display placeholder
+
+**Regression**: portal 760/0 (+32 skipped), backend 807/0
+
+**Commit**: `3474b62`
