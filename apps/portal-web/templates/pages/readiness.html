@@ -106,7 +106,7 @@
   <tbody>
     {% for d in devices %}
     <tr>
-      <td class="cell-code"><strong>{{ d.device_code }}</strong></td>
+      <td class="cell-code"><strong>{{ d.device_code | sanitize_code }}</strong></td>
       <td>{{ d.get('store_code', '—') or '—' }}</td>
       <td>
         {% if d.get('heartbeat') %}

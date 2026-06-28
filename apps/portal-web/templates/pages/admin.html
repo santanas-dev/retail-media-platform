@@ -75,8 +75,8 @@
     <tbody>
     {% for u in users %}
       <tr>
-        <td>{{ u.display_name or u.username }}</td>
-        <td>{{ u.username }}</td>
+        <td>{{ (u.display_name or u.username) | sanitize_user }}</td>
+        <td>{{ u.username | sanitize }}</td>
         <td>{{ u.roles | join(', ') if u.roles else '—' }}</td>
         <td>
           {% if u.is_archived %}
@@ -279,7 +279,7 @@
         <td>{{ e.occurred_at[:19] if e.occurred_at else '—' }}</td>
         <td>{{ e.action }}</td>
         <td>{{ e.target_type or '—' }}</td>
-        <td>{{ e.target_ref or '—' }}</td>
+        <td>{{ e.target_ref | sanitize if e.target_ref else '—' }}</td>
       </tr>
     {% endfor %}
     {% else %}

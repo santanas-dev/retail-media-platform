@@ -23,10 +23,10 @@
 <div class="form-section summary-section">
   <div class="form-title">✅ Кампания создана</div>
   <div class="summary-grid">
-    <div class="summary-item"><span class="summary-label">Кампания:</span> <code>{{ summary.campaign_code }}</code> — {{ summary.name }}</div>
-    <div class="summary-item"><span class="summary-label">Рекламодатель:</span> {{ summary.advertiser_name }}</div>
-    <div class="summary-item"><span class="summary-label">Креатив:</span> {{ summary.creative_code if summary.creative_code else '—' }}</div>
-    <div class="summary-item"><span class="summary-label">КСО:</span> {{ summary.device_name if summary.device_name else '—' }}</div>
+    <div class="summary-item"><span class="summary-label">Кампания:</span> <code>{{ summary.campaign_code | sanitize_code }}</code> — {{ summary.name | sanitize }}</div>
+    <div class="summary-item"><span class="summary-label">Рекламодатель:</span> {{ summary.advertiser_name | sanitize }}</div>
+    <div class="summary-item"><span class="summary-label">Креатив:</span> {{ (summary.creative_code | sanitize_code) if summary.creative_code else '—' }}</div>
+    <div class="summary-item"><span class="summary-label">КСО:</span> {{ (summary.device_name | sanitize) if summary.device_name else '—' }}</div>
     <div class="summary-item"><span class="summary-label">Период:</span> {{ summary.date_from }} – {{ summary.date_to }}</div>
     <div class="summary-item"><span class="summary-label">Дни недели:</span> {{ summary.days_display }}</div>
     <div class="summary-item"><span class="summary-label">Время показа:</span> {{ summary.time_display }}</div>
@@ -80,7 +80,7 @@
           <select id="advertiser_code" name="advertiser_code">
             <option value="">— Не выбрано —</option>
             {% for a in advertisers %}
-            <option value="{{ a.code }}" {% if form.advertiser_code == a.code %}selected{% endif %}>{{ a.name }}</option>
+            <option value="{{ a.code }}" {% if form.advertiser_code == a.code %}selected{% endif %}>{{ a.name | sanitize }}</option>
             {% endfor %}
           </select>
           <span class="form-hint">Рекламодатель креатива. Информационно, не влияет на обмен данными (используется технический контекст).</span>
@@ -97,7 +97,7 @@
           <select id="creative_code" name="creative_code">
             <option value="">— Не выбрано —</option>
             {% for cr in creatives %}
-            <option value="{{ cr.code }}" {% if form.creative_code == cr.code %}selected{% endif %}>{{ cr.code }} ({{ cr.name }})</option>
+            <option value="{{ cr.code }}" {% if form.creative_code == cr.code %}selected{% endif %}>{{ cr.code | sanitize_code }} ({{ cr.name | sanitize }})</option>
             {% endfor %}
           </select>
           <span class="form-hint">Будет привязан к кампании через campaign_creatives.</span>
@@ -107,7 +107,7 @@
           <select id="device_code" name="device_code">
             <option value="">— Не выбрано —</option>
             {% for d in devices %}
-            <option value="{{ d.code }}" {% if form.device_code == d.code %}selected{% endif %}>{{ d.code }}{% if d.display_name %} — {{ d.display_name }}{% endif %}</option>
+            <option value="{{ d.code }}" {% if form.device_code == d.code %}selected{% endif %}>{{ d.code | sanitize_code }}{% if d.display_name %} — {{ d.display_name | sanitize }}{% endif %}</option>
             {% endfor %}
           </select>
           <span class="form-hint">Целевое устройство для размещения. Будет создан placement.</span>

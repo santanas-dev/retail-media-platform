@@ -103,7 +103,7 @@
       {% if a.object_type == 'campaign' %}
       <div class="mb-8" style="background:var(--color-bg);border-radius:var(--radius-sm);padding:10px 14px;">
         <div class="text-meta" style="display:flex;flex-wrap:wrap;gap:16px;">
-          <span><strong>Кампания:</strong> {{ a.campaign_name }}</span>
+          <span><strong>Кампания:</strong> {{ a.campaign_name | sanitize }}</span>
           <span><strong>Статус:</strong> <span class="lifecycle-step lifecycle-{{ a.campaign_status }}">{{ a.campaign_status }}</span></span>
           <span><strong>Креативы:</strong> {{ a.campaign_creatives }}</span>
           <span><strong>Расписание:</strong> <code>{{ a.schedule_code }}</code> ({{ a.schedule_slot_count }} слотов)</span>

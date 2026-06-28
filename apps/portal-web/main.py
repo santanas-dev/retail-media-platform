@@ -58,6 +58,18 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
+# ── Register sanitize filter for demo data hygiene ─────────────────
+from display_name_sanitizer import (
+    sanitize_any,
+    sanitize_display_name,
+    sanitize_code,
+    sanitize_user_display_name,
+)
+templates.env.filters["sanitize"] = sanitize_any
+templates.env.filters["sanitize_name"] = sanitize_display_name
+templates.env.filters["sanitize_code"] = sanitize_code
+templates.env.filters["sanitize_user"] = sanitize_user_display_name
+
 
 # ══════════════════════════════════════════════════════════════════════
 # Template context helpers

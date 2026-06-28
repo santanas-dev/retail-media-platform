@@ -184,8 +184,8 @@
       <tbody>
       {% for c in planned_airtime.conflicts[:15] %}
       <tr>
-        <td><code>{{ c.campaign_code }}</code></td>
-        <td><code>{{ c.conflict_with_code }}</code></td>
+        <td><code>{{ c.campaign_code | sanitize_code }}</code></td>
+        <td><code>{{ c.conflict_with_code | sanitize_code }}</code></td>
         <td>{{ c.date_from }} – {{ c.date_to }}</td>
         <td>{{ c.day_label }}</td>
         <td>{{ c.time_window }}</td>
@@ -348,13 +348,13 @@
       <tbody>
       {% for e in pop_events[:20] %}
       <tr>
-        <td><code>{{ e.event_code }}</code></td>
-        <td>{{ e.campaign_code }}</td>
-        <td>{{ e.creative_code }}</td>
-        <td>{{ e.device_code }}</td>
+        <td><code>{{ e.event_code | sanitize_code }}</code></td>
+        <td>{{ e.campaign_code | sanitize_code }}</td>
+        <td>{{ e.creative_code | sanitize_code }}</td>
+        <td>{{ e.device_code | sanitize_code }}</td>
         <td>{{ e.event_type }}</td>
         <td><span class="lifecycle-step lifecycle-{{ e.status }}">{{ e.status }}</span></td>
-        <td>{{ e.played_at }}</td>
+        <td>{{ e.played_at | sanitize if e.played_at else 'Нет данных' }}</td>
       </tr>
       {% endfor %}
       </tbody>

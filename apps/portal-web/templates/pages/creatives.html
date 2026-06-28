@@ -135,8 +135,8 @@
             <span style="font-size:20px;">📄</span>
             {% endif %}
           </td>
-          <td><code>{{ c.creative_code }}</code></td>
-          <td>{{ c.name }}</td>
+          <td><code>{{ c.creative_code | sanitize_code }}</code></td>
+          <td>{{ c.name | sanitize }}</td>
           <td>
             {% if c.status == 'approved' %}<span class="status-success">Одобрен</span>
             {% elif c.status == 'pending_review' %}<span class="status-warning">Ожидает проверки</span>

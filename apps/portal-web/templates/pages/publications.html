@@ -131,7 +131,7 @@
              'Отменено' if b.status == 'cancelled' else
              'Отклонено' if b.status == 'rejected' else b.status }}
         </span>
-        <span class="text-meta text-secondary">📢 {{ b.campaign_code }}</span>
+        <span class="text-meta text-secondary">📢 {{ b.campaign_code | sanitize_code }}</span>
         <span class="text-sm text-muted">{{ b.created_at[:19] if b.created_at else '—' }}</span>
         <span class="flex-1"></span>
       </div>
@@ -214,9 +214,9 @@
       <tbody>
       {% for m in manifests %}
       <tr>
-        <td><code>{{ m.manifest_code }}</code></td>
-        <td><code>{{ m.device_code }}</code></td>
-        <td><code>{{ m.campaign_code }}</code></td>
+        <td><code>{{ m.manifest_code | sanitize_code }}</code></td>
+        <td><code>{{ m.device_code | sanitize_code }}</code></td>
+        <td><code>{{ m.campaign_code | sanitize_code }}</code></td>
         <td><span class="status-badge status-badge-{{ m.status }}">{{ m.status }}</span></td>
         <td>{{ m.item_count }}</td>
       </tr>

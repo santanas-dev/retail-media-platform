@@ -6656,5 +6656,51 @@ class TestRC0VisualPolishGuards(unittest.TestCase):
                     f"{page}: must not have empty note-text span")
 
 
+class TestDemoVisibleDataHygiene(unittest.TestCase):
+    """45.3.1: No test/seed/legacy/None/null terms visible on demo route pages."""
+
+    DEMO_PAGES = [
+        "/dashboard", "/creatives", "/creatives/moderation/queue",
+        "/campaigns", "/campaigns/create",
+        "/schedule", "/approvals", "/publications", "/reports",
+        "/inventory", "/readiness", "/readiness/business-acceptance",
+        "/stores", "/admin", "/deployment", "/proof-of-play",
+    ]
+
+    FORBIDDEN = [
+        "test", "seed", "legacy", "demo", "fake", "mock", "sample",
+        "None", "null", "undefined",
+        "test-manifest-seed", "demo_creative", "demo_store",
+        "demo_branch", "TODO", "not implemented",
+    ]
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_no_test_seed_legacy_on_demo_pages(self):
+        import re
+        for page in self.DEMO_PAGES:
+            resp = self.client.get(page)
+            if resp.status_code != 200:
+                continue
+            # Extract visible text (remove HTML tags)
+            visible = re.sub(r"<[^>]*>", " ", resp.text)
+            visible = re.sub(r"\s+", " ", visible).strip().lower()
+            for term in self.FORBIDDEN:
+                pattern = re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE)
+                self.assertIsNone(
+                    pattern.search(visible),
+                    f"{page}: visible text must not contain '{term}'. Found in: ...{self._find_context(visible, term)}..."
+                )
+
+    def _find_context(self, text, term):
+        idx = text.lower().find(term.lower())
+        if idx < 0:
+            return ""
+        start = max(0, idx - 30)
+        end = min(len(text), idx + len(term) + 30)
+        return text[start:end].replace("\n", " ")
+
+
 if __name__ == "__main__":
     unittest.main()

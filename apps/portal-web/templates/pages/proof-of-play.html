@@ -90,12 +90,12 @@
   {% if pop_events %}
   {% for e in pop_events %}
     <tr>
-      <td><code>{{ e.event_code }}</code></td>
-      <td><code>{{ e.device_code }}</code></td>
-      <td><code>{{ e.placement_code }}</code></td>
-      <td><code>{{ e.campaign_code }}</code></td>
-      <td><code>{{ e.creative_code }}</code></td>
-      <td><code>{{ e.media_ref }}</code></td>
+      <td><code>{{ e.event_code | sanitize_code }}</code></td>
+      <td><code>{{ e.device_code | sanitize_code }}</code></td>
+      <td><code>{{ e.placement_code | sanitize_code }}</code></td>
+      <td><code>{{ e.campaign_code | sanitize_code }}</code></td>
+      <td><code>{{ e.creative_code | sanitize_code }}</code></td>
+      <td><code>{{ e.media_ref | sanitize }}</code></td>
       <td>{{ e.event_type }}</td>
       <td><span class="badge badge-{{ 'confirmed' if e.status == 'accepted' else 'pending' }}">{{ e.status }}</span></td>
       <td>{{ e.played_at or '—' }}</td>
