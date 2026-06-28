@@ -2643,3 +2643,48 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 ### Commit
 
 `d457e7f` — ✅ Fix final pre-demo product gate issues (45.3)
+
+---
+
+## [45.3.1] — 2026-07-01
+
+**Visible Data Hygiene & Demo Dataset Cleanup.**
+
+### Problem
+
+87 visible test/seed/legacy/None/null terms на 8 из 16 страниц demo route:
+- `test-creative-seed`, `Test Banner Creative`, `Synthetic Creative` — на /creatives
+- `test-dev-seed`, `test-camp-seed` — в выпадающих списках /campaigns/create
+- `test-manifest-seed`, `test-dev-seed`, `test-camp-seed` — на /publications
+- `test-*`, `None` — в PoP-таблице /reports
+- `test-dev-02`, `test-dev-03`, `test-dev-seed` — на /readiness
+- `Test Advertiser`, `Synthetic Seed User`, `rls_test_adv`, `test_adv_202@test.local` — на /admin
+- `test-dev-seed`, `test-place-seed`, `test-camp-seed`, `test-creative-seed` — на /proof-of-play
+
+### Solution
+
+- Создан `display_name_sanitizer.py` — централизованный display-name mapping без изменения БД
+- Зарегистрированы 4 Jinja2 фильтра: `|sanitize`, `|sanitize_code`, `|sanitize_name`, `|sanitize_user`
+- Санитизированы видимые поля в 9 шаблонах
+- Обработаны: `test-*` префиксы, `-seed` суффиксы, `@test.*` в email, bare `Test` display names, `None` в таблицах
+- Добавлен `TestDemoVisibleDataHygiene` — guard для всех 16 страниц против forbidden terms
+
+### Result
+
+- **87 → 0** visible test/seed/legacy/None/null terms на demo route
+- Demo route: **16/16** HTTP 200
+- Видимые кнопки/ссылки: 0 ошибок (403/404/500)
+- Бизнес-логика: **не изменена** (display-only fix)
+- JS/CDN/localStorage: **none**
+- Secrets/leaks: **none**
+
+### Regression
+
+| Слой | Пройдено | Отказов |
+|------|----------|---------|
+| Portal | **760** (+32 skipped) | **0** |
+| Backend | **807** | **0** (pre-existing only) |
+
+### Commit
+
+`4f7cb0e` — ✅ Clean demo visible data artifacts (45.3.1)
