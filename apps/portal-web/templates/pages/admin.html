@@ -77,7 +77,11 @@
       <tr>
         <td>{{ (u.display_name or u.username) | sanitize_user }}</td>
         <td>{{ u.username | sanitize }}</td>
-        <td>{{ u.roles | join(', ') if u.roles else '—' }}</td>
+        <td>
+          {% if u.roles %}
+          {% for role in u.roles %}{{ role | sanitize }}{% if not loop.last %}, {% endif %}{% endfor %}
+          {% else %}—{% endif %}
+        </td>
         <td>
           {% if u.is_archived %}
           <span class="badge badge-archived"></span> Архив
@@ -91,7 +95,7 @@
         </td>
         <td>{{ '✅' if u.is_active else '❌' }}</td>
         <td>{{ '✅' if u.mfa_enabled else '❌' }}</td>
-        <td>{{ u.auth_provider or 'local' }}</td>
+        <td>{{ (u.auth_provider or 'local') | sanitize }}</td>
         <td><span class="action-link">—</span></td>
       </tr>
     {% endfor %}

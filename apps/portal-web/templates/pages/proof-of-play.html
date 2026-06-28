@@ -78,7 +78,7 @@
       <th>Размещение</th>
       <th>Кампания</th>
       <th>Креатив</th>
-      <th>media_ref</th>
+      <th>Медиа</th>
       <th>Тип</th>
       <th>Статус</th>
       <th>Время показа</th>
@@ -96,8 +96,8 @@
       <td><code>{{ e.campaign_code | sanitize_code }}</code></td>
       <td><code>{{ e.creative_code | sanitize_code }}</code></td>
       <td><code>{{ e.media_ref | sanitize }}</code></td>
-      <td>{{ e.event_type }}</td>
-      <td><span class="badge badge-{{ 'confirmed' if e.status == 'accepted' else 'pending' }}">{{ e.status }}</span></td>
+      <td>{{ e.event_type | sanitize }}</td>
+      <td><span class="badge badge-{{ 'confirmed' if e.status == 'accepted' else 'pending' }}">{{ e.status | sanitize }}</span></td>
       <td>{{ e.played_at or '—' }}</td>
       <td>{{ e.duration_ms if e.duration_ms is not none else '—' }}</td>
       <td>{{ e.received_at }}</td>

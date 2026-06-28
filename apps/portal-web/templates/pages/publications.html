@@ -106,15 +106,15 @@
     <!-- Lifecycle process -->
     <div class="px-12 py-8" style="background:var(--color-bg);border-bottom:1px solid var(--color-border);">
       <div class="lifecycle-flow">
-        <span class="lifecycle-step lifecycle-draft">draft</span>
+        <span class="lifecycle-step lifecycle-draft">Черновик</span>
         <span class="lifecycle-arrow">→</span>
-        <span class="lifecycle-step lifecycle-pending">pending</span>
+        <span class="lifecycle-step lifecycle-pending">На согласовании</span>
         <span class="lifecycle-arrow">→</span>
-        <span class="lifecycle-step lifecycle-ready">approved</span>
+        <span class="lifecycle-step lifecycle-ready">Одобрен</span>
         <span class="lifecycle-arrow">→</span>
-        <span class="lifecycle-step lifecycle-published">пакет показа</span>
+        <span class="lifecycle-step lifecycle-published">Пакет показа</span>
         <span class="lifecycle-arrow">→</span>
-        <span class="lifecycle-step lifecycle-completed">published</span>
+        <span class="lifecycle-step lifecycle-completed">Опубликован</span>
       </div>
     </div>
 
@@ -210,14 +210,14 @@
   </div>
   <div class="section-card-body p-0">
     <table class="data-table data-table-compact">
-      <thead><tr><th>Code</th><th>Device</th><th>Campaign</th><th>Status</th><th>Items</th></tr></thead>
+      <thead><tr><th>Код</th><th>КСО</th><th>Кампания</th><th>Статус</th><th>Элементов</th></tr></thead>
       <tbody>
       {% for m in manifests %}
       <tr>
         <td><code>{{ m.manifest_code | sanitize_code }}</code></td>
         <td><code>{{ m.device_code | sanitize_code }}</code></td>
         <td><code>{{ m.campaign_code | sanitize_code }}</code></td>
-        <td><span class="status-badge status-badge-{{ m.status }}">{{ m.status }}</span></td>
+        <td><span class="status-badge status-badge-{{ m.status }}">{{ m.status | sanitize }}</span></td>
         <td>{{ m.item_count }}</td>
       </tr>
       {% endfor %}

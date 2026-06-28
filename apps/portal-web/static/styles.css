@@ -1023,6 +1023,49 @@ textarea.form-control {
   gap: 10px;
 }
 
+/* Hide native file input, keep it accessible */
+.file-input-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  border: 0;
+}
+
+/* Custom styled label as button */
+.file-input-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: var(--font-ui);
+  white-space: nowrap;
+}
+
+.file-input-label:hover {
+  background: var(--color-primary-hover, #3d7be8);
+}
+
+/* Filename display */
+.file-input-name {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Remove old file-selector-button styles — no longer needed */
 .file-input input[type="file"] {
   flex: 1;
   font-size: 13px;
@@ -1044,7 +1087,7 @@ textarea.form-control {
 }
 
 .file-input input[type="file"]::file-selector-button:hover {
-  background: var(--color-primary-dark);
+  background: var(--color-primary-hover, #3d7be8);
 }
 
 /* ═══════════════════════════════════════════════════════════════════

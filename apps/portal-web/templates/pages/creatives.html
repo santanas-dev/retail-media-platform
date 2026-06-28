@@ -101,8 +101,11 @@
           <div class="form-field">
             <label class="form-label form-label-required">Файл</label>
             <div class="file-input">
-              <input type="file" name="file" required
-                     accept="image/png,image/jpeg,image/gif,video/mp4,video/webm">
+              <input type="file" name="file" id="file-upload" required
+                     accept="image/png,image/jpeg,image/gif,video/mp4,video/webm"
+                     class="file-input-native">
+              <label for="file-upload" class="file-input-label">Выберите файл</label>
+              <span class="file-input-name">Файл не выбран</span>
             </div>
             <span class="form-help">PNG/JPEG/GIF/MP4/WebM, 768×1024</span>
           </div>

@@ -71,12 +71,13 @@
   <form method="get" action="/readiness" class="filter-form">
     <div class="filter-row">
       <div class="filter-group">
-        <label for="f-readiness">Readiness</label>
+        <label for="f-readiness">Готовность</label>
         <select id="f-readiness" name="readiness_badge">
           <option value="">Все</option>
-          {% for badge in ['ready', 'warning', 'blocked', 'unknown'] %}
-          <option value="{{ badge }}" {% if filters.get('readiness_badge') == badge %}selected{% endif %}>{{ badge }}</option>
-          {% endfor %}
+          <option value="ready" {% if filters.get('readiness_badge') == 'ready' %}selected{% endif %}>Готов</option>
+          <option value="warning" {% if filters.get('readiness_badge') == 'warning' %}selected{% endif %}>Внимание</option>
+          <option value="blocked" {% if filters.get('readiness_badge') == 'blocked' %}selected{% endif %}>Заблокирован</option>
+          <option value="unknown" {% if filters.get('readiness_badge') == 'unknown' %}selected{% endif %}>Неизвестно</option>
         </select>
       </div>
       <div class="filter-group filter-actions">
@@ -93,14 +94,14 @@
 <table class="data-table">
   <thead>
     <tr>
-      <th>Device Code</th>
-      <th>Store</th>
+      <th>Код КСО</th>
+      <th>Магазин</th>
       <th>Heartbeat</th>
-      <th>Credential</th>
+      <th>Доступ</th>
       <th>Пакет показа</th>
       <th>Агент</th>
       <th>Показы</th>
-      <th>Readiness</th>
+      <th>Готовность</th>
     </tr>
   </thead>
   <tbody>
@@ -110,7 +111,7 @@
       <td>{{ d.get('store_code', '—') or '—' }}</td>
       <td>
         {% if d.get('heartbeat') %}
-        <span class="status-badge status-{{ d.heartbeat.status }}">{{ d.heartbeat.status }}</span>
+        <span class="status-badge status-{{ d.heartbeat.status }}">{{ d.heartbeat.status | sanitize }}</span>
         {% if d.heartbeat.age_seconds is not none %}
         <br><small>{{ d.heartbeat.age_seconds }}s</small>
         {% endif %}
@@ -120,7 +121,7 @@
       </td>
       <td>
         {% if d.get('credential') %}
-        <span class="status-badge status-{{ d.credential.status }}">{{ d.credential.status }}</span>
+        <span class="status-badge status-{{ d.credential.status }}">{{ d.credential.status | sanitize }}</span>
         {% else %}
         <span class="muted">—</span>
         {% endif %}
@@ -143,7 +144,7 @@
       <td>
         {% set pop_data = d.get('pop') %}
         {% if pop_data is not none and pop_data is mapping %}
-        <span>{{ pop_data.get('events_count', 0) }} events</span>
+        <span>{{ pop_data.get('events_count', 0) }} соб.</span>
         {% else %}
         <span class="muted">—</span>
         {% endif %}
@@ -151,7 +152,7 @@
       <td>
         <span class="readiness-badge readiness-{{ d.readiness_badge }}">{{ d.readiness_badge }}</span>
         {% if d.get('readiness_reasons') %}
-        <br><small class="text-warning">{{ d.readiness_reasons|join('; ') }}</small>
+        <br><small class="text-warning">{{ d.readiness_reasons|join('; ') | sanitize }}</small>
         {% endif %}
       </td>
     </tr>
