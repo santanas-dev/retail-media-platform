@@ -2340,3 +2340,38 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 - No JS/CDN/localStorage ✅
 - No secrets/tokens/full URLs/barcodes/storage paths/raw UUID leakage ✅
 - Физическая КСО/SSH/X11/Chromium/runner/sidecar/PoP не запускались
+
+---
+
+## [44.6] — RC0 Freeze & Business Demo Package (2026-06-28)
+
+**RC0 заморожен для бизнес-демонстрации. Создан пакет документации и защитных тестов.**
+
+### Новые документы (4 файла)
+
+- `docs/product/rc0-freeze-checklist-44-6.md` — контрольный список заморозки RC0
+- `docs/product/business-demo-route-44-6.md` — маршрут бизнес-демонстрации
+- `docs/product/business-acceptance-checklist-44-6.md` — контрольный список бизнес-приёмки
+- `docs/product/rc0-release-notes-44-6.md` — примечания к выпуску RC0
+
+### Тесты
+
+- **12 защитных тестов (guard tests)** добавлены для проверки целостности RC0
+- Без новых регрессий
+
+### Тег выпуска
+
+`v0.9.0-rc0-business-demo` — RC0, готовый к бизнес-демонстрации
+
+### Регрессия
+
+- Backend: **807 пройдено**, 0 отказов
+- Portal: **744 пройдено**, 0 отказов
+
+### Обновлённая документация
+
+- `docs/product/release-candidate-0-44-5.md` — раздел 44.6
+- `docs/product/business-acceptance-pack-44-5.md` — раздел 44.6
+- `docs/audit/pilot-readiness-gap-register.md` — статус RC0 freeze
+- `docs/audit/deviation-register-44-0.md` — подтверждение отсутствия новых отклонений
+- `docs/audit/tz-compliance-matrix-44-0.md` — раздел 23 (44.6 RC0 Freeze)

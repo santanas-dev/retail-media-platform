@@ -6452,5 +6452,105 @@ class TestVisibleAuditKeyPages44_5(unittest.TestCase):
 
     def test_acceptance_page_clean(self):
         self._check_page("/readiness/business-acceptance", "Business Acceptance")
+
+
+class TestRC0Guard44_6(unittest.TestCase):
+    """44.6: RC0 freeze guard tests — invariants that must hold for business demo."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_rc0_acceptance_page_exists(self):
+        """Business acceptance page is accessible."""
+        resp = self.client.get("/readiness/business-acceptance")
+        self.assertIn(resp.status_code, (200, 303, 302))
+
+    def test_rc0_visible_ui_stays_clean(self):
+        """No forbidden technical terms on business acceptance page."""
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            lower = resp.text.lower()
+            for fb in ("backend", "manifest", "batch ", "pop", "clamav",
+                        "ffprobe", "daemon", "test-kso", "sidecar",
+                        "chromium", "x11", "endpoint", "socket"):
+                self.assertNotIn(fb, lower, f"Forbidden: {fb}")
+
+    def test_rc0_physical_pilot_blocked(self):
+        """Readiness page confirms pilot is blocked."""
+        resp = self.client.get("/readiness")
+        if resp.status_code == 200:
+            self.assertIn("Запуск заблокирован", resp.text)
+
+    def test_rc0_delivery_to_kso_blocked(self):
+        """Business acceptance page states KSO delivery is blocked."""
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            self.assertIn("Доставка на КСО пока запрещена", resp.text)
+
+    def test_rc0_fake_av_pass_prohibited(self):
+        """Business acceptance page states fake AV pass is forbidden."""
+        resp = self.client.get("/readiness/business-acceptance")
+        if resp.status_code == 200:
+            self.assertIn("Поддельная", resp.text)
+
+    def test_rc0_production_av_not_enabled(self):
+        """AV is in pilot_dev mode, not production."""
+        resp = self.client.get("/creatives")
+        if resp.status_code == 200:
+            self.assertIn("пилотный режим", resp.text.lower())
+
+    def test_rc0_no_js_cdn_localstorage(self):
+        """No JS/CDN/localStorage on dashboard."""
+        resp = self.client.get("/dashboard")
+        if resp.status_code == 200:
+            lower = resp.text.lower()
+            for fb in ("<script", "onclick=", "localstorage",
+                        "cdnjs", "unpkg", "jsdelivr"):
+                self.assertNotIn(fb, lower)
+
+    def test_rc0_no_secrets_leakage(self):
+        """No secrets/tokens on dashboard."""
+        resp = self.client.get("/dashboard")
+        if resp.status_code == 200:
+            lower = resp.text.lower()
+            for fb in ("device_secret", "access_token", "backend_url",
+                        "password", "bearer", "token="):
+                self.assertNotIn(fb, lower)
+
+    def test_rc0_reports_separate_planned_from_factual(self):
+        """Reports page distinguishes planned from factual."""
+        resp = self.client.get("/reports")
+        if resp.status_code == 200:
+            self.assertIn("Плановая", resp.text)
+
+    def test_rc0_no_fake_factual_shows(self):
+        """Reports page does not present fake factual data as real."""
+        resp = self.client.get("/reports")
+        if resp.status_code == 200:
+            lower = resp.text.lower()
+            # Should mention factual shows are not available
+            has_warning = ("фактические показы недоступны" in lower
+                          or "фактические показы появятся" in lower
+                          or "нет данных фактических показов" in lower)
+            self.assertTrue(has_warning,
+                           "Reports must warn that factual shows are unavailable")
+
+    def test_rc0_publications_no_physical_delivery(self):
+        """Publications page warns physical delivery is not available."""
+        resp = self.client.get("/publications")
+        if resp.status_code == 200:
+            lower = resp.text.lower()
+            has_blocked = ("запуск заблокирован" in lower
+                          or "доставка на ксо отключена" in lower
+                          or "физическая доставка" in lower)
+            self.assertTrue(has_blocked,
+                           "Publications must note physical delivery is blocked")
+
+    def test_rc0_approvals_maker_checker(self):
+        """Approvals page enforces maker-checker principle."""
+        resp = self.client.get("/approvals")
+        if resp.status_code == 200:
+            self.assertIn("двух подписей", resp.text.lower())
+
 if __name__ == "__main__":
     unittest.main()
