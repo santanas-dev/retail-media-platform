@@ -216,12 +216,12 @@ def _forbidden_response() -> Response:
 </div>
 <div class="main" style="margin-top:80px; text-align:center; padding:40px">
   <h1 style="font-size:24px; margin-bottom:16px">🚫 Доступ запрещён</h1>
-  <p style="color:#64748b; max-width:480px; margin:0 auto 24px">
+  <p style="color:var(--color-text-muted); max-width:480px; margin:0 auto 24px">
     Недостаточно прав для доступа к этому разделу.
     Обратитесь к администратору портала для получения необходимых прав.
   </p>
   <a href="/dashboard" style="display:inline-block; padding:10px 24px;
-     background:#1a56db; color:#fff; border-radius:6px;
+     background:var(--color-primary); color:#fff; border-radius:6px;
      text-decoration:none; font-weight:600">На главную</a>
 </div>
 </body>
