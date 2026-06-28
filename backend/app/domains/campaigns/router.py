@@ -85,9 +85,12 @@ async def create_campaign(
 async def get_campaign(
     campaign_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.read")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.read")),
 ):
-    return await service.get_campaign(db, campaign_id)
+    campaign = await service.get_campaign(db, campaign_id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign.advertiser_id, scope_ctx, "read campaign")
+    return campaign
 
 
 @router.put("/campaigns/{campaign_id}", response_model=schemas.CampaignResponse)
@@ -95,8 +98,11 @@ async def update_campaign(
     campaign_id: UUID,
     data: schemas.CampaignUpdate,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
+    campaign_check = await service.get_campaign(db, campaign_id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign_check.advertiser_id, scope_ctx, "update campaign")
     result = await service.update_campaign(db, campaign_id, data)
     await audit_business_action(
         db, actor_user_id=str(current_user.id) if 'current_user' in dir() else "unknown",
@@ -113,8 +119,11 @@ async def update_campaign(
 async def submit_campaign(
     campaign_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
+    campaign_check = await service.get_campaign(db, campaign_id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign_check.advertiser_id, scope_ctx, "submit campaign")
     return await service.submit_campaign(db, campaign_id)
 
 
@@ -124,6 +133,9 @@ async def approve_campaign(
     db: AsyncSession = Depends(get_db),
     current_user: identity_models.User = Depends(require_permission("campaigns.approve")),
 ):
+    campaign_check = await service.get_campaign(db, campaign_id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign_check.advertiser_id, scope_ctx, "approve campaign")
     return await service.approve_campaign(db, campaign_id, current_user.id)
 
 
@@ -132,8 +144,11 @@ async def reject_campaign(
     campaign_id: UUID,
     data: schemas.RejectRequest,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.approve")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.approve")),
 ):
+    campaign_check = await service.get_campaign(db, campaign_id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign_check.advertiser_id, scope_ctx, "reject campaign")
     return await service.reject_campaign(db, campaign_id, data.rejection_reason)
 
 
@@ -146,8 +161,11 @@ async def reject_campaign(
 async def get_campaign_channels(
     campaign_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.read")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.read")),
 ):
+    campaign_check = await service.get_campaign(db, campaign_id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign_check.advertiser_id, scope_ctx, "read campaign channels")
     return await service.get_campaign_channels(db, campaign_id)
 
 
@@ -159,8 +177,11 @@ async def set_campaign_channels(
     campaign_id: UUID,
     data: schemas.CampaignChannelPut,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
+    campaign_check = await service.get_campaign(db, campaign_id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign_check.advertiser_id, scope_ctx, "set campaign channels")
     return await service.set_campaign_channels(db, campaign_id, data)
 
 
@@ -173,8 +194,11 @@ async def set_campaign_channels(
 async def get_campaign_targets(
     campaign_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.read")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.read")),
 ):
+    campaign_check = await service.get_campaign(db, campaign_id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign_check.advertiser_id, scope_ctx, "read campaign targets")
     return await service.get_campaign_targets(db, campaign_id)
 
 
@@ -186,8 +210,11 @@ async def set_campaign_targets(
     campaign_id: UUID,
     data: schemas.CampaignTargetPut,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
+    campaign_check = await service.get_campaign(db, campaign_id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign_check.advertiser_id, scope_ctx, "set campaign targets")
     return await service.set_campaign_targets(db, campaign_id, data)
 
 
@@ -200,8 +227,11 @@ async def set_campaign_targets(
 async def get_campaign_renditions(
     campaign_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.read")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.read")),
 ):
+    campaign_check = await service.get_campaign(db, campaign_id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign_check.advertiser_id, scope_ctx, "read campaign renditions")
     return await service.get_campaign_renditions(db, campaign_id)
 
 
@@ -213,8 +243,11 @@ async def set_campaign_renditions(
     campaign_id: UUID,
     data: schemas.CampaignRenditionPut,
     db: AsyncSession = Depends(get_db),
-    _: identity_models.User = Depends(require_permission("campaigns.manage")),
+    current_user: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
+    campaign_check = await service.get_campaign(db, campaign_id)
+    scope_ctx = await resolve_user_scope_context(db, current_user)
+    assert_object_in_advertiser_scope(campaign_check.advertiser_id, scope_ctx, "set campaign renditions")
     return await service.set_campaign_renditions(db, campaign_id, data)
 
 
