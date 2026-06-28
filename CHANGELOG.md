@@ -2718,4 +2718,51 @@ Older milestones (v0.1.0–v0.4.0) have not been tagged. Retrospective tags shou
 
 ### Commit
 
-`5c386d4` — 📌 Document final clean RC0 demo baseline (45.3.2)
+`1f02fa2` — 📌 Document final clean RC0 demo baseline (45.3.2)
+
+---
+
+## [45.4] — 2026-07-01
+
+**Manual Business UI Polish: Forms, Uploads, Tables.**
+
+### Problem
+
+Формально tests green, HTTP 200, visible terms clean, но страницы выглядят сыро:
+- формы кривые, поля разной высоты, кнопки не выровнены
+- native file input выглядит как браузерный дефолт
+- таблицы креативов неаккуратны, превью ломают строки
+- статусы и коды выглядят как dev-стенд
+
+### Solution — CSS additions (~260 lines)
+
+- **`.business-form`** — контейнер формы с surface-фоном и тенью
+- **`.form-grid` / `.form-grid-3col`** — responsive grid (auto-fit, 240px min)
+- **`.form-field` / `.form-label` / `.form-control`** — универсальные поля с label сверху
+- **`.form-label-required`** — автоматическая `*` для обязательных полей
+- **`.form-actions`** — action-row справа с разделителем
+- **`.form-note`** — info-блок с подсказкой
+- **`.upload-zone`** — стилизованная зона загрузки с dashed border
+- **`.file-input` / `::file-selector-button`** — стилизованная кнопка выбора файла
+- **`.table-preview`** — constrained preview cell (60px, 48×64)
+- **`.preview-fallback`** — аккуратный placeholder для битых превью
+- **`.business-chip`** — chip для кодов (mono, обрезанный)
+- **`.status-pill`** — pill-бейджи для статусов
+- **`.dim-cell`** — моноширинная ячейка размеров
+- **`.data-table-constrained` / `.table-actions`** — constrained table + компактные кнопки
+
+### Templates updated
+
+- **creatives.html**: upload-zone + business-form + file-input + table-preview + status-pill + business-chip + table-actions
+- **schedule.html**: business-form + form-grid-3col + form-label-required + form-actions
+- **approvals.html**: business-form + form-grid + textarea.form-control + form-note
+
+### Regression
+
+| Слой | Пройдено | Отказов |
+|------|----------|---------|
+| Portal | **760** (+32 skipped) | **0** |
+
+### Commit
+
+`277ba4a` — 🎨 Manual business UI polish: forms, uploads, tables (45.4)
