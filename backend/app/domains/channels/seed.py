@@ -8,7 +8,7 @@ Usage:
 
 import asyncio
 
-from sqlalchemy import select
+from sqlalchemy import select, text, update as sa_update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.database import get_engine
@@ -36,59 +36,24 @@ DEVICE_TYPES = [
 # (device_type_code, resolution, orientation, formats_json, max_file_size, max_duration, interactive, proof_type, cache_policy)
 CAPABILITY_PROFILES = [
     (
-        "kso_gen5",
-        "768x1024",
-        "portrait",
-        ["mp4", "jpg", "png"],
-        50 * 1024 * 1024,  # 50 MB
-        30,  # 30 sec
-        False,
-        "real_playback",
-        "full",
+        "kso_gen5", "768x1024", "portrait",
+        ["mp4", "jpg", "png"], 50 * 1024 * 1024, 30, False, "real_playback", "full",
     ),
     (
-        "android_tv_gen1",
-        "1920x1080",
-        "landscape",
-        ["mp4", "jpg", "png"],
-        100 * 1024 * 1024,  # 100 MB
-        60,  # 60 sec
-        False,
-        "real_playback",
-        "full",
+        "android_tv_gen1", "1920x1080", "landscape",
+        ["mp4", "jpg", "png"], 100 * 1024 * 1024, 60, False, "real_playback", "full",
     ),
     (
-        "price_checker_gen1",
-        "1280x800",
-        "landscape",
-        ["mp4", "jpg", "png"],
-        50 * 1024 * 1024,
-        30,
-        False,
-        "real_playback",
-        "full",
+        "price_checker_gen1", "1280x800", "landscape",
+        ["mp4", "jpg", "png"], 50 * 1024 * 1024, 30, False, "real_playback", "full",
     ),
     (
-        "esl_gen1",
-        "296x128",
-        "landscape",
-        ["png", "jpg"],
-        2 * 1024 * 1024,  # 2 MB
-        0,  # static only
-        False,
-        "impression",
-        "full",
+        "esl_gen1", "296x128", "landscape",
+        ["png", "jpg"], 2 * 1024 * 1024, 0, False, "impression", "full",
     ),
     (
-        "led_shelf_gen1",
-        "480x64",
-        "landscape",
-        ["mp4", "png", "jpg"],
-        5 * 1024 * 1024,  # 5 MB
-        15,  # 15 sec
-        False,
-        "impression",
-        "full",
+        "led_shelf_gen1", "480x64", "landscape",
+        ["mp4", "png", "jpg"], 5 * 1024 * 1024, 15, False, "impression", "full",
     ),
 ]
 
@@ -122,9 +87,7 @@ async def seed() -> None:
                 await conn.execute(
                     pg_insert(models.DeviceType)
                     .values(code=dt_code, name=dt_name, channel_id=channel_id)
-                    .on_conflict_do_nothing(
-                        index_elements=["channel_id", "code"]
-                    )
+                    .on_conflict_do_nothing(index_elements=["channel_id", "code"])
                 )
 
         # Fetch device type IDs
@@ -134,7 +97,6 @@ async def seed() -> None:
             dt_map[row.code] = row.id
 
         # ── Capability Profiles ───────────────────────────────────────
-        # Check existing before insert (no unique on device_type_id)
         existing_profiles = await conn.execute(
             select(models.CapabilityProfile.device_type_id)
         )
@@ -149,17 +111,17 @@ async def seed() -> None:
                 await conn.execute(
                     pg_insert(models.CapabilityProfile)
                     .values(
-                        device_type_id=dt_id,
-                        resolution=resolution,
-                        orientation=orientation,
-                        formats_json=formats_json,
-                        max_file_size=max_file_size,
-                        max_duration=max_duration,
-                        interactive=interactive,
-                        proof_type=proof_type,
+                        device_type_id=dt_id, resolution=resolution,
+                        orientation=orientation, formats_json=formats_json,
+                        max_file_size=max_file_size, max_duration=max_duration,
+                        interactive=interactive, proof_type=proof_type,
                         cache_policy=cache_policy,
                     )
                 )
+
+        # ── KSO Device Chain (B.2 reproducibility) ────────────────────
+        await _seed_kso_device_chain(conn)
+        await _link_placement_target_to_surface(conn)
 
     counts = {
         "channels": len(CHANNELS),
@@ -167,6 +129,89 @@ async def seed() -> None:
         "capability_profiles": len(CAPABILITY_PROFILES),
     }
     print(f"Channels seed complete. {counts}")
+    print("KSO device chain seed complete.")
+
+
+async def _seed_kso_device_chain(conn) -> None:
+    """Idempotent: ensure migrated KSO device has full PD→LC→DS→CP chain."""
+
+    kso_result = await conn.execute(
+        select(models.PhysicalDevice).where(
+            models.PhysicalDevice.external_code == "test-dev-seed"
+        )
+    )
+    kso_pd = kso_result.fetchone()
+    if not kso_pd:
+        return  # Fresh DB without KSO migration — skip
+
+    existing_lc = await conn.execute(
+        select(models.LogicalCarrier).where(
+            models.LogicalCarrier.physical_device_id == kso_pd.id,
+            models.LogicalCarrier.type == "kso_player",
+        )
+    )
+    if existing_lc.fetchone():
+        return  # Already seeded
+
+    kso_cp = await conn.execute(
+        select(models.CapabilityProfile)
+        .join(models.DeviceType)
+        .join(models.Channel)
+        .where(
+            models.Channel.code == "kso",
+            models.CapabilityProfile.orientation == "portrait",
+        )
+    )
+    cp = kso_cp.fetchone()
+    if not cp:
+        return  # Profiles not yet seeded
+
+    lc_result = await conn.execute(
+        pg_insert(models.LogicalCarrier)
+        .values(
+            physical_device_id=kso_pd.id, type="kso_player",
+            zone="ad_zone", position="portrait_768x1024",
+        )
+        .returning(models.LogicalCarrier.id)
+    )
+    lc_id = lc_result.fetchone()[0]
+
+    await conn.execute(
+        pg_insert(models.DisplaySurface)
+        .values(
+            logical_carrier_id=lc_id, capability_profile_id=cp.id,
+            resolution="768x1024", is_active=True,
+        )
+    )
+
+
+async def _link_placement_target_to_surface(conn) -> None:
+    """Idempotent: ensure placement_target references a display_surface."""
+
+    surface_result = await conn.execute(
+        select(models.DisplaySurface)
+        .join(models.LogicalCarrier)
+        .join(models.PhysicalDevice)
+        .join(models.CapabilityProfile)
+        .where(
+            models.PhysicalDevice.external_code == "test-dev-seed",
+            models.CapabilityProfile.orientation == "portrait",
+        )
+        .order_by(models.DisplaySurface.created_at.desc())
+        .limit(1)
+    )
+    surface = surface_result.fetchone()
+    if not surface:
+        return
+
+    await conn.execute(
+        text("""
+            UPDATE placement_targets
+            SET display_surface_id = :surface_id
+            WHERE display_surface_id IS NULL
+        """),
+        {"surface_id": surface.id},
+    )
 
 
 def main():

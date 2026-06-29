@@ -5,6 +5,22 @@ All notable changes to the Retail Media Platform.
 Format: [SemVer](https://semver.org/) + annotated Git tags.
 Every minor tag requires: green full regression, clean git status, no secrets in docs/output.
 
+## [B.2.1] — 2026-06-29 — Device Model Reproducibility Gate
+
+### Seed Reproducibility
+- KSO device chain (LC+DS) moved from manual SQL to idempotent seed
+- `_seed_kso_device_chain()` — creates kso_player carrier + 768x1024 surface
+- `_link_placement_target_to_surface()` — links orphan placement targets
+- Safe on fresh DB, idempotent on existing DB
+
+### Tests
+- B.1+B.2 combined: 34/34
+- Backend: 882/0
+- Portal: 842/32sk
+
+### Docs
+- device-model-reproducibility-b2-1.md (new)
+
 ## [B.2] — 2026-06-29 — Device Model Unification
 
 ### Device Chain
