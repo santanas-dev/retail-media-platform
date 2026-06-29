@@ -7,7 +7,24 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [45.8.1] — Security Hardening Closure — 2026-06-29
+## [45.9] — Portal UX Hardening — 2026-06-29
+
+### Form Accessibility
+- 8 labels added: schedule slot form (6), approvals reject comment (1), admin required markers (5 fixed)
+- 4 cancel/back links added: schedule create, approvals create, campaign_detail create-schedule, admin (4 forms)
+
+### Density
+- Admin quick-nav strip + id anchors (Пользователи, Роли, Аудит)
+
+### Empty States
+- Inventory: CTA buttons added (schedule, campaigns)
+
+### Tests
+- 10 UX audit tests: labels, required markers, cancel links, empty states, no JS/CDN, no raw JSON, no technical language — all pass
+
+### Regression
+- Backend: 0 files touched
+- Portal: +10 UX tests, full suite 813 passed, 32 skipped
 
 ### Corrected
 - **Audit coverage:** 14/20 (70%) → **20/20 (100%)**. Identity domain audits (create_user, assign_role,

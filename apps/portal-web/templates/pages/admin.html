@@ -58,10 +58,17 @@
   </div>
 </div>
 
+<!-- Quick Nav -->
+<div class="action-panel" style="margin-bottom:16px;">
+  <span><a href="#users-section" class="btn btn-sm">👥 Пользователи</a></span>
+  <span><a href="#roles-section" class="btn btn-sm">🔑 Роли</a></span>
+  <span><a href="#audit-section" class="btn btn-sm">📋 Аудит</a></span>
+</div>
+
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- Users Table (read-only from backend API) -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<div class="requirements-box">
+<div class="requirements-box" id="users-section">
   <div class="requirements-title">Пользователи портала</div>
   {% if backend_available and users %}
   <div class="table-container mt-12">
@@ -128,7 +135,7 @@
       <summary class="font-semibold text-md">➕ Создать пользователя</summary>
       <form method="POST" action="/admin/users/create" class="login-form mt-12">
         <div class="form-group">
-          <label class="form-label">Имя пользователя (логин)</label>
+          <label class="form-label form-label-required">Имя пользователя (логин)</label>
           <input type="text" name="username" class="form-input" required
                  minlength="1" maxlength="100" autocomplete="off"
                  placeholder="user_login">
@@ -140,13 +147,14 @@
                  placeholder="Иван Петров">
         </div>
         <div class="form-group">
-          <label class="form-label">Временный пароль</label>
+          <label class="form-label form-label-required">Временный пароль</label>
           <input type="password" name="password" class="form-input" required
                  minlength="8" maxlength="128" autocomplete="new-password"
                  placeholder="Минимум 8 символов">
         </div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">✅ Создать</button>
+          <a href="/admin" class="btn btn-secondary">Отмена</a>
         </div>
       </form>
     </details>
@@ -155,7 +163,7 @@
       <summary class="font-semibold text-md text-warning">🔒 Заблокировать пользователя</summary>
       <form method="POST" action="/admin/users/block" class="login-form mt-12">
         <div class="form-group">
-          <label class="form-label">Имя пользователя (логин)</label>
+          <label class="form-label form-label-required">Имя пользователя (логин)</label>
           <input type="text" name="username" class="form-input" required
                  minlength="1" maxlength="100" autocomplete="off"
                  placeholder="user_login">
@@ -165,6 +173,7 @@
         </div>
         <div class="form-actions">
           <button type="submit" class="btn btn-danger">🔒 Заблокировать</button>
+          <a href="/admin" class="btn btn-secondary">Отмена</a>
         </div>
       </form>
     </details>
@@ -173,7 +182,7 @@
       <summary class="font-semibold text-md text-error">📦 Архивировать пользователя</summary>
       <form method="POST" action="/admin/users/archive" class="login-form mt-12">
         <div class="form-group">
-          <label class="form-label">Имя пользователя (логин)</label>
+          <label class="form-label form-label-required">Имя пользователя (логин)</label>
           <input type="text" name="username" class="form-input" required
                  minlength="1" maxlength="100" autocomplete="off"
                  placeholder="user_login">
@@ -183,6 +192,7 @@
         </div>
         <div class="form-actions">
           <button type="submit" class="btn btn-danger">📦 Архивировать</button>
+          <a href="/admin" class="btn btn-secondary">Отмена</a>
         </div>
       </form>
     </details>
@@ -191,6 +201,7 @@
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- Roles (read-only from backend API) -->
+<div id="roles-section">
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <div class="requirements-box">
   <div class="requirements-title">Роли</div>
@@ -225,7 +236,7 @@
       <summary class="font-semibold text-md">✅ Назначить роль</summary>
       <form method="POST" action="/admin/users/assign-roles" class="login-form mt-12">
         <div class="form-group">
-          <label class="form-label">Имя пользователя (логин)</label>
+          <label class="form-label form-label-required">Имя пользователя (логин)</label>
           <input type="text" name="username" class="form-input" required
                  minlength="1" maxlength="100" autocomplete="off"
                  placeholder="user_login">
@@ -244,6 +255,7 @@
         </div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">✅ Назначить</button>
+          <a href="/admin" class="btn btn-secondary">Отмена</a>
         </div>
       </form>
     </details>
@@ -267,7 +279,10 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
+</div>
+
 <!-- Admin Audit (read-only from backend API) -->
+<div id="audit-section">
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <div class="requirements-box">
   <div class="requirements-title">Аудит администрирования</div>

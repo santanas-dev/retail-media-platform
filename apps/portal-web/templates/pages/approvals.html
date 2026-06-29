@@ -72,6 +72,7 @@
       </div>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary" {% if not available_objects %}disabled{% endif %}>Отправить на согласование</button>
+        <a href="/approvals" class="btn btn-secondary">Отмена</a>
       </div>
     </form>
   </div>
@@ -128,7 +129,8 @@
         <form method="post" action="/approvals/decide" class="flex-center gap-8">
           <input type="hidden" name="approval_code" value="{{ a.approval_code }}">
           <input type="hidden" name="decision" value="reject">
-          <input type="text" name="comment" placeholder="Причина отказа" maxlength="500"
+          <label class="form-label text-sm">Причина отказа</label>
+          <input type="text" name="comment" placeholder="Укажите причину" maxlength="500"
                  class="form-input form-input-md">
           <button type="submit" class="btn btn-sm btn-danger">✗ Отклонить</button>
         </form>

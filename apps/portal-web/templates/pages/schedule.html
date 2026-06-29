@@ -104,6 +104,7 @@
       </div>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">Создать расписание</button>
+        <a href="/schedule" class="btn btn-secondary">Отмена</a>
       </div>
     </form>
   </div>
@@ -172,19 +173,33 @@
     {% if s.status != 'archived' %}
     <div class="px-12 py-8" style="background:var(--color-bg);border-bottom:1px solid var(--color-border-light);">
       <form method="post" action="/schedule/{{ s.schedule_code }}/create-slot" class="form-inline gap-8">
-        <span class="nowrap" style="font-size:11px;font-weight:600;color:var(--color-text-secondary);">+ Слот:</span>
-        <input type="text" name="slot_code" placeholder="Код слота*" minlength="3" maxlength="64"
-               pattern="[a-z0-9_-]+" required class="form-input form-input-sm">
-        <input type="text" name="placement_code" placeholder="Код размещения" maxlength="64"
-               class="form-input form-input-sm">
+        <div class="form-group">
+          <label class="form-label text-sm">Код слота*</label>
+          <input type="text" name="slot_code" placeholder="morning_slot" minlength="3" maxlength="64"
+                 pattern="[a-z0-9_-]+" required class="form-input form-input-sm">
+        </div>
+        <div class="form-group">
+          <label class="form-label text-sm">Размещение</label>
+          <input type="text" name="placement_code" placeholder="Код размещения" maxlength="64"
+                 class="form-input form-input-sm">
+        </div>
+        <div class="form-group">
+          <label class="form-label text-sm">День недели*</label>
         <select name="day_of_week" required class="form-select form-input-xs">
           <option value="0">Пн</option><option value="1">Вт</option><option value="2">Ср</option>
           <option value="3">Чт</option><option value="4">Пт</option><option value="5">Сб</option><option value="6">Вс</option>
         </select>
-        <input type="text" name="start_time" placeholder="09:00*" minlength="5" maxlength="8"
+        </div>
+        <div class="form-group">
+          <label class="form-label text-sm">Начало*</label>
+        <input type="text" name="start_time" placeholder="09:00" minlength="5" maxlength="8"
                required class="form-input form-input-xs">
-        <input type="text" name="end_time" placeholder="21:00*" minlength="5" maxlength="8"
+        </div>
+        <div class="form-group">
+          <label class="form-label text-sm">Конец*</label>
+        <input type="text" name="end_time" placeholder="21:00" minlength="5" maxlength="8"
                required class="form-input form-input-xs">
+        </div>
         <button type="submit" class="btn btn-sm btn-primary">+ Добавить</button>
       </form>
     </div>

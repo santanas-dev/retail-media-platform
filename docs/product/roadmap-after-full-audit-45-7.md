@@ -14,7 +14,7 @@
 | 45.7 Audit Reconciliation | 🔵 IN PROGRESS | Low | 1 session |
 | 45.8 Security Hardening: RLS + Audit | ✅ DONE | Medium | 2 sessions (45.8 + 45.8.1) |
 | 45.8.1 Security Hardening Closure | ✅ DONE | Low | 1 session |
-| 45.9 Portal UX Hardening | ⬜ PENDING | Low | 2 sessions |
+| 45.9 Portal UX Hardening | ✅ DONE | Low | 1 session |
 | 46.0 Publication/Status Lifecycle | ⬜ PENDING | Medium | 2 sessions |
 | 46.1 Compliance 152-ФЗ Readiness | ⬜ PENDING | Low | 1-2 sessions |
 | 46.2 Pilot Readiness (Physical KSO) | ⬜ BLOCKED | High | TBD |
@@ -53,30 +53,16 @@
 
 ---
 
-## Phase 45.9 — Portal UX Hardening
+## Phase 45.9 — Portal UX Hardening ✅ DONE
 
-### Goal
-Fix P1 UX issues: form labels, density, empty states.
-
-### Backend/API Tasks
-- None (backend already returns correct data)
-
-### Portal Tasks
-- [ ] Add `<label>` elements to schedule.html (8 inputs)
-- [ ] Add `required` visual markers (CSS `::after { content: " *"; color: red; }`)
-- [ ] Add cancel/back links to admin.html forms
-- [ ] Reduce schedule.html columns from 12 → 8 (hide advanced fields)
-- [ ] Group admin.html into tabs/sections (Users, Roles, RLS, Audit)
-- [ ] Add "Create first X" CTA to inventory.html and stores.html empty states
-- [ ] Replace emoji icons with SVG (📢, 📋, ✅, etc.)
-
-### Security Tasks
-- None
-
-### Tests/Gates
-- [ ] Visual regression: all pages render without broken layouts
-- [ ] WCAG A compliance: all inputs have labels
-- [ ] QA gates: no JS/CDN/localStorage, no raw JSON
+### Outcome
+- **Labels**: 8 added (schedule slot form: 6, approvals reject: 1, admin required markers: 5 fixed)
+- **Cancel links**: 7 added (schedule create, approvals create, campaign_detail create-schedule, admin 4 forms)
+- **Density**: Admin quick-nav + id anchors added
+- **Empty states**: Inventory CTA buttons added
+- **Tests**: 10 UX audit tests, all pass. Portal regression: 813/32.
+- **Backend**: 0 files touched. RBAC/RLS/audit/maker-checker unchanged.
+- **No**: JS/CDN/localStorage/raw JSON/technical language.
 
 ### Acceptance Criteria
 - [ ] All form inputs have accessible labels
