@@ -5,6 +5,29 @@ All notable changes to the Retail Media Platform.
 Format: [SemVer](https://semver.org/) + annotated Git tags.
 Every minor tag requires: green full regression, clean git status, no secrets in docs/output.
 
+## [A.3 EXECUTED] — 2026-06-29 — KSO Data Migration to Universal Model
+
+### Schema Changes
+- ALTER physical_devices: +external_code (VARCHAR 64), +device_properties (JSONB)
+- CREATE TABLE placements, placement_targets, proof_events
+- FK fix: proof_events.manifest_id → generated_manifests(id)
+
+### Data Migration (4 INSERTs, all succeeded)
+- kso_devices → physical_devices: 1 row
+- kso_placements → placements: 1 row
+- placement_targets: 1 row
+- kso_proof_of_play_events → proof_events: 2 rows
+
+### Validation (12/12)
+- Counts match, no orphans, no duplicates
+- proof_type=real_playback, channel_type=KSO
+- Legacy tables preserved (NOT dropped)
+- Backend regression: 777/0, Portal: 863/20sk
+
+### Feature Flag
+- USE_UNIVERSAL_DEVICE_MODEL=false (default, not implemented in code)
+- Legacy read path remains active
+
 ## [A.3.1] — 2026-06-29 — KSO Migration Approval Gate
 
 ### Added
