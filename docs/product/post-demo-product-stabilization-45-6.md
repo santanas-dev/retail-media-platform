@@ -77,3 +77,8 @@ Tag `v0.9.0-rc0-business-demo.6` (commit `e17900e`) — стабильный bus
 | JS/CDN/localStorage | 0 ✅ |
 | Secrets/leaks | 0 ✅ |
 | QA gates | PASS ✅ |
+
+### 45.6.1 — Regression Classification & Demo Cleanup
+
+Portal 3 failures: stale server (restart fixed). Backend 1 error: import path fixed.
+Both layers now 0 failures. Demo data cleanup plan ready.

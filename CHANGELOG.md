@@ -7,6 +7,20 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [45.6.1] — Regression Classification & Demo Data Cleanup Plan — 2026-06-29
+
+### Fixed
+- Portal 3 live-integration test failures (stale server after 45.6 changes)
+- Backend 1 test error: `ModuleNotFoundError: backend_client` — fixed import path
+
+### Added
+- Regression classification doc (`docs/audit/regression-classification-45-6-1.md`)
+- Demo data cleanup plan (`docs/product/demo-data-cleanup-plan-45-6-1.md`)
+
+### Status
+- Portal: 835 OK, 20 skipped ✅
+- Backend: 770 OK ✅
+
 ## [45.6] — Post-Demo Product Stabilization — 2026-06-29
 
 ### Added

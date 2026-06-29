@@ -492,7 +492,7 @@ class TestBackendClientBatchLifecycle(unittest.TestCase):
     def test_client_has_all_methods(self):
         """BackendClient has all batch lifecycle methods."""
         import sys
-        sys.path.insert(0, "apps/portal-web")
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "apps", "portal-web"))
         from backend_client import BackendClient
         for method in ("request_batch_approval", "approve_batch",
                        "generate_batch_manifests", "cancel_batch"):
