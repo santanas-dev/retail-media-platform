@@ -5,6 +5,26 @@ All notable changes to the Retail Media Platform.
 Format: [SemVer](https://semver.org/) + annotated Git tags.
 Every minor tag requires: green full regression, clean git status, no secrets in docs/output.
 
+## [46.1] — 2026-06-29 — TZ v2.5 Gap Analysis & Re-Alignment
+
+### Added
+- TZ v2.5 Gap Analysis (`docs/audit/tz-v2-5-gap-analysis-46-1.md`)
+- Architecture Correction Plan (`docs/architecture/v2-5-architecture-correction-plan-46-1.md`)
+- Re-Alignment Roadmap (`docs/product/tz-v2-5-realignment-roadmap-46-1.md`)
+- MS Project CSV (`docs/product/tz-v2-5-roadmap-ms-project.csv`)
+
+### Key Findings
+- **Общий % соответствия ТЗ v2.5: ~25%**
+- Текущая система: архитектурный каркас + control-plane портал
+- Критично отсутствуют: Channel Orchestrator, Adapter Layer, Device Gateway, Manifest signing, PoP, ClickHouse
+- KSO-дубликаты таблиц: kso_devices/kso_placements/kso_proof_of_play_events конфликтуют с универсальной моделью
+- Старый roadmap (45.7→46.2) заменён новым: 8 фаз, ~21-35 сессий до production-ready v2.5
+
+### Stop/Go
+- ❌ Остановлены: старый roadmap, дальнейший UX/compliance hardening
+- ✅ Сохранено: RBAC/RLS 47/47, audit 20/20, campaign workflow, hierarchy, portal
+- ▶️ Следующий шаг: A.2 — ERD/API/Event Contracts v2.5
+
 ## [46.1] — 2026-06-29 — Compliance 152-ФЗ Readiness
 
 ### Added

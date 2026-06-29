@@ -1,23 +1,34 @@
-# Roadmap After Full Audit — 45.7
+# Roadmap After Full Audit — 45.7 (DEPRECATED)
 
-**Date:** 2026-06-29  
-**Based on:** Full System Audit v3.0 + Live Reconciliation 45.7  
-**Current baseline:** v0.9.0-rc0-business-demo.6 (e17900e)  
-**Current dev:** 07d5b02 (cleanup complete)
+> **⚠️ ЗАМЕНЁН документом `tz-v2-5-realignment-roadmap-46-1.md`**
+> **Причина:** Gap analysis 46.1 показал значительные отклонения от ТЗ v2.5.
+> **Дата замены:** 2026-06-29
+>
+> Старая roadmap (45.7→46.2) закрыта. Новая roadmap начинается с фазы A (Re-Alignment)
+> и следует архитектуре ТЗ v2.5: channel-agnostic core → Channel Orchestrator →
+> Adapter Layer → Device Gateway → KSO как первый канал.
 
----
+## Итоги выполненных фаз (сохранены как control-plane slice)
 
-## Phase Status Overview
+| Phase | Status |
+|---|---|
+| 45.8 Security Hardening | ✅ DONE — 47/47 RLS, 20/20 audit |
+| 45.9 Portal UX Hardening | ✅ DONE — русские labels, accessibility |
+| 46.0 Status Lifecycle Cleanup | ✅ DONE — единая карта статусов |
+| 46.1 Compliance 152-ФЗ | ✅ DONE — PII inventory, privacy notice |
+| 46.1 TZ v2.5 Gap Analysis | ✅ DONE — **см. новый roadmap** |
 
-| Phase | Status | Risk | Est. Effort |
-|---|---|---|---|
-| 45.7 Audit Reconciliation | 🔵 IN PROGRESS | Low | 1 session |
-| 45.8 Security Hardening: RLS + Audit | ✅ DONE | Medium | 2 sessions (45.8 + 45.8.1) |
-| 45.8.1 Security Hardening Closure | ✅ DONE | Low | 1 session |
-| 45.9 Portal UX Hardening | ✅ DONE | Low | 1 session |
-| 46.0 Publication/Status Lifecycle | ✅ DONE | Medium | 1 session |
-| 46.1 Compliance 152-ФЗ Readiness | ✅ DONE | Low | 1 session |
-| 46.2 Pilot Readiness (Physical KSO) | ⬜ BLOCKED | High | TBD |
+## Остановленные фазы
+
+| Phase | Причина |
+|---|---|
+| 46.2 Pilot Readiness | Преждевременно — нет Device Gateway, Channel Orchestrator |
+| Дальнейший UX hardening | Достаточно для v1; приоритет — архитектура |
+| Дальнейший compliance | Достаточно для v1 |
+
+## Новый roadmap
+
+**См.** `docs/product/tz-v2-5-realignment-roadmap-46-1.md`
 
 ---
 
