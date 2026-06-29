@@ -7,6 +7,32 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [45.6.2] — Demo Data Cleanup Dry-Run — 2026-06-29
+
+### Added
+- Dry-run SQL queries file (`docs/product/demo-data-cleanup-dry-run-45-6-2.sql`) — SELECT only, destructive statements commented out
+- Dry-run report (`docs/product/demo-data-cleanup-dry-run-45-6-2.md`)
+
+### Inventory Summary
+| Entity | Total | Junk/Seed | Keep | Delete Candidates |
+|--------|-------|-----------|------|-------------------|
+| users | 83 | ~80 | 3 | ~80 |
+| campaigns | 23 | 19 | 1-4 | 16 |
+| creatives | 26 | 20 | 7 | 17 |
+| publication_batches | 74 | 74 | 0 | 74 |
+| campaign_creatives | 6 | 1 | 5 | 1 |
+
+### Verified
+- 0 orphan records (all publication_batches have valid campaign_id FK)
+- Dependency graph mapped
+- Backup/rollback plan ready
+- Controlled dataset target: 3 users + 1-4 campaigns + 5-7 creatives + 2 schedules + 1 approval
+
+### Status
+- No DELETE/UPDATE/TRUNCATE executed
+- Database unchanged
+- Portal: 835 OK, Backend: 770 OK
+
 ## [45.6.1] — Regression Classification & Demo Data Cleanup Plan — 2026-06-29
 
 ### Fixed
