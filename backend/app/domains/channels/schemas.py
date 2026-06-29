@@ -91,6 +91,7 @@ class PhysicalDeviceResponse(BaseModel):
     id: UUID
     store_id: UUID
     device_type_id: UUID
+    external_code: str | None = None
     serial_number: str | None
     hw_fingerprint: str | None
     status: str | None

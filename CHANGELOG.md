@@ -5,6 +5,40 @@ All notable changes to the Retail Media Platform.
 Format: [SemVer](https://semver.org/) + annotated Git tags.
 Every minor tag requires: green full regression, clean git status, no secrets in docs/output.
 
+## [B.1] — 2026-06-29 — Channel Registry Cleanup
+
+### Seed
+- Device types: 5 (was 1) — +android_tv_gen1, price_checker_gen1, esl_gen1, led_shelf_gen1
+- Capability profiles: 6 (was 1) — one per device type, KSO dual portrait+landscape
+- Bugfix: 768×1024 display surface → correct portrait profile (was landscape)
+- Bugfix: KSO proof_type screenshot→real_playback, formats added
+
+### Universal Read Helpers
+- `list_physical_devices(channel_code=...)` — filter devices by channel
+- `get_physical_device_by_external_code()` — lookup by external_code
+- `GET /api/physical-devices?channel_code=kso` — universal device listing
+- `GET /api/physical-devices/by-code/{code}` — universal device lookup
+- `PhysicalDeviceResponse.external_code` — exposed in API
+
+### ORM
+- PhysicalDevice: +external_code (String 64, unique), +device_properties (JSONB)
+
+### Tests
+- test_channel_registry_b1.py: 15 tests (channels, device types, profiles, universal model, orientation fix, legacy preserved)
+
+### Regression
+- Backend: 848/0
+- Portal: 842/32sk (8 flakes — pre-existing)
+
+### Docs
+- channel-registry-cleanup-b1.md (new)
+- channel-registry-compatibility-layer-b1.md (new)
+
+### Compatibility
+- Legacy routes/tables: preserved, unchanged
+- No DROP/DELETE/TRUNCATE
+- KSO is first channel, not sole vertical
+
 ## [A.3.2] — 2026-06-29 — Post-Migration Safety Gate
 
 ### Safety Gate

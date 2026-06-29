@@ -104,6 +104,7 @@ async def list_physical_devices(
     limit: int = 100,
     store_id: UUID | None = None,
     device_type_id: UUID | None = None,
+    channel_code: str | None = None,
     status: str | None = None,
 ) -> list[models.PhysicalDevice]:
     stmt = select(models.PhysicalDevice).order_by(models.PhysicalDevice.created_at.desc())
@@ -111,10 +112,33 @@ async def list_physical_devices(
         stmt = stmt.where(models.PhysicalDevice.store_id == store_id)
     if device_type_id:
         stmt = stmt.where(models.PhysicalDevice.device_type_id == device_type_id)
+    if channel_code:
+        stmt = (
+            stmt.join(models.DeviceType, models.PhysicalDevice.device_type_id == models.DeviceType.id)
+            .join(models.Channel, models.DeviceType.channel_id == models.Channel.id)
+            .where(models.Channel.code == channel_code)
+        )
     if status:
         stmt = stmt.where(models.PhysicalDevice.status == status)
     result = await db.execute(stmt.offset(skip).limit(limit))
     return list(result.scalars().all())
+
+
+async def get_physical_device_by_external_code(
+    db: AsyncSession, external_code: str,
+) -> models.PhysicalDevice:
+    result = await db.execute(
+        select(models.PhysicalDevice).where(
+            models.PhysicalDevice.external_code == external_code
+        )
+    )
+    device = result.scalar_one_or_none()
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Device with external_code '{external_code}' not found",
+        )
+    return device
 
 
 async def create_physical_device(

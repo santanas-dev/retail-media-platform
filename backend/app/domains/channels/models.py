@@ -132,6 +132,8 @@ class PhysicalDevice(Base):
     )
     serial_number = Column(String(255))
     hw_fingerprint = Column(String(512))
+    external_code = Column(String(64), unique=True)
+    device_properties = Column(JSONB)
     status = Column(String(50), server_default="offline")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now())

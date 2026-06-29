@@ -87,11 +87,14 @@ async def list_physical_devices(
     limit: int = Query(100, ge=1, le=200),
     store_id: UUID | None = Query(None),
     device_type_id: UUID | None = Query(None),
+    channel_code: str | None = Query(None, max_length=50),
     status: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     _: identity_models.User = Depends(require_permission("devices.read")),
 ):
-    return await service.list_physical_devices(db, skip, limit, store_id, device_type_id, status)
+    return await service.list_physical_devices(
+        db, skip, limit, store_id, device_type_id, channel_code, status,
+    )
 
 
 @router.post("/physical-devices", response_model=schemas.PhysicalDeviceResponse, status_code=201)
@@ -101,6 +104,19 @@ async def create_physical_device(
     _: identity_models.User = Depends(require_permission("devices.manage")),
 ):
     return await service.create_physical_device(db, body)
+
+
+@router.get(
+    "/physical-devices/by-code/{external_code}",
+    response_model=schemas.PhysicalDeviceResponse,
+)
+async def get_physical_device_by_external_code(
+    external_code: str,
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("devices.read")),
+):
+    """Get a physical device by its external_code (universal model)."""
+    return await service.get_physical_device_by_external_code(db, external_code)
 
 
 # ── Logical Carriers ──────────────────────────────────────────────────────

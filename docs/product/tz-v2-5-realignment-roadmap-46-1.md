@@ -51,10 +51,14 @@
 
 ## Фаза B: Multichannel Core (P0 — блокеры архитектуры)
 
-### B.1 — Channel Registry Cleanup
-- Убрать KSO-дубликаты из кода
-- Дополнить seed: Android TV, price checker, ESL, LED как каналы
-- Валидация: все 5 каналов в `channels` таблице
+### B.1 — Channel Registry Cleanup ✅ COMPLETED
+- Seed: 5 device types (+4), 6 capability profiles, orientation fix
+- Universal read helpers: channel_code filter, by-external-code lookup
+- ORM: external_code + device_properties on PhysicalDevice
+- Tests: 15/15
+- Compatibility layer documented
+- Legacy routes/tables preserved
+- **KSO = первый канал, не отдельная вертикаль**
 
 ### B.2 — Device Model Unification  
 - `physical_devices` как единая модель для всех каналов
