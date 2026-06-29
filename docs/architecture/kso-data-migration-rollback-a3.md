@@ -1,7 +1,7 @@
 # KSO Data Migration Rollback Plan — A.3
 
-> **Дата:** 2026-06-29 | **Этап:** A.3  
-> **Статус:** ПРОЕКТ
+> **Дата:** 2026-06-29 | **Этап:** A.3 EXECUTED → A.3.2 VERIFIED  
+> **Статус:** РАБОЧИЙ — backup проверен (2.2 MB, 634 entries), rollback доступен
 
 ---
 

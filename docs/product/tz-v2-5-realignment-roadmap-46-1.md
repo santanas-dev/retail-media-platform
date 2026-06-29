@@ -28,20 +28,24 @@
 - Зафиксировать event stream contracts (ТЗ Table 33)
 - Документы в `docs/architecture/`
 
-### A.3 — KSO Data Migration Dry-Run ✅ DONE
-- Dry-run SQL (`docs/architecture/kso-data-migration-dry-run-a3.sql`)
-- Migration plan: 4 tables, 4 rows total, field-level mapping
-- Backup plan, validation plan, rollback plan
-- Feature flag: USE_UNIVERSAL_DEVICE_MODEL
-- **Миграция НЕ выполнена** — готово к исполнению после approval
+### A.3 — KSO Data Migration ✅ EXECUTED (commit cb7f294)
+- Schema: ALTER physical_devices + 3 CREATE TABLE
+- Data: 4 INSERTs (1 device + 1 placement + 1 target + 2 PoP)
+- FK fix: proof_events.manifest_id → generated_manifests
+- Validation: 17/17 checks pass
+- Legacy kso_* tables preserved
 
-### A.3.1 — Migration Approval Gate ⏳ AWAITING APPROVAL
-- Mini-design (`docs/architecture/kso-migration-mini-design-a3-1.md`)
-- Approval checklist (`docs/architecture/kso-migration-approval-checklist-a3-1.md`)
-- 10-step sequence, 10 risks, feature flag design
-- **Требуется `APPROVE A.3 EXECUTION` для выполнения**
+### A.3.1 — Migration Approval Gate ✅ APPROVED & EXECUTED
+- Mini-design, approval checklist, risk matrix
+- `APPROVE A.3 EXECUTION` получено, миграция выполнена
 
-**Blockers:** approval gate
+### A.3.2 — Post-Migration Safety Gate ✅ VERIFIED
+- Backup: 2.2 MB, 634 entries, проверен
+- Data quality: 17/17
+- Regression: Backend 848/0, Portal 842/32sk
+- Feature flag: NOT implemented (safe)
+- No DROP/DELETE/TRUNCATE
+- ✅ READY FOR B.1
 
 ---
 

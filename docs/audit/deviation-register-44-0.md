@@ -81,6 +81,24 @@
 
 ---
 
+## DEV-003B: KSO-дубликаты таблиц (RESOLVED ✅)
+
+**Пункт ТЗ:** 17.1, ERD v2.5 — Универсальная модель устройств/размещений/PoP
+
+**Статус:** ✅ RESOLVED (A.3 — commit cb7f294)
+
+**Проблема:** `kso_devices`, `kso_placements`, `kso_proof_of_play_events` существовали как KSO-специфичные таблицы параллельно с универсальной моделью v2.5 (`physical_devices`, `placements`, `proof_events`).
+
+**Решение:**
+- Данные мигрированы: KSO device → physical_devices, placement → placements, PoP → proof_events
+- Legacy kso_* таблицы сохранены (read-only), не удалены
+- Feature flag USE_UNIVERSAL_DEVICE_MODEL=false (не реализован)
+- Universal model заполнена и проверена (17/17 validation)
+
+**Target:** B.1 — убрать KSO-дубликаты из кода; B.2 — полная унификация.
+
+---
+
 ## DEV-004: Мультиканальность отложена
 
 **Пункт ТЗ:** 17.1, 17.2 — Многоканальная платформа (KSO, Android TV, LED, ESL, Mobile)
@@ -133,6 +151,7 @@
 | DEV-001 | Frontend (React → HTML) | ⚠️ DEVIATION v1 | v2 пересмотр |
 | DEV-002 | Display (768×1024 → Full HD) | ⚠️ DEVIATION v1 pilot | v1 production Full HD |
 | DEV-003 | Архитектура (монолит → μ-services) | ⚠️ DEVIATION v1 | v2 |
+| DEV-003B | KSO-дубликаты таблиц | ✅ RESOLVED (A.3) | B.1 cleanup |
 | DEV-004 | Мультиканальность | 📅 DEFERRED | v2 |
 | DEV-005 | AD/SSO/MFA | 📅 DEFERRED | v1 production |
 | DEV-006 | Production infra | 📅 DEFERRED | v1 production |

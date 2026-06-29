@@ -5,6 +5,29 @@ All notable changes to the Retail Media Platform.
 Format: [SemVer](https://semver.org/) + annotated Git tags.
 Every minor tag requires: green full regression, clean git status, no secrets in docs/output.
 
+## [A.3.2] — 2026-06-29 — Post-Migration Safety Gate
+
+### Safety Gate
+- Feature flag: USE_UNIVERSAL_DEVICE_MODEL NOT implemented (no risk)
+- Backup verified: 2.2 MB, 634 TOC entries, all key tables present
+- Data quality: 17/17 checks pass
+- Backend regression: 848/0
+- Portal regression: 842/32sk
+- RBAC/RLS 47/47 unchanged
+- Audit coverage 20/20 unchanged
+- Secrets/leaks: none
+- No DROP/DELETE/TRUNCATE executed
+- Legacy kso_* tables preserved
+- ✅ READY FOR B.1
+
+### Docs
+- kso-post-migration-safety-gate-a3-2.md (new)
+- kso-data-migration-plan-a3.md (updated)
+- kso-data-migration-validation-a3.md (updated)
+- kso-data-migration-rollback-a3.md (updated)
+- tz-v2-5-realignment-roadmap-46-1.md (updated)
+- deviation-register-44-0.md (updated)
+
 ## [A.3 EXECUTED] — 2026-06-29 — KSO Data Migration to Universal Model
 
 ### Schema Changes
