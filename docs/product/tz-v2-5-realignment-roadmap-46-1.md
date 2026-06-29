@@ -22,7 +22,7 @@
 - Документ: `docs/audit/tz-v2-5-gap-analysis-46-1.md`
 - Документ: `docs/architecture/v2-5-architecture-correction-plan-46-1.md`
 
-### A.2 — ERD/API/Event Contracts v2.5
+### A.2 — ERD/API/Event Contracts v2.5 ✅ DONE
 - Зафиксировать ERD v2.5 (PostgreSQL) на основе ТЗ Table 17+34
 - Зафиксировать API contracts по группам (ТЗ Table 19)
 - Зафиксировать event stream contracts (ТЗ Table 33)

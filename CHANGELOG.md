@@ -5,6 +5,28 @@ All notable changes to the Retail Media Platform.
 Format: [SemVer](https://semver.org/) + annotated Git tags.
 Every minor tag requires: green full regression, clean git status, no secrets in docs/output.
 
+## [A.2] — 2026-06-29 — ERD/API/Event Contracts v2.5
+
+### Added
+- ERD v2.5: 28 existing + 39 new tables, 4 deprecated (`docs/architecture/erd-v2-5-a2.md`)
+- API Contracts: 92 endpoints (37 exist, 55 new) (`docs/architecture/api-contracts-v2-5-a2.md`)
+- Event Contracts: publication→manifest→delivery→proof flow (`docs/architecture/event-contracts-v2-5-a2.md`)
+- Domain Boundaries: 11 domains with can/cannot rules (`docs/architecture/domain-boundaries-v2-5-a2.md`)
+- KSO Duplicate Mapping: 4 mapping tables for A.3 migration (`docs/architecture/kso-duplicate-mapping-a2.md`)
+- Architecture Decisions: 11 ADs (`docs/architecture/architecture-decisions-v2-5-a2.md`)
+
+### Key Decisions
+- Jinja2 v1 frontend retained (React deferred to Phase F)
+- HMAC manifest signing for v1, Ed25519 for production
+- Mock Adapter mandatory before KSO Adapter
+- ClickHouse required before PoP production (Phase C.5)
+- Redis not used as sole critical queue
+- KSO = first channel, not architectural foundation
+
+### Ready for A.3
+- KSO data migration: kso_devices→physical_devices, kso_placements→placements
+- Prerequisites: ERD contracts documented, mapping defined, rollback planned
+
 ## [46.1] — 2026-06-29 — TZ v2.5 Gap Analysis & Re-Alignment
 
 ### Added
