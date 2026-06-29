@@ -7,6 +7,29 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [45.7] — Audit Reconciliation & Roadmap Update — 2026-06-29
+
+### Reconciliation Results
+- **0 P0 confirmed** — all critical paths functional
+- **P1: 4 confirmed** (forms, RLS, audit, schedule density), 2 downgraded to P2 (admin density, empty states)
+- **P2: 6 total** (3 original + 2 downgraded + 1 clarified)
+- **False positives corrected:** Backend not DOWN, DB not OFFLINE, API schema valid (196 paths), Dependency health PASS, Audit trail 8/20 (not 1/17)
+- **Overstated corrected:** RLS has 4 files with advertiser logic (not 0), Migration safety needs re-evaluation
+- Data quality: all FK invariants PASS live, 0 orphans, 0 overlapping slots
+
+### Updated Roadmap
+- 45.8 Security Hardening: RLS + Audit (2-3 sessions)
+- 45.9 Portal UX Hardening: forms + density + empty states (2 sessions)
+- 46.0 Publication/Status Lifecycle Cleanup (2 sessions)
+- 46.1 Compliance 152-ФЗ Readiness (1-2 sessions)
+- 46.2 Pilot Readiness: BLOCKED by hardware
+
+### Docs
+- `docs/audit/full-system-audit-v3-reconciliation-45-7.md`
+- `docs/product/roadmap-after-full-audit-45-7.md`
+
+---
+
 ## [45.6.3] — Safe Demo Data Cleanup Execution — 2026-06-29
 
 ### Changed
