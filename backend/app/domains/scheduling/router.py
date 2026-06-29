@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_db, require_permission
 from app.domains.identity import models as identity_models
 from app.domains.identity.rls import resolve_user_scope_context, assert_object_in_advertiser_scope
+from app.domains.audit.service import audit_business_action
 from app.domains.scheduling import schemas, service
 
 router = APIRouter(prefix="/api", tags=["scheduling"])
@@ -237,7 +238,14 @@ async def create_schedule_prod(
         adv_id = await _resolve_campaign_advertiser(db, data.campaign_code)
         if adv_id is not None:
             assert_object_in_advertiser_scope(adv_id, scope_ctx, "create schedule")
-    return await service.create_schedule(db, data, current_user.id)
+    result = await service.create_schedule(db, data, current_user.id)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="schedule.create", target_type="schedule",
+        target_ref=result.schedule_code,
+        details={"name": data.name, "campaign_code": data.campaign_code},
+    )
+    return result
 
 
 @router.get(
@@ -272,7 +280,14 @@ async def patch_schedule_prod(
     adv_id = await _resolve_schedule_advertiser(db, schedule_code)
     if adv_id is not None:
         assert_object_in_advertiser_scope(adv_id, scope_ctx, "modify schedule")
-    return await service.update_schedule(db, schedule_code, data)
+    result = await service.update_schedule(db, schedule_code, data)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="schedule.update", target_type="schedule",
+        target_ref=schedule_code,
+        details={"updated_fields": list(data.dict(exclude_unset=True).keys()) if hasattr(data, 'dict') else []},
+    )
+    return result
 
 
 @router.post(
@@ -289,7 +304,13 @@ async def archive_schedule_prod(
     adv_id = await _resolve_schedule_advertiser(db, schedule_code)
     if adv_id is not None:
         assert_object_in_advertiser_scope(adv_id, scope_ctx, "archive schedule")
-    return await service.archive_schedule(db, schedule_code)
+    result = await service.archive_schedule(db, schedule_code)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="schedule.archive", target_type="schedule",
+        target_ref=schedule_code,
+    )
+    return result
 
 
 # ── Schedule Slots ────────────────────────────────────────────────────────
@@ -327,7 +348,14 @@ async def create_slot_prod(
     adv_id = await _resolve_schedule_advertiser(db, schedule_code)
     if adv_id is not None:
         assert_object_in_advertiser_scope(adv_id, scope_ctx, "create schedule slot")
-    return await service.create_schedule_slot(db, schedule_code, data)
+    result = await service.create_schedule_slot(db, schedule_code, data)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="schedule_slot.create", target_type="schedule_slot",
+        target_ref=result.slot_code if hasattr(result, 'slot_code') else "unknown",
+        details={"schedule_code": schedule_code, "slot_code": data.slot_code},
+    )
+    return result
 
 
 @router.patch(
@@ -346,7 +374,14 @@ async def patch_slot_prod(
     adv_id = await _resolve_schedule_advertiser(db, schedule_code)
     if adv_id is not None:
         assert_object_in_advertiser_scope(adv_id, scope_ctx, "modify schedule slot")
-    return await service.update_schedule_slot(db, schedule_code, slot_code, data)
+    result = await service.update_schedule_slot(db, schedule_code, slot_code, data)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="schedule_slot.update", target_type="schedule_slot",
+        target_ref=slot_code,
+        details={"schedule_code": schedule_code},
+    )
+    return result
 
 
 @router.delete(
@@ -364,4 +399,11 @@ async def disable_slot_prod(
     adv_id = await _resolve_schedule_advertiser(db, schedule_code)
     if adv_id is not None:
         assert_object_in_advertiser_scope(adv_id, scope_ctx, "disable schedule slot")
-    return await service.disable_schedule_slot(db, schedule_code, slot_code)
+    result = await service.disable_schedule_slot(db, schedule_code, slot_code)
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="schedule_slot.disable", target_type="schedule_slot",
+        target_ref=slot_code,
+        details={"schedule_code": schedule_code},
+    )
+    return result

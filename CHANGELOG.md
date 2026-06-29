@@ -7,6 +7,26 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [45.8] — Security Hardening: RLS Scope + Audit Trail — 2026-06-29
+
+### Changed
+- **Scheduling audit trail:** +6 audit calls (schedule.create/update/archive, slot.create/update/disable)
+- **Portal 403 handling:** `forbidden_response()` now public; campaign detail shows styled Russian 403 on scope violations
+- **Audit coverage:** 8/20 (40%) → 14/20 (70%)
+
+### Verified
+- **RLS/scope:** Backend already enforces `assert_object_in_advertiser_scope` in ALL 47 object-access routes across campaigns, media, scheduling, publications, approvals, manifests, reports, device_dashboard, proof_of_play
+- Admin roles (system_admin, security_admin) bypass RLS by design
+- Backend regression: 770 OK
+- Portal regression: 835 OK, 20 skipped
+
+### Docs
+- `docs/security/security-hardening-45-8.md`
+- `docs/security/rls-scope-matrix-45-8.md`
+- `docs/security/audit-trail-matrix-45-8.md`
+
+---
+
 ## [45.7] — Audit Reconciliation & Roadmap Update — 2026-06-29
 
 ### Reconciliation Results

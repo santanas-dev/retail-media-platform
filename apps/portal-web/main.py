@@ -32,7 +32,7 @@ from portal_session import (
     clear_portal_session,
     get_portal_tokens,
 )
-from rbac import require_admin_access, require_portal_permission, require_auth_for_page
+from rbac import require_admin_access, require_portal_permission, require_auth_for_page, forbidden_response
 from action_availability import campaign_actions
 
 APP_DIR = Path(__file__).resolve().parent
@@ -2246,6 +2246,8 @@ async def campaigns_detail(request: Request, campaign_code: str):
     # Fetch campaign
     camp_result = await backend.get_campaign_by_code(access_token, campaign_code)
     if not camp_result.get("ok"):
+        if camp_result.get("code") == 403:
+            return forbidden_response()
         if camp_result.get("code") == 404:
             return templates.TemplateResponse(request, "pages/campaigns_detail.html", {
                 "request": request, "title": "Кампания не найдена", "active": "campaigns",

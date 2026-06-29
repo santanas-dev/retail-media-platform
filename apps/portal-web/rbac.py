@@ -29,6 +29,7 @@ __all__ = [
     "refresh_user_permissions",
     "ADMIN_REQUIRED_PERMISSIONS",
     "PAGE_PERMISSION_MAP",
+    "forbidden_response",
 ]
 
 # Permissions required to access /admin page (read-only)
@@ -94,7 +95,7 @@ async def require_portal_permission(
     if not user:
         if redirect_to_login:
             return _redirect_to_login(request)
-        return _forbidden_response()
+        return forbidden_response()
 
     # Get permissions from backend
     perms = await get_current_user_permissions(request)
@@ -103,10 +104,10 @@ async def require_portal_permission(
         # Token might be expired, but user has session — redirect to login
         if redirect_to_login:
             return _redirect_to_login(request)
-        return _forbidden_response()
+        return forbidden_response()
 
     if permission not in perms:
-        return _forbidden_response()
+        return forbidden_response()
 
     return None  # Allowed
 
@@ -122,7 +123,7 @@ async def require_admin_access(request: Request) -> Response | None:
 
     perms = await get_current_user_permissions(request)
     if not perms or not _has_admin_access(perms):
-        return _forbidden_response()
+        return forbidden_response()
 
     return None
 
@@ -184,7 +185,7 @@ async def require_auth_for_page(request: Request, route: str) -> Response | None
 
     perms = _get_perms(request)
     if required not in perms:
-        return _forbidden_response()
+        return forbidden_response()
 
     return None
 
@@ -196,7 +197,7 @@ def _redirect_to_login(request: Request) -> RedirectResponse:
     return RedirectResponse(url="/login", status_code=303)
 
 
-def _forbidden_response() -> Response:
+def forbidden_response() -> Response:
     """Return a safe 403 HTML response.
 
     Does NOT reveal internal permission names or token details.
