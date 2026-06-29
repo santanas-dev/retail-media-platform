@@ -5,6 +5,31 @@ All notable changes to the Retail Media Platform.
 Format: [SemVer](https://semver.org/) + annotated Git tags.
 Every minor tag requires: green full regression, clean git status, no secrets in docs/output.
 
+## [A.3] — 2026-06-29 — KSO Data Migration Dry-Run & Plan
+
+### Added
+- Migration Plan: 4 tables, 4 rows, field-level mapping (`docs/architecture/kso-data-migration-plan-a3.md`)
+- Dry-Run SQL: read-only 9-step validation script (`docs/architecture/kso-data-migration-dry-run-a3.sql`)
+- Validation Plan: 18 checks (`docs/architecture/kso-data-migration-validation-a3.md`)
+- Rollback Plan: 3-stage rollback with decision matrix (`docs/architecture/kso-data-migration-rollback-a3.md`)
+
+### Inventory
+- kso_devices: 1 row, kso_placements: 1, kso_proof_of_play_events: 2
+- physical_devices: 1 (offline), missing external_code + device_properties
+- channels: 1 (seed defines 5, DB has only kso_gen5)
+- placements/proof_events tables: NOT CREATED
+
+### Required Schema Changes (NOT executed)
+- ALTER physical_devices: ADD external_code, device_properties
+- CREATE TABLE placements, placement_targets, proof_events
+
+### Ready for Execution
+- Pre-migration: ALTER + CREATE tables + pg_dump backup
+- Migration: 4 INSERTs (1+1+1+2 rows)
+- Validation: 18 checks + 777/863 regression
+- Feature flag: USE_UNIVERSAL_DEVICE_MODEL
+- **Real migration NOT executed — requires separate approval**
+
 ## [A.2] — 2026-06-29 — ERD/API/Event Contracts v2.5
 
 ### Added

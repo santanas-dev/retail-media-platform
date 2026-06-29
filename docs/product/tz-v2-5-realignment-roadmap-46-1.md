@@ -28,10 +28,12 @@
 - Зафиксировать event stream contracts (ТЗ Table 33)
 - Документы в `docs/architecture/`
 
-### A.3 — KSO Data Migration (существующие данные)
-- Миграция `kso_devices` → `physical_devices`
-- Миграция `kso_placements` → универсальные placements
-- Dry-run → backup → выполнение
+### A.3 — KSO Data Migration Dry-Run ✅ DONE
+- Dry-run SQL (`docs/architecture/kso-data-migration-dry-run-a3.sql`)
+- Migration plan: 4 tables, 4 rows total, field-level mapping
+- Backup plan, validation plan, rollback plan
+- Feature flag: USE_UNIVERSAL_DEVICE_MODEL
+- **Миграция НЕ выполнена** — готово к исполнению после approval
 
 **Blockers:** нет
 **Risk:** Medium (data migration)
