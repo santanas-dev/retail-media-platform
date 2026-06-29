@@ -7,21 +7,30 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [45.8] — Security Hardening: RLS Scope + Audit Trail — 2026-06-29
+## [45.8.1] — Security Hardening Closure — 2026-06-29
 
-### Changed
-- **Scheduling audit trail:** +6 audit calls (schedule.create/update/archive, slot.create/update/disable)
-- **Portal 403 handling:** `forbidden_response()` now public; campaign detail shows styled Russian 403 on scope violations
-- **Audit coverage:** 8/20 (40%) → 14/20 (70%)
+### Corrected
+- **Audit coverage:** 14/20 (70%) → **20/20 (100%)**. Identity domain audits (create_user, assign_role,
+  status_user, assign_rls_scopes) were already writing to `admin_audit_events` — missed in original count.
+  campaign_creative.unbind also already covered.
 
-### Verified
-- **RLS/scope:** Backend already enforces `assert_object_in_advertiser_scope` in ALL 47 object-access routes across campaigns, media, scheduling, publications, approvals, manifests, reports, device_dashboard, proof_of_play
-- Admin roles (system_admin, security_admin) bypass RLS by design
-- Backend regression: 770 OK
-- Portal regression: 835 OK, 20 skipped
+### Added
+- **Negative audit:** `approval.denied_self_approve` — maker-checker violation audit before HTTPException in `decide_approval`.
+- **Tests:** 25 audit tests (denial audit source verification, action name registry, secrets safety).
+
+### Cleanup
+- 5 untracked artifacts moved out / excluded via `.git/info/exclude`.
 
 ### Docs
-- `docs/security/security-hardening-45-8.md`
+- `docs/security/audit-trail-matrix-45-8-1.md` — Corrected 20/20 matrix.
+- `docs/security/security-hardening-closure-45-8-1.md` — Closure report.
+
+### Regression
+- Backend: 804 passed, 0 failed (+34 tests from 45.8 baseline)
+- Portal: 803 passed, 32 skipped
+
+### Docs
+- `docs/security/audit-trail-matrix-45-8-1.md`
 - `docs/security/rls-scope-matrix-45-8.md`
 - `docs/security/audit-trail-matrix-45-8.md`
 

@@ -365,6 +365,13 @@ async def decide_approval(
 
     # 3. Maker-checker: cannot decide own request
     if str(approval.requested_by) == str(user_id):
+        from app.domains.audit.service import audit_business_action
+        await audit_business_action(
+            db, actor_user_id=str(user_id),
+            action="approval.denied_self_approve", target_type="approval",
+            target_ref=approval_code,
+            details={"decision": data.decision, "reason": "maker_checker"},
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot decide your own approval request (maker-checker)",

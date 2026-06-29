@@ -106,3 +106,27 @@ All backend domain routers already enforce advertiser scope:
 - Real-time audit streaming
 - User management audit (requires separate admin module work)
 - Login/logout audit (requires auth middleware changes)
+
+## 45.8.1 Closure (2026-06-29)
+
+### Corrected Finding
+
+Original matrix reported 14/20 (70%). Identity domain audits (create_user, assign_role,
+status_user, assign_rls_scopes) were already writing to `admin_audit_events` via
+`record_admin_action`. campaign_creative.unbind also already covered. **Actual: 20/20 (100%).**
+
+### Added
+
+- **Negative audit**: `approval.denied_self_approve` — maker-checker violation audit before HTTPException.
+- **Tests**: 25 audit tests including denial audit source verification.
+- **Untracked cleanup**: 5 artifacts moved out / excluded.
+
+### Docs
+
+- `docs/security/audit-trail-matrix-45-8-1.md` — Corrected 20/20 matrix.
+- `docs/security/security-hardening-closure-45-8-1.md` — Closure report.
+
+### Why no scope-violation audit
+
+`assert_object_in_advertiser_scope` raises 404 to avoid leaking object existence. 50+ call sites.
+Adding audit at each would confuse genuine 404s with scope violations. Deferred to 46.1.

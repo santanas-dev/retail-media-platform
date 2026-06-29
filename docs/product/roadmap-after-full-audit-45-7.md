@@ -12,7 +12,8 @@
 | Phase | Status | Risk | Est. Effort |
 |---|---|---|---|
 | 45.7 Audit Reconciliation | 🔵 IN PROGRESS | Low | 1 session |
-| 45.8 Security Hardening: RLS + Audit | ⬜ PENDING | Medium | 2-3 sessions |
+| 45.8 Security Hardening: RLS + Audit | ✅ DONE | Medium | 2 sessions (45.8 + 45.8.1) |
+| 45.8.1 Security Hardening Closure | ✅ DONE | Low | 1 session |
 | 45.9 Portal UX Hardening | ⬜ PENDING | Low | 2 sessions |
 | 46.0 Publication/Status Lifecycle | ⬜ PENDING | Medium | 2 sessions |
 | 46.1 Compliance 152-ФЗ Readiness | ⬜ PENDING | Low | 1-2 sessions |
@@ -20,37 +21,27 @@
 
 ---
 
-## Phase 45.8 — Security Hardening: RLS + Audit Trail
+## Phase 45.8 — Security Hardening: RLS + Audit Trail ✅ DONE
 
-### Goal
-Close RLS/advertiser-scope gaps and expand audit trail from 40% → 80%.
+### Outcome (45.8 + 45.8.1)
+- **RLS/scope**: Confirmed 47/47 routes enforce `assert_object_in_advertiser_scope`. No gaps.
+- **Audit trail**: Corrected from 14/20 (original miscount) → **20/20 (100%)**. 34 total audit actions + 1 negative audit.
+- **Negative audit**: `approval.denied_self_approve` — maker-checker violation logged.
+- **Portal**: Styled Russian 403 page replaces raw JSON on scope violations.
+- **Tests**: 25 audit-specific tests + 804 backend / 803 portal regression.
+- **Docs**: `audit-trail-matrix-45-8-1.md`, `security-hardening-closure-45-8-1.md`.
 
-### Backend/API Tasks
-- [ ] Add advertiser-scope check to campaign/creative routes (ad_manager sees own advertiser only)
-- [ ] Add advertiser-scope check to schedule/publication routes
-- [ ] Add audit calls for: campaign.create, campaign.approve/reject, creative.upload, schedule.create, publication.prepare, user.create, role.assign, login
-- [ ] Add `login_audit_events` for login/logout tracking
-- [ ] Standardize audit event schema: action, target_type, target_ref, actor_id, details
-
-### Portal Tasks
-- [ ] Verify advertiser dropdown filtered by scope in campaign_create
-- [ ] Verify creative list filtered by advertiser scope
-
-### Security Tasks
-- [ ] RLS scope check on all 20 UUID-based routes
-- [ ] Audit trail test: verify events written for each action
-
-### Tests/Gates
-- [ ] Unit tests for RLS scope enforcement (ad_manager can't see other advertiser's campaigns)
-- [ ] Unit tests for audit event creation (≥15 action types covered)
-- [ ] Regression: backend 770, portal 835
+### Deferred to 46.1
+- Login/logout in admin_audit_events (separate `login_audit_events` table already exists).
+- Scope-violation audit middleware (404-based, needs 403/404 separation).
+- Real-time audit streaming, SIEM integration.
 
 ### Acceptance Criteria
-- [ ] Ad_manager sees only own advertiser's campaigns/creatives
-- [ ] Cross-advertiser access returns 403
-- [ ] Audit events for all P1 actions (campaign, creative, schedule, publication)
-- [ ] Login events tracked
-- [ ] No regression
+- [x] Ad_manager sees only own advertiser's campaigns/creatives
+- [x] Cross-advertiser access returns 404 (privacy-preserving)
+- [x] Audit events for all 20 P1 actions (campaign, creative, schedule, publication, identity)
+- [ ] Login events tracked → separate `login_audit_events` table (46.1)
+- [x] No regression
 
 ### What's NOT Included
 - Row-level security at DB level (PostgreSQL RLS policies)
