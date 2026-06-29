@@ -5,6 +5,24 @@ All notable changes to the Retail Media Platform.
 Format: [SemVer](https://semver.org/) + annotated Git tags.
 Every minor tag requires: green full regression, clean git status, no secrets in docs/output.
 
+## [A.3.1] — 2026-06-29 — KSO Migration Approval Gate
+
+### Added
+- Mini-Design: 10-step execution sequence (`docs/architecture/kso-migration-mini-design-a3-1.md`)
+- Approval Checklist: sign-off form (`docs/architecture/kso-migration-approval-checklist-a3-1.md`)
+
+### Design Summary
+- Schema: ALTER physical_devices (+2 cols) + CREATE 3 tables
+- Data: 4 INSERTs (1 device + 1 placement + 1 target + 2 PoP)
+- Rollback: pg_restore < 5 min or feature flag
+- Feature flag: USE_UNIVERSAL_DEVICE_MODEL (false=default)
+- Validation: 18 checks + 777/863 regression
+- Risk: LOW (4 rows, full backup, tested dry-run)
+
+### Approval Gate
+- ⏳ AWAITING `APPROVE A.3 EXECUTION`
+- Без этой строки реальная миграция НЕ выполняется
+
 ## [A.3] — 2026-06-29 — KSO Data Migration Dry-Run & Plan
 
 ### Added
