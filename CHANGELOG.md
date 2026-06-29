@@ -5,6 +5,35 @@ All notable changes to the Retail Media Platform.
 Format: [SemVer](https://semver.org/) + annotated Git tags.
 Every minor tag requires: green full regression, clean git status, no secrets in docs/output.
 
+## [46.1] — 2026-06-29 — Compliance 152-ФЗ Readiness
+
+### Added
+- Login privacy notice on auth page (`auth_base.html`)
+- Public compliance pages: `/compliance`, `/compliance/retention`
+- PII inventory document (`docs/compliance/personal-data-inventory-46-1.md`)
+- Data retention policy (`docs/compliance/data-retention-policy-46-1.md`)
+- Deactivation procedure (`docs/compliance/deletion-deactivation-procedure-46-1.md`)
+- Login notice documentation (`docs/compliance/login-notice-46-1.md`)
+- Login/logout audit mapping (`docs/compliance/login-logout-audit-mapping-46-1.md`)
+- Security headers/cookie review (`docs/compliance/security-headers-cookie-review-46-1.md`)
+- Compliance readiness summary (`docs/compliance/compliance-readiness-46-1.md`)
+- Compliance tests: 19 pytests (login notice, PII visibility, cookie security, docs existence)
+
+### Verified
+- Backend already supports user deactivation (is_archived, is_active, archived_by)
+- IP/UA stored as hashes (not raw) in login_audit_events
+- Email not exposed in portal UI
+- Cookie: httpOnly, SameSite=Lax, signed
+- No localStorage, no JS/CDN in templates
+- Backend regression: 777/0
+- Portal regression: 863/20sk + 19 pytests
+
+### Decisions
+- Consent checkbox rejected (no legal-approved text). Using "notice" instead of "consent".
+- Security headers middleware deferred to production (HTTPS required).
+- Physical data deletion deferred (soft delete via archive in v1).
+
+
 ---
 
 ## [46.0] — Status Lifecycle Cleanup — 2026-06-29

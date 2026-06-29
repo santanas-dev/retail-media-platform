@@ -3963,6 +3963,31 @@ async def logout_handler(request: Request):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Compliance / Privacy pages (public, no auth required)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/compliance", response_class=HTMLResponse)
+async def compliance_page(request: Request):
+    """Render the compliance / usage rules page (public)."""
+    return templates.TemplateResponse(request, "pages/compliance.html", {
+        "request": request,
+        "title": "Правила использования",
+        "current_user": None,
+        "demo": True,
+    })
+
+
+@app.get("/compliance/retention", response_class=HTMLResponse)
+async def compliance_retention_page(request: Request):
+    """Render the data retention policy page (public)."""
+    return templates.TemplateResponse(request, "pages/compliance_retention.html", {
+        "request": request,
+        "title": "Сроки хранения данных",
+        "current_user": None,
+        "demo": True,
+    })
+
+# ══════════════════════════════════════════════════════════════════════
 # Health
 # ══════════════════════════════════════════════════════════════════════
 

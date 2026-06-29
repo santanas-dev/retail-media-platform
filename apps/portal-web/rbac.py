@@ -158,6 +158,7 @@ PAGE_PERMISSION_MAP: dict[str, str] = {
 # Public routes — no auth required
 PUBLIC_ROUTES: frozenset[str] = frozenset({
     "/login", "/logout", "/health", "/static",
+    "/compliance", "/compliance/retention",
 })
 
 

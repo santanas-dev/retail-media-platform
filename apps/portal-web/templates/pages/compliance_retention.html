@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Сроки хранения данных — Retail Media Platform</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .compliance-page { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
+    .compliance-page h1 { font-size: 1.5rem; margin-bottom: 1rem; color: #1a1a2e; }
+    .compliance-page h2 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; color: #16213e; }
+    .compliance-page p, .compliance-page li { font-size: 0.95rem; line-height: 1.5; color: #333; margin-bottom: 0.4rem; }
+    .compliance-page .section { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
+    .compliance-page .section-title { font-weight: 600; font-size: 1rem; color: #1a1a2e; margin-bottom: 0.5rem; }
+    .compliance-page .back-link { display: inline-block; margin-top: 1.5rem; color: #4a6fa5; text-decoration: none; font-size: 0.9rem; }
+    .compliance-page .retention-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 0.5rem 0; }
+    .compliance-page .retention-table th { background: #f5f5f5; font-weight: 600; padding: 0.4rem 0.6rem; text-align: left; border: 1px solid #ddd; }
+    .compliance-page .retention-table td { padding: 0.4rem 0.6rem; border: 1px solid #ddd; }
+    .compliance-page .retention-table tr:nth-child(even) { background: #fafafa; }
+  </style>
+</head>
+<body>
+<div class="compliance-page">
+  <h1>Политика сроков хранения данных</h1>
+  <p>Ниже приведены сроки хранения данных в системе Retail Media Platform. Сроки установлены в соответствии с внутренними регламентами информационной безопасности.</p>
+
+  <div class="section">
+    <div class="section-title">Данные пользователей и доступ</div>
+    <table class="retention-table">
+      <tr><th>Категория данных</th><th>Срок хранения</th><th>Примечание</th></tr>
+      <tr><td>Учётные записи пользователей (users)</td><td>Весь период трудоустройства + 1 год после деактивации</td><td>Деактивация (archive) вместо удаления</td></tr>
+      <tr><td>Назначения ролей (user_roles)</td><td>Весь период + 1 год после деактивации</td><td>Аудит истории доступа</td></tr>
+      <tr><td>RLS-области (user_rls_scopes)</td><td>Весь период + 1 год после истечения</td><td>—</td></tr>
+      <tr><td>Refresh-токены (refresh_tokens)</td><td>До истечения срока токена (7 дней)</td><td>Автоматическое удаление истёкших</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Аудит и журналирование</div>
+    <table class="retention-table">
+      <tr><th>Категория данных</th><th>Срок хранения</th><th>Примечание</th></tr>
+      <tr><td>Журнал входа (login_audit_events)</td><td>1 год</td><td>IP и User-Agent хранятся в хешированном виде</td></tr>
+      <tr><td>Журнал администрирования (admin_audit_events)</td><td>3 года</td><td>Действия с пользователями, ролями, правами</td></tr>
+      <tr><td>Аудит бизнес-операций (approvals, publications)</td><td>3 года</td><td>Согласования, публикации, изменения статусов</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Бизнес-данные</div>
+    <table class="retention-table">
+      <tr><th>Категория данных</th><th>Срок хранения</th><th>Примечание</th></tr>
+      <tr><td>Рекламодатели и договоры</td><td>Весь период действия договора + 3 года</td><td>—</td></tr>
+      <tr><td>Кампании</td><td>Весь период кампании + 1 год после архивации</td><td>Архивация вместо удаления</td></tr>
+      <tr><td>Креативы и версии</td><td>Весь период + 1 год после архивации кампании</td><td>Файлы в MinIO</td></tr>
+      <tr><td>Отклонённые креативы</td><td>90 дней после отклонения</td><td>—</td></tr>
+      <tr><td>Публикационные пакеты</td><td>3 года</td><td>Для аудита доставки</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Отчёты и метрики</div>
+    <table class="retention-table">
+      <tr><th>Категория данных</th><th>Срок хранения</th><th>Примечание</th></tr>
+      <tr><td>Снапшоты доставки (campaign_delivery_snapshots)</td><td>1 год</td><td>Периодические снимки метрик</td></tr>
+      <tr><td>События Proof-of-Play (PoP)</td><td>90 дней</td><td>Сырые события показов</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Порядок удаления</div>
+    <p>Данные не удаляются физически немедленно по истечении срока. Вместо этого применяется:</p>
+    <ul>
+      <li><strong>Деактивация</strong> — учётные записи, кампании (soft delete / archive)</li>
+      <li><strong>Анонимизация</strong> — для персональных данных в бизнес-объектах</li>
+      <li><strong>Очистка по расписанию</strong> — для истёкших токенов и временных данных</li>
+    </ul>
+    <p>Массовая очистка данных выполняется только по утверждённому регламенту с предварительным резервным копированием.</p>
+  </div>
+
+  <a href="/compliance" class="back-link">← Вернуться к правилам использования</a>
+</div>
+</body>
+</html>
