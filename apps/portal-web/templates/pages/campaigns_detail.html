@@ -18,12 +18,12 @@
   <div class="section-card-header">
     <span class="section-card-icon">📢</span>
     <span class="section-card-title">{{ campaign.name | sanitize }}</span>
-    <span class="status-badge status-badge-{{ campaign.status }}">{{ campaign.status | sanitize }}</span>
+    <span class="status-badge status-badge-{{ campaign.status }}">{{ {'draft':'Черновик','in_review':'На согласовании','approved':'Одобрена','rejected':'Отклонена','archived':'Архив','active':'Активна'}.get(campaign.status, campaign.status) }}</span>
   </div>
   <div class="section-card-body">
     <div class="detail-grid">
       <div class="detail-item"><span class="detail-label">Код</span><span><code>{{ campaign.campaign_code | sanitize_code }}</code></span></div>
-      <div class="detail-item"><span class="detail-label">Статус</span><span class="status-badge status-badge-{{ campaign.status }}">{{ campaign.status | sanitize }}</span></div>
+      <div class="detail-item"><span class="detail-label">Статус</span><span class="status-badge status-badge-{{ campaign.status }}">{{ {'draft':'Черновик','in_review':'На согласовании','approved':'Одобрена','rejected':'Отклонена','archived':'Архив','active':'Активна'}.get(campaign.status, campaign.status) }}</span></div>
       <div class="detail-item"><span class="detail-label">Описание</span><span>{{ campaign.description or "—" }}</span></div>
       <div class="detail-item"><span class="detail-label">Создана</span><span>{{ campaign.created_at | fmt_date('full') }}</span></div>
       <div class="detail-item"><span class="detail-label">Обновлена</span><span>{{ campaign.updated_at | fmt_date('full') }}</span></div>
@@ -92,8 +92,8 @@
           </td>
           <td>{{ cr.mime_type or "—" }}</td>
           <td>{{ cr.file_size_str or "—" }}</td>
-          <td>{{ cr.scan_status | sanitize }}</td>
-          <td><span class="status-badge status-badge-{{ cr.status }}">{{ cr.status | sanitize }}</span></td>
+          <td>{'not_configured':'Не настроено','pending':'Ожидание','clean':'Чист','infected':'Заражён','failed':'Ошибка'}.get(cr.scan_status, cr.scan_status)</td>
+          <td><span class="status-badge status-badge-{{ cr.status }}">{'draft':'Черновик','uploaded':'Загружен','pending':'На проверке','approved':'Одобрен','rejected':'Отклонён','archived':'Архив'}.get(cr.status, cr.status)</span></td>
           <td>
             <div class="form-inline gap-4">
               <a href="/creatives/{{ cr.creative_code }}" class="btn btn-sm btn-ghost">Открыть</a>
@@ -165,7 +165,7 @@
           <strong>{{ sched.name | sanitize }}</strong>
           <span class="text-sm text-muted ml-8">код: <code>{{ sched.schedule_code | sanitize_code }}</code></span>
         </div>
-        <span class="status-badge status-badge-{{ sched.status }}">{{ sched.status | sanitize }}</span>
+        <span class="status-badge status-badge-{{ sched.status }}">{'draft':'Черновик','active':'Активно','archived':'Архив'}.get(sched.status, sched.status)</span>
       </div>
       <div class="text-sm mt-4">
         Период: {{ sched.valid_from | fmt_date }} → {{ sched.valid_to | fmt_date }}
@@ -289,7 +289,7 @@
   </div>
   <div class="section-card-body">
     <div class="detail-grid">
-      <div class="detail-item"><span class="detail-label">Статус</span><span class="status-badge status-badge-{{ campaign.status }}">{{ campaign.status | sanitize }}</span></div>
+      <div class="detail-item"><span class="detail-label">Статус</span><span class="status-badge status-badge-{{ campaign.status }}">{'draft':'Черновик','in_review':'На согласовании','approved':'Одобрена','rejected':'Отклонена','archived':'Архив','active':'Активна'}.get(campaign.status, campaign.status)</span></div>
       {% if approval_info %}
       <div class="detail-item"><span class="detail-label">Код согласования</span><span><code>{{ approval_info.code | sanitize_code }}</code></span></div>
       {% endif %}
@@ -314,7 +314,7 @@
       <div class="detail-item"><span class="detail-label">Кампания</span><span>{{ campaign.name | sanitize }}</span></div>
       <div class="detail-item"><span class="detail-label">Креативов</span><span>{{ bound_creatives|length }}</span></div>
       <div class="detail-item"><span class="detail-label">Размещений</span><span>{{ schedules|length }}</span></div>
-      <div class="detail-item"><span class="detail-label">Статус согласования</span><span>{{ campaign.status | sanitize }}</span></div>
+      <div class="detail-item"><span class="detail-label">Статус согласования</span><span>{'draft':'Черновик','in_review':'На согласовании','approved':'Одобрена','rejected':'Отклонена','archived':'Архив','active':'Активна'}.get(campaign.status, campaign.status)</span></div>
       {% if campaign.status == 'approved' %}
       <div class="detail-item"><span class="detail-label">Публикационный пакет</span><span>{{ "Подготовлен" if publication_ready else "Не подготовлен" }}</span></div>
       {% endif %}

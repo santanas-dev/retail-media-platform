@@ -152,6 +152,9 @@
           <button type="submit" class="btn btn-sm btn-ghost">✕ Отмена</button>
         </form>
         {% endif %}
+        {% if b.status in ('cancelled', 'rejected') %}
+        <span class="text-meta ml-8" style="color:var(--color-text-secondary);">Действие завершено. Для нового пакета создайте кампанию заново или используйте кнопку «Подготовить» на странице кампании.</span>
+        {% endif %}
       </div>
     </div>
     {% endfor %}
@@ -206,7 +209,7 @@
         <td><code>{{ m.manifest_code | sanitize_code }}</code></td>
         <td><code>{{ m.device_code | sanitize_code }}</code></td>
         <td><code>{{ m.campaign_code | sanitize_code }}</code></td>
-        <td><span class="status-badge status-badge-{{ m.status }}">{{ m.status | sanitize }}</span></td>
+        <td><span class="status-badge status-badge-{{ m.status }}">{'draft':'Черновик','approved':'Одобрен','published':'Опубликован','cancelled':'Отменён'}.get(m.status, m.status)</span></td>
         <td>{{ m.item_count }}</td>
       </tr>
       {% endfor %}

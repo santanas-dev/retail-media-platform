@@ -7,7 +7,24 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
-## [45.9] — Portal UX Hardening — 2026-06-29
+## [46.0] — Status Lifecycle Cleanup — 2026-06-29
+
+### Portal Status Labels
+- Russian labels for campaign, creative, schedule, publication, approval, manifest statuses
+- No raw English status displayed to users
+
+### Publication Dead-End Guidance
+- cancelled/rejected batches now show next-step guidance
+
+### CSS Restoration
+- 30+ utility classes re-added after purge (btn variants, status badges, spacers, text utils)
+
+### Tests
+- 18 status lifecycle tests: campaign, approval, publication, schedule, portal labels, API schema
+
+### Regression
+- Backend: 804 passed (0 files changed)
+- Portal: 831 passed, 32 skipped (+18 new tests)
 
 ### Form Accessibility
 - 8 labels added: schedule slot form (6), approvals reject comment (1), admin required markers (5 fixed)

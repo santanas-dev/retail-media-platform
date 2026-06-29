@@ -15,7 +15,7 @@
 | 45.8 Security Hardening: RLS + Audit | ✅ DONE | Medium | 2 sessions (45.8 + 45.8.1) |
 | 45.8.1 Security Hardening Closure | ✅ DONE | Low | 1 session |
 | 45.9 Portal UX Hardening | ✅ DONE | Low | 1 session |
-| 46.0 Publication/Status Lifecycle | ⬜ PENDING | Medium | 2 sessions |
+| 46.0 Publication/Status Lifecycle | ✅ DONE | Medium | 1 session |
 | 46.1 Compliance 152-ФЗ Readiness | ⬜ PENDING | Low | 1-2 sessions |
 | 46.2 Pilot Readiness (Physical KSO) | ⬜ BLOCKED | High | TBD |
 
