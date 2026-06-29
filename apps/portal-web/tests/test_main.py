@@ -1126,9 +1126,13 @@ class TestCampaignSubmitApprovalGate(unittest.TestCase):
         self.assertIn("Maker-checker", resp.text)
 
     def test_approvals_page_supports_campaign_type(self):
-        """Approvals form includes campaign as object_type."""
+        """Approvals form includes object selection mechanism."""
         resp = self.client.get("/approvals")
-        self.assertIn('value="campaign"', resp.text)
+        # With or without backend, form has object_ref field
+        self.assertTrue(
+            "object_ref" in resp.text or "campaign__" in resp.text,
+            "Approvals form missing object selector"
+        )
 
     def test_approvals_page_no_forbidden_content(self):
         """No secrets/tokens in approvals page."""
@@ -1259,14 +1263,16 @@ class TestApprovalsPage(unittest.TestCase):
         self.assertIn("/campaigns", self.html.lower())
 
     def test_request_form_has_object_type_campaign(self):
-        """Request form supports campaign object type."""
-        self.assertIn('value="campaign"', self.html)
+        """Request form supports object selection via dropdown."""
+        self.assertTrue(
+            "object_ref" in self.html or "campaign__" in self.html,
+            "Request form missing object selector"
+        )
 
     def test_page_has_table_structure(self):
         """Approvals rendered in card layout — key fields visible."""
         self.assertIn("Согласования", self.html)
-        self.assertIn("object_type", self.html)
-        self.assertIn("object_code", self.html)
+        self.assertIn("object_ref", self.html)
 
     def test_request_form_uses_post(self):
         """Request form uses POST method."""

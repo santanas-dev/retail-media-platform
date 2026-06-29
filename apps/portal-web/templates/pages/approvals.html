@@ -47,19 +47,22 @@
   <div class="section-card-body">
     <form method="post" action="/approvals/request" class="business-form">
       <div class="form-grid">
-        <div class="form-field">
-          <label class="form-label form-label-required">Тип объекта</label>
-          <select name="object_type" required class="form-control">
-            <option value="campaign">Кампания</option>
-            <option value="placement">Размещение</option>
-            <option value="publication_batch">Публикационный пакет</option>
+        <div class="form-field form-field-full">
+          <label class="form-label form-label-required">Объект согласования</label>
+          {% if available_objects %}
+          <select name="object_ref" required class="form-control">
+            <option value="">Выберите объект из списка...</option>
+            {% for obj in available_objects %}
+            <option value="{{ obj.type }}__{{ obj.code }}">{{ obj.label }}</option>
+            {% endfor %}
           </select>
-        </div>
-        <div class="form-field">
-          <label class="form-label form-label-required">Код объекта</label>
-          <input type="text" name="object_code" placeholder="campaign_code или код пакета" minlength="1" maxlength="64" required
-                 class="form-control">
-          <span class="form-help">campaign_code, placement_code или код пакета</span>
+          <span class="form-help">Выберите кампанию или пакет публикации для отправки на согласование</span>
+          {% else %}
+          <select name="object_ref" required class="form-control" disabled>
+            <option value="">Нет объектов для согласования</option>
+          </select>
+          <span class="form-help">Создайте кампанию или подготовьте публикационный пакет, чтобы отправить на согласование</span>
+          {% endif %}
         </div>
         <div class="form-field form-field-full">
           <label class="form-label">Комментарий</label>
@@ -68,7 +71,7 @@
         </div>
       </div>
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Отправить на согласование</button>
+        <button type="submit" class="btn btn-primary" {% if not available_objects %}disabled{% endif %}>Отправить на согласование</button>
       </div>
     </form>
   </div>

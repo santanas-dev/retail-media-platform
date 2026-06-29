@@ -87,9 +87,18 @@
                  class="form-control">
         </div>
         <div class="form-field">
-          <label class="form-label">Код кампании</label>
+          <label class="form-label">Кампания</label>
+          {% if available_campaigns %}
+          <select name="campaign_code" class="form-control">
+            <option value="">Без кампании</option>
+            {% for ac in available_campaigns %}
+            <option value="{{ ac.code }}">{{ ac.name }}</option>
+            {% endfor %}
+          </select>
+          {% else %}
           <input type="text" name="campaign_code" placeholder="camp_code" maxlength="64"
                  class="form-control">
+          {% endif %}
           <span class="form-help">Необязательно</span>
         </div>
       </div>
@@ -115,8 +124,8 @@
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <span class="font-semibold">{{ s.name }}</span>
         <span class="status-badge status-badge-{{ 'draft' if s.status == 'draft' else 'approved' if s.status == 'active' else 'draft' }}">{{ s.status }}</span>
-        {% if s.campaign_code != '—' %}<span class="text-sm text-secondary">📢 {{ s.campaign_code }}</span>{% endif %}
-        <span class="text-sm text-secondary">{{ s.valid_from }} – {{ s.valid_to }}</span>
+        {% if s.campaign_code != '—' and s.campaign_code %}<span class="text-sm text-secondary">📢 {{ s.campaign_name }}</span>{% endif %}
+        <span class="text-sm text-secondary">{{ s.valid_from | fmt_date }} – {{ s.valid_to | fmt_date }}</span>
         <span class="text-sm text-secondary">📋 {{ s.slot_count }} слотов</span>
         <span class="flex-1"></span>
         {% if s.status != 'archived' %}

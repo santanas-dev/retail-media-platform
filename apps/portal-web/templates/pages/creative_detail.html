@@ -11,22 +11,41 @@
   </div>
 
   <div class="card-body">
-    <!-- Preview -->
-    <div class="detail-preview">
+    <!-- Large Preview -->
+    <div class="creative-large-preview">
       {% if creative.content_type and creative.content_type.startswith('video/') %}
-      <span class="preview-placeholder video">🎬 Видеофайл</span>
+      <div class="preview-fallback video-fallback">
+        <div class="preview-fallback-icon">🎬</div>
+        <div class="preview-fallback-title">Видеофайл</div>
+        <div class="preview-fallback-info">
+          {% if creative.width and creative.height %}{{ creative.width }}×{{ creative.height }}{% endif %}
+          {% if creative.duration_ms %} · {{ (creative.duration_ms / 1000)|round(1) }} сек{% endif %}
+        </div>
+      </div>
       {% elif creative.content_type == 'image/gif' %}
-      <span class="preview-placeholder gif">🖼️ GIF-анимация</span>
-      {% else %}
+      <div class="preview-fallback gif-fallback">
+        <div class="preview-fallback-icon">🖼️</div>
+        <div class="preview-fallback-title">GIF-анимация</div>
+        <div class="preview-fallback-info">
+          {% if creative.width and creative.height %}{{ creative.width }}×{{ creative.height }}{% endif %}
+        </div>
+      </div>
+      {% elif creative.preview_available %}
       <img src="/preview/{{ creative.creative_code }}" alt=""
-           class="preview-image">
+           class="preview-image-large">
+      {% else %}
+      <div class="preview-fallback">
+        <div class="preview-fallback-icon">📁</div>
+        <div class="preview-fallback-title">Предпросмотр пока недоступен</div>
+        <div class="preview-fallback-info">Файл обрабатывается или формат не поддерживает предпросмотр</div>
+      </div>
       {% endif %}
     </div>
 
-    <!-- Status -->
+    <!-- Key Properties Grid -->
     <div class="detail-grid">
       <div class="detail-row">
-        <span class="detail-label">Статус</span>
+        <span class="detail-label">Статус модерации</span>
         <span class="detail-value">
           {% if creative.status == 'approved' %}<span class="status-success">Одобрен</span>
           {% elif creative.status == 'pending_review' %}<span class="status-warning">Ожидает проверки</span>
@@ -41,23 +60,23 @@
       </div>
 
       <div class="detail-row">
-        <span class="detail-label">Формат файла</span>
+        <span class="detail-label">Формат</span>
         <span class="detail-value">{{ creative.content_type or '—' }}</span>
-      </div>
-
-      <div class="detail-row">
-        <span class="detail-label">Размер файла</span>
-        <span class="detail-value">{% if creative.file_size_bytes %}{{ (creative.file_size_bytes / 1024)|round|int }} КБ{% else %}—{% endif %}</span>
       </div>
 
       <div class="detail-row">
         <span class="detail-label">Разрешение</span>
         <span class="detail-value">
           {% if creative.width and creative.height %}{{ creative.width }}×{{ creative.height }}
-          {% if creative.width == 768 and creative.height == 1024 %}<span class="text-xs status-success">✅ 768×1024</span>
-          {% else %}<span class="text-xs status-warning">⚠️ Нестандартное</span>{% endif %}
+          {% if creative.width == 768 and creative.height == 1024 %}<span class="text-xs status-success">(целевое)</span>
+          {% else %}<span class="text-xs status-warning">(нестандартное)</span>{% endif %}
           {% else %}—{% endif %}
         </span>
+      </div>
+
+      <div class="detail-row">
+        <span class="detail-label">Размер файла</span>
+        <span class="detail-value">{% if creative.file_size_bytes %}{{ (creative.file_size_bytes / 1024)|round|int }} КБ{% else %}—{% endif %}</span>
       </div>
 
       {% if creative.duration_ms %}
@@ -70,7 +89,7 @@
       <div class="detail-row">
         <span class="detail-label">Проверка безопасности</span>
         <span class="detail-value">
-          {% if creative.scan_status == 'clean' %}<span class="status-success">✅ Файл проверен</span>
+          {% if creative.scan_status == 'clean' %}<span class="status-success">✅ Файл проверен — угроз не найдено</span>
           {% elif creative.scan_status == 'pending' %}<span class="status-warning">⏳ Ожидает проверки</span>
           {% elif creative.scan_status == 'infected' %}<span class="status-danger">🚫 Найдена угроза</span>
           {% elif creative.scan_status == 'failed' %}<span class="status-muted">⚠️ Проверка временно недоступна</span>
@@ -79,26 +98,57 @@
       </div>
 
       <div class="detail-row">
-        <span class="detail-label">Профиль экрана</span>
-        <span class="detail-value">КСО, портрет 768×1024</span>
-      </div>
-
-      {% if creative.comment %}
-      <div class="detail-row">
-        <span class="detail-label">Причина возврата</span>
-        <span class="detail-value detail-comment">{{ creative.comment }}</span>
-      </div>
-      {% endif %}
-
-      <div class="detail-row">
         <span class="detail-label">Можно использовать в кампании</span>
         <span class="detail-value">
           {% if creative.can_use_in_campaign %}
-          <span class="status-success">✅ Да</span>
+          <span class="status-success">✅ Да — креатив одобрен и готов к размещению</span>
           {% else %}
-          <span class="status-danger">❌ Нет</span>
+          <span class="status-danger">❌ Нет — требуется одобрение модератора</span>
           {% endif %}
         </span>
+      </div>
+    </div>
+
+    <!-- Where Used -->
+    {% if creative.used_in_campaigns %}
+    <div class="detail-section">
+      <h3 class="detail-section-title">Где используется</h3>
+      <div class="detail-mini-list">
+        {% for camp in creative.used_in_campaigns %}
+        <a href="/campaigns/{{ camp.code }}" class="detail-mini-item">
+          <span class="detail-mini-name">{{ camp.name }}</span>
+          <span class="detail-mini-status">
+            {% if camp.status == 'approved' %}Одобрена
+            {% elif camp.status == 'in_review' %}На согласовании
+            {% elif camp.status == 'draft' %}Черновик
+            {% elif camp.status == 'active' %}Активна
+            {% elif camp.status == 'archived' %}Архив
+            {% else %}{{ camp.status }}{% endif %}
+          </span>
+          <span class="detail-mini-arrow">→</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Next Step -->
+    <div class="detail-section">
+      <h3 class="detail-section-title">Следующий шаг</h3>
+      <div class="next-step">
+        {% if creative.status == 'draft' or creative.status == 'validation_failed' %}
+        <div class="next-step-text">Отправьте креатив на проверку модератору, чтобы его можно было использовать в кампаниях.</div>
+        {% elif creative.status == 'pending_review' or creative.status == 'in_review' or creative.status == 'manual_review' %}
+        <div class="next-step-text">Ожидайте решения модератора. После одобрения креатив можно будет добавлять в кампании.</div>
+        {% elif creative.status == 'approved' %}
+        <div class="next-step-text">Креатив одобрен и готов. Добавьте его в кампанию в разделе «Кампании».</div>
+        {% elif creative.status == 'rejected' %}
+        <div class="next-step-text">Креатив отклонён. Ознакомьтесь с причиной возврата, внесите изменения и загрузите новую версию.</div>
+        {% elif creative.status == 'archived' %}
+        <div class="next-step-text">Креатив находится в архиве и не участвует в активных кампаниях.</div>
+        {% else %}
+        <div class="next-step-text">Ожидайте завершения обработки.</div>
+        {% endif %}
       </div>
     </div>
 
@@ -145,7 +195,6 @@
   <div class="empty-state-text">Проверьте код креатива или вернитесь к списку.</div>
   <div class="empty-state-action mt-12">
     <a href="/creatives" class="btn btn-primary">← К списку креативов</a>
-    <a href="/creatives/upload" class="btn btn-ghost ml-8">+ Загрузить другой</a>
   </div>
 </div>
 {% endif %}

@@ -25,8 +25,8 @@
       <div class="detail-item"><span class="detail-label">Код</span><span><code>{{ campaign.campaign_code | sanitize_code }}</code></span></div>
       <div class="detail-item"><span class="detail-label">Статус</span><span class="status-badge status-badge-{{ campaign.status }}">{{ campaign.status | sanitize }}</span></div>
       <div class="detail-item"><span class="detail-label">Описание</span><span>{{ campaign.description or "—" }}</span></div>
-      <div class="detail-item"><span class="detail-label">Создана</span><span>{{ campaign.created_at }}</span></div>
-      <div class="detail-item"><span class="detail-label">Обновлена</span><span>{{ campaign.updated_at }}</span></div>
+      <div class="detail-item"><span class="detail-label">Создана</span><span>{{ campaign.created_at | fmt_date('full') }}</span></div>
+      <div class="detail-item"><span class="detail-label">Обновлена</span><span>{{ campaign.updated_at | fmt_date('full') }}</span></div>
     </div>
   </div>
 </div>
@@ -72,12 +72,24 @@
     <div class="table-container table-clean">
     <table class="data-table">
       <thead><tr>
-        <th>Креатив</th><th>Формат</th><th>Размер</th><th>Статус проверки</th><th>Статус</th><th>Действия</th>
+        <th></th><th>Креатив</th><th>Формат</th><th>Размер</th><th>Статус проверки</th><th>Статус</th><th>Действия</th>
       </tr></thead>
       <tbody>
       {% for cr in bound_creatives %}
         <tr>
-          <td><a href="/creatives/{{ cr.creative_code }}" class="link">{{ cr.name | sanitize }}</a></td>
+          <td class="td-preview">
+            {% if cr.has_preview %}
+            <img src="/preview/{{ cr.creative_code }}" alt="" class="creative-thumb">
+            {% else %}
+            <span class="creative-thumb-fallback">{{ '🎬' if cr.content_type and cr.content_type.startswith('video/') else '📁' }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="creative-name-block">
+              <a href="/creatives/{{ cr.creative_code }}" class="link">{{ cr.name | sanitize }}</a>
+              {% if cr.width and cr.height %}<span class="creative-meta">{{ cr.width }}×{{ cr.height }}</span>{% endif %}
+            </div>
+          </td>
           <td>{{ cr.mime_type or "—" }}</td>
           <td>{{ cr.file_size_str or "—" }}</td>
           <td>{{ cr.scan_status | sanitize }}</td>
@@ -156,7 +168,7 @@
         <span class="status-badge status-badge-{{ sched.status }}">{{ sched.status | sanitize }}</span>
       </div>
       <div class="text-sm mt-4">
-        Период: {{ sched.valid_from or "—" }} → {{ sched.valid_to or "—" }}
+        Период: {{ sched.valid_from | fmt_date }} → {{ sched.valid_to | fmt_date }}
         {% if sched.slot_count %}<span class="ml-8">• {{ sched.slot_count }} слотов</span>{% endif %}
       </div>
       {% if sched.slots %}

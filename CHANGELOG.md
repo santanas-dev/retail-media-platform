@@ -7,6 +7,37 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [45.6] — Post-Demo Product Stabilization — 2026-06-29
+
+### Added
+- `/help` — business step-by-step guide (8 steps, no tech terms)
+- Large creative preview in `/creatives/{code}` with fallback
+- «Где используется» and «Следующий шаг» sections in creative detail
+- Thumbnail previews (40×40) in campaign creative table
+- Campaign names in publication batches (removed «📢 ?»)
+- Unified date format filter `fmt_date` (DD.MM.YYYY HH:MM) — applied to all templates
+- Campaign dropdown in `/approvals` instead of manual object_code
+- Campaign dropdown in `/schedule` with campaign names in list
+- Action Availability Service (`action_availability.py`) — 11 action flags with reasons
+- Automated QA gates (`qa_gates.py`) — double-slash, JS/CDN, broken images, seed patterns
+- User/Role Admin UI plan (`docs/product/user-role-admin-plan-45-6.md`)
+- Security Hardening plan (`docs/product/security-hardening-plan-45-6.md`)
+
+### Changed
+- Approval form: unified object dropdown replaces type selector + manual code
+- Schedule form: campaign dropdown replaces manual code input
+- All dates across portal: ISO → Russian business format
+- Publication batch rows: campaign names instead of raw codes
+
+### Fixed
+- «📢 ?» in publication batch campaign references
+
+### Preserved
+- `v0.9.0-rc0-business-demo.6` tag untouched
+- Physical KSO not touched
+- Maker-checker, RBAC, RLS, audit trail intact
+- 0 JS/CDN/localStorage, 0 secrets/leaks
+
 ## [45.5.2-live-audit-cleanup] — 2026-06-28
 
 **Live Audit Cleanup — error banners, density, empty states, forms, design hygiene, business rule tests.**

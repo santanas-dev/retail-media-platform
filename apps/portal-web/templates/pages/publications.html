@@ -115,8 +115,8 @@
              'Отменено' if b.status == 'cancelled' else
              'Отклонено' if b.status == 'rejected' else b.status }}
         </span>
-        <span class="text-meta text-secondary">📢 {{ b.campaign_code | sanitize_code }}</span>
-        <span class="text-sm text-muted">{{ b.created_at[:19] if b.created_at else '—' }}</span>
+        <span class="text-meta text-secondary">📢 {{ b.campaign_name }}</span>
+        <span class="text-sm text-muted">подготовлен {{ b.created_at | fmt_date('full') }}</span>
         <span class="flex-1"></span>
       </div>
 

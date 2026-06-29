@@ -33,6 +33,7 @@ from portal_session import (
     get_portal_tokens,
 )
 from rbac import require_admin_access, require_portal_permission, require_auth_for_page
+from action_availability import campaign_actions
 
 APP_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = APP_DIR / "templates"
@@ -69,6 +70,26 @@ templates.env.filters["sanitize"] = sanitize_any
 templates.env.filters["sanitize_name"] = sanitize_display_name
 templates.env.filters["sanitize_code"] = sanitize_code
 templates.env.filters["sanitize_user"] = sanitize_user_display_name
+
+# ── Date formatting filter ───────────────────────────────────────────
+def _format_datetime(val, fmt="short"):
+    """Format ISO datetime to Russian business format.
+    fmt='short' → 28.06.2026
+    fmt='full'  → 28.06.2026 21:41
+    """
+    if not val:
+        return "—"
+    s = str(val).replace("T", " ").split("+")[0].split("Z")[0]
+    try:
+        from datetime import datetime
+        dt = datetime.fromisoformat(s[:19] if len(s) >= 19 else s)
+        if fmt == "full":
+            return dt.strftime("%d.%m.%Y %H:%M")
+        return dt.strftime("%d.%m.%Y")
+    except Exception:
+        return s[:16] if len(s) > 16 else s
+
+templates.env.filters["fmt_date"] = _format_datetime
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -107,6 +128,25 @@ def _page(
 
         return templates.TemplateResponse(request, template, ctx)
     return handler
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Help — «Как пользоваться»
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/help", response_class=HTMLResponse)
+async def help_page(request: Request):
+    """Help page: step-by-step business guide, no technical terms."""
+    guard = await require_auth_for_page(request, "/help")
+    if guard is not None:
+        return guard
+    current_user = get_current_portal_user(request)
+    return templates.TemplateResponse(request, "pages/help.html", {
+        "request": request,
+        "title": "Как пользоваться",
+        "active": "help",
+        "current_user": current_user,
+    })
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1385,7 +1425,7 @@ async def creative_return_for_rework(request: Request, creative_code: str):
 
 @app.get("/creatives/{creative_code}", response_class=HTMLResponse)
 async def creative_detail_page(request: Request, creative_code: str):
-    """44.4: Creative detail card."""
+    """44.4: Creative detail card with large preview, where-used, next-step."""
     guard = await require_auth_for_page(request, "/creatives")
     if guard is not None:
         return guard
@@ -1406,7 +1446,45 @@ async def creative_detail_page(request: Request, creative_code: str):
             creative = c
             creative["can_use_in_campaign"] = (c.get("status") == "approved")
             creative["scan_status"] = c.get("scan_status", "not_configured")
+            creative["preview_available"] = bool(
+                c.get("content_type") and (
+                    c["content_type"].startswith("image/")
+                    or c["content_type"].startswith("video/")
+                    or c["content_type"] == "image/gif"
+                )
+            )
             break
+
+    # Resolve "used in campaigns" via campaign list → creative bindings
+    used_in_campaigns = []
+    if creative and at:
+        try:
+            camp_resp = await backend.list_campaigns_prod(at)
+            if camp_resp.get("ok"):
+                for camp in camp_resp.get("data", []):
+                    camp_code = camp.get("campaign_code") or ""
+                    if not camp_code:
+                        continue
+                    try:
+                        cr = await backend.list_campaign_creatives(at, camp_code)
+                        if cr.get("ok"):
+                            bound_codes = [
+                                cc.get("creative_code", "")
+                                for cc in cr.get("data", [])
+                            ]
+                            if creative_code in bound_codes:
+                                used_in_campaigns.append({
+                                    "code": camp_code,
+                                    "name": camp.get("name", camp_code),
+                                    "status": camp.get("status", ""),
+                                })
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    if creative:
+        creative["used_in_campaigns"] = used_in_campaigns
+
     return templates.TemplateResponse(request, "pages/creative_detail.html", {
         "request": request, "title": creative["name"] if creative else "Креатив",
         "active": "creatives", "current_user": current_user, "creative": creative,
@@ -2202,8 +2280,19 @@ async def campaigns_detail(request: Request, campaign_code: str):
                 "name": cr.get("name", cr.get("creative_code", "")),
                 "mime_type": cr.get("mime_type", "—"),
                 "file_size_str": size_str,
+                "file_size_bytes": fs,
                 "scan_status": cr.get("scan_status", "—"),
                 "status": cr.get("status", "—"),
+                "content_type": cr.get("content_type", cr.get("mime_type", "")),
+                "width": cr.get("width"),
+                "height": cr.get("height"),
+                "duration_ms": cr.get("duration_ms"),
+                "has_preview": bool(
+                    cr.get("content_type") and (
+                        cr["content_type"].startswith("image/")
+                        or cr["content_type"] == "image/gif"
+                    )
+                ),
             })
 
     # Fetch approved creatives for dropdown
@@ -2283,6 +2372,13 @@ async def campaigns_detail(request: Request, campaign_code: str):
     if status == "in_review":
         approval_info = {"code": campaign_code, "status": "in_review"}
 
+    # ── Action availability flags (45.6) ──────────────────────────
+    user_name = current_user.username if current_user else None
+    creator_id = campaign.get("created_by") or campaign.get("creator_id")
+    has_approve = "campaigns.approve" in (get_portal_tokens(request).get("permissions", []) or [])
+    has_manage = "campaigns.manage" in (get_portal_tokens(request).get("permissions", []) or [])
+    actions = campaign_actions(status, user_name, creator_id, has_approve, has_manage)
+
     return templates.TemplateResponse(request, "pages/campaigns_detail.html", {
         "request": request,
         "title": campaign.get("name", "Кампания"),
@@ -2295,6 +2391,7 @@ async def campaigns_detail(request: Request, campaign_code: str):
         "readiness": readiness,
         "approval_info": approval_info,
         "publication_ready": publication_ready,
+        "actions": actions,
         "flash_msg": flash_msg,
         "flash_type": flash_type,
     })
@@ -2402,18 +2499,38 @@ async def schedule_page(request: Request):
     if not access_token:
         return _schedule_fallback(request, current_user)
 
+    # ── Pre-load campaigns for dropdown ────────────────────────────
+    available_campaigns = []
+    try:
+        camp_resp = await backend.list_campaigns_prod(access_token)
+        if camp_resp.get("ok"):
+            for c in camp_resp.get("data", []):
+                code = c.get("campaign_code") or ""
+                if code:
+                    available_campaigns.append({
+                        "code": code,
+                        "name": c.get("name", code),
+                        "status": c.get("status", ""),
+                    })
+    except Exception:
+        pass
+
     result = await backend.list_schedules(access_token)
     if not result["ok"]:
         return _schedule_fallback(request, current_user)
 
     schedules = result.get("data", [])
+    # Build campaign name lookup
+    campaign_names = {ac["code"]: ac["name"] for ac in available_campaigns}
     safe_schedules = []
     for s in schedules:
+        cc = s.get("campaign_code") or ""
         safe_schedules.append({
             "schedule_code": s.get("schedule_code", ""),
             "name": s.get("name", ""),
             "status": s.get("status", "—"),
-            "campaign_code": s.get("campaign_code") or "—",
+            "campaign_code": cc,
+            "campaign_name": campaign_names.get(cc, cc or "—"),
             "valid_from": _fmt_dt(s.get("valid_from")),
             "valid_to": _fmt_dt(s.get("valid_to")),
             "timezone": s.get("timezone", "Europe/Moscow"),
@@ -2490,6 +2607,7 @@ async def schedule_page(request: Request):
         "current_user": current_user,
         "schedules": safe_schedules,
         "schedule_slots": schedule_slots,
+        "available_campaigns": available_campaigns,
         "flash_type": flash_type,
         "flash_msg": flash_msg,
         "airtime": airtime,
@@ -2700,6 +2818,22 @@ async def publications_page(request: Request):
         batch_result = await backend.list_publication_batches(access_token)
         if batch_result["ok"]:
             raw_batches = batch_result.get("data", [])
+
+            # Pre-load campaign names for all batch campaign codes
+            campaign_names = {}
+            try:
+                camp_resp = await backend.list_campaigns_prod(access_token)
+                if camp_resp.get("ok"):
+                    for camp in camp_resp.get("data", []):
+                        code = camp.get("campaign_code") or ""
+                        if code:
+                            campaign_names[code] = {
+                                "name": camp.get("name", code),
+                                "status": camp.get("status", ""),
+                            }
+            except Exception:
+                pass
+
             # Sort by created_at descending, limit to 20 for business demo (45.4.2)
             raw_batches_sorted = sorted(
                 raw_batches,
@@ -2710,20 +2844,20 @@ async def publications_page(request: Request):
             total_batches_count = len(raw_batches)
             for b in raw_batches_limited:
                 batch_id = str(b.get("id", ""))
-                batch_ref = batch_id[:8]
                 comment = b.get("comment") or ""
                 # Extract campaign_code from comment: "Publication batch for campaign 'CODE'"
-                cam_code = "?"
                 import re
                 m = re.search(r"campaign '([^']+)'", comment)
-                if m:
-                    cam_code = m.group(1)
+                cam_code = m.group(1) if m else ""
+                cam_info = campaign_names.get(cam_code, {})
+                cam_name = cam_info.get("name", cam_code or "—")
                 status = b.get("status", "draft")
                 created_at = b.get("created_at", "")
                 batches.append({
                     "batch_id": batch_id,
-                    "batch_ref": batch_ref,
+                    "batch_ref": batch_id[:8],
                     "campaign_code": cam_code,
+                    "campaign_name": cam_name,
                     "status": status,
                     "comment": comment,
                     "created_at": created_at,
@@ -2951,6 +3085,37 @@ async def approvals_page(request: Request):
     if not access_token:
         return _approvals_fallback(request, current_user)
 
+    # ── Pre-load available objects for approval dropdown ────────────
+    available_objects = []
+    try:
+        # Campaigns
+        camp_resp = await backend.list_campaigns_prod(access_token)
+        if camp_resp.get("ok"):
+            for c in camp_resp.get("data", []):
+                code = c.get("campaign_code") or ""
+                if code and c.get("status") in ("draft", "in_review", "approved"):
+                    available_objects.append({
+                        "type": "campaign",
+                        "code": code,
+                        "label": f"📢 {c.get('name', code)}",
+                        "status": c.get("status", ""),
+                    })
+
+        # Publication batches
+        pb_resp = await backend.list_publication_batches(access_token)
+        if pb_resp.get("ok"):
+            for b in pb_resp.get("data", []):
+                bid = str(b.get("id", ""))
+                if bid and b.get("status") in ("draft", "approved"):
+                    available_objects.append({
+                        "type": "publication_batch",
+                        "code": bid,
+                        "label": f"📦 Пакет публикации {bid[:8]}",
+                        "status": b.get("status", ""),
+                    })
+    except Exception:
+        pass
+
     result = await backend.list_approvals_prod(access_token)
     if not result["ok"]:
         return _approvals_fallback(request, current_user)
@@ -3033,6 +3198,7 @@ async def approvals_page(request: Request):
         "demo": False,
         "current_user": current_user,
         "approvals": safe_rows,
+        "available_objects": available_objects,
         "flash_type": flash_type,
         "flash_msg": flash_msg,
     })
@@ -3041,11 +3207,13 @@ async def approvals_page(request: Request):
 @app.post("/approvals/request", response_class=HTMLResponse)
 async def approvals_request(
     request: Request,
-    object_type: str = Form(..., min_length=1, max_length=20),
-    object_code: str = Form(..., min_length=1, max_length=64),
+    object_ref: str = Form(..., min_length=3, max_length=128),
     comment: str = Form("", max_length=500),
 ):
-    """Request approval — POST /approvals/request → backend."""
+    """Request approval — POST /approvals/request → backend.
+    
+    object_ref format: "type__code" (e.g., "campaign__C-123" or "publication_batch__uuid")
+    """
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/approvals")
     if guard is not None:
@@ -3057,6 +3225,15 @@ async def approvals_request(
         request.session["approval_flash"] = "error"
         request.session["approval_flash_msg"] = "Нет доступа."
         return RedirectResponse(url="/approvals", status_code=303)
+
+    # Parse combined object_ref → type + code
+    parts = object_ref.strip().split("__", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        request.session["approval_flash"] = "error"
+        request.session["approval_flash_msg"] = "Неверный формат объекта."
+        return RedirectResponse(url="/approvals", status_code=303)
+
+    object_type, object_code = parts[0], parts[1]
 
     payload = {
         "object_type": object_type.strip(),
