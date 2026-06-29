@@ -1,0 +1,14 @@
+{# 45.5.3: Styled Russian error page — never raw JSON #}
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="error-page">
+  <div class="error-icon">⚠️</div>
+  <h1 class="error-title">{{ error_title }}</h1>
+  <p class="error-text">{{ error_text }}</p>
+  {% if error_action_text and error_action_url %}
+  <a href="{{ error_action_url }}" class="btn btn-primary mt-16">{{ error_action_text }}</a>
+  {% endif %}
+  <p class="text-muted mt-8" style="font-size:12px;">Код: {{ status_code }}</p>
+</div>
+{% endblock %}

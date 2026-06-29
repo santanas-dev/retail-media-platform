@@ -47,6 +47,7 @@ class CampaignUpdate(BaseModel):
 
 class CampaignResponse(BaseModel):
     id: UUID
+    campaign_code: str | None = None  # 45.5.3: was missing — root cause of broken actions
     order_id: UUID
     advertiser_id: UUID
     brand_id: UUID | None
@@ -65,6 +66,9 @@ class CampaignResponse(BaseModel):
     rejection_reason: str | None
     created_at: datetime
     updated_at: datetime | None
+    # 45.5.3: creative info for campaign list display
+    creative_codes: list[str] = []
+    creative_count: int = 0
 
     model_config = {"from_attributes": True}
 

@@ -1498,12 +1498,29 @@ async def campaigns_page(request: Request):
         return _campaigns_fallback(request, current_user)
 
     campaigns = result.get("data", [])
+    
+    # 45.5.3: fetch creative bindings (non-blocking — skip if endpoint missing)
+    creative_bindings = {}
+    for c in campaigns:
+        cid = str(c.get("id", ""))
+        code = c.get("campaign_code") or f"camp_{cid[:8]}"
+        if code:
+            try:
+                cr = await backend.list_campaign_creatives(access_token, code)
+                if cr.get("ok") and isinstance(cr.get("data"), list):
+                    creative_bindings[cid] = [
+                        cc.get("creative_code", "") for cc in cr["data"]
+                    ]
+            except Exception:
+                pass
+    
     safe_rows = []
     status_counts = {"draft": 0, "in_review": 0, "approved": 0, "rejected": 0, "archived": 0, "active": 0}
     for c in campaigns:
-        code = c.get("campaign_code", "")
+        cid = str(c.get("id", ""))
+        code = c.get("campaign_code") or f"camp_{cid[:8]}"  # 45.5.3: fallback from id
         status = c.get("status", "")
-        creative_codes = c.get("creative_codes", [])
+        creative_codes = creative_bindings.get(cid, [])
         safe_rows.append({
             "campaign_code": code,
             "name": c.get("name", ""),
@@ -3791,3 +3808,63 @@ async def logout_handler(request: Request):
 async def portal_health():
     return {"status": "ok", "portal": "v2", "auth": "local-integrated",
             "stack": "FastAPI + Jinja2"}
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Error handlers — 45.5.3: convert raw JSON to styled Russian HTML
+# ══════════════════════════════════════════════════════════════════════
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc):
+    """Styled Russian 404 — never raw JSON."""
+    return templates.TemplateResponse(request, "pages/error.html", {
+        "request": request,
+        "title": "Страница не найдена",
+        "active": "",
+        "demo": False,
+        "current_user": get_current_portal_user(request),
+        "error_title": "Страница не найдена",
+        "error_text": "Запрошенная страница не существует или была перемещена.",
+        "error_action_text": "На главный экран",
+        "error_action_url": "/dashboard",
+        "status_code": 404,
+    }, status_code=404)
+
+
+@app.exception_handler(500)
+async def server_error_handler(request: Request, exc):
+    """Styled Russian 500 — never raw JSON, never traceback."""
+    return templates.TemplateResponse(request, "pages/error.html", {
+        "request": request,
+        "title": "Ошибка сервера",
+        "active": "",
+        "demo": False,
+        "current_user": get_current_portal_user(request),
+        "error_title": "Внутренняя ошибка",
+        "error_text": "Произошла ошибка при обработке запроса. Попробуйте позже.",
+        "error_action_text": "На главный экран",
+        "error_action_url": "/dashboard",
+        "status_code": 500,
+    }, status_code=500)
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Catch-all: never expose raw exceptions to users."""
+    # Don't intercept HTTPException — let FastAPI handle those
+    from fastapi import HTTPException as FastAPIHTTPException
+    if isinstance(exc, FastAPIHTTPException):
+        # Re-raise standard HTTP exceptions for FastAPI to handle
+        raise exc
+    return templates.TemplateResponse(request, "pages/error.html", {
+        "request": request,
+        "title": "Ошибка",
+        "active": "",
+        "demo": False,
+        "current_user": get_current_portal_user(request),
+        "error_title": "Непредвиденная ошибка",
+        "error_text": "Произошла ошибка. Пожалуйста, повторите попытку позже.",
+        "error_action_text": "На главный экран",
+        "error_action_url": "/dashboard",
+        "status_code": 500,
+    }, status_code=500)

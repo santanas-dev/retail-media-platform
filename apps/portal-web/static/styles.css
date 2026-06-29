@@ -583,6 +583,12 @@ code {
 /* ── Table Empty State ─────────────────────────── */
 .table-empty-state { text-align: center; padding: 32px 16px; }
 .table-empty-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.5; }
+
+/* ── Error Page (45.5.3) ───────────────────────── */
+.error-page { text-align: center; padding: 64px 20px; max-width: 480px; margin: 0 auto; }
+.error-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.6; }
+.error-title { font-size: 22px; font-weight: 700; color: var(--color-text); margin-bottom: 10px; }
+.error-text { font-size: 15px; color: var(--color-text-secondary); line-height: 1.6; }
 .table-empty-title { font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
 .table-empty-text { font-size: 12px; color: var(--color-text-secondary); }
 
