@@ -122,6 +122,8 @@ async def seed() -> None:
         # ── KSO Device Chain (B.2 reproducibility) ────────────────────
         await _seed_kso_device_chain(conn)
         await _link_placement_target_to_surface(conn)
+        # ── B.3.1 Placement seed ──────────────────────────────────────
+        await _seed_placement(conn)
 
     counts = {
         "channels": len(CHANNELS),
@@ -130,6 +132,7 @@ async def seed() -> None:
     }
     print(f"Channels seed complete. {counts}")
     print("KSO device chain seed complete.")
+    print("Placement seed complete.")
 
 
 async def _seed_kso_device_chain(conn) -> None:
@@ -211,6 +214,64 @@ async def _link_placement_target_to_surface(conn) -> None:
             WHERE display_surface_id IS NULL
         """),
         {"surface_id": surface.id},
+    )
+
+
+async def _seed_placement(conn) -> None:
+    """Idempotent: ensure universal placement exists with channel_id filled.
+
+    The placement row is created by A.3 migration on real DBs.
+    On fresh DBs, this seed creates it.
+    channel_id is filled from seed data or the migration UPDATE.
+    """
+    from app.domains.campaigns.models import Campaign
+
+    existing = await conn.execute(
+        select(models.Placement).where(
+            models.Placement.placement_code == "test-place-seed",
+        )
+    )
+    placement = existing.fetchone()
+    if placement and placement.channel_id is not None:
+        return  # Already exists and channel_id filled
+
+    # Find KSO channel and campaign
+    kso_campaign = await conn.execute(
+        select(Campaign).where(Campaign.campaign_code == "test-place-seed")
+    )
+    campaign = kso_campaign.fetchone()
+
+    kso_channel = await conn.execute(
+        select(models.Channel).where(models.Channel.code == "kso")
+    )
+    channel = kso_channel.fetchone()
+
+    if not campaign or not channel:
+        return  # Fresh DB without required seed data — skip
+
+    if placement and placement.channel_id is None:
+        # Fill channel_id for existing placement (edge case after migration)
+        await conn.execute(
+            text("""
+                UPDATE placements
+                SET channel_id = :channel_id
+                WHERE placement_code = 'test-place-seed'
+                  AND channel_id IS NULL
+            """),
+            {"channel_id": channel.id},
+        )
+        return
+
+    # Create placement on fresh DB
+    await conn.execute(
+        text("""
+            INSERT INTO placements
+                (campaign_id, channel_id, placement_code, name, status, priority)
+            VALUES
+                (:cid, :chid, 'test-place-seed', 'test-place-seed', 'active', 0)
+            ON CONFLICT (placement_code) DO NOTHING
+        """),
+        {"cid": campaign.id, "chid": channel.id},
     )
 
 

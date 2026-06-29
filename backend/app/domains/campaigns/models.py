@@ -99,6 +99,9 @@ class Campaign(Base):
         "CampaignCreative", back_populates="campaign", lazy="selectin",
         cascade="all, delete-orphan",
     )
+    placements = relationship(
+        "Placement", back_populates="campaign", lazy="selectin",
+    )
 
 
 class CampaignChannel(Base):

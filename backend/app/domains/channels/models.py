@@ -8,6 +8,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -20,6 +21,12 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+
+# Late import to resolve cross-domain relationships
+# Placement.campaign references campaigns.models.Campaign
+# which must be registered before Placement mapper initializes.
+import app.domains.campaigns.models as _campaigns_models  # noqa: F401
+import app.domains.organization.models as _org_models  # noqa: F401 — for Store
 
 
 class Channel(Base):
@@ -203,3 +210,99 @@ class DisplaySurface(Base):
     capability_profile = relationship(
         "CapabilityProfile", back_populates="display_surfaces"
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# B.3.1 — Placement & PlacementTarget (universal placement entity)
+# ──────────────────────────────────────────────────────────────────────────────
+
+class Placement(Base):
+    """Universal placement entity (размещение рекламы).
+
+    Links a Campaign to a Channel with optional date range and status.
+    Campaign 1→N Placements.
+    """
+
+    __tablename__ = "placements"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    campaign_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("campaigns.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    channel_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("channels.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    placement_code = Column(String(64), unique=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    status = Column(String(20), nullable=False, server_default="draft")
+    priority = Column(Integer, nullable=False, server_default=func.text("0"))
+    start_date = Column(Date)
+    end_date = Column(Date)
+    created_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    campaign = relationship("Campaign", back_populates="placements")
+    channel = relationship("Channel")
+    targets = relationship(
+        "PlacementTarget", back_populates="placement", lazy="selectin",
+        cascade="all, delete-orphan",
+    )
+    # proof_events relationship deferred until ProofEvent ORM model exists (phase C/F)
+    # The DB FK proof_events.placement_id → placements.id is already in place.
+
+
+class PlacementTarget(Base):
+    """Target specification for a placement (цель размещения).
+
+    Maps a placement to a store, display surface, or logical carrier.
+    Replaces campaign_targets for new placement-based workflows.
+    """
+
+    __tablename__ = "placement_targets"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    placement_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("placements.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    target_type = Column(String(20), nullable=False)
+    store_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("stores.id", ondelete="RESTRICT"),
+    )
+    display_surface_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("display_surfaces.id", ondelete="SET NULL"),
+    )
+    logical_carrier_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("logical_carriers.id", ondelete="SET NULL"),
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    placement = relationship("Placement", back_populates="targets")
+    store = relationship("Store")
+    display_surface = relationship("DisplaySurface")
+    logical_carrier = relationship("LogicalCarrier")
