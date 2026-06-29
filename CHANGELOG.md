@@ -7,6 +7,33 @@ Every minor tag requires: green full regression, clean git status, no secrets in
 
 ---
 
+## [45.6.3] — Safe Demo Data Cleanup Execution — 2026-06-29
+
+### Changed
+- **Database cleanup executed** (backup: `backups/backup_retail_media_20260629_115710.dump`, 2.2M)
+- 17 junk campaigns deleted (23→6): all draft/approved with empty campaign_code removed
+- 51 junk publication_batches deleted (74→23), 19 manifest_versions + 11 targets reassigned to C-63939f
+- 178 device records cleaned (manifest_requests, media_requests, cache, etc.)
+- 11 draft/rejected junk creatives deleted (26→15)
+- 22 junk users **deactivated** (is_active=false), not deleted: active users 74→52
+- 32 junk refresh_tokens deleted (1087→1055)
+- Admin audit events preserved (21), RBAC/RLS/audit preserved
+- schedule_items (25982), proof_of_play (548) preserved — linked to kept campaign C-63939f
+- Campaigns remaining: C-63939f (approved), 4 archived (Promo Suppliers E2E, Промо Январь ×2, Synthetic)
+- 1 residual: "Test Campaign" (approved) blocked by campaign_renditions FK
+
+### Verified
+- Backend regression: 770 OK
+- Portal regression: 835 OK, 20 skipped
+- Portal health: `/campaigns`, `/creatives`, `/schedule`, `/approvals`, `/publications` all functional
+- No raw JSON, no 404/500, no visible test/seed/None
+- Maker-checker enforced, RBAC/RLS preserved
+
+### Docs
+- `docs/product/demo-data-cleanup-execution-45-6-3.md`
+
+---
+
 ## [45.6.2] — Demo Data Cleanup Dry-Run — 2026-06-29
 
 ### Added
