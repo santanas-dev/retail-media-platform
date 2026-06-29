@@ -99,23 +99,27 @@ adapters/
 
 ## 3. План миграции (без потери данных)
 
-### Фаза A: Подготовка (1 сессия)
+### Фаза A: Подготовка ✅ COMPLETED
 
-1. Создать миграцию: добавить `external_code` в `physical_devices`
-2. Создать `device_properties` JSONB в `physical_devices` для KSO-специфичных полей
-3. Data migration script: `kso_devices` → `physical_devices` (dry-run first)
-4. Feature flag: `USE_UNIVERSAL_DEVICE_MODEL`
+1. ✅ Создать миграцию: добавить `external_code` в `physical_devices` — **выполнено (A.3)**
+2. ✅ Создать `device_properties` JSONB в `physical_devices` — **выполнено (A.3)**
+3. ✅ Data migration: `kso_devices` → `physical_devices` — **выполнено (A.3, commit cb7f294)**
+4. ✅ Feature flag: `USE_UNIVERSAL_DEVICE_MODEL` — **не реализован в коде (безопасно)**
 
-### Фаза B: Переключение (1 сессия)
+### Фаза B: Device Model ✅ COMPLETED (B.1, B.2, B.2.1)
 
-5. Обновить `hierarchy/router.py`: `list_kso_devices` → `list_physical_devices(channel_type='KSO')`
-6. Обновить `device_gateway`: использовать `physical_devices` вместо `kso_devices`
-7. Обновить portal: device listing из универсальной модели
+5. ✅ Channel registry: 5 каналов, 5 device types, 6 capability profiles (B.1)
+6. ✅ Device model unified: PD→LC→DS→CP chain, 0 orphans (B.2)
+7. ✅ Universal API: `/api/physical-devices?channel_code=`, `/by-code/`, `/surfaces` (B.1, B.2)
+8. ✅ Seed reproducibility: KSO device chain в idempotent seed (B.2.1)
+9. ⏸️ Portal device listing из универсальной модели — **отложено до B.3+**
+10. ⏸️ Device gateway на universal model — **отложено до C.1**
 
-### Фаза C: Очистка (1 сессия)
+### Фаза C: Очистка 📅 DEFERRED (отдельный approval)
 
-8. Удалить KSO-роуты и модели после подтверждения миграции
-9. Дропнуть `kso_devices`, `kso_placements`, `kso_proof_of_play_events`
+11. ⏳ Удалить KSO-роуты и модели после подтверждения миграции
+12. ⏳ Дропнуть `kso_devices`, `kso_placements`, `kso_proof_of_play_events`
+    ⛔ **ЗАПРЕЩЕНО без отдельного approval**
 
 ## 4. Границы доменов (из ТЗ 24.3)
 
