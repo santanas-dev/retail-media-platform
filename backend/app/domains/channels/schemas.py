@@ -140,3 +140,69 @@ class DisplaySurfaceResponse(BaseModel):
     updated_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# B.3.2 — Placement schemas
+# ═══════════════════════════════════════════════════════════════════════════
+
+from datetime import date
+
+VALID_PLACEMENT_STATUSES = frozenset({
+    "draft", "active", "paused", "completed", "cancelled", "error",
+})
+
+
+class PlacementCreate(BaseModel):
+    channel_id: UUID
+    name: str = Field(min_length=1, max_length=255)
+    priority: int = Field(default=0, ge=0)
+    start_date: date | None = None
+    end_date: date | None = None
+
+
+class PlacementUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    status: str | None = Field(None, max_length=20)
+    priority: int | None = Field(None, ge=0)
+    start_date: date | None = None
+    end_date: date | None = None
+
+
+class PlacementResponse(BaseModel):
+    id: UUID
+    campaign_id: UUID
+    channel_id: UUID
+    placement_code: str
+    name: str
+    status: str
+    priority: int
+    start_date: date | None
+    end_date: date | None
+    created_at: datetime
+    updated_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class PlacementTargetItem(BaseModel):
+    target_type: str = Field(min_length=1, max_length=20)
+    store_id: UUID | None = None
+    display_surface_id: UUID | None = None
+    logical_carrier_id: UUID | None = None
+
+
+class PlacementTargetsUpdate(BaseModel):
+    targets: list[PlacementTargetItem] = Field(default_factory=list)
+
+
+class PlacementTargetResponse(BaseModel):
+    id: UUID
+    placement_id: UUID
+    target_type: str
+    store_id: UUID | None
+    display_surface_id: UUID | None
+    logical_carrier_id: UUID | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

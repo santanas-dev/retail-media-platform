@@ -669,3 +669,51 @@ async def create_publication_batch_from_campaign(
         created_at=campaign.created_at,
         updated_at=campaign.updated_at,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# B.3.2 — Campaign-scoped Placement endpoints
+# ═══════════════════════════════════════════════════════════════════════════
+
+from app.domains.channels import schemas as placement_schemas  # noqa: E402
+from app.domains.channels import service as placement_service  # noqa: E402
+
+@router.get(
+    "/campaigns/{campaign_id}/placements",
+    response_model=list[placement_schemas.PlacementResponse],
+)
+async def list_campaign_placements(
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("campaigns.read")),
+):
+    """List all placements for a campaign (RLS enforced)."""
+    return await placement_service.list_campaign_placements(db, campaign_id, current_user)
+
+
+@router.post(
+    "/campaigns/{campaign_id}/placements",
+    response_model=placement_schemas.PlacementResponse,
+    status_code=201,
+)
+async def create_campaign_placement(
+    campaign_id: UUID,
+    data: placement_schemas.PlacementCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: identity_models.User = Depends(require_permission("campaigns.create")),
+):
+    """Create a placement within a campaign."""
+    result = await placement_service.create_campaign_placement(
+        db, campaign_id, data, current_user,
+    )
+    await audit_business_action(
+        db, actor_user_id=str(current_user.id),
+        action="placement.create", target_type="placement",
+        target_ref=result.placement_code,
+        details={
+            "campaign_id": str(campaign_id),
+            "channel_id": str(data.channel_id),
+            "name": data.name,
+        },
+    )
+    return result
