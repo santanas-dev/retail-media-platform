@@ -5,6 +5,38 @@ All notable changes to the Retail Media Platform.
 Format: [SemVer](https://semver.org/) + annotated Git tags.
 Every minor tag requires: green full regression, clean git status, no secrets in docs/output.
 
+## [B.2] — 2026-06-29 — Device Model Unification
+
+### Device Chain
+- Full chain PD→LC→DS→CP enforced: all devices have carriers, all carriers have surfaces
+- KSO device (test-dev-seed): created logical_carrier "kso_player" + display_surface 768×1024 portrait
+- Placement target: linked to KSO portrait display_surface
+- 0 orphan devices, 0 orphan carriers, 0 orphan surfaces
+
+### Service Helpers
+- `get_device_surfaces(device_id)` — surfaces through PD→LC→DS chain
+- `get_device_capabilities(device_id)` — capability profiles through full chain
+- `get_device_surface_readiness(surface_id)` — readiness with resolution/orientation/formats/proof
+
+### API
+- `GET /api/physical-devices/{id}/surfaces` — device surfaces
+- `GET /api/display-surfaces/{id}/readiness` — surface readiness
+
+### Tests
+- test_device_model_unification_b2.py: 19 tests (chain integrity, KSO device, placement link, no orphans, legacy preserved)
+
+### Regression
+- Backend: 882/0 (+19 B.2 tests)
+- Portal: 842/32sk (8 flakes — pre-existing)
+
+### Docs
+- device-model-unification-b2.md (new)
+- device-model-api-b2.md (new)
+
+### Compatibility
+- Legacy routes/tables: preserved, unchanged
+- No DROP/DELETE/TRUNCATE
+
 ## [B.1] — 2026-06-29 — Channel Registry Cleanup
 
 ### Seed

@@ -60,11 +60,13 @@
 - Legacy routes/tables preserved
 - **KSO = первый канал, не отдельная вертикаль**
 
-### B.2 — Device Model Unification  
-- `physical_devices` как единая модель для всех каналов
-- `logical_carriers` и `display_surfaces` для ESL/LED сценариев
-- `capability_profiles` для каждого device_type
-- Убрать `kso_devices` после миграции
+### B.2 — Device Model Unification ✅ COMPLETED
+- Full chain: PD→LC→DS→CP for all devices
+- KSO device: +logical_carrier +display_surface (portrait 768×1024)
+- Placement target: linked to display_surface
+- Service helpers: get_device_surfaces, get_device_capabilities, get_surface_readiness
+- API: GET /api/physical-devices/{id}/surfaces, GET /api/display-surfaces/{id}/readiness
+- Tests: 19/19 (chain integrity, KSO device, placement link, no orphans)
 
 ### B.3 — Placement как отдельная сущность
 - Выделить Placement из Campaign (где/когда/как/какой канал)

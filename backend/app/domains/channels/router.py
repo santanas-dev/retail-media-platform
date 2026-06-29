@@ -119,6 +119,34 @@ async def get_physical_device_by_external_code(
     return await service.get_physical_device_by_external_code(db, external_code)
 
 
+@router.get(
+    "/physical-devices/{device_id}/surfaces",
+    response_model=list[schemas.DisplaySurfaceResponse],
+)
+async def list_device_surfaces(
+    device_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("devices.read")),
+):
+    """List display surfaces for a physical device through the chain PD→LC→DS."""
+    return await service.get_device_surfaces(db, device_id)
+
+
+# ── Display Surfaces ──────────────────────────────────────────────────────
+
+
+@router.get(
+    "/display-surfaces/{surface_id}/readiness",
+)
+async def get_surface_readiness(
+    surface_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: identity_models.User = Depends(require_permission("devices.read")),
+):
+    """Check if a display surface is ready for content delivery."""
+    return await service.get_device_surface_readiness(db, surface_id)
+
+
 # ── Logical Carriers ──────────────────────────────────────────────────────
 
 @router.get("/logical-carriers", response_model=list[schemas.LogicalCarrierResponse])

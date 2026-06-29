@@ -232,3 +232,62 @@ async def create_display_surface(
     await db.commit()
     await db.refresh(surface)
     return surface
+
+
+# ── Device Chain Helpers (B.2) ──────────────────────────────────────────
+
+
+async def get_device_surfaces(
+    db: AsyncSession, device_id: UUID,
+) -> list[models.DisplaySurface]:
+    """Get all display surfaces for a physical device through the chain."""
+    result = await db.execute(
+        select(models.DisplaySurface)
+        .join(models.LogicalCarrier, models.DisplaySurface.logical_carrier_id == models.LogicalCarrier.id)
+        .where(models.LogicalCarrier.physical_device_id == device_id)
+        .order_by(models.DisplaySurface.created_at)
+    )
+    return list(result.scalars().all())
+
+
+async def get_device_capabilities(
+    db: AsyncSession, device_id: UUID,
+) -> list[models.CapabilityProfile]:
+    """Get all capability profiles for a physical device through the chain."""
+    result = await db.execute(
+        select(models.CapabilityProfile)
+        .join(models.DisplaySurface, models.DisplaySurface.capability_profile_id == models.CapabilityProfile.id)
+        .join(models.LogicalCarrier, models.DisplaySurface.logical_carrier_id == models.LogicalCarrier.id)
+        .where(models.LogicalCarrier.physical_device_id == device_id)
+        .order_by(models.CapabilityProfile.orientation)
+    )
+    return list(result.scalars().all())
+
+
+async def get_device_surface_readiness(
+    db: AsyncSession, surface_id: UUID,
+) -> dict:
+    """Check if a display surface is ready for content delivery."""
+    result = await db.execute(
+        select(models.DisplaySurface).where(models.DisplaySurface.id == surface_id)
+    )
+    surface = result.scalar_one_or_none()
+    if not surface:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Surface not found")
+    result = await db.execute(
+        select(models.CapabilityProfile).where(
+            models.CapabilityProfile.id == surface.capability_profile_id
+        )
+    )
+    profile = result.scalar_one_or_none()
+    return {
+        "surface_id": str(surface.id),
+        "is_active": surface.is_active,
+        "resolution": surface.resolution,
+        "orientation": profile.orientation if profile else None,
+        "proof_type": profile.proof_type if profile else None,
+        "formats": profile.formats_json if profile else None,
+        "max_duration": profile.max_duration if profile else None,
+        "max_file_size": profile.max_file_size if profile else None,
+        "interactive": profile.interactive if profile else False,
+    }
