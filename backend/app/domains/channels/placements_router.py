@@ -95,11 +95,12 @@ async def set_placement_targets(
     db: AsyncSession = Depends(get_db),
     current_user: identity_models.User = Depends(require_permission("campaigns.manage")),
 ):
+    placement = await service._get_placement_or_404(db, placement_id)
     result = await service.set_placement_targets(db, placement_id, data, current_user)
     await audit_business_action(
         db, actor_user_id=str(current_user.id),
         action="placement.targets.update", target_type="placement",
-        target_ref=str(placement_id),
+        target_ref=placement.placement_code,
         details={"target_count": len(result)},
     )
     return result
