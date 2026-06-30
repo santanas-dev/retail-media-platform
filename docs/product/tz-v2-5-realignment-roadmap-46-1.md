@@ -84,7 +84,7 @@
 - B.4.1 AdapterContract + MockAdapter + Registry — commit `7cae398`
 - B.4.2 Orchestrator Service + Placement Target Resolution — commit `4503515`
 - B.4.3 Simulation Engine — commit `4d6f71f`
-- B.4.4 Closure Gate — commit `42b8f89`
+- B.4.4 Closure Gate — commit `a6db738`
 - Components: `orchestrator/contracts.py`, `orchestrator/service.py`, `orchestrator/simulation.py`, `adapters/mock_adapter.py`, `adapters/registry.py`
 - Tests: 79/79 (B.4.1 32 + B.4.2 25 + B.4.3 22)
 - Backend baseline: 1129 collected, 1063 passed, 66 pre-existing, 0 collection errors
