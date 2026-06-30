@@ -79,11 +79,15 @@
 - Portal baseline: 863 passed, 0 failed
 - Все legacy таблицы сохранены, CRUD в portal не добавлен
 
-### B.4 — Channel Orchestrator (скелет)
-- `orchestrator/service.py` — сборка manifest
-- `orchestrator/simulation.py` — симуляция перед публикацией
-- `orchestrator/contracts.py` — AdapterContract интерфейс
-- Mock adapter для тестов
+### B.4 — Channel Orchestrator ✅ COMPLETED
+- B.4.0 Design Gate — commit `a8a36b6`
+- B.4.1 AdapterContract + MockAdapter + Registry — commit `7cae398`
+- B.4.2 Orchestrator Service + Placement Target Resolution — commit `4503515`
+- B.4.3 Simulation Engine — commit `4d6f71f`
+- B.4.4 Closure Gate — commit `...`
+- Components: `orchestrator/contracts.py`, `orchestrator/service.py`, `orchestrator/simulation.py`, `adapters/mock_adapter.py`, `adapters/registry.py`
+- Tests: 79/79 (B.4.1 32 + B.4.2 25 + B.4.3 22)
+- Backend baseline: 1129 collected, 1063 passed, 66 pre-existing, 0 collection errors
 
 ### B.5 — Universal Manifest Schema v1
 - Core fields + adapter_payload
