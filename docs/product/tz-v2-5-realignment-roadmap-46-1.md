@@ -95,7 +95,7 @@
 - B.5.2 Manifest Builder from Orchestrator Draft — commit `9bd663f`
 - B.5.3 Enhanced Validation + No-Secrets — commit `f3b767e`
 - B.5.4 Legacy Compatibility Analysis — commit `f079e8b`
-- B.5.5 Closure Gate — commit `...`
+- B.5.5 Closure Gate — commit `b043a43`
 - Components: `universal_schema.py` (666 строк), `universal_builder.py` (382 строки)
 - Tests: 115/115 (37+38+40)
 - Backend collection: 1244 (0 errors)
