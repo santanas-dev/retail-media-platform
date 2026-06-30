@@ -280,22 +280,138 @@ async def check_availability(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Conflict Check (skeleton — D.3 expands)
+# Conflict Check (D.3)
 # ═══════════════════════════════════════════════════════════════════════════
 
 async def check_conflicts(
     db: AsyncSession, query: ConflictCheck,
 ) -> ConflictResult:
-    """Check for planning conflicts for proposed placement/booking."""
+    """Check for planning conflicts for proposed placement/booking.
+
+    Reuses check_availability() internally — maps ConflictCheck to AvailabilityQuery.
+    Does NOT create bookings or change state.
+    """
     issues: list[PlanningIssue] = []
+    warnings: list[PlanningIssue] = []
+
+    # ── Validate inputs ──────────────────────────────────────────────
     issues.extend(validate_date_range(query.date_from, query.date_to))
     issues.extend(validate_requested_capacity(
         query.requested_share_of_voice, query.requested_spots_per_loop,
     ))
+
+    # Resolve placement_id to inventory scope, if provided
+    inventory_unit_id = query.inventory_unit_id
+    display_surface_id = query.display_surface_id
+
+    if query.placement_id and not inventory_unit_id:
+        from app.domains.channels.models import Placement, PlacementTarget
+        placement_result = await db.execute(
+            select(Placement).where(Placement.id == query.placement_id)
+        )
+        placement = placement_result.scalar_one_or_none()
+        if not placement:
+            issues.append(build_planning_issue(
+                "PLACEMENT_NOT_FOUND", "error",
+                f"Placement '{query.placement_id}' not found",
+                field="placement_id",
+            ))
+        else:
+            # Find PlacementTarget → display_surface → inventory
+            target_result = await db.execute(
+                select(PlacementTarget).where(
+                    PlacementTarget.placement_id == placement.id,
+                ).limit(1)
+            )
+            target = target_result.scalar_one_or_none()
+            if target and target.display_surface_id:
+                display_surface_id = target.display_surface_id
+            else:
+                warnings.append(build_planning_issue(
+                    "PLACEMENT_TARGET_NOT_FOUND", "warning",
+                    f"No target with display_surface for placement '{placement.code}'",
+                    field="placement_id",
+                ))
+
+    # Validate scope
+    has_scope = any([inventory_unit_id, display_surface_id])
+    if not has_scope:
+        issues.append(build_planning_issue(
+            "NO_CONFLICT_SCOPE", "error",
+            "No scope for conflict check (inventory_unit_id, display_surface_id, or placement with target)",
+        ))
+
+    if issues:
+        return ConflictResult(
+            has_conflict=False, conflicts=[],
+            warnings=warnings + [i for i in issues if i.severity == "warning"],
+            errors=[i for i in issues if i.severity == "error"],
+        )
+
+    # ── Build AvailabilityQuery ──────────────────────────────────────
+    # NB: ConflictCheck has no channel_id/store_id/logical_carrier_id —
+    #     conflicts are surface/unit scoped.
+    avail_query = AvailabilityQuery(
+        inventory_unit_id=inventory_unit_id,
+        display_surface_id=display_surface_id,
+        date_from=query.date_from,
+        date_to=query.date_to,
+        requested_share_of_voice=query.requested_share_of_voice,
+        requested_spots_per_loop=query.requested_spots_per_loop,
+        campaign_id=query.campaign_id,
+    )
+
+    # ── Reuse availability engine ────────────────────────────────────
+    avail_result = await check_availability(db, avail_query)
+    warnings.extend(avail_result.warnings)
+
+    # ── Map availability conflicts + enrich with booking refs ────────
+    conflicts: list[PlanningConflict] = []
+
+    # Find existing booking refs for each conflict
+    unit_ids = set(c.inventory_unit_id for c in avail_result.conflicts
+                   if c.inventory_unit_id)
+    if unit_ids and avail_result.conflicts:
+        booking_stmt = (
+            select(BookingItem, CampaignBooking)
+            .join(CampaignBooking, BookingItem.booking_id == CampaignBooking.id)
+            .where(
+                BookingItem.inventory_unit_id.in_(unit_ids),
+                CampaignBooking.status.in_(_BOOKING_STATUSES_THAT_CONSUME),
+            )
+        )
+        booking_result = await db.execute(booking_stmt)
+        booking_rows = [(row[0], row[1]) for row in booking_result.all()]
+
+        # Enrich each conflict with existing booking refs if overlapping
+        for conflict in avail_result.conflicts:
+            enriched = PlanningConflict(
+                conflict_type=conflict.conflict_type,
+                severity=conflict.severity,
+                inventory_unit_id=conflict.inventory_unit_id,
+                display_surface_id=conflict.display_surface_id,
+                date_from=conflict.date_from,
+                date_to=conflict.date_to,
+                message=conflict.message,
+            )
+            # Find the first overlapping booking for this unit
+            for bi, cb in booking_rows:
+                if (bi.inventory_unit_id == conflict.inventory_unit_id
+                        and ranges_overlap(query.date_from, query.date_to,
+                                            bi.date_from, bi.date_to)):
+                    enriched.existing_campaign_id = cb.campaign_id
+                    enriched.existing_booking_id = bi.booking_id
+                    enriched.existing_booking_item_id = bi.id
+                    break
+            conflicts.append(enriched)
+
+    has_conflict = len(conflicts) > 0
+
     return ConflictResult(
-        has_conflict=False, conflicts=[],
-        warnings=[i for i in issues if i.severity == "warning"],
-        errors=[i for i in issues if i.severity == "error"],
+        has_conflict=has_conflict,
+        conflicts=conflicts,
+        warnings=warnings,
+        errors=avail_result.errors,
     )
 
 
