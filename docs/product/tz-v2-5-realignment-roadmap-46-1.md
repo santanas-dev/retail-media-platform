@@ -89,15 +89,18 @@
 - Tests: 79/79 (B.4.1 32 + B.4.2 25 + B.4.3 22)
 - Backend baseline: 1129 collected, 1063 passed, 66 pre-existing, 0 collection errors
 
-### B.5 — Universal Manifest Schema v1
-- Core fields + adapter_payload
-- Подпись (HMAC v1)
-- Версионирование (manifest_schema_version)
-- Валидация совместимости с capability profile
-
-**Blockers:** нет (все mock)
-**Risk:** High (архитектурный фундамент)
-**KSO hardware:** не требуется
+### B.5 — Universal Manifest Schema v1 ✅ COMPLETED
+- B.5.0 Design Gate — commit `83c8dc9`
+- B.5.1 Schema Contracts (10 Pydantic models, 3 validators) — commit `4d6c2d4`
+- B.5.2 Manifest Builder from Orchestrator Draft — commit `9bd663f`
+- B.5.3 Enhanced Validation + No-Secrets — commit `f3b767e`
+- B.5.4 Legacy Compatibility Analysis — commit `f079e8b`
+- B.5.5 Closure Gate — commit `...`
+- Components: `universal_schema.py` (666 строк), `universal_builder.py` (382 строки)
+- Tests: 115/115 (37+38+40)
+- Backend collection: 1244 (0 errors)
+- Universal Manifest — preview/draft/internal path only
+- Production path — legacy GeneratedManifest (unchanged)
 
 ---
 
