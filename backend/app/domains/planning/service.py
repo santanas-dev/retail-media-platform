@@ -1,42 +1,38 @@
 """
-D.1 — Planning Service Contracts.
+D.2 — Planning Service: Availability Calculation.
 
-Skeleton functions without business logic.
-Does NOT:
-- create CampaignBooking / BookingItem
-- change Placement / Campaign
-- write generated_manifests
-- call Device Gateway / Orchestrator delivery
-- do real publish
+Read-only calculations on top of InventoryUnit, CapacityRule, BookingItem, CampaignBooking.
+Does NOT create bookings or change state.
+Does NOT import Device Gateway, publications, generated_manifests, or portal.
 """
 
 from datetime import date
+from decimal import Decimal
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.planning.schemas import (
-    AvailabilityQuery,
-    AvailabilityResult,
-    ConflictCheck,
-    ConflictResult,
-    OccupancyQuery,
-    OccupancyResult,
-    PlanningScenario,
-    PlanningIssue,
+from app.domains.inventory.models import (
+    InventoryUnit, CapacityRule, CampaignBooking, BookingItem,
 )
-
+from app.domains.planning.schemas import (
+    AvailabilityQuery, AvailabilityResult, InventoryUnitAvailability,
+    ConflictCheck, ConflictResult, PlanningConflict,
+    OccupancyQuery, OccupancyResult,
+    PlanningScenario, PlanningIssue,
+)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Validation helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
-def validate_date_range(date_from: date, date_to: date) -> list[PlanningIssue]:
+def validate_date_range(d_from: date, d_to: date) -> list[PlanningIssue]:
     """Validate date range: date_from <= date_to."""
-    if date_from > date_to:
+    if d_from > d_to:
         return [build_planning_issue(
             "DATE_RANGE_INVALID", "error",
-            f"date_from ({date_from}) > date_to ({date_to})",
+            f"date_from ({d_from}) > date_to ({d_to})",
             field="date_from",
         )]
     return []
@@ -63,13 +59,11 @@ def validate_requested_capacity(
     return issues
 
 
-def validate_inventory_scope(query) -> list[PlanningIssue]:
+def validate_inventory_scope(query: AvailabilityQuery) -> list[PlanningIssue]:
     """Validate that at least one scope selector is provided."""
     has_scope = any([
-        query.channel_id,
-        query.store_id,
-        query.display_surface_id,
-        query.logical_carrier_id,
+        query.channel_id, query.store_id,
+        query.display_surface_id, query.logical_carrier_id,
         query.inventory_unit_id,
     ])
     if not has_scope:
@@ -81,150 +75,273 @@ def validate_inventory_scope(query) -> list[PlanningIssue]:
 
 
 def build_planning_issue(
-    code: str,
-    severity: str,
-    message: str,
-    field: str | None = None,
-    details: dict | None = None,
+    code: str, severity: str, message: str,
+    field: str | None = None, details: dict | None = None,
 ) -> PlanningIssue:
     """Build a structured PlanningIssue."""
-    return PlanningIssue(
-        code=code,
-        severity=severity,
-        message=message,
-        field=field,
-        details=details,
-    )
+    return PlanningIssue(code=code, severity=severity, message=message,
+                         field=field, details=details)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Service contracts (skeleton — no business logic yet)
+# Date overlap helper
+# ═══════════════════════════════════════════════════════════════════════════
+
+def ranges_overlap(a_from: date, a_to: date, b_from: date, b_to: date) -> bool:
+    """Check if two date ranges overlap. Inclusive on both ends."""
+    return a_from <= b_to and b_from <= a_to
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Booking status filter — which statuses count as consuming inventory
+# ═══════════════════════════════════════════════════════════════════════════
+
+_BOOKING_STATUSES_THAT_CONSUME = frozenset({"approved", "active", "published"})
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Availability Calculation
 # ═══════════════════════════════════════════════════════════════════════════
 
 async def check_availability(
-    db: AsyncSession,
-    query: AvailabilityQuery,
+    db: AsyncSession, query: AvailabilityQuery,
 ) -> AvailabilityResult:
-    """Check inventory availability for given scope and date range.
+    """Calculate inventory availability for a given scope and date range.
 
     Does NOT create bookings or change state.
     """
     issues: list[PlanningIssue] = []
+    warnings: list[PlanningIssue] = []
 
-    # Validate inputs
+    # ── Validate inputs ──────────────────────────────────────────────
     issues.extend(validate_date_range(query.date_from, query.date_to))
     issues.extend(validate_requested_capacity(
-        query.requested_share_of_voice,
-        query.requested_spots_per_loop,
+        query.requested_share_of_voice, query.requested_spots_per_loop,
     ))
-    issues.extend(validate_inventory_scope(query))
+    warnings.extend(validate_inventory_scope(query))
 
-    # Future: read InventoryUnit + CapacityRule + BookingItem
-    # Future: calculate available capacity
-    # Future: detect conflicts with existing bookings
+    if issues:
+        return AvailabilityResult(
+            ok=False, available=False, inventory_units=[], conflicts=[],
+            occupancy=[], warnings=warnings, errors=issues,
+        )
+
+    # ── Build InventoryUnit query ────────────────────────────────────
+    conditions = [InventoryUnit.is_sellable == True]
+    if query.inventory_unit_id:
+        conditions.append(InventoryUnit.id == query.inventory_unit_id)
+    if query.channel_id:
+        conditions.append(InventoryUnit.channel_id == query.channel_id)
+    if query.store_id:
+        conditions.append(InventoryUnit.store_id == query.store_id)
+    if query.display_surface_id:
+        conditions.append(
+            InventoryUnit.display_surface_id == query.display_surface_id,
+        )
+    if query.logical_carrier_id:
+        conditions.append(
+            InventoryUnit.logical_carrier_id == query.logical_carrier_id,
+        )
+
+    result = await db.execute(select(InventoryUnit).where(*conditions))
+    units = result.scalars().all()
+
+    if not units:
+        warnings.append(build_planning_issue(
+            "INVENTORY_NOT_FOUND", "warning",
+            "No sellable inventory units found for the given scope",
+        ))
+        return AvailabilityResult(
+            ok=True, available=False, inventory_units=[], conflicts=[],
+            occupancy=[], warnings=warnings, errors=[],
+        )
+
+    # ── Load existing bookings for these units ───────────────────────
+    unit_ids = [u.id for u in units]
+    booking_stmt = (
+        select(BookingItem, CampaignBooking)
+        .join(CampaignBooking, BookingItem.booking_id == CampaignBooking.id)
+        .where(
+            BookingItem.inventory_unit_id.in_(unit_ids),
+            CampaignBooking.status.in_(_BOOKING_STATUSES_THAT_CONSUME),
+        )
+    )
+    booking_result = await db.execute(booking_stmt)
+    booking_rows = [(row[0], row[1]) for row in booking_result.all()]
+
+    # ── Calculate availability per unit ──────────────────────────────
+    unit_availabilities: list[InventoryUnitAvailability] = []
+    conflicts: list[PlanningConflict] = []
+    any_available = False
+
+    for unit in units:
+        # Capacity rule lookup (use first matching)
+        cap_result = await db.execute(
+            select(CapacityRule).where(
+                CapacityRule.inventory_unit_id == unit.id,
+            ).limit(1)
+        )
+        capacity_rule = cap_result.scalar_one_or_none()
+
+        cap_max_spots = capacity_rule.max_spots_per_loop if capacity_rule else 0
+        if capacity_rule is None:
+            warnings.append(build_planning_issue(
+                "CAPACITY_RULE_MISSING", "warning",
+                f"No capacity rule for inventory unit '{unit.code}'",
+                details={"inventory_unit_id": str(unit.id)},
+            ))
+
+        # Collect overlapping booking items for this unit
+        unit_bookings = [
+            (bi, cb)
+            for bi, cb in booking_rows
+            if (bi.inventory_unit_id == unit.id
+                and ranges_overlap(query.date_from, query.date_to,
+                                    bi.date_from, bi.date_to))
+        ]
+
+        booked_sov = sum(
+            float(bi.booked_share_of_voice or 0)
+            for bi, _cb in unit_bookings
+        )
+        booked_spots = sum(
+            bi.booked_spots_per_loop or 0
+            for bi, _cb in unit_bookings
+        )
+
+        available_sov = max(0.0, 100.0 - booked_sov)
+        available_spots = max(0, int(cap_max_spots) - booked_spots) if capacity_rule else 0
+
+        # Occupancy
+        if booked_sov > 0:
+            occupancy = round(booked_sov, 1)
+        elif capacity_rule and cap_max_spots > 0:
+            occupancy = round(booked_spots / cap_max_spots * 100, 1)
+        else:
+            occupancy = None
+
+        # Conflict detection
+        req_sov = query.requested_share_of_voice
+        req_spots = query.requested_spots_per_loop
+
+        if req_sov is not None and req_sov > available_sov:
+            conflicts.append(PlanningConflict(
+                conflict_type="share_of_voice_exceeded",
+                severity="error",
+                inventory_unit_id=unit.id,
+                date_from=query.date_from, date_to=query.date_to,
+                message=(
+                    f"Requested {req_sov}% SOV exceeds available "
+                    f"{available_sov}% (booked: {booked_sov}%)"
+                ),
+            ))
+        if req_spots is not None and capacity_rule and req_spots > available_spots:
+            conflicts.append(PlanningConflict(
+                conflict_type="capacity_exceeded",
+                severity="error",
+                inventory_unit_id=unit.id,
+                date_from=query.date_from, date_to=query.date_to,
+                message=(
+                    f"Requested {req_spots} spots exceeds capacity "
+                    f"{cap_max_spots} (booked: {booked_spots})"
+                ),
+            ))
+
+        # Unit is available if no conflicts reference this unit
+        unit_available = not any(
+            c.inventory_unit_id == unit.id for c in conflicts
+        )
+        if unit_available:
+            any_available = True
+
+        unit_availabilities.append(InventoryUnitAvailability(
+            inventory_unit_id=unit.id,
+            inventory_unit_code=unit.code,
+            channel_id=unit.channel_id,
+            store_id=unit.store_id,
+            display_surface_id=unit.display_surface_id,
+            logical_carrier_id=unit.logical_carrier_id,
+            capability_profile_id=unit.capability_profile_id,
+            is_sellable=unit.is_sellable,
+            available_share_of_voice=available_sov,
+            available_spots_per_loop=available_spots,
+            occupancy_percent=occupancy,
+        ))
 
     return AvailabilityResult(
-        ok=len(issues) == 0,
-        available=False,  # not computed yet
-        inventory_units=[],
-        conflicts=[],
-        occupancy=[],
-        warnings=[i for i in issues if i.severity == "warning"],
-        errors=[i for i in issues if i.severity == "error"],
+        ok=True,
+        available=any_available,
+        inventory_units=unit_availabilities,
+        conflicts=conflicts,
+        occupancy=unit_availabilities,
+        warnings=warnings,
+        errors=[],
     )
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Conflict Check (skeleton — D.3 expands)
+# ═══════════════════════════════════════════════════════════════════════════
 
 async def check_conflicts(
-    db: AsyncSession,
-    query: ConflictCheck,
+    db: AsyncSession, query: ConflictCheck,
 ) -> ConflictResult:
-    """Check for planning conflicts for proposed placement/booking.
-
-    Does NOT create bookings or change state.
-    """
+    """Check for planning conflicts for proposed placement/booking."""
     issues: list[PlanningIssue] = []
-
     issues.extend(validate_date_range(query.date_from, query.date_to))
     issues.extend(validate_requested_capacity(
-        query.requested_share_of_voice,
-        query.requested_spots_per_loop,
+        query.requested_share_of_voice, query.requested_spots_per_loop,
     ))
-
-    # Future: check date overlap with existing bookings
-    # Future: check capacity conflicts per inventory_unit
-
     return ConflictResult(
-        has_conflict=False,
-        conflicts=[],
+        has_conflict=False, conflicts=[],
         warnings=[i for i in issues if i.severity == "warning"],
         errors=[i for i in issues if i.severity == "error"],
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Occupancy Calculation (skeleton — D.4 expands)
+# ═══════════════════════════════════════════════════════════════════════════
+
 async def calculate_occupancy(
-    db: AsyncSession,
-    query: OccupancyQuery,
+    db: AsyncSession, query: OccupancyQuery,
 ) -> OccupancyResult:
-    """Calculate occupancy for given scope and date range.
-
-    Does NOT create bookings or change state.
-    """
+    """Calculate occupancy for given scope and date range."""
     issues: list[PlanningIssue] = []
-
     issues.extend(validate_date_range(query.date_from, query.date_to))
-
-    # Future: read BookingItems for the scope
-    # Future: compute booked_share_of_voice / booked_spots
-    # Future: compute occupancy_percent
-
     return OccupancyResult(
-        date_from=query.date_from,
-        date_to=query.date_to,
+        date_from=query.date_from, date_to=query.date_to,
         occupancy_percent=0.0,
         warnings=[i for i in issues if i.severity == "warning"],
         errors=[i for i in issues if i.severity == "error"],
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Planning Scenario (skeleton — D.5 expands)
+# ═══════════════════════════════════════════════════════════════════════════
+
 async def simulate_planning_scenario(
-    db: AsyncSession,
-    scenario: PlanningScenario,
+    db: AsyncSession, scenario: PlanningScenario,
 ) -> PlanningScenario:
-    """Simulate a planning scenario (dry-run).
-
-    Does NOT create bookings or change state.
-    """
+    """Simulate a planning scenario (dry-run)."""
     issues: list[PlanningIssue] = []
-
     if scenario.query.date_from > scenario.query.date_to:
         issues.append(build_planning_issue(
             "DATE_RANGE_INVALID", "error",
-            "date_from > date_to",
-            field="date_from",
+            "date_from > date_to", field="date_from",
         ))
-
-    # Future: run check_availability + check_conflicts + calculate_occupancy
-    # Future: compose results
-
     scenario.dry_run = True
     scenario.errors = issues
     return scenario
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Placement → AvailabilityQuery mapping (skeleton — D.5 expands)
+# ═══════════════════════════════════════════════════════════════════════════
+
 async def map_placement_to_availability_query(
-    db: AsyncSession,
-    placement_id: UUID,
+    db: AsyncSession, placement_id: UUID,
 ) -> AvailabilityQuery:
-    """Map a Placement to an AvailabilityQuery for the same scope/dates.
-
-    Does NOT create bookings or change state.
-    """
-    # Future: load Placement + PlacementTargets
-    # Future: derive date_from/date_to from campaign.planned_start/end
-    # Future: derive channel_id, display_surface_id from targets
-
-    # For now: return a minimal query — caller handles "placement not found"
-    return AvailabilityQuery(
-        date_from=date.today(),
-        date_to=date.today(),
-    )
+    """Map a Placement to an AvailabilityQuery."""
+    return AvailabilityQuery(date_from=date.today(), date_to=date.today())
