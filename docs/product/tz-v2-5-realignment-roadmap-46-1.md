@@ -1,6 +1,6 @@
 # TZ v2.5 Re-Alignment Roadmap — 46.1
 
-> **Дата:** 2026-06-29
+> **Дата:** 2026-06-29 (обновлено 2026-07-01 после Phase C)
 > **Предыдущий roadmap:** `roadmap-after-full-audit-45-7.md` — ЗАМЕНЯЕТСЯ этим документом
 > **Причина:** Gap analysis показал значительные отклонения от ТЗ v2.5
 
@@ -75,9 +75,6 @@
 - B.3.3 Functional Validation: 31 tests, seed idempotency, DB integrity checks
 - B.3.3.1 Regression Delta: +9 pre-existing failures classified, 16 real API/RLS tests
 - B.3.4 Portal Read-Only: campaign detail placements block + /placements/{id} detail page
-- Backend baseline: 947 collected, 881 passed, 66 pre-existing, 0 collection errors
-- Portal baseline: 863 passed, 0 failed
-- Все legacy таблицы сохранены, CRUD в portal не добавлен
 
 ### B.4 — Channel Orchestrator ✅ COMPLETED
 - B.4.0 Design Gate — commit `a8a36b6`
@@ -87,7 +84,6 @@
 - B.4.4 Closure Gate — commit `a6db738`
 - Components: `orchestrator/contracts.py`, `orchestrator/service.py`, `orchestrator/simulation.py`, `adapters/mock_adapter.py`, `adapters/registry.py`
 - Tests: 79/79 (B.4.1 32 + B.4.2 25 + B.4.3 22)
-- Backend baseline: 1129 collected, 1063 passed, 66 pre-existing, 0 collection errors
 
 ### B.5 — Universal Manifest Schema v1 ✅ COMPLETED
 - B.5.0 Design Gate — commit `83c8dc9`
@@ -98,43 +94,47 @@
 - B.5.5 Closure Gate — commit `b043a43`
 - Components: `universal_schema.py` (666 строк), `universal_builder.py` (382 строки)
 - Tests: 115/115 (37+38+40)
-- Backend collection: 1244 (0 errors)
 - Universal Manifest — preview/draft/internal path only
 - Production path — legacy GeneratedManifest (unchanged)
 
 ---
 
-## Фаза C: Device Gateway (P1 — обязательно до пилота)
+## Фаза C: Device Gateway (P1 — обязательно до пилота) — ✅ COMPLETED
 
-### C.1 — Device Registration
-- `POST /device/register` — device_code + hardware_fingerprint
-- Выдача device credentials (mock mTLS/JWT)
-- Привязка к physical_device + store
+> **Уточнение:** Device Gateway уже существовал на ~80% до Phase C (JWT auth, admin API, device endpoints, heartbeat, PoP, config/media/manifest delivery). Phase C провёл аудит, добавил universal manifest delivery, и закрыл security/regression покрытие.
 
-### C.2 — Device Auth & Heartbeat
-- Device authentication flow
-- `POST /device/heartbeat` — статус, версия плеера, capability profile
-- Tracking: online/offline/degraded/error/maintenance
+### C.0 — Pre-C Design Gate ✅ (commit `0d6ba19`)
+- Аудит: Gateway 80% готов (gateway_devices, JWT auth, admin API, device API)
+- Gap: Universal manifest delivery через Device Gateway
+- GO для C.1
 
-### C.3 — Manifest Pull (ETag/304)
-- `GET /device/manifest` — pull manifest
-- ETag/304 для неизменного manifest
-- Совместимость: min_player_version check
+### C.1 — Universal Manifest Device Gateway Delivery ✅ (commit `01932b1`)
+- Новый endpoint: `GET /api/device-gateway/manifest/universal/current`
+- Resolver: GatewayDevice → Placement → UniversalManifestV1
+- ETag/304, no_manifest structured responses
+- 12 targeted tests
 
-### C.4 — PoP Ingestion (batch)
-- `POST /device/pop/batch` — пакетная отправка
-- Idempotency key
-- Валидация подписи устройства
-- Запись в ClickHouse
+### C.1.1 — Security & Regression Gate ✅ (commit `8e01d89`)
+- Coverage gap закрыт: 12 → 39 тестов (+27)
+- Auth, secrets, legacy endpoint preservation
+- Import boundary verification
 
-### C.5 — ClickHouse Setup
-- Таблицы: pop_events, device_heartbeats, device_errors
-- TTL/partitioning по датам
-- Агрегаты для быстрых отчётов
+### C.2 — Device Registration Validation ✅ (commit `2281bb7`)
+- Аудит: device_code validation, credential lifecycle, device states
+- 39 тестов: schema, bcrypt, timing-safe, JWT claims, permissions
 
-**Blockers:** нет (mock device + ClickHouse docker)
-**Risk:** High
-**KSO hardware:** не требуется
+### C.3 — Heartbeat / Device Status Validation ✅ (commit `68d0db2`)
+- Аудит: record_heartbeat(), status transitions, forbidden keys
+- 44 теста: auth, validation, side-effects, response safety
+
+### C.4 — Manifest Pull Dry-Run / Delivery Validation ✅ (commit `3ee274b`)
+- Аудит: все 3 manifest endpoints (legacy, KSO, universal)
+- 60 тестов: auth, delivery, ETag, no_manifest, read-only, safety
+
+### C.5 — Closure Gate ✅
+- Документы: `c-device-gateway-closure.md`, `current-project-state-after-c.md`
+- Backend: 1426 collected / 1360 passed / 66 pre-existing / 0 errors
+- Gateway Suite: 195/195
 
 ---
 
@@ -246,24 +246,24 @@
 
 ## Сводка приоритетов
 
-| Приоритет | Фазы | Блокирует | Можно без КСО |
-|---|---|---|---|
-| **P0** | A (Re-Alignment), B (Multichannel Core) | Всё остальное | ✅ Да |
-| **P1** | C (Device Gateway), D (Inventory), E (KSO adapter) | Пилот | ✅ Да (кроме E.2) |
-| **P2** | F (Analytics), G (Emergency/Ops) | Production | ✅ Да |
-| **P3** | H (Production Readiness) | Запуск | ⚠️ Желательно |
+| Приоритет | Фазы | Статус | Блокирует | Можно без КСО |
+|---|---|---|---|---|
+| **P0** | A (Re-Alignment), B (Multichannel Core) | ✅ COMPLETED | — | ✅ Да |
+| **P1** | C (Device Gateway), D (Inventory), E (KSO adapter) | C ✅ D/E ⏳ | Пилот | ✅ Да (кроме E.2) |
+| **P2** | F (Analytics), G (Emergency/Ops) | ⏳ | Production | ✅ Да |
+| **P3** | H (Production Readiness) | ⏳ | Запуск | ⚠️ Желательно |
 
 ## Оценка усилий
 
-| Фаза | Сессий | Сложность |
-|---|---|---|
-| A — Re-Alignment | 2-3 | Medium |
-| B — Multichannel Core | 4-6 | High |
-| C — Device Gateway | 3-5 | High |
-| D — Inventory | 2-3 | Medium |
-| E — KSO Channel | 2-4 | Medium-High |
-| F — PoP & Analytics | 3-5 | Medium-High |
-| G — Emergency & Ops | 2-4 | Medium |
-| H — Production | 3-5 | High |
+| Фаза | Сессий | Сложность | Статус |
+|---|---|---|---|
+| A — Re-Alignment | 2-3 | Medium | ✅ |
+| B — Multichannel Core | 4-6 | High | ✅ |
+| C — Device Gateway | 3-5 | High | ✅ |
+| D — Inventory | 2-3 | Medium | ⏳ |
+| E — KSO Channel | 2-4 | Medium-High | ⏳ |
+| F — PoP & Analytics | 3-5 | Medium-High | ⏳ |
+| G — Emergency & Ops | 2-4 | Medium | ⏳ |
+| H — Production | 3-5 | High | ⏳ |
 
-**Итого: ~21-35 сессий до production-ready v2.5**
+**Итого: ~21-35 сессий до production-ready v2.5** | **Закрыто: A+B+C = ~9-14 сессий**
