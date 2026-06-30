@@ -68,20 +68,13 @@ def mock_manifest():
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _code_lines(fn):
-    """Get source lines of a function, excluding docstrings."""
-    import inspect
+    """Get source lines of a function, excluding docstrings (handles single-line and multi-line)."""
+    import inspect, re
     src = inspect.getsource(fn)
-    lines = src.split("\n")
-    result_lines = []
-    in_docstring = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith('"""') or stripped.startswith("'''"):
-            in_docstring = not in_docstring
-            continue
-        if not in_docstring:
-            result_lines.append(line)
-    return "\n".join(result_lines)
+    # Remove function docstring via regex: triple-quoted string after colon+newline
+    # Matches both single-line and multi-line docstrings
+    result = re.sub(r'(:\s*\n)\s*("""|\'\'\').*?\2', r'\1', src, flags=re.DOTALL, count=1)
+    return result
 
 
 def _module_import_lines(module_path: str):
