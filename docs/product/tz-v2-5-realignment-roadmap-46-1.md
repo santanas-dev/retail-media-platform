@@ -68,10 +68,16 @@
 - API: GET /api/physical-devices/{id}/surfaces, GET /api/display-surfaces/{id}/readiness
 - Tests: 19/19 (chain integrity, KSO device, placement link, no orphans)
 
-### B.3 — Placement как отдельная сущность
-- Выделить Placement из Campaign (где/когда/как/какой канал)
-- Campaign 1→N Placements
-- Placement связан с display_surfaces через Channel Orchestrator
+### B.3 — Placement как отдельная сущность ✅ COMPLETED
+- B.3.0 Design Gate: Placement model v1, channel_id FK, Campaign 1→N Placement
+- B.3.1 Schema Migration: Alembic 034, placements.channel_id NOT NULL, ORM models
+- B.3.2 Service + API: 12 service functions, 7 endpoints, RBAC/RLS, audit (4 actions)
+- B.3.3 Functional Validation: 31 tests, seed idempotency, DB integrity checks
+- B.3.3.1 Regression Delta: +9 pre-existing failures classified, 16 real API/RLS tests
+- B.3.4 Portal Read-Only: campaign detail placements block + /placements/{id} detail page
+- Backend baseline: 947 collected, 881 passed, 66 pre-existing, 0 collection errors
+- Portal baseline: 863 passed, 0 failed
+- Все legacy таблицы сохранены, CRUD в portal не добавлен
 
 ### B.4 — Channel Orchestrator (скелет)
 - `orchestrator/service.py` — сборка manifest
