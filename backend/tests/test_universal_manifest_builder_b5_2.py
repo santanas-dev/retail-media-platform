@@ -136,7 +136,9 @@ class TestMappingCampaign:
         payload = _make_payload()
         manifest = build_universal_manifest_from_draft(ctx, payload)
         assert manifest.campaign is not None
-        assert manifest.campaign.campaign_code == "CAMP-SUMMER"
+        # Campaign code is NOT placement_code proxy — it's None (deferred)
+        assert manifest.campaign.campaign_code is None
+        assert "campaign_data_incomplete" in manifest.metadata.warnings
 
     def test_maps_campaign_id(self):
         ctx = _make_context(campaign_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")

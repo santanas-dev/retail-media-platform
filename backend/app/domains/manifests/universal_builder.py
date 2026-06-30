@@ -87,17 +87,19 @@ def _manifest_caption(context: OrchestratorContext) -> str | None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _build_campaign(context: OrchestratorContext) -> ManifestCampaign:
-    """Build campaign block from context."""
+    """Build campaign block from context.
+
+    NOTE: OrchestratorContext does not yet carry campaign_code/campaign_name.
+    Campaign enrichment is a deferred item (B.5.4+). The builder leaves
+    campaign_code empty and the validation layer adds a warning.
+    """
     campaign_id = None
     if context.campaign_id:
         try:
             campaign_id = UUID(context.campaign_id)
         except (ValueError, TypeError):
             pass
-    return ManifestCampaign(
-        campaign_id=campaign_id,
-        campaign_code=context.placement_code,  # proxy — real campaign_code from DB not in context
-    )
+    return ManifestCampaign(campaign_id=campaign_id)
 
 
 def _build_placement(context: OrchestratorContext) -> ManifestPlacement:
@@ -245,6 +247,10 @@ def build_universal_manifest_from_draft(
     # Collect warnings
     warnings = list(payload_draft.warnings)
     warnings.extend(content_warnings)
+
+    # Campaign data is incomplete in OrchestratorContext — deferred item
+    if not campaign.campaign_code:
+        warnings.append("campaign_data_incomplete")
 
     # If no devices resolved, warn
     if not context.devices:
