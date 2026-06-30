@@ -184,6 +184,33 @@ async def kso_manifest_by_device(
     }
 
 
+# ═══════════════════════════════════════════════════════════════════
+#  C.1 — Universal Manifest Delivery
+# ═══════════════════════════════════════════════════════════════════
+
+@device_router.get(
+    "/manifest/universal/current",
+    response_model=schemas.UniversalManifestCurrentResponse,
+)
+async def universal_manifest_current(
+    request: Request,
+    db=Depends(get_db),
+    current_manifest_hash: Optional[str] = Query(None, max_length=64),
+):
+    """Return UniversalManifestV1 for authenticated device.
+
+    Uses B.5 universal builder via B.4 orchestrator chain.
+    Device must authenticate via JWT (existing /auth/token).
+    Does NOT use KsoPlacement, GeneratedManifest, or publication flow.
+    """
+    device, _session = await authenticate_device(request, db)
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    return await service.get_universal_manifest_for_device(
+        device, db, current_manifest_hash, client_ip, user_agent,
+    )
+
+
 # ── Admin: manifest requests ────────────────────────────────────────
 
 @admin_router.get(

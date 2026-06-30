@@ -407,8 +407,17 @@ class MediaCacheReportResponse(BaseModel):
     status: str  # "ok"
     gateway_device_id: UUID
     manifest_version_id: UUID
-    total_items: int
-    cached_count: int
-    missing_count: int
-    failed_count: int
-    invalid_hash_count: int
+
+
+# ── C.1 Universal Manifest Response ───────────────────────────────────
+
+class UniversalManifestCurrentResponse(BaseModel):
+    """Response for GET /api/device-gateway/manifest/universal/current."""
+    status: str  # "ok" | "no_manifest"
+    manifest_version: str | None = None
+    manifest_id: str | None = None
+    manifest_hash: str | None = None
+    manifest: dict[str, Any] | None = None
+    generated_at: str | None = None
+    etag: str | None = None
+    reason: str | None = None  # when status=no_manifest: "no_matching_surface", "no_active_placement", etc.

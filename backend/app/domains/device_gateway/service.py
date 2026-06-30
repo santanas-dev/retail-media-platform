@@ -2994,3 +2994,193 @@ async def submit_cache_report(
     await db.flush()
     return report
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# C.1 — Universal Manifest Delivery
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def _resolve_placement_for_gateway_device(
+    device: models.GatewayDevice, db: AsyncSession,
+) -> UUID | None:
+    """Find active placement for a GatewayDevice via universal chain.
+
+    Priority order (same as _match_publication_targets):
+      1. display_surface → PlacementTarget.display_surface_id
+      2. logical_carrier → PlacementTarget.logical_carrier_id
+      3. physical_device → LogicalCarrier → PlacementTarget
+
+    Returns placement_id or None.
+    Does NOT write to DB. Does NOT use KsoPlacement.
+    """
+    from app.domains.channels.models import (
+        Placement, PlacementTarget, DisplaySurface, LogicalCarrier,
+    )
+    from datetime import date as _date
+
+    today = _date.today()
+
+    # Priority 1: display_surface
+    if device.display_surface_id:
+        result = await db.execute(
+            select(PlacementTarget.placement_id).where(
+                PlacementTarget.display_surface_id == device.display_surface_id,
+            ).order_by(PlacementTarget.created_at.desc()).limit(1)
+        )
+        pid = result.scalar_one_or_none()
+        if pid:
+            return pid
+
+    # Priority 2: logical_carrier
+    if device.logical_carrier_id:
+        result = await db.execute(
+            select(PlacementTarget.placement_id).where(
+                PlacementTarget.logical_carrier_id == device.logical_carrier_id,
+            ).order_by(PlacementTarget.created_at.desc()).limit(1)
+        )
+        pid = result.scalar_one_or_none()
+        if pid:
+            return pid
+
+    # Priority 3: physical_device → logical_carriers → display_surfaces → targets
+    if device.physical_device_id:
+        lc_result = await db.execute(
+            select(LogicalCarrier.id).where(
+                LogicalCarrier.physical_device_id == device.physical_device_id,
+            )
+        )
+        lc_ids = [row[0] for row in lc_result.all()]
+        if lc_ids:
+            ds_result = await db.execute(
+                select(DisplaySurface.id).where(
+                    DisplaySurface.logical_carrier_id.in_(lc_ids),
+                )
+            )
+            ds_ids = [row[0] for row in ds_result.all()]
+
+            conditions = [PlacementTarget.placement_id.isnot(None)]
+            from sqlalchemy import or_
+            or_conditions = []
+            if lc_ids:
+                or_conditions.append(PlacementTarget.logical_carrier_id.in_(lc_ids))
+            if ds_ids:
+                or_conditions.append(PlacementTarget.display_surface_id.in_(ds_ids))
+
+            if or_conditions:
+                conditions.append(or_(*or_conditions))
+                result = await db.execute(
+                    select(PlacementTarget.placement_id).where(*conditions)
+                    .order_by(PlacementTarget.created_at.desc()).limit(1)
+                )
+                pid = result.scalar_one_or_none()
+                if pid:
+                    return pid
+
+    return None
+
+
+async def get_universal_manifest_for_device(
+    device: models.GatewayDevice,
+    db: AsyncSession,
+    current_manifest_hash: str | None = None,
+    client_ip: str | None = None,
+    user_agent: str | None = None,
+):
+    """Return UniversalManifestV1 for an authenticated device.
+
+    Uses B.5 universal builder via B.4 orchestrator chain.
+    Does NOT write to generated_manifests. Does NOT call publish_batch.
+    Does NOT use KsoPlacement.
+
+    Returns (response_dict, status_code) — FastAPI-compatible.
+    """
+    import hashlib, json
+    from app.core.config import get_settings
+
+    # ── Status check ─────────────────────────────────────────────────
+    if device.status in ("disabled", "retired"):
+        raise HTTPException(status_code=403, detail="Device not authorized")
+
+    # ── Resolve placement ────────────────────────────────────────────
+    placement_id = await _resolve_placement_for_gateway_device(device, db)
+    if not placement_id:
+        return {
+            "status": "no_manifest",
+            "reason": "no_matching_surface",
+        }
+
+    # ── Build universal manifest via preview path ────────────────────
+    from app.domains.manifests.universal_builder import (
+        build_universal_manifest_preview,
+    )
+    from app.domains.orchestrator.service import (
+        OrchestratorError,
+        PlacementNotFound,
+        PlacementHasNoChannel,
+        PlacementHasNoTargets,
+        UnsupportedChannel,
+    )
+
+    try:
+        manifest = await build_universal_manifest_preview(db, placement_id)
+    except (PlacementNotFound, PlacementHasNoChannel, PlacementHasNoTargets) as e:
+        return {
+            "status": "no_manifest",
+            "reason": e.detail if hasattr(e, "detail") else str(e),
+        }
+    except UnsupportedChannel:
+        # Unsupported channel — return no_manifest rather than error
+        return {
+            "status": "no_manifest",
+            "reason": "unsupported_channel",
+        }
+    except HTTPException:
+        raise  # re-raise unexpected HTTP errors
+    except Exception:
+        return {
+            "status": "no_manifest",
+            "reason": "manifest_build_failed",
+        }
+
+    # ── Validate + compute hash for ETag ─────────────────────────────
+    from app.domains.manifests.universal_schema import validate_no_secrets
+
+    issues = validate_no_secrets(manifest)
+    if issues:
+        # Log but don't expose secrets to device
+        await _log_event(
+            db, "universal_manifest_secret_detected",
+            f"Secrets in universal manifest: {[i.code for i in issues]}",
+            device.id, "error",
+        )
+        raise HTTPException(status_code=500, detail="Manifest validation failed")
+
+    # Compute safe hash
+    manifest_dict = manifest.model_dump(mode="json", exclude_none=True)
+    canonical = json.dumps(manifest_dict, sort_keys=True, separators=(",", ":"))
+    manifest_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    # ── Not-modified check ───────────────────────────────────────────
+    if current_manifest_hash and current_manifest_hash == manifest_hash:
+        _touch_device(device)
+        await db.commit()
+        return {
+            "status": "not_modified",
+            "manifest_id": manifest.manifest_id,
+            "manifest_hash": manifest_hash,
+        }
+
+    # ── Build safe response ──────────────────────────────────────────
+    _touch_device(device)
+    await db.commit()
+
+    response = {
+        "status": "ok",
+        "manifest_version": manifest.manifest_version,
+        "manifest_id": manifest.manifest_id,
+        "manifest_hash": manifest_hash,
+        "manifest": manifest_dict,
+        "generated_at": manifest.generated_at.isoformat() if manifest.generated_at else None,
+    }
+
+    return response
+
