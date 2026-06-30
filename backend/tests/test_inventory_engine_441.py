@@ -18,7 +18,7 @@ from uuid import uuid4
 class TestDayCapacity:
     def test_weekday_all_day(self):
         """Mon-Fri, 8h loop, all day → 86399s / 28800 ≈ 2 loops × 5 = 10 spots."""
-        from backend.app.domains.inventory.service import _day_capacity
+        from app.domains.inventory.service import _day_capacity
         rule = MagicMock()
         rule.days_of_week_json = [1, 2, 3, 4, 5]
         rule.time_from = time(0, 0)
@@ -31,7 +31,7 @@ class TestDayCapacity:
 
     def test_weekend_zero(self):
         """Rule only M-F — Saturday returns 0."""
-        from backend.app.domains.inventory.service import _day_capacity
+        from app.domains.inventory.service import _day_capacity
         rule = MagicMock()
         rule.days_of_week_json = [1, 2, 3, 4, 5]
         rule.time_from = time(0, 0)
@@ -43,7 +43,7 @@ class TestDayCapacity:
 
     def test_work_hours(self):
         """9:00-18:00 = 9h, 30min loop → 18 loops × 3 spots = 54."""
-        from backend.app.domains.inventory.service import _day_capacity
+        from app.domains.inventory.service import _day_capacity
         rule = MagicMock()
         rule.days_of_week_json = [1, 2, 3, 4, 5, 6, 7]
         rule.time_from = time(9, 0)
@@ -61,13 +61,13 @@ class TestDayCapacity:
 
 class TestDaysInRange:
     def test_one_day(self):
-        from backend.app.domains.inventory.service import _days_in_range
+        from app.domains.inventory.service import _days_in_range
         d = date(2026, 6, 15)
         result = _days_in_range(d, d)
         assert result == [d]
 
     def test_three_days(self):
-        from backend.app.domains.inventory.service import _days_in_range
+        from app.domains.inventory.service import _days_in_range
         result = _days_in_range(date(2026, 6, 15), date(2026, 6, 17))
         assert len(result) == 3
         assert result[0] == date(2026, 6, 15)
@@ -83,8 +83,8 @@ class TestDaysInRange:
 class TestAvailabilitySoldOut:
     async def test_sold_out_when_no_capacity(self):
         """No capacity rules → unavailable with business label."""
-        from backend.app.domains.inventory.service import calculate_availability
-        from backend.app.domains.inventory import schemas
+        from app.domains.inventory.service import calculate_availability
+        from app.domains.inventory import schemas
 
         db = AsyncMock()
         # Mock units query
@@ -123,8 +123,8 @@ class TestAvailabilitySoldOut:
 
     async def test_available_when_free_capacity(self):
         """Plenty of free spots → available."""
-        from backend.app.domains.inventory.service import calculate_availability
-        from backend.app.domains.inventory import schemas
+        from app.domains.inventory.service import calculate_availability
+        from app.domains.inventory import schemas
 
         db = AsyncMock()
         unit = MagicMock()
@@ -192,8 +192,8 @@ class TestAvailabilitySoldOut:
 class TestForecastV1:
     async def test_forecast_simple(self):
         """Basic forecast returns estimate_type and disclaimer."""
-        from backend.app.domains.inventory.service import calculate_forecast
-        from backend.app.domains.inventory import schemas
+        from app.domains.inventory.service import calculate_forecast
+        from app.domains.inventory import schemas
 
         db = AsyncMock()
 
@@ -247,7 +247,7 @@ class TestForecastV1:
 
 class TestReservationType:
     def test_default_is_campaign(self):
-        from backend.app.domains.inventory import schemas
+        from app.domains.inventory import schemas
         item = schemas.BookingItemRequest(
             inventory_unit_id=uuid4(),
             booked_spots_per_loop=3,
@@ -257,7 +257,7 @@ class TestReservationType:
         assert item.reservation_type == "campaign"
 
     def test_explicit_internal(self):
-        from backend.app.domains.inventory import schemas
+        from app.domains.inventory import schemas
         item = schemas.BookingItemRequest(
             inventory_unit_id=uuid4(),
             booked_spots_per_loop=1,
@@ -268,7 +268,7 @@ class TestReservationType:
         assert item.reservation_type == "internal"
 
     def test_explicit_emergency(self):
-        from backend.app.domains.inventory import schemas
+        from app.domains.inventory import schemas
         item = schemas.BookingItemRequest(
             inventory_unit_id=uuid4(),
             booked_spots_per_loop=2,
@@ -286,7 +286,7 @@ class TestReservationType:
 
 class TestSafetyProjection:
     def test_availability_item_no_secrets(self):
-        from backend.app.domains.inventory import schemas
+        from app.domains.inventory import schemas
         item = schemas.AvailabilityItem(
             inventory_unit_id=uuid4(),
             inventory_unit_code="unit-1",
@@ -309,7 +309,7 @@ class TestSafetyProjection:
             assert fb not in text, f"AvailabilityItem must not contain {fb}"
 
     def test_forecast_no_secrets(self):
-        from backend.app.domains.inventory import schemas
+        from app.domains.inventory import schemas
         fc = schemas.ForecastResponse(
             date_from=date(2026, 6, 15),
             date_to=date(2026, 6, 21),
@@ -348,19 +348,19 @@ class TestSafetyProjection:
 
 class TestInventoryRouter:
     def test_router_has_forecast_endpoint(self):
-        from backend.app.domains.inventory.router import router
+        from app.domains.inventory.router import router
         routes = {r.path: r.methods for r in router.routes}
         assert "/api/inventory/forecast" in routes
         assert "POST" in routes["/api/inventory/forecast"]
 
     def test_router_has_snapshot_endpoint(self):
-        from backend.app.domains.inventory.router import router
+        from app.domains.inventory.router import router
         routes = {r.path: r.methods for r in router.routes}
         assert "/api/inventory/snapshot" in routes
         assert "GET" in routes["/api/inventory/snapshot"]
 
     def test_router_has_availability_endpoint(self):
-        from backend.app.domains.inventory.router import router
+        from app.domains.inventory.router import router
         routes = {r.path: r.methods for r in router.routes}
         assert "/api/inventory/availability" in routes
         assert "POST" in routes["/api/inventory/availability"]
@@ -374,7 +374,7 @@ class TestInventoryRouter:
 class TestBusinessLanguage:
     def test_reasons_are_russian(self):
         """All reasons in availability use Russian business language."""
-        from backend.app.domains.inventory.service import calculate_availability
+        from app.domains.inventory.service import calculate_availability
         # Unit test confirms business labels are Russian
         russian_patterns = [
             "Нет активных правил",
@@ -391,7 +391,7 @@ class TestBusinessLanguage:
             assert any(ord(c) > 127 for c in p), f"Pattern must contain Cyrillic: {p}"
 
     def test_forecast_disclaimer_is_russian(self):
-        from backend.app.domains.inventory import schemas
+        from app.domains.inventory import schemas
         fc = schemas.ForecastResponse(
             date_from=date(2026, 6, 15),
             date_to=date(2026, 6, 21),
@@ -406,7 +406,7 @@ class TestBusinessLanguage:
 
     def test_no_technical_wording(self):
         """Availability statuses use business language, not technical."""
-        from backend.app.domains.inventory import schemas
+        from app.domains.inventory import schemas
         item = schemas.AvailabilityItem(
             inventory_unit_id=uuid4(),
             inventory_unit_code="u1",
