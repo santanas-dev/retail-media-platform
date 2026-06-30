@@ -59,12 +59,13 @@ def validate_requested_capacity(
     return issues
 
 
-def validate_inventory_scope(query: AvailabilityQuery) -> list[PlanningIssue]:
+def validate_inventory_scope(query) -> list[PlanningIssue]:
     """Validate that at least one scope selector is provided."""
     has_scope = any([
-        query.channel_id, query.store_id,
-        query.display_surface_id, query.logical_carrier_id,
-        query.inventory_unit_id,
+        getattr(query, "channel_id", None), getattr(query, "store_id", None),
+        getattr(query, "display_surface_id", None),
+        getattr(query, "logical_carrier_id", None),
+        getattr(query, "inventory_unit_id", None),
     ])
     if not has_scope:
         return [build_planning_issue(
