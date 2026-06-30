@@ -60,18 +60,14 @@ class TestMockAdapterSupports(unittest.TestCase):
     def test_supports_own_channel(self):
         self.assertTrue(self.adapter.supports("mock"))
 
-    def test_supports_any_channel(self):
-        """Mock adapter supports any channel_code by default."""
-        self.assertTrue(self.adapter.supports("kso"))
-        self.assertTrue(self.adapter.supports("android_tv"))
-        self.assertTrue(self.adapter.supports("any_channel"))
+    def test_rejects_other_channel(self):
+        """MockAdapter restricted to channel_code='mock' only."""
+        self.assertFalse(self.adapter.supports("kso"))
+        self.assertFalse(self.adapter.supports("android_tv"))
 
     def test_supports_with_capability_profile(self):
         profile = {"orientation": "portrait", "resolution": "768x1024"}
         self.assertTrue(self.adapter.supports("mock", profile))
-
-    def test_rejects_explicitly_unsupported(self):
-        self.assertFalse(self.adapter.supports("__unsupported__"))
 
     def test_rejects_empty_channel_code(self):
         self.assertFalse(self.adapter.supports(""))

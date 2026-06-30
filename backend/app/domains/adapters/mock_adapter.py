@@ -27,16 +27,15 @@ class MockAdapter(AdapterContract):
     def supports(
         self, channel_code: str, capability_profile: dict[str, Any] | None = None,
     ) -> bool:
-        """Mock adapter supports any channel_code when capability_profile is valid.
+        """Mock adapter supports ONLY channel_code='mock'.
 
-        Returns False only for explicitly unsupported patterns for testing.
+        Returns False for any other channel_code — this ensures
+        Orchestrator can detect unsupported channels via registry lookup,
+        not via a wildcard adapter that hides errors.
         """
         if not channel_code:
             return False
-        # Reject explicitly unsupported channel codes (for negative tests)
-        if channel_code == "__unsupported__":
-            return False
-        return True
+        return channel_code == self.channel_code
 
     async def build_payload(
         self, context: OrchestratorContext,
