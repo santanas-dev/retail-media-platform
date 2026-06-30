@@ -7080,11 +7080,11 @@ class TestCampaignDetailPage(unittest.TestCase):
                       "Empty creative state must have upload CTA")
 
     def test_detail_empty_placement_has_quick_action(self):
-        """Empty placement block must guide user to create schedule."""
+        """Empty placement block must guide user to create schedule (now: Расписания)."""
         template_path = Path(__file__).resolve().parent.parent / "templates" / "pages" / "campaigns_detail.html"
         source = template_path.read_text()
-        self.assertIn("Создать размещение", source,
-                      "Empty placement state must have create CTA")
+        self.assertIn("Создать расписание", source,
+                      "Empty schedule state must have create CTA")
 
     def test_detail_creative_status_displayed(self):
         """Campaign detail template must reference creative status for display."""

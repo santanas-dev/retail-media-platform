@@ -655,6 +655,35 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── B.3.4 Placement API (real backend) ─────────────────────────────
+
+    async def list_campaign_placements(
+        self, access_token: str, campaign_id: str,
+    ) -> dict:
+        """GET /api/campaigns/{id}/placements → {ok, data: [PlacementResponse]}."""
+        return await self._request(
+            "GET", f"/api/campaigns/{campaign_id}/placements",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_placement(
+        self, access_token: str, placement_id: str,
+    ) -> dict:
+        """GET /api/placements/{id} → {ok, data: PlacementResponse}."""
+        return await self._request(
+            "GET", f"/api/placements/{placement_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_placement_targets(
+        self, access_token: str, placement_id: str,
+    ) -> dict:
+        """GET /api/placements/{id}/targets → {ok, data: [PlacementTargetResponse]}."""
+        return await self._request(
+            "GET", f"/api/placements/{placement_id}/targets",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
     # ── Approval (Step 37.6 + 39.3.1 production) ────────────────────────
 
     async def list_approvals(self, access_token: str) -> dict:

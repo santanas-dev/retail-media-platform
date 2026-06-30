@@ -2253,7 +2253,7 @@ async def campaigns_detail(request: Request, campaign_code: str):
                 "request": request, "title": "Кампания не найдена", "active": "campaigns",
                 "current_user": current_user, "campaign": None, "not_found": True,
                 "bound_creatives": [], "approved_creatives": [],
-                "schedules": [], "readiness": {}, "approval_info": None,
+                "schedules": [], "placements": [], "readiness": {}, "approval_info": None,
                 "publication_ready": False,
             }, status_code=404)
         request.session["camp_flash"] = "error"
@@ -2339,6 +2339,33 @@ async def campaigns_detail(request: Request, campaign_code: str):
                     "slots": slots,
                 })
 
+    # ── B.3.4: Fetch placements for this campaign ───────────────────
+    placements_safe = []
+    campaign_id = campaign.get("id", "")
+    if campaign_id:
+        pl_result = await backend.list_campaign_placements(access_token, campaign_id)
+        if pl_result.get("ok"):
+            # Load channel names for display
+            channel_names = {}
+            for p in pl_result.get("data", []):
+                ch_id = p.get("channel_id", "")
+                if ch_id and ch_id not in channel_names:
+                    # Try channel list — use existing list_channels if available
+                    channel_names[ch_id] = "—"  # fallback
+
+            for p in pl_result.get("data", []):
+                placements_safe.append({
+                    "id": p.get("id", ""),
+                    "placement_code": p.get("placement_code", ""),
+                    "name": p.get("name", ""),
+                    "status": p.get("status", "draft"),
+                    "priority": p.get("priority", 0),
+                    "start_date": p.get("start_date"),
+                    "end_date": p.get("end_date"),
+                    "channel_id": p.get("channel_id", ""),
+                    "created_at": p.get("created_at"),
+                })
+
     # Readiness checklist
     has_creatives = len(bound_creatives) > 0
     all_approved = has_creatives and all(cr["status"] == "approved" for cr in bound_creatives)
@@ -2390,6 +2417,7 @@ async def campaigns_detail(request: Request, campaign_code: str):
         "bound_creatives": bound_creatives,
         "approved_creatives": approved_creatives,
         "schedules": schedules,
+        "placements": placements_safe,
         "readiness": readiness,
         "approval_info": approval_info,
         "publication_ready": publication_ready,
@@ -2463,6 +2491,82 @@ async def campaigns_create_schedule(
         request.session["camp_detail_flash_msg"] = result.get("error", "Ошибка создания расписания")[:200]
 
     return RedirectResponse(url=f"/campaigns/{campaign_code}", status_code=303)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# B.3.4 — Placement Detail (read-only)
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/placements/{placement_id}", response_class=HTMLResponse)
+async def placement_detail(request: Request, placement_id: str):
+    """Placement detail: read-only view of placement + targets."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/campaigns")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    if not access_token:
+        return RedirectResponse(url="/login", status_code=303)
+
+    # Fetch placement
+    pl_result = await backend.get_placement(access_token, placement_id)
+    if not pl_result.get("ok"):
+        if pl_result.get("code") == 403:
+            return forbidden_response()
+        return templates.TemplateResponse(request, "pages/placement_detail.html", {
+            "request": request, "title": "Размещение не найдено",
+            "active": "campaigns", "current_user": current_user,
+            "placement": None, "targets": [], "not_found": True,
+        }, status_code=404)
+
+    placement = pl_result.get("data", {})
+
+    # Fetch targets
+    targets_safe = []
+    tgt_result = await backend.get_placement_targets(access_token, placement_id)
+    if tgt_result.get("ok"):
+        for t in tgt_result.get("data", []):
+            targets_safe.append({
+                "id": t.get("id", ""),
+                "target_type": t.get("target_type", ""),
+                "store_id": t.get("store_id"),
+                "display_surface_id": t.get("display_surface_id"),
+                "logical_carrier_id": t.get("logical_carrier_id"),
+            })
+
+    # Status label
+    status_labels = {
+        "draft": "Черновик", "active": "Активно",
+        "paused": "Приостановлено", "completed": "Завершено",
+        "cancelled": "Отменено", "error": "Ошибка",
+    }
+    placement_safe = {
+        "id": placement.get("id", ""),
+        "placement_code": placement.get("placement_code", ""),
+        "name": placement.get("name", ""),
+        "status": placement.get("status", "draft"),
+        "status_label": status_labels.get(placement.get("status", ""), placement.get("status", "")),
+        "priority": placement.get("priority", 0),
+        "start_date": placement.get("start_date"),
+        "end_date": placement.get("end_date"),
+        "campaign_id": placement.get("campaign_id", ""),
+        "channel_id": placement.get("channel_id", ""),
+        "created_at": placement.get("created_at"),
+        "updated_at": placement.get("updated_at"),
+    }
+
+    return templates.TemplateResponse(request, "pages/placement_detail.html", {
+        "request": request,
+        "title": placement_safe.get("name") or placement_safe.get("placement_code", "Размещение"),
+        "active": "campaigns",
+        "current_user": current_user,
+        "placement": placement_safe,
+        "targets": targets_safe,
+    })
 
 
 def _campaigns_fallback(request: Request, current_user) -> HTMLResponse:

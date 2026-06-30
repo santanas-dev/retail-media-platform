@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flow-breadcrumbs">
+  <a href="/campaigns" class="flow-step">📢 Кампании</a>
+  {% if placement and not not_found %}
+  <span class="flow-arrow">→</span>
+  <a href="/placements/{{ placement.id }}" class="flow-step active">📍 {{ placement.name | sanitize }}</a>
+  {% endif %}
+</div>
+
+{% if not_found or not placement %}
+<div class="section-card">
+  <div class="empty-state">
+    <div class="empty-state-icon">📍</div>
+    <div class="empty-state-title">Размещение не найдено</div>
+    <div class="empty-state-text">Размещение с таким кодом не существует или было удалено.</div>
+  </div>
+</div>
+<div class="mt-16">
+  <a href="/campaigns" class="btn btn-ghost">← Назад к кампаниям</a>
+</div>
+{% else %}
+<!-- Header -->
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📍</span>
+    <span class="section-card-title">{{ placement.name | sanitize }}</span>
+    <span class="status-badge status-badge-{{ placement.status }}">{{ placement.status_label }}</span>
+  </div>
+  <div class="section-card-body">
+    <div class="detail-grid">
+      <div class="detail-item"><span class="detail-label">Код размещения</span><span><code>{{ placement.placement_code | sanitize_code }}</code></span></div>
+      <div class="detail-item"><span class="detail-label">Статус</span><span class="status-badge status-badge-{{ placement.status }}">{{ placement.status_label }}</span></div>
+      <div class="detail-item"><span class="detail-label">Приоритет</span><span>{{ placement.priority }}</span></div>
+      <div class="detail-item"><span class="detail-label">Дата начала</span><span>{{ placement.start_date | fmt_date if placement.start_date else "—" }}</span></div>
+      <div class="detail-item"><span class="detail-label">Дата окончания</span><span>{{ placement.end_date | fmt_date if placement.end_date else "—" }}</span></div>
+      <div class="detail-item"><span class="detail-label">Создано</span><span>{{ placement.created_at | fmt_date('full') }}</span></div>
+      {% if placement.updated_at %}
+      <div class="detail-item"><span class="detail-label">Обновлено</span><span>{{ placement.updated_at | fmt_date('full') }}</span></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Targets -->
+<div class="section-card mt-16">
+  <div class="section-card-header">
+    <span class="section-card-icon">🎯</span>
+    <span class="section-card-title">Цели размещения</span>
+    <span class="section-card-badge">{{ targets|length }}</span>
+  </div>
+  <div class="section-card-body">
+    {% if targets %}
+    <div class="table-container table-clean">
+    <table class="data-table">
+      <thead><tr>
+        <th>Тип цели</th><th>Магазин</th><th>Экран</th><th>Носитель</th>
+      </tr></thead>
+      <tbody>
+      {% for t in targets %}
+        <tr>
+          <td>
+            {% if t.target_type == 'store' %}🏪 Магазин
+            {% elif t.target_type == 'surface' %}🖥️ Экран
+            {% elif t.target_type == 'carrier' %}📡 Носитель
+            {% else %}{{ t.target_type }}
+            {% endif %}
+          </td>
+          <td>{{ t.store_id | sanitize_code if t.store_id else "—" }}</td>
+          <td>{{ t.display_surface_id | sanitize_code if t.display_surface_id else "—" }}</td>
+          <td>{{ t.logical_carrier_id | sanitize_code if t.logical_carrier_id else "—" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">🎯</div>
+      <div class="empty-state-title">Цели не заданы</div>
+      <div class="empty-state-text">У размещения пока нет настроенных целей (магазинов, экранов или носителей).</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="note-box mt-16">
+  <span class="note-icon">ℹ️</span>
+  <span class="note-text">Просмотр размещения в режиме чтения. Редактирование размещений доступно через API.</span>
+</div>
+
+<div class="mt-16">
+  <a href="/campaigns" class="btn btn-ghost">← Назад к кампаниям</a>
+</div>
+{% endif %}
+{% endblock %}

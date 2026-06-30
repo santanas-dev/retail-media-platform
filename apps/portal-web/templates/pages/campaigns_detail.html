@@ -148,12 +148,51 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- Placement / Schedule Block -->
+<!-- B.3.4 — Placements Block (real backend) -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="section-card mt-16">
+  <div class="section-card-header">
+    <span class="section-card-icon">📍</span>
+    <span class="section-card-title">Размещения</span>
+    <span class="section-card-badge">{{ placements|length }}</span>
+  </div>
+  <div class="section-card-body">
+    {% if placements %}
+    <div class="table-container table-clean">
+    <table class="data-table">
+      <thead><tr>
+        <th>Код</th><th>Название</th><th>Статус</th><th>Приоритет</th><th>Период</th>
+      </tr></thead>
+      <tbody>
+      {% for p in placements %}
+        <tr>
+          <td><a href="/placements/{{ p.id }}" class="link"><code>{{ p.placement_code | sanitize_code }}</code></a></td>
+          <td>{{ p.name | sanitize }}</td>
+          <td><span class="status-badge status-badge-{{ p.status }}">{{ {'draft':'Черновик','active':'Активно','paused':'Приостановлено','completed':'Завершено','cancelled':'Отменено','error':'Ошибка'}.get(p.status, p.status) }}</span></td>
+          <td>{{ p.priority }}</td>
+          <td>{{ p.start_date | fmt_date if p.start_date else "—" }} → {{ p.end_date | fmt_date if p.end_date else "—" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">📍</div>
+      <div class="empty-state-title">Размещения пока не созданы</div>
+      <div class="empty-state-text">Размещения создаются через backend API или CLI.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- Schedules Block (расписания) -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <div class="section-card mt-16">
   <div class="section-card-header">
     <span class="section-card-icon">📅</span>
-    <span class="section-card-title">Размещения</span>
+    <span class="section-card-title">Расписания</span>
     <span class="section-card-badge">{{ schedules|length }}</span>
   </div>
   <div class="section-card-body">
@@ -183,10 +222,10 @@
     {% else %}
     <div class="empty-state">
       <div class="empty-state-icon">📅</div>
-      <div class="empty-state-title">Размещения не созданы</div>
+      <div class="empty-state-title">Расписания не созданы</div>
       <div class="empty-state-text">Создайте расписание для кампании.</div>
       <div class="empty-state-action mt-12">
-        <span class="text-sm text-muted">Заполните форму ниже и нажмите «+ Создать размещение».</span>
+        <span class="text-sm text-muted">Заполните форму ниже и нажмите «+ Создать расписание».</span>
       </div>
     </div>
     {% endif %}
@@ -194,7 +233,7 @@
     <!-- Create Schedule Form (demo-safe) -->
     {% if campaign.status in ('draft', 'rejected') %}
     <div class="mt-16 p-12 bg-panel border-top">
-      <div class="section-label mb-8">Создать размещение</div>
+      <div class="section-label mb-8">Создать расписание</div>
       <form method="post" action="/campaigns/{{ campaign.campaign_code }}/create-schedule" class="form-grid">
         <div class="form-group">
           <label class="form-label form-label-required">Название расписания</label>
@@ -217,7 +256,7 @@
           <input type="text" name="target_group" class="form-input" value="Тестовая группа магазинов" readonly>
         </div>
         <div class="form-footer">
-          <button type="submit" class="btn btn-primary">+ Создать размещение</button>
+          <button type="submit" class="btn btn-primary">+ Создать расписание</button>
           <a href="/campaigns/{{ campaign.campaign_code }}" class="btn btn-secondary">Отмена</a>
         </div>
       </form>
