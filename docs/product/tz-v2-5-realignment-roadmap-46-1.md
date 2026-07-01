@@ -206,9 +206,27 @@
 
 ---
 
-## Фаза F: PoP & Analytics (P1-P2)
+## Фаза F: PoP & Analytics (P1-P2) ✅ COMPLETED
 
-### F.1 — Нормализованная Proof-модель
+**Реализовано (F.0–F.5):**
+- F.0 — Design Gate: анализ PoP-контуров, 12 метрик, source of truth
+- F.1 — Analytics Schemas/Contracts: 13 Pydantic-моделей, 6 функций-контрактов
+- F.2 — PoP Mapping & Normalization: `normalize_pop_events()` — unified `PopEventNormalized`
+- F.3/F.3.1 — Delivery Aggregation Service: `calculate_delivery_metrics()`, 6 breakdowns
+- F.4/F.4.1 — Analytics API Read-Only: 4 GET/POST endpoints, RLS, audit
+- F.5 — Portal Reports Read-Only: `/reports/analytics`, 4 блока, 6 таблиц
+
+**Deferred (НЕ входило в scope F):**
+- ClickHouse pipeline
+- Placement/store JOIN resolution в normalizers
+- expected_impressions расчёт (planning integration)
+- Silent device detection
+- Export (PDF/XLSX/CSV)
+- Portal advanced filters
+- Performance indexes / materialized aggregates
+- Production KSO switch
+
+### F.1 — Нормализованная Proof-модель ✅
 - Единая таблица `proof_events` с `proof_type`
 - Типы: real_playback, idle_impression, template_applied, label_ack, controller_ack, delivery_ack
 - Разделение: плановые показы vs фактические playback vs подтверждения доставки
