@@ -10,6 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import check_db_connection
+from app.middleware.correlation_id import CorrelationIDMiddleware
+from app.middleware.request_logging import RequestLoggingMiddleware
 from app.domains.media.storage import ensure_bucket as ensure_media_bucket
 from app.domains.identity.router import router as identity_router
 from app.domains.organization.router import router as organization_router
@@ -35,6 +37,7 @@ from app.domains.reports.router import router as reports_export_router
 from app.domains.planning.router import router as planning_router
 from app.domains.analytics.router import router as analytics_router
 from app.domains.emergency.router import router as emergency_router
+from app.domains.health.router import router as health_router
 
 
 @asynccontextmanager
@@ -53,6 +56,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(CorrelationIDMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -86,6 +91,7 @@ app.include_router(reports_export_router)
 app.include_router(planning_router)
 app.include_router(analytics_router)
 app.include_router(emergency_router)
+app.include_router(health_router)
 
 
 @app.get("/health")
