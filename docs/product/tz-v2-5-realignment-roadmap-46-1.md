@@ -1,6 +1,6 @@
 # TZ v2.5 Re-Alignment Roadmap — 46.1
 
-> **Дата:** 2026-06-29 (обновлено 2026-07-01 после Phase C)
+> **Дата:** 2026-06-29 (обновлено 2026-07-01 после Phase D)
 > **Предыдущий roadmap:** `roadmap-after-full-audit-45-7.md` — ЗАМЕНЯЕТСЯ этим документом
 > **Причина:** Gap analysis показал значительные отклонения от ТЗ v2.5
 
@@ -138,25 +138,27 @@
 
 ---
 
-## Фаза D: Inventory & Planning (P1)
+## Фаза D: Inventory & Planning (P1) — ✅ COMPLETED
 
-### D.1 — Inventory Rules Engine
-- Правила ёмкости по каналам
-- Расчёт: свободно/занято/зарезервировано/продано
-- Прогноз показов по поверхностям
+> **Реализовано:** D.0–D.6 (11 commits). Planning schemas, service functions (availability, conflicts, occupancy, scenario), read-only Planning API (5 endpoints), portal planning visibility.
+> **Read-only foundation:** booking/reservation workflow deferred.
+> **Closure doc:** `docs/qa/d-inventory-planning-closure.md`
+> **Project state:** `docs/product/current-project-state-after-d.md`
 
-### D.2 — Conflict Engine
-- Пересечение расписаний
+### D.1 — Inventory Rules Engine ✅
+- Правила ёмкости по каналам — check_availability()
+- Расчёт: свободно/занято/зарезервировано/продано — calculate_occupancy()
+- Фильтры по 5 измерениям, non-sellable exclusion
+
+### D.2 — Conflict Engine ✅
+- Пересечение расписаний — check_conflicts()
 - Превышение допустимой рекламной нагрузки
-- Приоритеты и вытеснение
+- Приоритеты и вытеснение (conflict_type, severity)
 
-### D.3 — Simulated Publication
-- «Что если» перед публикацией
-- Sold out + альтернативы
-- Overbooking policy (default: запрещён)
-
-**Blockers:** нужен Channel Orchestrator (B.4)
-**KSO hardware:** не требуется
+### D.3 — Simulated Publication ✅
+- «Что если» перед публикацией — simulate_planning_scenario() (скелет)
+- Planning API: 5 read-only endpoints
+- Portal: planning block на campaign detail
 
 ---
 
@@ -249,7 +251,7 @@
 | Приоритет | Фазы | Статус | Блокирует | Можно без КСО |
 |---|---|---|---|---|
 | **P0** | A (Re-Alignment), B (Multichannel Core) | ✅ COMPLETED | — | ✅ Да |
-| **P1** | C (Device Gateway), D (Inventory), E (KSO adapter) | C ✅ D/E ⏳ | Пилот | ✅ Да (кроме E.2) |
+| **P1** | D (Inventory & Planning), E (KSO) | ✅ D / ⏳ E | — | ✅ Да |
 | **P2** | F (Analytics), G (Emergency/Ops) | ⏳ | Production | ✅ Да |
 | **P3** | H (Production Readiness) | ⏳ | Запуск | ⚠️ Желательно |
 
@@ -260,10 +262,10 @@
 | A — Re-Alignment | 2-3 | Medium | ✅ |
 | B — Multichannel Core | 4-6 | High | ✅ |
 | C — Device Gateway | 3-5 | High | ✅ |
-| D — Inventory | 2-3 | Medium | ⏳ |
+| D — Inventory & Planning | 11 | Medium | ✅ |
 | E — KSO Channel | 2-4 | Medium-High | ⏳ |
 | F — PoP & Analytics | 3-5 | Medium-High | ⏳ |
 | G — Emergency & Ops | 2-4 | Medium | ⏳ |
 | H — Production | 3-5 | High | ⏳ |
 
-**Итого: ~21-35 сессий до production-ready v2.5** | **Закрыто: A+B+C = ~9-14 сессий**
+**Итого: ~21-35 сессий до production-ready v2.5** | **Закрыто: A+B+C+D = ~19-25 сессий**
