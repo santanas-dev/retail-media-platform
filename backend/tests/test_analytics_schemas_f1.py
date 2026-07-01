@@ -13,6 +13,7 @@ import inspect
 import os
 import unittest
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 from app.domains.analytics.schemas import (
@@ -254,8 +255,16 @@ class TestAnalyticsIssue(unittest.TestCase):
 class TestServiceContracts(unittest.TestCase):
 
     def test_normalize_pop_events_returns_list(self):
+        """normalize_pop_events requires db + query (F.2 signature).
+        with properly mocked DB that returns empty results."""
+        # Mock execute → scalars → all chain
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        db = AsyncMock()
+        db.execute.return_value = mock_result
+
         q = DeliveryMetricQuery()
-        result = asyncio.run(normalize_pop_events(q))
+        result = asyncio.run(normalize_pop_events(db, q))
         assert isinstance(result, list)
         assert len(result) == 0
 
