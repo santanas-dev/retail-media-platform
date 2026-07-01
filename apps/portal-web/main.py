@@ -2408,6 +2408,64 @@ async def campaigns_detail(request: Request, campaign_code: str):
     has_manage = "campaigns.manage" in (get_portal_tokens(request).get("permissions", []) or [])
     actions = campaign_actions(status, user_name, creator_id, has_approve, has_manage)
 
+    # ── D.5.2: Planning data ──────────────────────────────────────────
+    planning_data = None
+    has_planning_perm = "planning.read" in (get_portal_tokens(request).get("permissions", []) or [])
+    if has_planning_perm and campaign_id:
+        planning_data = {"backend_unavailable": False}
+
+        # Availability
+        av_result = await backend.get_planning_availability(
+            access_token,
+            campaign_id=campaign_id,
+            date_from=campaign.get("planned_start_date", ""),
+            date_to=campaign.get("planned_end_date", ""),
+        )
+        if av_result.get("ok"):
+            av_data = av_result.get("data", {})
+            planning_data["availability"] = {
+                "available": av_data.get("available", False),
+                "units_count": len(av_data.get("inventory_units", [])),
+                "warnings_count": len(av_data.get("warnings", [])),
+            }
+        elif av_result.get("code") == 403:
+            planning_data = None
+
+        # Conflicts (for campaign placements)
+        placement_ids = [p.get("id", "") for p in placements_safe if p.get("id")]
+        if planning_data and placement_ids:
+            cf_result = await backend.check_planning_conflicts(
+                access_token,
+                placement_id=placement_ids[0] if placement_ids else None,
+                date_from=campaign.get("planned_start_date", ""),
+                date_to=campaign.get("planned_end_date", ""),
+            )
+            if cf_result.get("ok"):
+                cf_data = cf_result.get("data", {})
+                planning_data["conflicts"] = {
+                    "has_conflict": cf_data.get("has_conflict", False),
+                    "count": len(cf_data.get("conflicts", [])),
+                }
+            else:
+                planning_data["conflicts"] = {"has_conflict": False, "count": 0}
+
+        # Occupancy
+        if planning_data:
+            occ_result = await backend.get_planning_occupancy(
+                access_token,
+                date_from=campaign.get("planned_start_date", ""),
+                date_to=campaign.get("planned_end_date", ""),
+            )
+            if occ_result.get("ok"):
+                occ_data = occ_result.get("data", {})
+                planning_data["occupancy"] = {
+                    "occupancy_percent": occ_data.get("occupancy_percent", 0),
+                    "booked_spots": occ_data.get("booked_spots_per_loop"),
+                    "capacity_spots": occ_data.get("capacity_spots_per_loop"),
+                }
+            else:
+                planning_data["occupancy"] = None
+
     return templates.TemplateResponse(request, "pages/campaigns_detail.html", {
         "request": request,
         "title": campaign.get("name", "Кампания"),
@@ -2424,6 +2482,7 @@ async def campaigns_detail(request: Request, campaign_code: str):
         "actions": actions,
         "flash_msg": flash_msg,
         "flash_type": flash_type,
+        "planning": planning_data,
     })
 
 

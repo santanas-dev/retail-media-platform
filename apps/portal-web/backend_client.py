@@ -1142,6 +1142,100 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Planning API (D.5.2) ─────────────────────────────────────────
+
+    async def get_planning_availability(
+        self, access_token: str,
+        *,
+        campaign_id: str | None = None,
+        channel_id: str | None = None,
+        store_id: str | None = None,
+        inventory_unit_id: str | None = None,
+        date_from: str = "",
+        date_to: str = "",
+    ) -> dict:
+        """GET /api/planning/availability → {ok, data: AvailabilityResult}."""
+        import urllib.parse
+        params = {"date_from": date_from, "date_to": date_to}
+        if campaign_id:
+            params["campaign_id"] = campaign_id
+        if channel_id:
+            params["channel_id"] = channel_id
+        if store_id:
+            params["store_id"] = store_id
+        if inventory_unit_id:
+            params["inventory_unit_id"] = inventory_unit_id
+        query = f"?{urllib.parse.urlencode(params)}"
+        return await self._request(
+            "GET", f"/api/planning/availability{query}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def check_planning_conflicts(
+        self, access_token: str,
+        placement_id: str | None = None,
+        inventory_unit_id: str | None = None,
+        date_from: str = "",
+        date_to: str = "",
+    ) -> dict:
+        """POST /api/planning/check-conflicts → {ok, data: ConflictResult}."""
+        payload = {"date_from": date_from, "date_to": date_to}
+        if placement_id:
+            payload["placement_id"] = placement_id
+        if inventory_unit_id:
+            payload["inventory_unit_id"] = inventory_unit_id
+        return await self._request(
+            "POST", "/api/planning/check-conflicts",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_planning_occupancy(
+        self, access_token: str,
+        *,
+        channel_id: str | None = None,
+        store_id: str | None = None,
+        inventory_unit_id: str | None = None,
+        date_from: str = "",
+        date_to: str = "",
+    ) -> dict:
+        """GET /api/planning/occupancy → {ok, data: OccupancyResult}."""
+        import urllib.parse
+        params = {"date_from": date_from, "date_to": date_to}
+        if channel_id:
+            params["channel_id"] = channel_id
+        if store_id:
+            params["store_id"] = store_id
+        if inventory_unit_id:
+            params["inventory_unit_id"] = inventory_unit_id
+        query = f"?{urllib.parse.urlencode(params)}"
+        return await self._request(
+            "GET", f"/api/planning/occupancy{query}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def simulate_planning_scenario(
+        self, access_token: str,
+        campaign_id: str | None = None,
+        date_from: str = "",
+        date_to: str = "",
+    ) -> dict:
+        """POST /api/planning/scenario → {ok, data: PlanningScenario}."""
+        payload = {
+            "query": {
+                "date_from": date_from,
+                "date_to": date_to,
+            },
+            "dry_run": True,
+        }
+        if campaign_id:
+            payload["campaign_id"] = campaign_id
+        return await self._request(
+            "POST", "/api/planning/scenario",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 
