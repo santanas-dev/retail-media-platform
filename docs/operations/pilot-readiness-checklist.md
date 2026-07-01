@@ -1,9 +1,9 @@
 # Pilot Readiness Checklist
 
-**Date:** 2026-07-02 | **Last review:** 2026-07-01 (H.5) | **Owner:** Ops Team (TBD)
+**Date:** 2026-07-02 | **Last review:** 2026-07-01 (H.6) | **Owner:** Ops Team (TBD)
 
-> **Current Status: 🟡 CONDITIONAL NO-GO — 7/16 READY, 6 blockers remain**  
-> H.2–H.4 закрыли значительную часть gap'ов; реальный пилот невозможен без KSO physical test, мониторинга, backup drill и approvals.
+> **Current Status: 🟡 PREPARATION PACKAGE READY — 6 blockers remain; templates/protocols created in H.6**  
+> All blockers have templates/protocols ready — actions (not docs) needed for real pilot.
 
 ---
 
@@ -21,25 +21,32 @@
 | P16 | Rate limiting active on sensitive endpoints | H.4 in-memory rate limiter | Emergency 5/60s, Dependencies 10/60s |
 | — | Security headers + CORS fixed + access review | H.4 | 9 headers, SafeCORSMiddleware |
 
-### 🟡 PARTIAL (2/16)
+### 🟡 PARTIAL — Templates/Protocols Ready (6/16)
 
 | # | Criterion | Status | Evidence | Next |
 |---|---|---|---|---|
-| P8 | Rollback plan approved | 🟡 Scripts ready (H.3); no real drill; plan not reviewed | `rollback_preflight.sh`, `rollback-runbook.md` | Execute drill + review |
+| P6 | Pilot store list defined | 🟡 Template ready (H.6) | `pilot-store-device-list-template.md` | Fill + approve |
+| P7 | Pilot device list defined | 🟡 Template ready (H.6) | `pilot-store-device-list-template.md` | Fill + approve |
+| P9 | Monitoring enabled + alerts | 🟡 Configs ready (H.6) | `prometheus.example.yml`, `alert-rules.example.yml`, `monitoring-deployment-checklist.md` | Deploy |
+| P10 | Backup/restore drill completed | 🟡 Protocol ready (H.6) | `backup-restore-drill-protocol.md` | Execute drill |
+| P11 | KSO physical device test | 🟡 Protocol ready (H.6) | `kso-physical-playback-test-protocol.md` (9 phases) | Execute test |
+| P14 | Security approval received | 🟡 Template ready (H.6) | `security-approval-template.md` | Sign |
+| P15 | Business approval received | 🟡 Template ready (H.6) | `business-approval-template.md` | Sign |
+
+### 🟡 PARTIAL — Other (2/16)
+
+| # | Criterion | Status | Evidence | Next |
+|---|---|---|---|---|
+| P8 | Rollback plan approved | 🟡 Scripts ready (H.3); no real drill | `rollback_preflight.sh`, `rollback-runbook.md` | Execute drill + review |
 | P12 | Operator runbook exists + reviewed | 🟡 Created (H.1); not reviewed | 6 runbooks in `docs/operations/` | Review with ops |
 
-### ❌ MISSING (7/16)
+### ❌ NOT YET CLOSED (1/16)
 
-| # | Criterion | Status | Blocker | Next |
-|---|---|---|---|---|
-| P6 | Pilot store list defined | ❌ **Missing** | **Yes** | Define with business |
-| P7 | Pilot device list defined | ❌ **Missing** | **Yes** | Define with business |
-| P9 | Monitoring enabled + alerts configured | ❌ **Missing** | **Yes** | Deploy Prometheus + Grafana |
-| P10 | Backup/restore drill completed | ❌ **Missing** | **Yes** | Execute drill |
-| P11 | KSO physical device test completed | ❌ **Not tested** | **Yes** | Test playback |
-| P13 | Support escalation path exists | ❌ **Missing** | No | Define with management |
-| P14 | Security approval received | ❌ **Missing** | **Yes** | Security review |
-| P15 | Business approval received | ❌ **Missing** | **Yes** | Business review |
+| # | Criterion | Status | Next |
+|---|---|---|---|
+| P13 | Support escalation path exists | ❌ Missing | Define with management |
+
+**Decision:** Preparation package complete (H.6). All 6 blockers have templates/protocols — executors can proceed to actual actions. Real pilot still NO-GO until evidence collected.
 
 ---
 

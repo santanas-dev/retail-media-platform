@@ -1,0 +1,107 @@
+# Alert Rules — Retail Media Platform
+
+# Template file. Copy to alert-rules.yml.
+# No real hostnames or secrets.
+
+groups:
+  - name: retail-media-critical
+    interval: 30s
+    rules:
+      - alert: BackendDown
+        expr: up{service="backend", check="liveness"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: backend
+        annotations:
+          summary: "Backend is DOWN"
+          description: "Backend ({{ $labels.instance }}) liveness probe failed for > 1 minute."
+
+      - alert: ReadinessFailed
+        expr: up{service="backend", check="readiness"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: backend
+        annotations:
+          summary: "Backend readiness FAILED"
+          description: "Backend ({{ $labels.instance }}) readiness probe failed — DB may be unreachable."
+
+      - alert: DatabaseDependencyFailed
+        expr: health_dependency_failed{name="postgresql"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "PostgreSQL dependency FAILED"
+          description: "PostgreSQL is unreachable from backend."
+
+  - name: retail-media-high
+    interval: 30s
+    rules:
+      - alert: API5xxSpike
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 10
+        for: 5m
+        labels:
+          severity: high
+          service: backend
+        annotations:
+          summary: "API 5xx errors spiking"
+          description: "5xx rate: {{ $value }}/s — investigate immediately."
+
+      - alert: HeartbeatMissing
+        expr: device_heartbeat_missing_seconds > 300
+        for: 5m
+        labels:
+          severity: high
+          service: gateway
+        annotations:
+          summary: "Device heartbeat MISSING"
+          description: "Device {{ $labels.device_code }} missing heartbeat for > 5 min."
+
+      - alert: HighErrorRate
+        expr: rate(http_errors_total[5m]) > rate(http_requests_total[5m]) * 0.05
+        for: 5m
+        labels:
+          severity: high
+          service: backend
+        annotations:
+          summary: "High error rate (>5%)"
+          description: "Error rate: {{ $value | humanizePercentage }}."
+
+  - name: retail-media-medium
+    interval: 1m
+    rules:
+      - alert: PoPDrop
+        expr: rate(pop_events_total[10m]) < 10
+        for: 10m
+        labels:
+          severity: medium
+          service: analytics
+        annotations:
+          summary: "PoP ingestion DROP"
+          description: "PoP event rate below threshold — {{ $value }}/s."
+
+      - alert: RateLimitSpike
+        expr: rate(http_429_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: medium
+          service: backend
+        annotations:
+          summary: "Rate limit 429 spike"
+          description: "429 rate: {{ $value }}/s — clients being throttled."
+
+  - name: retail-media-low
+    interval: 2m
+    rules:
+      - alert: DependencyUnknown
+        expr: health_dependency_unknown == 1
+        for: 10m
+        labels:
+          severity: low
+          service: backend
+        annotations:
+          summary: "Dependency status UNKNOWN"
+          description: "{{ $labels.name }} status unknown — may be unconfigured."

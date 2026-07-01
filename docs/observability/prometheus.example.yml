@@ -1,0 +1,53 @@
+# prometheus.yml — Retail Media Platform
+
+# Copy to prometheus.yml and update <PLACEHOLDER> values.
+# This is a template — no real hostnames, no secrets.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["<ALERTMANAGER_HOST:PORT>"]
+
+rule_files:
+  - "alert-rules.yml"
+
+scrape_configs:
+  - job_name: "retail-media-backend"
+    metrics_path: "/api/health/metrics"
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["<BACKEND_HOST:PORT>"]
+        labels:
+          service: "backend"
+          env: "<ENV>"
+
+  - job_name: "retail-media-backend-live"
+    metrics_path: "/api/health/live"
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["<BACKEND_HOST:PORT>"]
+        labels:
+          service: "backend"
+          check: "liveness"
+
+  - job_name: "retail-media-backend-ready"
+    metrics_path: "/api/health/ready"
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["<BACKEND_HOST:PORT>"]
+        labels:
+          service: "backend"
+          check: "readiness"
+
+  - job_name: "retail-media-portal"
+    metrics_path: "/health"
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["<PORTAL_HOST:PORT>"]
+        labels:
+          service: "portal"
+          env: "<ENV>"

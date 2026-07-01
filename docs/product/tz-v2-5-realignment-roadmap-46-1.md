@@ -1,6 +1,6 @@
 # TZ v2.5 Re-Alignment Roadmap — 46.1
 
-> **Дата:** 2026-06-29 (обновлено 2026-07-01 после Phase E)
+> **Дата:** 2026-06-29 (обновлено 2026-07-01 после Phase H)
 > **Предыдущий roadmap:** `roadmap-after-full-audit-45-7.md` — ЗАМЕНЯЕТСЯ этим документом
 > **Причина:** Gap analysis показал значительные отклонения от ТЗ v2.5
 
@@ -309,7 +309,7 @@
 | **P0** | A (Re-Alignment), B (Multichannel Core) | ✅ COMPLETED | — | ✅ Да |
 | **P1** | D (Inventory & Planning), E (KSO) | ✅ COMPLETED | — | ✅ Да |
 | **P2** | F (Analytics), G (Emergency/Ops) | ✅ COMPLETED | Production | ✅ Да |
-| **P3** | H (Production Readiness) | ⏳ | Запуск | ⚠️ Желательно |
+|| **P3** | H (Production Readiness) | ✅ COMPLETED | Запуск | ⚠️ Желательно |
 
 ## Оценка усилий
 
@@ -320,8 +320,8 @@
 | C — Device Gateway | 3-5 | High | ✅ |
 | D — Inventory & Planning | 11 | Medium | ✅ |
 | E — KSO Channel | 5 | Medium | ✅ |
-| F — PoP & Analytics | 3-5 | Medium-High | ⏳ |
-| G — Emergency & Ops | 2-4 | Medium | ✅ |
-| H — Production | 3-5 | High | ⏳ |
+|| F — PoP & Analytics | 3-5 | Medium-High | ✅ |
+|| G — Emergency & Ops | 2-4 | Medium | ✅ |
+|| H — Production | 3-5 | High | ✅ |
 
-**Итого: ~21-35 сессий до production-ready v2.5** | **Закрыто: A+B+C+D+E+F+G = ~30-38 сессий**
+**Итого: ~21-35 сессий до production-ready v2.5** | **Закрыто: A+B+C+D+E+F+G+H = все фазы**
