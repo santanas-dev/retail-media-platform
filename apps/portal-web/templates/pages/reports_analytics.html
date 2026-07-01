@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- F.5 — Portal Analytics Read-Only -->
+
+<h1>Аналитика показов</h1>
+
+<!-- Filters -->
+<form method="get" action="/reports/analytics" class="form-inline mb-16">
+  <label>С <input type="date" name="date_from" value="{{ filters.date_from }}"></label>
+  <label>По <input type="date" name="date_to" value="{{ filters.date_to }}"></label>
+  <label>Канал
+    <select name="channel_code">
+      <option value="">— все —</option>
+      <option value="kso" {% if filters.channel_code == "kso" %}selected{% endif %}>КСО</option>
+    </select>
+  </label>
+  <button type="submit" class="btn btn-primary btn-sm">Показать</button>
+  <a href="/reports/analytics" class="btn btn-secondary btn-sm">Сбросить</a>
+</form>
+
+{% if backend_error %}
+<div class="alert alert-error mb-16">{{ backend_error }}</div>
+{% endif %}
+
+{% if backend_403 %}
+<div class="alert alert-warning mb-16">Нет доступа к отчёту</div>
+{% endif %}
+
+{% if no_data %}
+<div class="alert mb-16">За выбранный период событий показов нет.</div>
+{% endif %}
+
+{% if summary %}
+<!-- A. Сводка доставки -->
+<h2>Сводка доставки</h2>
+<div class="kpi-grid mb-16">
+  <div class="kpi-card">
+    <span class="kpi-value">{{ summary.delivered_impressions }}</span>
+    <span class="kpi-label">Показов доставлено</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ summary.proof_events_count }}</span>
+    <span class="kpi-label">Событий PoP</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value kpi-success">{{ summary.playback_success_count }}</span>
+    <span class="kpi-label">Успешных</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value kpi-danger">{{ summary.playback_failure_count }}</span>
+    <span class="kpi-label">С ошибками</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ summary.manifest_received_count }}</span>
+    <span class="kpi-label">Манифестов получено</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ summary.device_count }}</span>
+    <span class="kpi-label">Устройств всего</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ summary.active_device_count }}</span>
+    <span class="kpi-label">Активных устройств</span>
+  </div>
+</div>
+{% endif %}
+
+{% if planned %}
+<!-- B. План / факт -->
+<h2>План / факт</h2>
+<div class="kpi-grid mb-16">
+  <div class="kpi-card">
+    <span class="kpi-value">{{ planned.delivered_impressions }}</span>
+    <span class="kpi-label">Доставлено</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{% if planned.expected_impressions is not none %}{{ planned.expected_impressions }}{% else %}—{% endif %}</span>
+    <span class="kpi-label">План</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ planned.status }}</span>
+    <span class="kpi-label">Статус</span>
+  </div>
+</div>
+{% if planned.expected_impressions is none %}
+<div class="alert mb-16">Плановые показы пока не рассчитаны.</div>
+{% endif %}
+{% endif %}
+
+{% if health %}
+<!-- C. Здоровье устройств -->
+<h2>Здоровье устройств</h2>
+<div class="kpi-grid mb-16">
+  <div class="kpi-card">
+    <span class="kpi-value">{{ health.devices | length }}</span>
+    <span class="kpi-label">Устройств на связи</span>
+  </div>
+</div>
+{% if health.devices %}
+<table class="data-table mb-16">
+  <thead><tr>
+    <th>Устройство</th><th>Статус</th><th>Последняя активность</th>
+  </tr></thead>
+  <tbody>
+  {% for d in health.devices %}
+  <tr>
+    <td>{{ d.device_code or d.gateway_device_id or "—" }}</td>
+    <td>{% if d.status == "ok" %}✅ OK{% elif d.status == "silent" %}🔇 Нет связи{% elif d.status == "warning" %}⚠️{% else %}{{ d.status }}{% endif %}</td>
+    <td>{{ d.last_seen_at | fmt_date("full") }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endif %}
+
+{% if breakdowns %}
+<!-- D. Breakdowns -->
+<h2>Детализация</h2>
+
+{% set btypes = {
+    "campaign": "Кампании",
+    "placement": "Размещения",
+    "store": "Магазины",
+    "device": "Устройства",
+    "channel": "Каналы",
+    "day": "По дням",
+} %}
+
+{% for btype, btitle in btypes.items() %}
+  {% set items = breakdowns | selectattr("breakdown_type", "equalto", btype) | list %}
+  {% if items %}
+  <h3>{{ btitle }}</h3>
+  <table class="data-table mb-16">
+    <thead><tr>
+      <th>{{ btitle[:-1] if btitle.endswith("и") else btitle }}</th>
+      <th>Показов</th><th>Событий</th><th>Успешно</th><th>Ошибок</th>
+    </tr></thead>
+    <tbody>
+    {% for b in items %}
+    <tr>
+      <td>{% if b.key == "unknown" %}Не определено{% else %}{{ b.label or b.key }}{% endif %}</td>
+      <td>{{ b.metrics.delivered_impressions }}</td>
+      <td>{{ b.metrics.proof_events_count }}</td>
+      <td>{{ b.metrics.playback_success_count }}</td>
+      <td>{{ b.metrics.playback_failure_count }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+{% endfor %}
+{% endif %}
+
+{% endblock %}

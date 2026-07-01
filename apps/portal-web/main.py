@@ -610,6 +610,96 @@ app.add_api_route("/deployment", _page("pages/deployment.html", "Развёрт�
 # ══════════════════════════════════════════════════════════════════════
 # Reports Export (42.3) — CSV downloads via portal proxy
 # ══════════════════════════════════════════════════════════════════════
+# F.5 — Portal Analytics Read-Only
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/reports/analytics", response_class=HTMLResponse)
+async def reports_analytics_page(request: Request):
+    """Analytics reports: delivery summary, planned vs delivered, device health, breakdowns.
+
+    Read-only. Uses GET /api/analytics/* endpoints. No JS/CDN/localStorage.
+    Requires reports.read permission.
+    """
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/reports/analytics")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    client = BackendClient()
+
+    qp = request.query_params
+    filters = {
+        "date_from": qp.get("date_from", "").strip(),
+        "date_to": qp.get("date_to", "").strip(),
+        "channel_code": qp.get("channel_code", "").strip(),
+    }
+
+    ctx: dict = {
+        "request": request,
+        "title": "Аналитика показов",
+        "active": "reports-analytics",
+        "current_user": current_user,
+        "filters": filters,
+        "summary": None,
+        "planned": None,
+        "health": None,
+        "breakdowns": [],
+        "no_data": False,
+        "backend_error": None,
+        "backend_403": False,
+    }
+
+    try:
+        # Delivery summary
+        sr = await client.get_analytics_delivery_summary(
+            at,
+            date_from=filters["date_from"],
+            date_to=filters["date_to"],
+            channel_code=filters["channel_code"] or None,
+            granularity="total",
+        )
+        if sr["ok"]:
+            data = sr["data"]
+            ctx["summary"] = data.get("metrics", {})
+            ctx["breakdowns"] = data.get("breakdowns", [])
+            if not ctx["summary"].get("proof_events_count"):
+                ctx["no_data"] = True
+        elif sr.get("status") == 403:
+            ctx["backend_403"] = True
+        else:
+            ctx["backend_error"] = "Данные аналитики пока недоступны"
+
+        # Planned vs delivered
+        pr = await client.get_analytics_planned_vs_delivered(
+            at,
+            date_from=filters["date_from"],
+            date_to=filters["date_to"],
+        )
+        if pr["ok"]:
+            ctx["planned"] = pr["data"]
+        elif pr.get("status") != 403:
+            pass  # safe fallback — no data block
+
+        # Device health
+        hr = await client.get_analytics_device_health(
+            at,
+            date_from=filters["date_from"],
+            date_to=filters["date_to"],
+            channel_code=filters["channel_code"] or None,
+        )
+        if hr["ok"]:
+            ctx["health"] = hr["data"]
+
+    except Exception:
+        ctx["backend_error"] = "Данные аналитики пока недоступны"
+
+    # No-secrets safety: strip any raw backend fields from context
+    return templates.TemplateResponse(request, "pages/reports_analytics.html", ctx)
+
+
+# ══════════════════════════════════════════════════════════════════════
 
 from fastapi.responses import PlainTextResponse
 

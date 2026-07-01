@@ -1237,6 +1237,116 @@ class BackendClient:
         )
 
 
+    # ── Analytics API (F.5) ───────────────────────────────────────────
+
+    async def get_analytics_delivery_summary(
+        self, access_token: str,
+        *,
+        date_from: str = "",
+        date_to: str = "",
+        granularity: str = "total",
+        campaign_id: str | None = None,
+        placement_id: str | None = None,
+        advertiser_id: str | None = None,
+        store_id: str | None = None,
+        channel_code: str | None = None,
+        include_legacy_kso: bool = True,
+        include_enterprise_gateway: bool = True,
+        exclude_dry_run: bool = True,
+    ) -> dict:
+        """GET /api/analytics/delivery/summary → DeliveryMetricResult."""
+        import urllib.parse
+        params: dict[str, str] = {
+            "granularity": granularity,
+            "include_legacy_kso": str(include_legacy_kso).lower(),
+            "include_enterprise_gateway": str(include_enterprise_gateway).lower(),
+            "exclude_dry_run": str(exclude_dry_run).lower(),
+        }
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        for key, val in (
+            ("campaign_id", campaign_id), ("placement_id", placement_id),
+            ("advertiser_id", advertiser_id), ("store_id", store_id),
+            ("channel_code", channel_code),
+        ):
+            if val:
+                params[key] = val
+        query = f"?{urllib.parse.urlencode(params)}"
+        return await self._request(
+            "GET", f"/api/analytics/delivery/summary{query}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_analytics_planned_vs_delivered(
+        self, access_token: str,
+        *,
+        date_from: str = "",
+        date_to: str = "",
+        granularity: str = "total",
+        campaign_id: str | None = None,
+        placement_id: str | None = None,
+        advertiser_id: str | None = None,
+        store_id: str | None = None,
+        exclude_dry_run: bool = True,
+    ) -> dict:
+        """GET /api/analytics/planned-vs-delivered → PlannedVsDeliveredResult."""
+        import urllib.parse
+        params: dict[str, str] = {
+            "granularity": granularity,
+            "exclude_dry_run": str(exclude_dry_run).lower(),
+        }
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        for key, val in (
+            ("campaign_id", campaign_id), ("placement_id", placement_id),
+            ("advertiser_id", advertiser_id), ("store_id", store_id),
+        ):
+            if val:
+                params[key] = val
+        query = f"?{urllib.parse.urlencode(params)}"
+        return await self._request(
+            "GET", f"/api/analytics/planned-vs-delivered{query}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_analytics_device_health(
+        self, access_token: str,
+        *,
+        date_from: str = "",
+        date_to: str = "",
+        store_id: str | None = None,
+        channel_code: str | None = None,
+        gateway_device_id: str | None = None,
+        physical_device_id: str | None = None,
+        silent_threshold_minutes: int = 60,
+    ) -> dict:
+        """GET /api/analytics/device-health → DeviceHealthResult."""
+        import urllib.parse
+        params: dict[str, str] = {
+            "silent_threshold_minutes": str(silent_threshold_minutes),
+        }
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        for key, val in (
+            ("store_id", store_id), ("channel_code", channel_code),
+            ("gateway_device_id", gateway_device_id),
+            ("physical_device_id", physical_device_id),
+        ):
+            if val:
+                params[key] = val
+        query = f"?{urllib.parse.urlencode(params)}"
+        return await self._request(
+            "GET", f"/api/analytics/device-health{query}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+
 # ── Module-level convenience functions ───────────────────────────────
 
 _client: Optional[BackendClient] = None
