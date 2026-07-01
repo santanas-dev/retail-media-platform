@@ -28,9 +28,20 @@ ALLOWED_PROOF_TYPES = frozenset({
     "label_ack", "controller_ack", "delivery_ack",
 })
 FORBIDDEN_SECRET_WORDS = frozenset({
-    "password", "secret", "token", "access_key", "private_key",
-    "authorization", "bearer", "signed_url", "credential",
-    "access_token", "refresh_token", "api_key",
+    "password", "passwd", "pwd",
+    "secret", "client_secret",
+    "token", "access_token", "refresh_token",
+    "api_key", "access_key", "private_key",
+    "authorization", "bearer",
+    "signed_url", "signature",
+    "credential", "credentials",
+    "cookie", "session", "jwt",
+})
+
+# Keys that contain a forbidden word as substring but are legitimate fields.
+#  e.g. "signature_status" contains "signature" but is a safe status field.
+ALLOWED_SAFE_KEYS = frozenset({
+    "signature_status",
 })
 
 
@@ -67,16 +78,19 @@ def _recursive_check_forbidden(payload: dict[str, Any], path: str = "") -> list[
     errors: list[str] = []
     for key, value in payload.items():
         current = f"{path}.{key}" if path else key
-        # Check keys
+        # Check keys — skip safe keys
         lower_key = key.lower()
-        for fw in FORBIDDEN_SECRET_WORDS:
-            if fw in lower_key:
-                errors.append(f"Forbidden key '{key}' at '{current}'")
+        if lower_key not in ALLOWED_SAFE_KEYS:
+            for fw in FORBIDDEN_SECRET_WORDS:
+                if fw in lower_key:
+                    errors.append(f"Forbidden key '{key}' at '{current}'")
+                    break  # one report per key
         # Check string values
         if isinstance(value, str):
             for fw in FORBIDDEN_SECRET_WORDS:
                 if fw in value.lower():
                     errors.append(f"Forbidden value for '{fw}' at '{current}'")
+                    break  # one report per value
         elif isinstance(value, dict):
             errors.extend(_recursive_check_forbidden(value, current))
         elif isinstance(value, list):
@@ -87,6 +101,7 @@ def _recursive_check_forbidden(payload: dict[str, Any], path: str = "") -> list[
                     for fw in FORBIDDEN_SECRET_WORDS:
                         if fw in item.lower():
                             errors.append(f"Forbidden '{fw}' at '{current}[{i}]'")
+                            break  # one report per list item value
     return errors
 
 
