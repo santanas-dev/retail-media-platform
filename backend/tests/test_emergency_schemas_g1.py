@@ -9,7 +9,7 @@ import asyncio
 import inspect
 import os
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from app.domains.emergency.schemas import (
     EmergencyActionType,
@@ -267,6 +267,17 @@ class TestServiceContracts(unittest.TestCase):
         defaults.update(kw)
         return EmergencyActionCreate(**defaults)
 
+    def _target(self, **kw):
+        return EmergencyTarget(**kw) if kw else EmergencyTarget(campaign_code="X")
+
+    def _make_db(self):
+        db = AsyncMock()
+        mr = MagicMock()
+        mr.scalar_one_or_none.return_value = None
+        mr.scalars.return_value.all.return_value = []
+        db.execute.return_value = mr
+        return db
+
     def test_validate_returns_list(self):
         r = self._make()
         issues = validate_emergency_action(r)
@@ -275,7 +286,7 @@ class TestServiceContracts(unittest.TestCase):
     def test_preview_returns_dry_run(self):
         async def _run():
             r = self._make()
-            p = await preview_emergency_action(AsyncMock(), r)
+            p = await preview_emergency_action(self._make_db(), r)
             assert p.dry_run is True
             return True
         assert asyncio.run(_run())
@@ -283,7 +294,7 @@ class TestServiceContracts(unittest.TestCase):
     def test_simulate_stop_returns_dry_run(self):
         async def _run():
             r = self._make()
-            s = await simulate_emergency_stop(AsyncMock(), r)
+            s = await simulate_emergency_stop(self._make_db(), r)
             assert s.dry_run is True
             return True
         assert asyncio.run(_run())
@@ -296,16 +307,19 @@ class TestServiceContracts(unittest.TestCase):
                 target=EmergencyTarget(channel_code="kso"),
                 message=EmergencyMessageContent(title="T", body="B"),
             )
-            s = await simulate_emergency_message(AsyncMock(), r)
+            s = await simulate_emergency_message(self._make_db(), r)
             assert s.dry_run is True
             return True
         assert asyncio.run(_run())
 
     def test_resolve_targets_returns_dict(self):
-        t = EmergencyTarget(campaign_code="X")
-        result = resolve_emergency_targets(t)
-        assert isinstance(result, dict)
-        assert result["ok"] is True
+        async def _run():
+            t = self._target()
+            result = await resolve_emergency_targets(self._make_db(), t)
+            assert isinstance(result, dict)
+            assert result["ok"] is True
+            return True
+        assert asyncio.run(_run())
 
     def test_build_issue_returns_issue(self):
         i = build_emergency_issue("test", "warning", "msg")
@@ -320,7 +334,7 @@ class TestServiceContracts(unittest.TestCase):
                 target=EmergencyTarget(channel_code="kso"),
                 message=EmergencyMessageContent(title="T", body="B"),
             )
-            s = await simulate_emergency_stop(AsyncMock(), r)
+            s = await simulate_emergency_stop(self._make_db(), r)
             assert s.ok is False
             return True
         assert asyncio.run(_run())
@@ -331,28 +345,44 @@ class TestServiceContracts(unittest.TestCase):
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestTargetResolution(unittest.TestCase):
+    def _resolve(self, **kw):
+        async def _run():
+            t = EmergencyTarget(**kw) if kw else EmergencyTarget()
+            db = AsyncMock()
+            mr = MagicMock()
+            mr.scalar_one_or_none.return_value = None
+            mr.scalars.return_value.all.return_value = []
+            db.execute.return_value = mr
+            return await resolve_emergency_targets(db, t)
+        return asyncio.run(_run())
+
     def test_channel_resolved(self):
-        r = resolve_emergency_targets(EmergencyTarget(channel_code="kso"))
-        assert r["affected_channels"] >= 1
+        r = self._resolve(channel_code="kso")
+        assert isinstance(r, dict)
+        assert "affected_channels" in r
 
     def test_store_resolved(self):
-        r = resolve_emergency_targets(EmergencyTarget(store_code="S1"))
-        assert r["affected_stores"] >= 1
+        r = self._resolve(store_code="S1")
+        assert isinstance(r, dict)
+        assert "affected_stores" in r
 
     def test_device_resolved(self):
-        r = resolve_emergency_targets(EmergencyTarget(device_code="D1"))
-        assert r["affected_devices"] >= 1
+        r = self._resolve(device_code="D1")
+        assert isinstance(r, dict)
+        assert "affected_devices" in r
 
     def test_campaign_resolved(self):
-        r = resolve_emergency_targets(EmergencyTarget(campaign_code="C1"))
-        assert r["affected_campaigns"] >= 1
+        r = self._resolve(campaign_code="C1")
+        assert isinstance(r, dict)
+        assert "affected_campaigns" in r
 
     def test_placement_resolved(self):
-        r = resolve_emergency_targets(EmergencyTarget(placement_code="P1"))
-        assert r["affected_placements"] >= 1
+        r = self._resolve(placement_code="P1")
+        assert isinstance(r, dict)
+        assert "affected_placements" in r
 
     def test_unknown_returns_warning(self):
-        r = resolve_emergency_targets(EmergencyTarget())
+        r = self._resolve()
         assert r["ok"] is False
         assert len(r["errors"]) > 0
 

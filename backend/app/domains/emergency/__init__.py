@@ -23,6 +23,7 @@ from app.domains.emergency.service import (
     simulate_emergency_stop,
     simulate_emergency_message,
     build_emergency_issue,
+    validate_no_secrets_in_emergency_payload,
 )
 
 __all__ = [
@@ -42,4 +43,5 @@ __all__ = [
     "simulate_emergency_stop",
     "simulate_emergency_message",
     "build_emergency_issue",
+    "validate_no_secrets_in_emergency_payload",
 ]
