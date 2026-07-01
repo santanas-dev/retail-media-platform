@@ -446,10 +446,11 @@ class TestBoundaries(unittest.TestCase):
         assert "kso_adapter" not in imports
 
     def test_no_api_router(self):
+        """G.3 added router.py — this test validates router exists (not absence)."""
         path = os.path.join(
             os.path.dirname(__file__), "..", "app", "domains", "emergency", "router.py"
         )
-        assert not os.path.exists(path), "API router should not exist in G.2"
+        assert os.path.exists(path), "Emergency router missing (expected after G.3)"
 
     def test_no_migrations(self):
         import glob

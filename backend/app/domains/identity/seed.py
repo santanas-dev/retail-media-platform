@@ -48,6 +48,7 @@ PERMISSIONS = [
     ("reports.export", "Export reports", "reports", "export", "Export reports to file"),
     ("audit.read", "View audit logs", "audit", "read", "View audit trail"),
     ("emergency.manage", "Emergency actions", "emergency", "manage", "Emergency stop all campaigns"),
+    ("emergency.read", "View emergency preview", "emergency", "read", "Preview emergency actions without execution"),
     ("organization.read", "View organization", "organization", "read", "View branches, clusters, stores"),
     ("organization.manage", "Manage organization", "organization", "manage", "Create/edit branches, clusters, stores"),
     ("channels.manage", "Manage channels", "channels", "manage", "Create/edit channels"),
@@ -117,7 +118,7 @@ ROLE_PERMISSIONS = {
         "reports.read", "reports.export",
         "campaign_reports.read", "campaign_reports.manage",
         "audit.read",
-        "emergency.manage",
+        "emergency.manage", "emergency.read",
     ],
     "security_admin": [
         "users.read", "users.manage",
@@ -135,6 +136,7 @@ ROLE_PERMISSIONS = {
         "devices.gateway.read", "devices.gateway.manage", "devices.gateway.credentials",
         "campaign_reports.read",
         "audit.read",
+        "emergency.read",
     ],
     "ad_manager": [
         "channels.read", "devices.read",
@@ -201,6 +203,7 @@ ROLE_PERMISSIONS = {
         "publications.read", "publications.publish",
         "devices.gateway.read", "devices.gateway.manage", "devices.gateway.credentials",
         "campaign_reports.read", "campaign_reports.manage",
+        "emergency.read",
     ],
     "device_service": [
         # Machine-only role — service/API permissions only, no human portal access.
