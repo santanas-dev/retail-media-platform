@@ -1,8 +1,8 @@
 # Production Readiness Checklist
 
-**Date:** 2026-07-02 | **Last review:** 2026-07-01 (H.4) | **Owner:** Ops Team (TBD)
+**Date:** 2026-07-02 | **Last review:** 2026-07-01 (H.5) | **Owner:** Ops Team (TBD)
 
-> Status: ⬜ NOT READY — documentation + security foundation exist, implementation pending.
+> Status: 🟡 PARTIAL — H.2–H.4 closed 11 gaps; 8 blocking items remain; pilot NOT READY.
 
 ---
 
@@ -16,7 +16,7 @@
 | 1.4 | Redis production config | ⬜ Missing | No | — | Set memory limits |
 | 1.5 | Backend port/host production config | ⬜ Missing | Yes | — | `DOMAIN`/`PORT` env vars |
 | 1.6 | Portal session secret (not dev default) | ⬜ Missing | Yes | — | Generate from vault/secret manager |
-| 1.7 | CORS config for production domains | ✅ H.4 | No | SafeCORSMiddleware | Update origins for production |
+| 1.7 | CORS config for production domains | ✅ **H.4** | No | `SafeCORSMiddleware` | Update origins for production |
 
 ---
 
@@ -27,10 +27,12 @@
 | 2.1 | No secrets in git repo (scan pass) | ✅ Ready | Yes | No-secrets validators | Periodic scan |
 | 2.2 | `.env` not committed | ✅ Ready | Yes | `.gitignore` | Verify |
 | 2.3 | DB password in vault/secret manager | ⬜ Missing | Yes | — | Move from `.env` to vault |
-| 2.4 | Gateway device tokens stored securely | ⬜ Partial | Yes | DB hashed | Add rotation |
+| 2.4 | Gateway device tokens stored securely | 🟡 Partial | Yes | DB hashed | Add rotation |
 | 2.5 | Admin password rotation process | ⬜ Missing | No | — | Document rotation |
 | 2.6 | Emergency access procedure | ⬜ Missing | No | — | Break-glass account |
-| 2.7 | No secrets in logs/audit/portal HTML | ✅ Ready | Yes | Per-domain validators | Maintain |
+| 2.7 | No secrets in logs/audit/portal HTML | ✅ **H.4** | Yes | FORBIDDEN_HEADERS + validators | Maintain |
+| 2.8 | No secrets in ops scripts | ✅ **H.4** | Yes | `backup_postgres.sh` PGPASSWORD not echoed | Maintain |
+| 2.9 | No secrets in `.env.example` files | ✅ **H.4** | Yes | `<PLACEHOLDER>` for sensitive keys | Maintain |
 
 ---
 
@@ -39,12 +41,14 @@
 | # | Item | Status | Blocks? | Evidence | Next |
 |---|---|---|---|---|---|
 | 3.1 | Role-permission map documented | ✅ Ready | No | `seed.py` | Review annually |
-| 3.2 | Least privilege review (all roles) | ⬜ Missing | Yes | — | Audit each role |
+| 3.2 | Least privilege review (all roles) | ✅ **H.4** | Yes | Access review verified | Periodic audit |
 | 3.3 | `device_service` restrictions verified | ✅ Ready | Yes | G.5 tests | Maintain |
 | 3.4 | `advertiser` restrictions verified | ✅ Ready | Yes | G.5 tests | Maintain |
 | 3.5 | Admin access audit log enabled | ✅ Ready | Yes | Audit events | Review |
 | 3.6 | Service account review | ⬜ Missing | No | — | List all service accounts |
 | 3.7 | RLS scope enforcement (advertiser, store, channel) | ✅ Ready | Yes | F.4.1 tests | Add scope docs |
+| 3.8 | `emergency.read` exact 3 roles | ✅ **H.4** | Yes | H.4 tests | Maintain |
+| 3.9 | No `emergency.execute`/`emergency.approve` | ✅ **H.4** | Yes | Not defined in seed | Maintain |
 
 ---
 
@@ -57,8 +61,8 @@
 | 4.3 | Manifest universal preview functional | ✅ Ready | Yes | E tests | Monitor |
 | 4.4 | PoP ingestion (legacy + enterprise) | ✅ Ready | Yes | F tests | Monitor |
 | 4.5 | Media delivery endpoint functional | ✅ Ready | No | Gateway tests | Cache config |
-| 4.6 | Rate limiting on all gateway endpoints | ❌ Missing | **Yes** | — | **Implement before pilot** |
-| 4.7 | Credential rotation mechanism | ❌ Missing | **Yes** | — | **Implement before pilot** |
+| 4.6 | Rate limiting on all gateway endpoints | ✅ **H.4** | No | In-memory, 30/60s default | Production: Redis-backed |
+| 4.7 | Credential rotation mechanism | ❌ Missing | **Yes** | — | Implement before production |
 | 4.8 | Device lifecycle (register/block/unregister) | ✅ Ready | No | Gateway API | Monitor |
 | 4.9 | Gateway health endpoint | ✅ Ready | No | `/health` | Monitor |
 
@@ -68,8 +72,8 @@
 
 | # | Item | Status | Blocks? | Evidence | Next |
 |---|---|---|---|---|---|
-| 5.1 | Physical KSO device available (192.168.110.223) | ⬜ Partial | **Yes** | UKM5 present | **Test** |
-| 5.2 | Ad zone dimensions verified | ❌ Not tested | **Yes** | — | **Measure** |
+| 5.1 | Physical KSO device available (192.168.110.223) | 🟡 Partial | **Yes** | UKM5 present | **Test** |
+| 5.2 | Ad zone dimensions verified (768×1024) | ❌ Not tested | **Yes** | — | **Measure** |
 | 5.3 | Chromium kiosk ready | ❌ Not tested | **Yes** | — | **Test** |
 | 5.4 | Network connectivity to Gateway | ❌ Not tested | **Yes** | — | **Ping/curl** |
 | 5.5 | Legacy manifest unchanged | ✅ Ready | Yes | Route unchanged | Verify |
@@ -97,7 +101,7 @@
 | # | Item | Status | Blocks? | Evidence | Next |
 |---|---|---|---|---|---|
 | 7.1 | Creative upload functional | ✅ Ready | No | Creative tests | Monitor |
-| 7.2 | AV scan (NoScanner in dev, real in prod) | ⬜ Partial | No | Scanner config | Prod AV enabled |
+| 7.2 | AV scan (NoScanner in dev, real in prod) | 🟡 Partial | No | Scanner config | Prod AV enabled |
 | 7.3 | Media format validation (ffprobe) | ✅ Ready | No | Upload validation | Monitor |
 | 7.4 | Media caching (MinIO) | ⬜ Missing | No | — | CDN/cache config |
 | 7.5 | Media delivery to KSO device | ❌ Not tested | **Yes** | — | **Test** |
@@ -142,13 +146,16 @@
 
 | # | Item | Status | Blocks? | Evidence | Next |
 |---|---|---|---|---|---|
-| 11.1 | Prometheus metrics endpoint | ❌ Missing | **Yes** | — | **H.2** |
-| 11.2 | Grafana dashboard | ❌ Missing | No | — | **H.2** |
-| 11.3 | Alert rules (Gateway down, PoP drop, etc.) | ❌ Missing | **Yes** | — | **H.2** |
-| 11.4 | Correlation ID / request ID | ❌ Missing | No | — | **H.2** |
-| 11.5 | Structured logging (JSON) | ⬜ Partial | No | Audit only | **H.2** |
-| 11.6 | `/health` endpoint | ✅ Ready | Yes | Backend + portal | Maintain |
-| 11.7 | No secrets in logs | ✅ Ready | Yes | Validators | Maintain |
+| 11.1 | `/api/health/live` | ✅ **H.2** | Yes | Liveness endpoint | Maintain |
+| 11.2 | `/api/health/ready` (DB check) | ✅ **H.2** | Yes | Readiness endpoint | Maintain |
+| 11.3 | `/api/health/dependencies` (admin) | ✅ **H.2** | Yes | Admin-only check | Maintain |
+| 11.4 | `/api/health/metrics` (Prometheus text) | ✅ **H.2** | Yes | Metrics endpoint | Maintain |
+| 11.5 | Prometheus server deployed | ❌ Missing | **Yes** | — | **H.6** |
+| 11.6 | Grafana dashboard | ❌ Missing | No | — | **H.6** |
+| 11.7 | Alert rules configured | ❌ Missing | **Yes** | — | **H.6** |
+| 11.8 | Correlation ID / request ID | ✅ **H.2** | No | `X-Correlation-ID` | Maintain |
+| 11.9 | Structured JSON logging | ✅ **H.2** | No | `RequestLoggingMiddleware` | Maintain |
+| 11.10 | No secrets in logs | ✅ Ready | Yes | FORBIDDEN_HEADERS | Maintain |
 
 ---
 
@@ -156,12 +163,14 @@
 
 | # | Item | Status | Blocks? | Evidence | Next |
 |---|---|---|---|---|---|
-| 12.1 | PostgreSQL backup configured | ❌ Missing | **Yes** | — | **H.3** |
-| 12.2 | PostgreSQL restore drill completed | ❌ Missing | **Yes** | — | **H.3** |
-| 12.3 | MinIO backup configured | ❌ Missing | No | — | **H.3** |
-| 12.4 | Redis persistence enabled | ⬜ Missing | No | — | Config |
-| 12.5 | Config/seed backup | ⬜ Missing | No | — | Git-based |
-| 12.6 | RPO/RTO defined | ⬜ Missing | No | — | Define with business |
+| 12.1 | PostgreSQL backup script | ✅ **H.3** | Yes | `backup_postgres.sh` | Execute drill |
+| 12.2 | PostgreSQL restore script (guarded) | ✅ **H.3** | Yes | `restore_postgres.sh` (CONFIRM_RESTORE) | Execute drill |
+| 12.3 | MinIO backup script | ✅ **H.3** | No | `backup_minio.sh` | Execute drill |
+| 12.4 | Backup drill completed | ❌ Not done | **Yes** | — | **H.6** |
+| 12.5 | Restore drill completed | ❌ Not done | **Yes** | — | **H.6** |
+| 12.6 | Redis persistence enabled | ⬜ Missing | No | — | Config |
+| 12.7 | Config/seed backup | ⬜ Missing | No | — | Git-based |
+| 12.8 | RPO/RTO defined | ⬜ Missing | No | — | Define with business |
 
 ---
 
@@ -169,10 +178,11 @@
 
 | # | Item | Status | Blocks? | Evidence | Next |
 |---|---|---|---|---|---|
-| 13.1 | Automated deployment script | ❌ Missing | **Yes** | — | **H.3** |
-| 13.2 | Docker compose for prod | ⬜ Partial | Yes | `infra/docker-compose.yml` | Review + harden |
-| 13.3 | Blue-green/canary strategy | ❌ Missing | No | — | Design |
-| 13.4 | Migration apply procedure | ⬜ Partial | Yes | Alembic | Document |
+| 13.1 | Deploy preflight script | ✅ **H.3** | Yes | `deploy_preflight.sh` | Maintain |
+| 13.2 | Post-deploy smoke script | ✅ **H.3** | Yes | `post_deploy_smoke.sh` | Maintain |
+| 13.3 | Docker compose for prod | 🟡 Partial | Yes | `infra/docker-compose.yml` | Review + harden |
+| 13.4 | Blue-green/canary strategy | ❌ Missing | No | — | Design |
+| 13.5 | Migration apply procedure | 🟡 Partial | Yes | Alembic | Document |
 
 ---
 
@@ -180,10 +190,11 @@
 
 | # | Item | Status | Blocks? | Evidence | Next |
 |---|---|---|---|---|---|
-| 14.1 | Rollback plan documented | ⬜ Missing | **Yes** | — | **H.3** |
-| 14.2 | Migration rollback tested | ❌ Missing | Yes | — | **H.3** |
-| 14.3 | Manifest rollback procedure | ❌ Missing | No | — | Document |
-| 14.4 | Campaign/publication rollback | ❌ NO-GO | — | Production switch deferred | Deferred |
+| 14.1 | Rollback preflight script | ✅ **H.3** | Yes | `rollback_preflight.sh` | Maintain |
+| 14.2 | Rollback runbook | ✅ H.1 | Yes | `rollback-runbook.md` | Review |
+| 14.3 | Migration rollback tested | ❌ Missing | Yes | — | **H.6** |
+| 14.4 | Manifest rollback procedure | ❌ Missing | No | — | Document |
+| 14.5 | Campaign/publication rollback | ❌ NO-GO | — | Production switch deferred | Deferred |
 
 ---
 
@@ -191,9 +202,9 @@
 
 | # | Item | Status | Blocks? | Evidence | Next |
 |---|---|---|---|---|---|
-| 15.1 | Load tests (40k devices profile) | ❌ Not executed | **Yes** | — | **H.2** |
-| 15.2 | Performance baseline established | ❌ Missing | No | — | **H.2** |
-| 15.3 | DB query performance review | ❌ Missing | No | — | **H.2** |
+| 15.1 | Load tests (40k devices profile) | ❌ Not executed | **Yes** | — | Pilot scale (1-5 devices) is fine; prod scale needs testing |
+| 15.2 | Performance baseline established | ❌ Missing | No | — | Establish |
+| 15.3 | DB query performance review | ❌ Missing | No | — | DB analysis |
 | 15.4 | Index review | ❌ Missing | No | — | DB analysis |
 
 ---
@@ -202,12 +213,16 @@
 
 | # | Item | Status | Blocks? | Evidence | Next |
 |---|---|---|---|---|---|
-| 16.1 | HTTPS/TLS on all endpoints | ⬜ Missing | Yes | — | Cert config |
-| 16.2 | Rate limiting | ❌ Missing | **Yes** | — | **H.4** |
-| 16.3 | Input validation (all APIs) | ✅ Ready | Yes | Per-domain | Maintain |
-| 16.4 | CORS restricted | ⬜ Missing | Yes | — | Config |
-| 16.5 | Security headers (HSTS, CSP, etc.) | ⬜ Missing | No | — | Config |
-| 16.6 | Dependency vulnerability scan | ❌ Missing | No | — | CI pipeline |
+| 16.1 | Security headers (9) | ✅ **H.4** | No | `SecurityHeadersMiddleware` | Maintain |
+| 16.2 | CORS — no wildcard+credentials | ✅ **H.4** | No | `SafeCORSMiddleware` | Maintain |
+| 16.3 | Rate limiting (in-memory) | ✅ **H.4** | No | 4-tier limits | Production: Redis-backed |
+| 16.4 | Access review (all roles verified) | ✅ **H.4** | Yes | H.4 tests | Periodic audit |
+| 16.5 | No-secrets (logs/API/metrics/scripts) | ✅ **H.4** | Yes | Verified | Maintain |
+| 16.6 | HTTPS/TLS on all endpoints | ⬜ Missing | Yes | — | Cert config |
+| 16.7 | Input validation (all APIs) | ✅ Ready | Yes | Per-domain | Maintain |
+| 16.8 | HSTS | ❌ Pending | No | Requires HTTPS first | Post-HTTPS |
+| 16.9 | CSP | ❌ Pending | No | Portal SSR — separate gate | Post-HTTPS |
+| 16.10 | Dependency vulnerability scan | ❌ Missing | No | — | CI pipeline |
 
 ---
 
@@ -215,12 +230,12 @@
 
 | # | Item | Status | Blocks? | Evidence | Next |
 |---|---|---|---|---|---|
-| 17.1 | Device onboarding runbook | ⬜ Created | **Yes** | H.1 | Review |
-| 17.2 | Incident response runbook | ⬜ Created | **Yes** | H.1 | Review |
-| 17.3 | Rollback runbook | ⬜ Created | **Yes** | H.1 | Review |
-| 17.4 | Backup/restore runbook | ⬜ Created | **Yes** | H.1 | Review |
-| 17.5 | KSO pilot runbook | ⬜ Created | **Yes** | H.1 | Review |
-| 17.6 | Monitoring requirements doc | ⬜ Created | **Yes** | H.1 | Review |
+| 17.1 | Device onboarding runbook | ✅ H.1 | No | `device-onboarding-runbook.md` | Review with ops |
+| 17.2 | Incident response runbook | ✅ H.1 | No | `incident-response-runbook.md` | Review with ops |
+| 17.3 | Rollback runbook | ✅ H.1 | No | `rollback-runbook.md` | Review with ops |
+| 17.4 | Backup/restore runbook | ✅ H.1 | No | `backup-restore-runbook.md` | Review with ops |
+| 17.5 | KSO pilot runbook | ✅ H.1 | No | `kso-pilot-runbook.md` | Review with ops |
+| 17.6 | Monitoring requirements doc | ✅ H.1 | No | `monitoring-alerting-requirements.md` | Review with ops |
 
 ---
 
@@ -229,34 +244,34 @@
 | # | Item | Status | Blocks? | Evidence | Next |
 |---|---|---|---|---|---|
 | 18.1 | 152-ФЗ compliance (5/8 checks fail) | ❌ Incomplete | **Yes** | — | Legal review |
-| 18.2 | Data retention policy | ⬜ Partial | No | `/compliance/retention` | Review |
+| 18.2 | Data retention policy | 🟡 Partial | No | `/compliance/retention` | Review |
 | 18.3 | Business approval for pilot | ❌ Missing | **Yes** | — | Stakeholder sign-off |
 | 18.4 | Security approval | ❌ Missing | **Yes** | — | Security review |
 | 18.5 | Privacy review (personal data) | ❌ Missing | No | — | Review |
 
 ---
 
-## Summary
+## Summary (H.5 update)
 
-| Category | Ready | Partial | Missing | NO-GO/Deferred |
-|---|---|---|---|---|
-| Environment/Config | 1 | 0 | 6 | 0 |
-| Secrets Management | 2 | 1 | 3 | 0 |
-| Access/RBAC/RLS | 4 | 0 | 2 | 0 |
-| Device Gateway | 6 | 0 | 2 | 0 |
-| KSO Devices | 1 | 1 | 4 | 1 |
-| Manifest Delivery | 3 | 0 | 2 | 2 |
-| Media Delivery | 2 | 1 | 1 | 0 |
-| Planning | 2 | 0 | 0 | 1 |
-| Analytics/PoP | 4 | 0 | 0 | 1 |
-| Emergency | 3 | 0 | 0 | 1 |
-| Monitoring/Observability | 2 | 1 | 5 | 0 |
-| Backup/Restore | 0 | 0 | 4 | 0 |
-| Deployment | 0 | 2 | 1 | 0 |
-| Rollback | 0 | 1 | 1 | 1 |
-| Load/Performance | 0 | 0 | 4 | 0 |
-| Security Hardening | 1 | 0 | 5 | 0 |
-| Operations Runbooks | 6 | 0 | 0 | 0 |
-| Legal/Business | 0 | 1 | 4 | 0 |
+| Category | Ready | Partial | Missing | NO-GO/Deferred | Δ from H.1 |
+|---|---|---|---|---|---|
+| Environment/Config | 1 | 0 | 6 | 0 | CORS → ✅ |
+| Secrets Management | 3 | 1 | 3 | 0 | +2 verifications (H.4) |
+| Access/RBAC/RLS | 5 | 0 | 1 | 0 | +2 verifications (H.4) |
+| Device Gateway | 7 | 0 | 1 | 0 | Rate limiting → ✅ |
+| KSO Devices | 1 | 1 | 4 | 1 | No change |
+| Manifest Delivery | 3 | 0 | 2 | 2 | No change |
+| Media Delivery | 2 | 1 | 1 | 0 | No change |
+| Planning | 2 | 0 | 0 | 1 | No change |
+| Analytics/PoP | 4 | 0 | 0 | 1 | No change |
+| Emergency | 3 | 0 | 0 | 1 | No change |
+| Monitoring/Observability | 6 | 0 | 3 | 0 | +4 endpoints (H.2) |
+| Backup/Restore | 3 | 0 | 3 | 0 | +3 scripts (H.3) |
+| Deployment | 2 | 2 | 1 | 0 | +2 scripts (H.3) |
+| Rollback | 2 | 0 | 2 | 1 | +1 script (H.3) |
+| Load/Performance | 0 | 0 | 4 | 0 | No change |
+| Security Hardening | 5 | 0 | 3 | 0 | +5 items (H.4) |
+| Operations Runbooks | 6 | 0 | 0 | 0 | No change |
+| Legal/Business | 0 | 1 | 4 | 0 | No change |
 
-**Overall: documentation created. Implementation pending in H.2–H.5.**
+**Overall: H.2–H.4 closed 11 gaps. 8 blocking items remain. Pilot NOT READY. GO for H.6 preparation.**
