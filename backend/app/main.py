@@ -6,12 +6,14 @@ Retail Media Platform — multichannel digital signage management.
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from app.middleware.cors_config import SafeCORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import check_db_connection
 from app.middleware.correlation_id import CorrelationIDMiddleware
 from app.middleware.request_logging import RequestLoggingMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.middleware.rate_limiter import RateLimiterMiddleware
 from app.domains.media.storage import ensure_bucket as ensure_media_bucket
 from app.domains.identity.router import router as identity_router
 from app.domains.organization.router import router as organization_router
@@ -57,14 +59,10 @@ app = FastAPI(
 )
 
 app.add_middleware(CorrelationIDMiddleware)
+app.add_middleware(RateLimiterMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(SafeCORSMiddleware)
 
 app.include_router(identity_router)
 app.include_router(organization_router)

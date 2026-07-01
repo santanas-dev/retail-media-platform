@@ -1,8 +1,8 @@
 # Production Readiness Checklist
 
-**Date:** 2026-07-02 | **Phase:** H.1 | **Owner:** Ops Team (TBD)
+**Date:** 2026-07-02 | **Last review:** 2026-07-01 (H.4) | **Owner:** Ops Team (TBD)
 
-> Status: ⬜ NOT READY — documentation exists, implementation pending.
+> Status: ⬜ NOT READY — documentation + security foundation exist, implementation pending.
 
 ---
 
@@ -16,7 +16,7 @@
 | 1.4 | Redis production config | ⬜ Missing | No | — | Set memory limits |
 | 1.5 | Backend port/host production config | ⬜ Missing | Yes | — | `DOMAIN`/`PORT` env vars |
 | 1.6 | Portal session secret (not dev default) | ⬜ Missing | Yes | — | Generate from vault/secret manager |
-| 1.7 | CORS config for production domains | ⬜ Missing | Yes | — | Restrict to known origins |
+| 1.7 | CORS config for production domains | ✅ H.4 | No | SafeCORSMiddleware | Update origins for production |
 
 ---
 

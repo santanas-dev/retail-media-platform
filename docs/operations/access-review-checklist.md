@@ -1,6 +1,6 @@
 # Access Review Checklist
 
-**Date:** 2026-07-02 | **Phase:** H.1 | **Owner:** Security Admin (TBD)
+**Date:** 2026-07-02 | **Last review:** 2026-07-01 (H.4) | **Owner:** Security Admin (TBD)
 
 > Review all roles, permissions, and access before pilot.
 
@@ -10,14 +10,20 @@
 
 | Role | Users (count) | Review | Notes |
 |---|---|---|---|
-| system_admin | TBD | ⬜ | Full access — limit to 1-2 people |
-| security_admin | TBD | ⬜ | User management + audit |
+| system_admin | TBD | ✅ (H.4) | Full access — limit to 1-2 people |
+| security_admin | TBD | ✅ (H.4) | User management + audit |
 | ad_manager | TBD | ⬜ | Campaign + media management |
 | approver | TBD | ⬜ | Campaign/creative approval |
 | analyst | TBD | ⬜ | Reports + analytics |
 | advertiser | TBD | ⬜ | Own campaigns + reports |
-| operations | TBD | ⬜ | Device management + monitoring |
+| operations | TBD | ✅ (H.4) | Device management + monitoring. **Note:** has `publications.publish` — acceptable risk for pilot |
 | device_service | Machine only | ✅ | Gateway-only, no portal |
+
+**H.4 Verification:**
+- ✅ `device_service` has ONLY gateway permissions (3 total: read, manage, credentials)
+- ✅ `advertiser` has minimal permissions (campaigns.read, planning.read, reports.read)
+- ✅ `operations` has `emergency.read` (3 roles total)
+- ✅ No role has `emergency.execute` or `emergency.approve` (not even defined)
 
 ---
 
@@ -25,15 +31,15 @@
 
 | Permission | Who Has It | Review |
 |---|---|---|
-| `emergency.read` | system_admin, security_admin, operations | ⬜ Verify no advertiser/analyst/device_service |
-| `emergency.manage` | system_admin only | ⬜ Not used by API — review need |
-| `reports.read` | Multiple roles | ⬜ Broad — review |
-| `planning.read` | Multiple roles | ⬜ Acceptable |
-| `publications.publish` | system_admin, operations | ⬜ operations should not publish without approval |
-| `devices.gateway.credentials` | system_admin, security_admin, operations | ⬜ Highest sensitivity — review |
-| `users.manage` | system_admin, security_admin | ⬜ OK |
-| `users.create` | system_admin only | ⬜ OK |
-| `audit.read` | system_admin, security_admin | ⬜ OK |
+| `emergency.read` | system_admin, security_admin, operations | ✅ Verified H.4 — exact 3 roles |
+| `emergency.manage` | system_admin only | ✅ Exists but NOT used in API — documented |
+| `reports.read` | Multiple roles | ⬜ Broad — review before pilot |
+| `planning.read` | Multiple roles | ✅ Acceptable |
+| `publications.publish` | system_admin, operations | ⚠️ operations should not publish without approval — risk accepted for pilot |
+| `devices.gateway.credentials` | system_admin, security_admin, operations | ⚠️ High sensitivity — review before pilot |
+| `users.manage` | system_admin, security_admin | ✅ OK |
+| `users.create` | system_admin only | ✅ OK |
+| `audit.read` | system_admin, security_admin | ✅ OK |
 
 ---
 
@@ -41,7 +47,7 @@
 
 | Service Account | Permissions | Review |
 |---|---|---|
-| device_service (Gateway) | devices.gateway.* | ⬜ OK — machine-only |
+| device_service (Gateway) | devices.gateway.read, devices.gateway.manage, devices.gateway.credentials | ✅ OK — machine-only, no portal access |
 | (others? TBD) | | ⬜ List all service accounts |
 
 ---
@@ -62,16 +68,30 @@
 
 | Principle | Status |
 |---|---|
-| No role has more permissions than needed | ⬜ Review |
+| No role has more permissions than needed | ⚠️ operations has publications.publish — risk accepted for pilot |
 | device_service restricted to Gateway only | ✅ |
 | advertiser restricted to own campaigns | ✅ (RLS) |
-| operations cannot approve/publish without review | ⬜ Review `publications.publish` |
+| operations cannot approve/publish without review | ⚠️ operations CAN publish — documented risk |
 | analyst cannot modify | ✅ (read-only permissions) |
 | emergency.read restricted | ✅ (3 roles only) |
+| emergency.execute/approve absent | ✅ (not defined) |
 
 ---
 
-## 6. Audit Trail Review
+## 6. H.4 Middleware Security Review
+
+| Check | Status |
+|---|---|
+| Security headers on all responses | ✅ 9 headers |
+| CORS: no wildcard + credentials | ✅ Fixed — explicit origins |
+| Rate limiting: sensitive endpoints | ✅ 5/10/20/30 req per 60s |
+| Rate limiter: no Redis dependency | ✅ In-memory |
+| HSTS: not forced | ✅ (pending HTTPS decision) |
+| CSP: not added | ✅ (pending UI security gate) |
+
+---
+
+## 7. Audit Trail Review
 
 | Event Type | Status |
 |---|---|
@@ -85,7 +105,7 @@
 
 ---
 
-## 7. Pre-Pilot Sign-Off
+## 8. Pre-Pilot Sign-Off
 
 | Check | Owner | Date | Signature |
 |---|---|---|---|
@@ -95,3 +115,6 @@
 | Admin access audited | Security Admin | | |
 | Least privilege confirmed | Security Admin | | |
 | Audit trail verified | Security Admin | | |
+| Security headers deployed | Dev (H.4) | 2026-07-01 | ✅ |
+| CORS fixed (no wildcard+credentials) | Dev (H.4) | 2026-07-01 | ✅ |
+| Rate limiting active | Dev (H.4) | 2026-07-01 | ✅ |
