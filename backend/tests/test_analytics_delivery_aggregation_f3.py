@@ -455,8 +455,9 @@ class TestBoundaries(unittest.TestCase):
         assert "db.commit(" not in src
 
     def test_no_api_router(self):
+        """F.4 added router.py — this test validates router exists (not absence)."""
         path = os.path.join(os.path.dirname(__file__), "..", "app", "domains", "analytics", "router.py")
-        assert not os.path.exists(path)
+        assert os.path.exists(path), "Analytics router missing (expected after F.4)"
 
     def test_no_clickhouse(self):
         imports = _imports(__import__("app.domains.analytics.service", fromlist=["calculate_delivery_metrics"]))

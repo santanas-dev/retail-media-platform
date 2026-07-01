@@ -33,6 +33,7 @@ from app.domains.device_dashboard.router import router as device_dashboard_route
 from app.domains.airtime.router import router as airtime_router
 from app.domains.reports.router import router as reports_export_router
 from app.domains.planning.router import router as planning_router
+from app.domains.analytics.router import router as analytics_router
 
 
 @asynccontextmanager
@@ -82,6 +83,7 @@ app.include_router(device_dashboard_router)
 app.include_router(airtime_router)
 app.include_router(reports_export_router)
 app.include_router(planning_router)
+app.include_router(analytics_router)
 
 
 @app.get("/health")

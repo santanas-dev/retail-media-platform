@@ -441,10 +441,11 @@ class TestReadOnlyBoundaries(unittest.TestCase):
         assert "clickhouse" not in imports
 
     def test_no_api_router_created(self):
+        """F.4 added router.py — this test validates router exists (not absence)."""
         path = os.path.join(
             os.path.dirname(__file__), "..", "app", "domains", "analytics", "router.py"
         )
-        assert not os.path.exists(path)
+        assert os.path.exists(path), "Analytics router missing (expected after F.4)"
 
     def test_no_device_gateway_router_import(self):
         imports = _imports_from_module(

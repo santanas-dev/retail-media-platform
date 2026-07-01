@@ -401,11 +401,11 @@ class TestBoundaries(unittest.TestCase):
         assert "publication" not in imports
 
     def test_no_api_router_created(self):
-        """Analytics domain has no router.py file."""
+        """F.4 added router.py — this test validates router exists (not absence)."""
         path = os.path.join(
             os.path.dirname(__file__), "..", "app", "domains", "analytics", "router.py"
         )
-        assert not os.path.exists(path), f"API router found at {path}"
+        assert os.path.exists(path), "Analytics router missing (expected after F.4)"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
