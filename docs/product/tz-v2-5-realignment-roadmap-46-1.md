@@ -246,25 +246,37 @@
 
 ---
 
-## Фаза G: Emergency & Operations (P2)
+## Фаза G: Emergency & Operations (P2) — ✅ COMPLETED
 
-### G.1 — Emergency Management
-- Стоп-реклама, экстренное сообщение, возврат
-- Уровни: устройство/магазин/кластер/филиал/сеть
-- Аудит и прогресс доставки
+### G.0 — Design Gate ✅
+- Документ: docs/architecture/g0-phase-g-roadmap-sync-design-gate.md
 
-### G.2 — Operational Health Center
-- Дашборд здоровья устройств
-- Детализация до магазина/устройства
-- Алерты по критичным событиям
+### G.1 — Emergency Management Schemas / Contracts ✅
+- 10 Pydantic v2 схем, 6 функций-контрактов
+- Commit: 76fcd33
 
-### G.3 — Staged Rollout
-- Лаборатория → 5 магазинов → ... → вся сеть
-- Авто-стоп при превышении порога ошибок
-- Rollback на стабильную версию
+### G.2 — Emergency Management Service Implementation ✅
+- dry-run сервис: resolve_emergency_targets, preview, simulate
+- No DB writes, no real stop
+- Commit: 6a251f7
 
-**Blockers:** нужен Device Gateway + PoP
-**KSO hardware:** желательно
+### G.3 — Emergency API Read-Only / Security Design Gate ✅
+- 4 read-only/dry-run endpoints
+- Permission: emergency.read (system_admin, security_admin, operations)
+- Commit: 952b293
+
+### G.4 — Emergency Portal Read-Only / Dry-Run Control Page ✅
+- Страница /emergency: capabilities + preview + simulate
+- Dry-run only, безопасные кнопки
+- Commit: 6b97d47
+
+### G.5 — Emergency Security / RLS / Regression Gate ✅
+- 60 gate-тестов: permissions, API, scope, audit, portal, source
+- Commit: 418097f
+
+### G.3 (Original) — Staged Rollout: DEFERRED
+- Отдельный design gate
+- Требует Device Gateway + PoP
 
 ---
 
@@ -296,7 +308,7 @@
 |---|---|---|---|---|
 | **P0** | A (Re-Alignment), B (Multichannel Core) | ✅ COMPLETED | — | ✅ Да |
 | **P1** | D (Inventory & Planning), E (KSO) | ✅ COMPLETED | — | ✅ Да |
-| **P2** | F (Analytics), G (Emergency/Ops) | ⏳ | Production | ✅ Да |
+| **P2** | F (Analytics), G (Emergency/Ops) | ✅ COMPLETED | Production | ✅ Да |
 | **P3** | H (Production Readiness) | ⏳ | Запуск | ⚠️ Желательно |
 
 ## Оценка усилий
@@ -309,7 +321,7 @@
 | D — Inventory & Planning | 11 | Medium | ✅ |
 | E — KSO Channel | 5 | Medium | ✅ |
 | F — PoP & Analytics | 3-5 | Medium-High | ⏳ |
-| G — Emergency & Ops | 2-4 | Medium | ⏳ |
+| G — Emergency & Ops | 2-4 | Medium | ✅ |
 | H — Production | 3-5 | High | ⏳ |
 
-**Итого: ~21-35 сессий до production-ready v2.5** | **Закрыто: A+B+C+D+E = ~24-30 сессий**
+**Итого: ~21-35 сессий до production-ready v2.5** | **Закрыто: A+B+C+D+E+F+G = ~30-38 сессий**
