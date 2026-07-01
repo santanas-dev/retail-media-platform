@@ -15,9 +15,11 @@ from typing import Any
 from app.domains.analytics.schemas import (
     AnalyticsIssue,
     AnalyticsTimeRange,
+    DeliveryBreakdown,
     DeliveryMetricQuery,
     DeliveryMetricResult,
     DeliveryMetricsSummary,
+    DeviceHealthItem,
     DeviceHealthQuery,
     DeviceHealthResult,
     PlannedVsDeliveredQuery,
@@ -454,81 +456,327 @@ async def normalize_pop_events(
     return filtered
 
 
-async def calculate_delivery_metrics(query: DeliveryMetricQuery) -> DeliveryMetricResult:
-    """Calculate delivery metrics for the given query.
+# ═══════════════════════════════════════════════════════════════════════════
+# Aggregation helpers
+# ═══════════════════════════════════════════════════════════════════════════
 
-    F.1: returns structured empty result — aggregation logic in F.2+.
-    """
+PLAYBACK_SUCCESS_STATUSES = frozenset({
+    "success", "played", "completed", "ok", "accepted",
+})
+PLAYBACK_FAILURE_STATUSES = frozenset({
+    "failure", "failed", "error", "rejected", "timeout",
+})
+MANIFEST_RECEIVED_EVENT_TYPES = frozenset({
+    "manifest_received", "manifest_downloaded", "received",
+})
+
+
+def _count_unique_devices(events: list[PopEventNormalized]) -> int:
+    """Count unique devices across all identifier fields."""
+    ids: set[str] = set()
+    for e in events:
+        if e.gateway_device_id:
+            ids.add(str(e.gateway_device_id))
+        if e.physical_device_id:
+            ids.add(str(e.physical_device_id))
+        if e.device_code:
+            ids.add(e.device_code)
+    return len(ids)
+
+
+def _aggregate_metrics(events: list[PopEventNormalized]) -> DeliveryMetricsSummary:
+    """Aggregate DeliveryMetricsSummary from normalized events."""
+    delivered = sum(e.delivered_impressions for e in events)
+    total = len(events)
+    success = sum(1 for e in events
+                  if e.playback_status and e.playback_status.lower() in PLAYBACK_SUCCESS_STATUSES)
+    failure = sum(1 for e in events
+                  if e.playback_status and e.playback_status.lower() in PLAYBACK_FAILURE_STATUSES)
+    manifest = sum(1 for e in events
+                   if e.event_type and e.event_type.lower() in MANIFEST_RECEIVED_EVENT_TYPES)
+    device_count = _count_unique_devices(events)
+    active = _count_unique_devices(events)
+
+    return DeliveryMetricsSummary(
+        delivered_impressions=delivered,
+        proof_events_count=total,
+        playback_success_count=success,
+        playback_failure_count=failure,
+        manifest_received_count=manifest,
+        device_count=device_count,
+        active_device_count=active,
+        silent_device_count=0,  # requires expected device set — F.4+
+        expected_impressions=None,  # requires planning integration — F.4+
+        delivery_gap_percent=None,
+        campaign_delivery_status="unknown",
+        placement_delivery_status="unknown",
+        store_delivery_status="unknown",
+        device_delivery_status="unknown",
+    )
+
+
+def _build_breakdowns(
+    events: list[PopEventNormalized],
+    granularity: str,
+) -> list[DeliveryBreakdown]:
+    """Build breakdowns from normalized events."""
+    from collections import defaultdict
+    from app.domains.analytics.schemas import DeliveryBreakdown
+
+    result: list[DeliveryBreakdown] = []
+
+    # Campaign breakdown
+    by_campaign: dict[str, list[PopEventNormalized]] = defaultdict(list)
+    for e in events:
+        key = str(e.campaign_id) if e.campaign_id else "unknown"
+        by_campaign[key].append(e)
+    for key, evts in sorted(by_campaign.items()):
+        result.append(DeliveryBreakdown(
+            breakdown_type="campaign",
+            key=key,
+            label=key if key != "unknown" else "Unknown Campaign",
+            metrics=_aggregate_metrics(evts),
+        ))
+
+    # Channel breakdown
+    by_channel: dict[str, list[PopEventNormalized]] = defaultdict(list)
+    for e in events:
+        key = e.channel_code or "unknown"
+        by_channel[key].append(e)
+    for key, evts in sorted(by_channel.items()):
+        result.append(DeliveryBreakdown(
+            breakdown_type="channel",
+            key=key,
+            label=key if key != "unknown" else "Unknown Channel",
+            metrics=_aggregate_metrics(evts),
+        ))
+
+    # Device breakdown (by device_code or gateway_device_id)
+    by_device: dict[str, list[PopEventNormalized]] = defaultdict(list)
+    for e in events:
+        if e.device_code:
+            key = e.device_code
+        elif e.gateway_device_id:
+            key = str(e.gateway_device_id)
+        else:
+            key = "unknown"
+        by_device[key].append(e)
+    for key, evts in sorted(by_device.items()):
+        result.append(DeliveryBreakdown(
+            breakdown_type="device",
+            key=key,
+            label=key if key != "unknown" else "Unknown Device",
+            metrics=_aggregate_metrics(evts),
+        ))
+
+    # Day breakdown (only if granularity supports it)
+    if granularity in ("day", "hour") and events:
+        by_day: dict[str, list[PopEventNormalized]] = defaultdict(list)
+        for e in events:
+            if e.event_time:
+                day_key = e.event_time.strftime("%Y-%m-%d")
+            else:
+                day_key = "unknown"
+            by_day[day_key].append(e)
+        for key, evts in sorted(by_day.items()):
+            result.append(DeliveryBreakdown(
+                breakdown_type="day",
+                key=key,
+                label=key if key != "unknown" else "Unknown Day",
+                metrics=_aggregate_metrics(evts),
+            ))
+
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Delivery metrics (F.3 implementation)
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def calculate_delivery_metrics(
+    db: Any,  # AsyncSession
+    query: DeliveryMetricQuery,
+) -> DeliveryMetricResult:
+    """Calculate delivery metrics from normalized PoP events."""
     issues: list[AnalyticsIssue] = []
 
-    # Validate query
+    # Validate
     if query.time_range.date_from and query.time_range.date_to:
-        issues.extend(validate_time_range(query.time_range.date_from, query.time_range.date_to))
+        if query.time_range.date_from > query.time_range.date_to:
+            issues.append(build_analytics_issue(
+                "invalid_time_range", "error",
+                "date_from must be <= date_to", field="time_range",
+            ))
     issues.extend(validate_granularity(query.time_range.granularity))
+
+    if not query.include_legacy_kso and not query.include_enterprise_gateway:
+        issues.append(build_analytics_issue(
+            "no_source_enabled", "warning",
+            "No data sources enabled.", field="query",
+        ))
 
     if query.time_range.date_from and not query.time_range.date_to:
         query.time_range.date_to = datetime.now(timezone.utc)
 
-    if not query.include_legacy_kso and not query.include_enterprise_gateway:
-        issues.append(build_analytics_issue(
-            "no_source_enabled",
-            "warning",
-            "Both include_legacy_kso and include_enterprise_gateway are False — no data sources enabled.",
-        ))
-
     errors = [i for i in issues if i.severity == "error"]
     warnings = [i for i in issues if i.severity != "error"]
 
+    if errors:
+        return DeliveryMetricResult(
+            ok=False,
+            time_range=query.time_range,
+            scope=query.scope,
+            warnings=warnings,
+            errors=errors,
+        )
+
+    # Normalize
+    events = await normalize_pop_events(db, query)
+
+    # Exclude dry-run again in case normalization didn't
+    if query.exclude_dry_run:
+        events = exclude_dry_run_events(events)
+
+    # Aggregation
+    metrics = _aggregate_metrics(events)
+
+    # Expected impressions unavailable warning
+    warnings.append(build_analytics_issue(
+        "expected_impressions_unavailable",
+        "warning",
+        "expected_impressions requires planning data integration (F.4+)",
+        field="metrics.expected_impressions",
+    ))
+
+    # Silent device count unavailable warning
+    warnings.append(build_analytics_issue(
+        "silent_device_requires_inventory_or_device_scope",
+        "warning",
+        "silent_device_count requires expected device set from inventory or scope",
+        field="metrics.silent_device_count",
+    ))
+
+    # Manifest received limited warning if no manifest events detected
+    if metrics.manifest_received_count == 0 and events:
+        warnings.append(build_analytics_issue(
+            "metric_limited",
+            "warning",
+            "manifest_received_count is 0 — event_type may not carry manifest delivery info",
+            field="metrics.manifest_received_count",
+        ))
+
+    # Breakdowns
+    breakdowns = _build_breakdowns(events, query.time_range.granularity)
+
     return DeliveryMetricResult(
-        ok=len(errors) == 0,
+        ok=True,
         time_range=query.time_range,
         scope=query.scope,
-        metrics=DeliveryMetricsSummary(),
-        breakdowns=[],
+        metrics=metrics,
+        breakdowns=breakdowns,
         warnings=warnings,
         errors=errors,
     )
 
 
-async def calculate_device_health(query: DeviceHealthQuery) -> DeviceHealthResult:
-    """Calculate device health for the given query.
-
-    F.1: returns structured empty result — aggregation logic in F.2+.
-    """
-    return DeviceHealthResult(
-        ok=True,
-        devices=[],
-        warnings=[],
-        errors=[],
+async def calculate_device_health(
+    db: Any,
+    query: DeviceHealthQuery,
+) -> DeviceHealthResult:
+    """Calculate device health — basic implementation over normalized events."""
+    # Get events via a delivery query
+    dq = DeliveryMetricQuery(
+        time_range=AnalyticsTimeRange(
+            date_from=query.time_range.date_from,
+            date_to=query.time_range.date_to,
+        ),
+        scope=query.scope,
+        include_legacy_kso=True,
+        include_enterprise_gateway=True,
+        exclude_dry_run=True,
     )
+    events = await normalize_pop_events(db, dq)
 
+    # Build device items
+    devices_by_id: dict[str, PopEventNormalized] = {}
+    for e in events:
+        key = e.device_code or str(e.gateway_device_id) if e.gateway_device_id else None
+        if key:
+            devices_by_id.setdefault(key, e)
 
-async def calculate_planned_vs_delivered(query: PlannedVsDeliveredQuery) -> PlannedVsDeliveredResult:
-    """Calculate planned vs delivered comparison.
+    items: list[DeviceHealthItem] = []
+    for key, latest in devices_by_id.items():
+        is_silent = False
+        if query.silent_threshold_minutes and latest.event_time:
+            age = (datetime.now(timezone.utc) - latest.event_time).total_seconds() / 60
+            is_silent = age > query.silent_threshold_minutes
 
-    F.1: returns structured empty result — aggregation logic in F.2+.
-    """
-    issues: list[AnalyticsIssue] = []
+        status: str = "unknown"
+        if is_silent:
+            status = "silent"
+        elif latest.playback_status and latest.playback_status.lower() in PLAYBACK_SUCCESS_STATUSES:
+            status = "ok"
+        elif latest.playback_status and latest.playback_status.lower() in PLAYBACK_FAILURE_STATUSES:
+            status = "warning"
+        else:
+            status = "unknown"
 
-    if not query.include_planning:
-        issues.append(build_analytics_issue(
-            "planning_disabled",
-            "warning",
-            "Planning data excluded from planned_vs_delivered.",
-            field="include_planning",
+        items.append(DeviceHealthItem(
+            device_code=latest.device_code,
+            gateway_device_id=latest.gateway_device_id,
+            physical_device_id=latest.physical_device_id,
+            store_id=latest.store_id,
+            channel_code=latest.channel_code,
+            last_seen_at=latest.event_time,
+            last_pop_at=latest.event_time,
+            is_silent=is_silent,
+            status=status,  # type: ignore[arg-type]
         ))
 
-    errors = [i for i in issues if i.severity == "error"]
-    warnings = [i for i in issues if i.severity != "error"]
+    return DeviceHealthResult(ok=True, devices=items)
+
+
+async def calculate_planned_vs_delivered(
+    db: Any,
+    query: PlannedVsDeliveredQuery,
+) -> PlannedVsDeliveredResult:
+    """Calculate planned vs delivered — F.3 basic implementation."""
+    dq = DeliveryMetricQuery(
+        time_range=query.time_range,
+        scope=query.scope,
+        include_legacy_kso=True,
+        include_enterprise_gateway=True,
+        exclude_dry_run=query.exclude_dry_run,
+    )
+    result = await calculate_delivery_metrics(db, dq)
+
+    warnings = list(result.warnings)
+    errors = list(result.errors)
+    delivered = result.metrics.delivered_impressions
+    expected = None
+    gap = 0
+    gap_pct = None
+    status = "unknown"
+
+    if query.include_planning:
+        warnings.append(build_analytics_issue(
+            "expected_impressions_unavailable",
+            "warning",
+            "Planning integration not available in F.3 — expected_impressions is None",
+            field="expected_impressions",
+        ))
+        status = "no_plan"
+    else:
+        status = "no_plan"
 
     return PlannedVsDeliveredResult(
-        ok=len(errors) == 0,
-        expected_impressions=None,
-        delivered_impressions=0,
-        delivery_gap=0,
-        delivery_gap_percent=None,
-        status="unknown",
-        breakdowns=[],
+        ok=result.ok,
+        expected_impressions=expected,
+        delivered_impressions=delivered,
+        delivery_gap=gap,
+        delivery_gap_percent=gap_pct,
+        status=status,  # type: ignore[arg-type]
+        breakdowns=result.breakdowns,
         warnings=warnings,
         errors=errors,
     )

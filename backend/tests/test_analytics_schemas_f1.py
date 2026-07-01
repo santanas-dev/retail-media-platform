@@ -269,25 +269,41 @@ class TestServiceContracts(unittest.TestCase):
         assert len(result) == 0
 
     def test_calculate_delivery_metrics_returns_result(self):
+        db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        db.execute.return_value = mock_result
         q = DeliveryMetricQuery()
-        result = asyncio.run(calculate_delivery_metrics(q))
+        result = asyncio.run(calculate_delivery_metrics(db, q))
         assert isinstance(result, DeliveryMetricResult)
         assert result.ok is True
 
     def test_calculate_delivery_metrics_no_source_warning(self):
+        db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        db.execute.return_value = mock_result
         q = DeliveryMetricQuery(include_legacy_kso=False, include_enterprise_gateway=False)
-        result = asyncio.run(calculate_delivery_metrics(q))
+        result = asyncio.run(calculate_delivery_metrics(db, q))
         assert any("no_source_enabled" in w.code for w in result.warnings)
 
     def test_calculate_device_health_returns_result(self):
+        db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        db.execute.return_value = mock_result
         q = DeviceHealthQuery()
-        result = asyncio.run(calculate_device_health(q))
+        result = asyncio.run(calculate_device_health(db, q))
         assert isinstance(result, DeviceHealthResult)
         assert result.ok is True
 
     def test_calculate_planned_vs_delivered_returns_result(self):
+        db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        db.execute.return_value = mock_result
         q = PlannedVsDeliveredQuery()
-        result = asyncio.run(calculate_planned_vs_delivered(q))
+        result = asyncio.run(calculate_planned_vs_delivered(db, q))
         assert isinstance(result, PlannedVsDeliveredResult)
 
     def test_exclude_dry_run_removes_dry_run(self):
