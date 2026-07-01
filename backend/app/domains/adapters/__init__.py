@@ -4,6 +4,7 @@ Channel-specific adapter implementations for the Orchestrator.
 Each adapter implements AdapterContract for its channel (KSO, Android TV, etc.).
 """
 from app.domains.adapters.mock_adapter import MockAdapter
+from app.domains.adapters.kso_adapter import KsoAdapter
 from app.domains.adapters.registry import (
     register_adapter,
     get_adapter,
@@ -13,6 +14,7 @@ from app.domains.adapters.registry import (
 
 __all__ = [
     "MockAdapter",
+    "KsoAdapter",
     "register_adapter",
     "get_adapter",
     "list_adapters",
