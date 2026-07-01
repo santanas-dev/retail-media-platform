@@ -538,6 +538,32 @@ def _build_breakdowns(
             metrics=_aggregate_metrics(evts),
         ))
 
+    # Placement breakdown
+    by_placement: dict[str, list[PopEventNormalized]] = defaultdict(list)
+    for e in events:
+        key = str(e.placement_id) if e.placement_id else "unknown"
+        by_placement[key].append(e)
+    for key, evts in sorted(by_placement.items()):
+        result.append(DeliveryBreakdown(
+            breakdown_type="placement",
+            key=key,
+            label=key if key != "unknown" else "Unknown Placement",
+            metrics=_aggregate_metrics(evts),
+        ))
+
+    # Store breakdown
+    by_store: dict[str, list[PopEventNormalized]] = defaultdict(list)
+    for e in events:
+        key = str(e.store_id) if e.store_id else "unknown"
+        by_store[key].append(e)
+    for key, evts in sorted(by_store.items()):
+        result.append(DeliveryBreakdown(
+            breakdown_type="store",
+            key=key,
+            label=key if key != "unknown" else "Unknown Store",
+            metrics=_aggregate_metrics(evts),
+        ))
+
     # Channel breakdown
     by_channel: dict[str, list[PopEventNormalized]] = defaultdict(list)
     for e in events:
@@ -663,6 +689,16 @@ async def calculate_delivery_metrics(
             "warning",
             "manifest_received_count is 0 — event_type may not carry manifest delivery info",
             field="metrics.manifest_received_count",
+        ))
+
+    # Placement/store breakdown currently limited — normalization doesn't resolve these IDs
+    # (requires manifest_version join for placement, GatewayDevice join for store — deferred to F.4+)
+    if events:
+        warnings.append(build_analytics_issue(
+            "metric_limited",
+            "warning",
+            "placement_id and store_id not resolved by normalizers — all events fall into 'unknown' bucket for these dimensions (deferred to F.4+)",
+            field="breakdowns.placement, breakdowns.store",
         ))
 
     # Breakdowns
