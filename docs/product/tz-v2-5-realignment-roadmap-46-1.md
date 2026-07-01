@@ -1,6 +1,6 @@
 # TZ v2.5 Re-Alignment Roadmap — 46.1
 
-> **Дата:** 2026-06-29 (обновлено 2026-07-01 после Phase D)
+> **Дата:** 2026-06-29 (обновлено 2026-07-01 после Phase E)
 > **Предыдущий roadmap:** `roadmap-after-full-audit-45-7.md` — ЗАМЕНЯЕТСЯ этим документом
 > **Причина:** Gap analysis показал значительные отклонения от ТЗ v2.5
 
@@ -162,21 +162,47 @@
 
 ---
 
-## Фаза E: KSO — Первый канал (P1)
+## Фаза E: KSO — Первый канал (P1) ✅ COMPLETED
 
-### E.1 — KSO Adapter
-- Реализация KsoAdapter на основе AdapterContract
-- mTLS/token flow (mock)  
-- ETag/304, cache instructions
-- Hidden-on-touch events
+### E.0 — Pre-E Audit / Design Gate ✅
+- Анализ legacy KSO flow, universal chain, gaps
+- Документ: `docs/architecture/e0-kso-first-channel-design-gate.md`
 
-### E.2 — KSO Chromium Runtime (только при доступности КСО)
-- systemd wrapper
-- Chromium kiosk 1440×1080
-- Локальный кэш, fallback
+### E.1 — KSO Adapter Contract + Dry-Run Payload Builder ✅
+- KsoAdapter(AdapterContract) — dry-run payload builder
+- auto-register через _register()
+- build_payload/validate_payload/simulate_delivery
+- 55 tests
 
-**Blockers:** 🔴 KSO hardware для E.2
-**Risk:** Medium (адаптер без hardware можно через mock)
+### E.2 — Validation + No-Secrets / Compatibility Gate ✅
+- FORBIDDEN_SECRET_WORDS: 20 слов, ALLOWED_SAFE_KEYS
+- Рекурсивный no-secrets scanner
+- Payload compatibility validation
+- 65 tests
+
+### E.3 — Universal Manifest Preview Integration ✅
+- KsoAdapter → select_adapter("kso") → UniversalManifestV1.adapter_payload
+- Gateway universal endpoint возвращает KSO preview manifest
+- 52 tests
+
+### E.4 — Legacy Compatibility / No Production Switch Gate ✅
+- Legacy /kso/{device_code}/manifest изолирован
+- GeneratedManifest не пишется universal preview path
+- 0 production switch флагов
+- 45 tests
+
+### E.5 — Closure Gate ✅
+- Финальный аудит, документация, baseline
+
+**E total: 217 tests / 217 passed**
+
+### Deferred (НЕ входило в scope E):
+- KSO Chromium Runtime (заблокирован hardware)
+- Real KSO production switch
+- Compatibility projection
+- Signed manifests
+- GeneratedManifest writes из universal manifest
+- Media delivery/caching для KSO
 
 ---
 
@@ -251,7 +277,7 @@
 | Приоритет | Фазы | Статус | Блокирует | Можно без КСО |
 |---|---|---|---|---|
 | **P0** | A (Re-Alignment), B (Multichannel Core) | ✅ COMPLETED | — | ✅ Да |
-| **P1** | D (Inventory & Planning), E (KSO) | ✅ D / ⏳ E | — | ✅ Да |
+| **P1** | D (Inventory & Planning), E (KSO) | ✅ COMPLETED | — | ✅ Да |
 | **P2** | F (Analytics), G (Emergency/Ops) | ⏳ | Production | ✅ Да |
 | **P3** | H (Production Readiness) | ⏳ | Запуск | ⚠️ Желательно |
 
@@ -263,9 +289,9 @@
 | B — Multichannel Core | 4-6 | High | ✅ |
 | C — Device Gateway | 3-5 | High | ✅ |
 | D — Inventory & Planning | 11 | Medium | ✅ |
-| E — KSO Channel | 2-4 | Medium-High | ⏳ |
+| E — KSO Channel | 5 | Medium | ✅ |
 | F — PoP & Analytics | 3-5 | Medium-High | ⏳ |
 | G — Emergency & Ops | 2-4 | Medium | ⏳ |
 | H — Production | 3-5 | High | ⏳ |
 
-**Итого: ~21-35 сессий до production-ready v2.5** | **Закрыто: A+B+C+D = ~19-25 сессий**
+**Итого: ~21-35 сессий до production-ready v2.5** | **Закрыто: A+B+C+D+E = ~24-30 сессий**
