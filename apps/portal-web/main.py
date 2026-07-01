@@ -4216,6 +4216,191 @@ async def logout_handler(request: Request):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Emergency Management (G.4) — read-only / dry-run portal page
+# ══════════════════════════════════════════════════════════════════════
+
+# Action types and priorities for form <select> rendering
+_EMERGENCY_ACTION_TYPES = [
+    "stop_campaign", "stop_placement", "stop_channel",
+    "stop_store", "stop_device", "emergency_message", "resume",
+]
+_EMERGENCY_PRIORITIES = ["low", "normal", "high", "critical"]
+
+
+def _parse_emergency_body(form) -> dict:
+    """Parse form data into EmergencyActionCreate-compatible dict."""
+    body: dict = {
+        "action_type": form.get("action_type", "").strip(),
+        "priority": form.get("priority", "normal").strip(),
+        "reason": form.get("reason", "").strip(),
+        "dry_run": True,
+        "target": {},
+    }
+    # Target fields
+    for fld in ("channel_code", "store_code", "device_code",
+                "campaign_code", "placement_code", "display_surface_id"):
+        val = form.get(fld, "").strip()
+        if val:
+            body["target"][fld] = val
+
+    # Message fields (for emergency_message)
+    msg_title = form.get("msg_title", "").strip()
+    msg_body = form.get("msg_body", "").strip()
+    if msg_title or msg_body:
+        msg: dict = {}
+        if msg_title:
+            msg["title"] = msg_title
+        if msg_body:
+            msg["body"] = msg_body
+        duration = form.get("msg_duration", "").strip()
+        if duration:
+            try:
+                msg["duration_seconds"] = int(duration)
+            except ValueError:
+                pass
+        severity = form.get("msg_severity", "").strip()
+        if severity:
+            msg["severity"] = severity
+        if msg:
+            body["message"] = msg
+
+    return body
+
+
+def _sanitize_emergency_result(result: dict) -> dict:
+    """Remove any secrets/refs from emergency result before rendering."""
+    safe = dict(result)
+    forbidden = (
+        "password", "token", "secret", "api_key", "access_key",
+        "private_key", "authorization", "bearer", "cookie", "session",
+        "jwt", "credential", "credentials", "traceback", "stack",
+    )
+    for key in list(safe.keys()):
+        if any(fw in key.lower() for fw in forbidden):
+            safe.pop(key, None)
+    return safe
+
+
+@app.get("/emergency", response_class=HTMLResponse)
+async def emergency_page(request: Request):
+    """Emergency management page — read-only / dry-run only.
+
+    GET: show capabilities + forms. Requires emergency.read permission.
+    """
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/emergency")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    client = BackendClient()
+
+    ctx: dict = {
+        "request": request,
+        "title": "Аварийное управление",
+        "active": "emergency",
+        "current_user": current_user,
+        "action_types": _EMERGENCY_ACTION_TYPES,
+        "priorities": _EMERGENCY_PRIORITIES,
+        "capabilities": None,
+        "result": None,
+        "form": {},
+        "backend_error": None,
+        "backend_403": False,
+        "backend_unavailable": False,
+        "validation_errors": [],
+    }
+
+    try:
+        cr = await client.get_emergency_capabilities(at)
+        if cr["ok"]:
+            ctx["capabilities"] = cr["data"]
+        elif cr.get("status") == 403:
+            ctx["backend_403"] = True
+        else:
+            ctx["backend_unavailable"] = True
+    except Exception:
+        ctx["backend_unavailable"] = True
+
+    return templates.TemplateResponse(request, "pages/emergency.html", ctx)
+
+
+@app.post("/emergency", response_class=HTMLResponse)
+async def emergency_page_post(request: Request):
+    """Handle emergency form submissions — all dry-run only.
+
+    POST form actions: preview, simulate-stop, simulate-message.
+    No real execution. No DB writes.
+    """
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/emergency")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    at = tokens.get("access_token", "")
+    client = BackendClient()
+
+    form_data = await request.form()
+    action = form_data.get("action", "").strip()
+
+    ctx: dict = {
+        "request": request,
+        "title": "Аварийное управление",
+        "active": "emergency",
+        "current_user": current_user,
+        "action_types": _EMERGENCY_ACTION_TYPES,
+        "priorities": _EMERGENCY_PRIORITIES,
+        "capabilities": None,
+        "result": None,
+        "form": dict(form_data),
+        "backend_error": None,
+        "backend_403": False,
+        "backend_unavailable": False,
+        "validation_errors": [],
+    }
+
+    # Load capabilities always
+    try:
+        cr = await client.get_emergency_capabilities(at)
+        if cr["ok"]:
+            ctx["capabilities"] = cr["data"]
+        elif cr.get("status") == 403:
+            ctx["backend_403"] = True
+    except Exception:
+        pass
+
+    if action not in ("preview", "simulate-stop", "simulate-message"):
+        ctx["validation_errors"] = ["Неизвестное действие"]
+        return templates.TemplateResponse(request, "pages/emergency.html", ctx)
+
+    body = _parse_emergency_body(form_data)
+
+    try:
+        if action == "preview":
+            resp = await client.preview_emergency_action(at, body)
+        elif action == "simulate-stop":
+            resp = await client.simulate_emergency_stop(at, body)
+        else:  # simulate-message
+            resp = await client.simulate_emergency_message(at, body)
+
+        if resp["ok"]:
+            ctx["result"] = _sanitize_emergency_result(resp["data"])
+        elif resp.get("status") == 422:
+            detail = resp.get("error", "Ошибка валидации")
+            ctx["validation_errors"] = [detail] if isinstance(detail, str) else [str(detail)]
+        elif resp.get("status") == 403:
+            ctx["backend_403"] = True
+        else:
+            ctx["backend_error"] = "Сервис аварийного управления временно недоступен"
+    except Exception:
+        ctx["backend_error"] = "Сервис аварийного управления временно недоступен"
+
+    return templates.TemplateResponse(request, "pages/emergency.html", ctx)
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Compliance / Privacy pages (public, no auth required)
 # ══════════════════════════════════════════════════════════════════════
 

@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- G.4 — Emergency Portal Read-Only / Dry-Run Control Page -->
+
+<h1>Аварийное управление</h1>
+<p class="subtitle">Только предварительный просмотр / dry-run</p>
+
+{# ── Dry-run warning banner ── #}
+<div class="alert alert-warning mb-16">
+  ⚠️ Это dry-run. Реклама не будет остановлена. Реальное выполнение отключено.
+</div>
+
+{# ── Backend error ── #}
+{% if backend_error %}
+<div class="alert alert-error mb-16">{{ backend_error }}</div>
+{% endif %}
+
+{# ── Backend 403 ── #}
+{% if backend_403 %}
+<div class="alert alert-warning mb-16">Нет доступа к аварийному управлению</div>
+{% endif %}
+
+{# ── Backend unavailable ── #}
+{% if backend_unavailable %}
+<div class="alert alert-error mb-16">Сервис аварийного управления временно недоступен</div>
+{% endif %}
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# A. Capabilities                                                    #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+
+{% if capabilities %}
+<h2>Доступные возможности</h2>
+<div class="kpi-grid mb-16">
+  <div class="kpi-card">
+    <span class="kpi-value">{{ capabilities.action_types | length }}</span>
+    <span class="kpi-label">Типов действий</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ capabilities.priorities | length }}</span>
+    <span class="kpi-label">Уровней приоритета</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">dry‑run</span>
+    <span class="kpi-label">Режим</span>
+  </div>
+</div>
+
+<details class="mb-16">
+  <summary>Типы действий</summary>
+  <ul>
+  {% for t in capabilities.action_types %}
+    <li>{{ t }}</li>
+  {% endfor %}
+  </ul>
+</details>
+
+<details class="mb-16">
+  <summary>Приоритеты</summary>
+  <ul>
+  {% for p in capabilities.priorities %}
+    <li>{{ p }}</li>
+  {% endfor %}
+  </ul>
+</details>
+{% endif %}
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# B. Preview block                                                   #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+
+<h2>Предварительный просмотр</h2>
+
+<form method="post" action="/emergency" class="mb-16">
+  <input type="hidden" name="action" value="preview">
+
+  <div class="form-row">
+    <label>Тип действия
+      <select name="action_type" required>
+        <option value="">— выберите —</option>
+        {% for t in action_types %}
+        <option value="{{ t }}" {% if form.action_type == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Приоритет
+      <select name="priority">
+        {% for p in priorities %}
+        <option value="{{ p }}" {% if form.priority == p %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+
+  <label>Причина <input type="text" name="reason" value="{{ form.reason }}" required maxlength="1024" placeholder="Причина аварийного действия"></label>
+
+  <fieldset class="mb-16">
+    <legend>Цель (минимум одно поле)</legend>
+    <div class="form-row">
+      <label>Код канала <input type="text" name="channel_code" value="{{ form.channel_code }}" maxlength="64"></label>
+      <label>Код магазина <input type="text" name="store_code" value="{{ form.store_code }}" maxlength="64"></label>
+      <label>Код устройства <input type="text" name="device_code" value="{{ form.device_code }}" maxlength="64"></label>
+    </div>
+    <div class="form-row">
+      <label>Код кампании <input type="text" name="campaign_code" value="{{ form.campaign_code }}" maxlength="64"></label>
+      <label>Код размещения <input type="text" name="placement_code" value="{{ form.placement_code }}" maxlength="64"></label>
+      <label>ID поверхности <input type="text" name="display_surface_id" value="{{ form.display_surface_id }}" maxlength="64"></label>
+    </div>
+  </fieldset>
+
+  <button type="submit" class="btn btn-primary">Проверить</button>
+</form>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# C. Simulate stop/resume                                            #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+
+<h2>Симуляция остановки</h2>
+
+<form method="post" action="/emergency" class="mb-16">
+  <input type="hidden" name="action" value="simulate-stop">
+
+  <div class="form-row">
+    <label>Тип действия
+      <select name="action_type" required>
+        <option value="">— выберите —</option>
+        <option value="stop_campaign">stop_campaign</option>
+        <option value="stop_placement">stop_placement</option>
+        <option value="stop_channel">stop_channel</option>
+        <option value="stop_store">stop_store</option>
+        <option value="stop_device">stop_device</option>
+        <option value="resume">resume</option>
+      </select>
+    </label>
+    <label>Приоритет
+      <select name="priority">
+        {% for p in priorities %}
+        <option value="{{ p }}">{{ p }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+
+  <label>Причина <input type="text" name="reason" required maxlength="1024" placeholder="Причина остановки"></label>
+
+  <fieldset class="mb-16">
+    <legend>Цель</legend>
+    <div class="form-row">
+      <label>Код канала <input type="text" name="channel_code" maxlength="64"></label>
+      <label>Код магазина <input type="text" name="store_code" maxlength="64"></label>
+      <label>Код устройства <input type="text" name="device_code" maxlength="64"></label>
+    </div>
+    <div class="form-row">
+      <label>Код кампании <input type="text" name="campaign_code" maxlength="64"></label>
+      <label>Код размещения <input type="text" name="placement_code" maxlength="64"></label>
+    </div>
+  </fieldset>
+
+  <button type="submit" class="btn btn-danger">Симулировать остановку</button>
+</form>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# D. Simulate emergency message                                      #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+
+<h2>Симуляция экстренного сообщения</h2>
+
+<form method="post" action="/emergency" class="mb-16">
+  <input type="hidden" name="action" value="simulate-message">
+  <input type="hidden" name="action_type" value="emergency_message">
+
+  <label>Приоритет
+    <select name="priority">
+      {% for p in priorities %}
+      <option value="{{ p }}">{{ p }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label>Причина <input type="text" name="reason" required maxlength="1024" placeholder="Причина сообщения"></label>
+  <label>Заголовок <input type="text" name="msg_title" required maxlength="256" placeholder="Заголовок экстренного сообщения"></label>
+  <label>Текст сообщения <textarea name="msg_body" required maxlength="2048" rows="4" placeholder="Текст экстренного сообщения"></textarea></label>
+  <div class="form-row">
+    <label>Длительность (сек) <input type="number" name="msg_duration" min="1" max="86400" value="300"></label>
+    <label>Серьёзность <input type="text" name="msg_severity" maxlength="32" placeholder="warning"></label>
+  </div>
+
+  <fieldset class="mb-16">
+    <legend>Цель</legend>
+    <div class="form-row">
+      <label>Код канала <input type="text" name="channel_code" maxlength="64"></label>
+      <label>Код магазина <input type="text" name="store_code" maxlength="64"></label>
+      <label>Код устройства <input type="text" name="device_code" maxlength="64"></label>
+    </div>
+  </fieldset>
+
+  <button type="submit" class="btn btn-primary">Симулировать сообщение</button>
+</form>
+
+{# ═══════════════════════════════════════════════════════════════════ #}
+{# E. Result panel                                                    #}
+{# ═══════════════════════════════════════════════════════════════════ #}
+
+{% if result %}
+<h2>Результат</h2>
+
+<div class="kpi-grid mb-16">
+  <div class="kpi-card {% if result.ok %}kpi-success{% else %}kpi-danger{% endif %}">
+    <span class="kpi-value">{% if result.ok %}✅ OK{% else %}❌ Ошибка{% endif %}</span>
+    <span class="kpi-label">Статус</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ result.dry_run }}</span>
+    <span class="kpi-label">dry_run</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ result.action_type }}</span>
+    <span class="kpi-label">Тип действия</span>
+  </div>
+</div>
+
+{# Affected entities #}
+{% if result.affected_channels is defined or result.affected_devices is defined %}
+<div class="kpi-grid mb-16">
+  {% if result.affected_channels is defined %}
+  <div class="kpi-card">
+    <span class="kpi-value">{{ result.affected_channels }}</span>
+    <span class="kpi-label">Затронутые каналы</span>
+  </div>
+  {% endif %}
+  {% if result.affected_stores is defined %}
+  <div class="kpi-card">
+    <span class="kpi-value">{{ result.affected_stores }}</span>
+    <span class="kpi-label">Затронутые магазины</span>
+  </div>
+  {% endif %}
+  {% if result.affected_devices is defined %}
+  <div class="kpi-card">
+    <span class="kpi-value">{{ result.affected_devices }}</span>
+    <span class="kpi-label">Затронутые устройства</span>
+  </div>
+  {% endif %}
+  {% if result.affected_campaigns is defined %}
+  <div class="kpi-card">
+    <span class="kpi-value">{{ result.affected_campaigns }}</span>
+    <span class="kpi-label">Затронутые кампании</span>
+  </div>
+  {% endif %}
+  {% if result.affected_placements is defined %}
+  <div class="kpi-card">
+    <span class="kpi-value">{{ result.affected_placements }}</span>
+    <span class="kpi-label">Затронутые размещения</span>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{# Warnings #}
+{% if result.warnings %}
+<h3>Предупреждения</h3>
+<ul class="mb-16">
+{% for w in result.warnings %}
+  <li>⚠️ {{ w.message }}{% if w.code %} [{{ w.code }}]{% endif %}</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+{# Errors #}
+{% if result.errors %}
+<h3>Ошибки</h3>
+<ul class="mb-16">
+{% for e in result.errors %}
+  <li>❌ {{ e.message }}{% if e.code %} [{{ e.code }}]{% endif %}</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+{# Validation errors from backend 422 #}
+{% if validation_errors %}
+<div class="alert alert-error mb-16">
+  <strong>Ошибки валидации:</strong>
+  <ul>
+  {% for ve in validation_errors %}
+    <li>{{ ve }}</li>
+  {% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endif %}
+
+{% endblock %}

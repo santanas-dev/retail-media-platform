@@ -1346,6 +1346,45 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # ── Emergency (G.4) ───────────────────────────────────────────────
+
+    async def get_emergency_capabilities(self, access_token: str) -> dict:
+        """GET /api/emergency/capabilities → action types, statuses, priorities."""
+        return await self._request(
+            "GET", "/api/emergency/capabilities",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def preview_emergency_action(
+        self, access_token: str, payload: dict,
+    ) -> dict:
+        """POST /api/emergency/preview → EmergencyActionPreview."""
+        return await self._request(
+            "POST", "/api/emergency/preview",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def simulate_emergency_stop(
+        self, access_token: str, payload: dict,
+    ) -> dict:
+        """POST /api/emergency/simulate-stop → EmergencyActionResult."""
+        return await self._request(
+            "POST", "/api/emergency/simulate-stop",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def simulate_emergency_message(
+        self, access_token: str, payload: dict,
+    ) -> dict:
+        """POST /api/emergency/simulate-message → EmergencyActionResult."""
+        return await self._request(
+            "POST", "/api/emergency/simulate-message",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
 
 # ── Module-level convenience functions ───────────────────────────────
 
