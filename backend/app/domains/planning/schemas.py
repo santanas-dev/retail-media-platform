@@ -131,6 +131,7 @@ class OccupancyQuery(BaseModel):
     display_surface_id: Optional[UUID] = None
     channel_id: Optional[UUID] = None
     store_id: Optional[UUID] = None
+    logical_carrier_id: Optional[UUID] = None
     date_from: date
     date_to: date
     granularity: Optional[str] = Field(default="day", pattern=r"^(day|hour)$")
@@ -154,6 +155,27 @@ class OccupancyResult(BaseModel):
     capacity_spots_per_loop: Optional[int] = None
     warnings: list[PlanningIssue] = Field(default_factory=list)
     errors: list[PlanningIssue] = Field(default_factory=list)
+    buckets: Optional[list["OccupancyBucket"]] = None
+    units: Optional[list["OccupancyUnitBreakdown"]] = None
+
+
+class OccupancyBucket(BaseModel):
+    """Single day occupancy bucket."""
+    date: date
+    occupancy_percent: float = 0.0
+    booked_share_of_voice: Optional[float] = None
+    booked_spots_per_loop: Optional[int] = None
+    capacity_spots_per_loop: Optional[int] = None
+
+
+class OccupancyUnitBreakdown(BaseModel):
+    """Per-unit occupancy breakdown."""
+    inventory_unit_id: UUID
+    inventory_unit_code: Optional[str] = None
+    occupancy_percent: float = 0.0
+    booked_share_of_voice: Optional[float] = None
+    booked_spots_per_loop: Optional[int] = None
+    capacity_spots_per_loop: Optional[int] = None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
