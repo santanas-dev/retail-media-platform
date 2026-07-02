@@ -1,25 +1,44 @@
 {% extends "base.html" %}
-{% block title %}Манифесты{% endblock %}
+{% block title %}Пакеты показа{% endblock %}
 {% block content %}
-<h2>Манифесты (сгенерированные)</h2>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Пакеты показа</span>
+    <span class="page-subtitle">Сформированные пакеты для устройств. Каждый пакет содержит креативы, расписание и настройки показа для конкретного устройства.</span>
+  </div>
+  <div class="page-header-right page-actions">
+    <a href="/publications" class="btn btn-secondary">📋 Публикации</a>
+  </div>
+</div>
 
 {% if flash %}
-  <div class="alert alert-info">{{ flash }}</div>
+  <div class="banner banner-info">
+    <div class="banner-body"><div class="banner-text">{{ flash }}</div></div>
+  </div>
 {% endif %}
 
 {% if backend_error %}
-  <div class="alert alert-error">{{ backend_error }}</div>
+  <div class="banner banner-error">
+    <span class="banner-icon">⚠️</span>
+    <div class="banner-body"><div class="banner-text">{{ backend_error }}</div></div>
+  </div>
 {% endif %}
 
 {# ── KSO Check Form ── #}
-<details class="section-collapse">
-  <summary>Проверить доступность манифеста на КСО</summary>
-  <form method="post" action="/packages/check-kso" class="filter-bar">
-    <label>Код устройства: <input type="text" name="device_code" required placeholder="например, KSO-001"></label>
-    <button type="submit">Проверить</button>
-  </form>
-  <div class="hint-text">Проверка показывает, есть ли опубликованный манифест для устройства КСО. Legacy endpoint требует device JWT — проверка идёт через внутренний API манифестов.</div>
-</details>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🔍</span>
+    <span class="section-card-title">Проверить доступность пакета на КСО</span>
+  </div>
+  <div class="section-card-body">
+    <form method="post" action="/packages/check-kso" class="filter-bar">
+      <label>Код устройства: <input type="text" name="device_code" required placeholder="например, KSO-001"></label>
+      <button type="submit" class="btn btn-primary">Проверить</button>
+    </form>
+    <div class="hint-text">Проверка показывает, есть ли опубликованный пакет показа для устройства КСО. Используется внутренний API пакетов.</div>
+  </div>
+</div>
 
 {# ── Filters ── #}
 <form method="get" class="filter-bar">
@@ -28,55 +47,65 @@
   <label>Статус:
     <select name="status">
       <option value="">Все</option>
-      <option value="generated" {% if filters.status == 'generated' %}selected{% endif %}>Сгенерирован</option>
+      <option value="generated" {% if filters.status == 'generated' %}selected{% endif %}>Сформирован</option>
       <option value="published" {% if filters.status == 'published' %}selected{% endif %}>Опубликован</option>
     </select>
   </label>
   <button type="submit">Показать</button>
 </form>
 
-{# ── Manifest List ── #}
+{# ── Packages List ── #}
 {% if manifests %}
-  <table class="data-table">
-    <thead>
-      <tr><th>Код</th><th>Устройство</th><th>Кампания</th><th>Статус</th><th>Элементов</th><th>Создан</th></tr>
-    </thead>
-    <tbody>
-    {% for m in manifests %}
-      <tr>
-        <td><a href="/packages/{{ m.manifest_code }}"><code>{{ m.manifest_code }}</code></a></td>
-        <td><code>{{ m.device_code }}</code></td>
-        <td><code>{{ m.campaign_code }}</code></td>
-        <td>
-          {% if m.status == 'published' %}✅ Опубликован
-          {% elif m.status == 'generated' %}📋 Сгенерирован
-          {% else %}{{ m.status }}
-          {% endif %}
-        </td>
-        <td>{{ m.item_count or '—' }}</td>
-        <td>{{ m.generated_at|fmt_date('short') if m.generated_at else m.created_at|fmt_date('short') if m.created_at else '—' }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <div class="section-card">
+    <div class="section-card-header">
+      <span class="section-card-icon">📦</span>
+      <span class="section-card-title">Пакеты показа</span>
+      <span class="section-card-badge">{{ manifests|length }}</span>
+    </div>
+    <div class="section-card-body p-0">
+      <table class="data-table">
+        <thead>
+          <tr><th>Код</th><th>Устройство</th><th>Кампания</th><th>Статус</th><th>Элементов</th><th>Создан</th></tr>
+        </thead>
+        <tbody>
+        {% for m in manifests %}
+          <tr>
+            <td><a href="/packages/{{ m.manifest_code }}"><code>{{ m.manifest_code }}</code></a></td>
+            <td><code>{{ m.device_code }}</code></td>
+            <td><code>{{ m.campaign_code }}</code></td>
+            <td>
+              {% if m.status == 'published' %}<span class="status-badge status-badge-success">Опубликован</span>
+              {% elif m.status == 'generated' %}<span class="status-badge status-badge-info">Сформирован</span>
+              {% else %}<span class="status-badge">{{ m.status }}</span>
+              {% endif %}
+            </td>
+            <td>{{ m.item_count or '—' }}</td>
+            <td>{{ m.generated_at|fmt_date('short') if m.generated_at else m.created_at|fmt_date('short') if m.created_at else '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 {% elif not backend_error %}
   <div class="empty-state">
-    <div class="empty-state-title">Манифесты пока не созданы</div>
-    <div class="empty-state-text">Создайте публикацию с включённым флагом <code>ENABLE_GENERATED_MANIFEST_WRITE=true</code> на backend. Подробнее на странице <a href="/publications">Публикации</a>.</div>
+    <div class="empty-state-icon">📦</div>
+    <div class="empty-state-title">Пакеты показа пока не созданы</div>
+    <div class="empty-state-text">Пакеты создаются при публикации одобренной кампании. Перейдите к публикациям чтобы создать первый пакет.</div>
+    <div class="empty-state-action">
+      <a href="/publications" class="btn btn-primary">📋 К публикациям</a>
+    </div>
   </div>
 {% endif %}
 
-<!-- PORTAL.1.6: Cross-Links -->
-<div class="section-card mt-16">
-  <div class="section-card-body">
-    <div class="action-buttons">
-      <a href="/campaigns" class="btn-sm">📢 Кампании</a>
-      <a href="/devices" class="btn-sm">🖥️ Устройства</a>
-      <a href="/publications" class="btn-sm">📋 Публикации</a>
-      <a href="/reports/analytics" class="btn-sm">📊 Аналитика</a>
-      <a href="/proof-of-play" class="btn-sm">✅ Фактические показы</a>
-    </div>
-  </div>
+{# ── Cross-Links ── #}
+<div class="crosslinks-bar">
+  <span class="crosslinks-label">Связанные страницы:</span>
+  <a href="/campaigns" class="btn-sm">📢 Кампании</a>
+  <a href="/devices" class="btn-sm">🖥️ Устройства</a>
+  <a href="/publications" class="btn-sm">📋 Публикации</a>
+  <a href="/reports/analytics" class="btn-sm">📊 Аналитика</a>
+  <a href="/proof-of-play" class="btn-sm">✅ Подтверждение показа</a>
 </div>
 
 {% endblock %}

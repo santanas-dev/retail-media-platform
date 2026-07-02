@@ -165,11 +165,11 @@ class TestDetailRendering(unittest.TestCase):
     def test_26_detail_shows_feature_flag_off(self):
         _load()
         self.assertIn("is_feature_flag_off", detail_tpl)
-        self.assertIn("Публикация отключена feature flag", detail_tpl)
+        self.assertIn("Публикация отключена техническим переключателем", detail_tpl)
 
     def test_27_detail_shows_manifest_not_created_warning(self):
         _load()
-        self.assertIn("ENABLE_GENERATED_MANIFEST_WRITE=false", detail_tpl)
+        self.assertIn("пакет показа не создан", detail_tpl)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

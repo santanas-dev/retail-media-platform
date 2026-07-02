@@ -1,103 +1,186 @@
 {% extends "base.html" %}
 {% block title %}Бронирование {{ booking.id|string|truncate(8) if booking else '' }}{% endblock %}
 {% block content %}
-<h2>Бронирование</h2>
 
-<a href="/bookings" class="btn-sm">← К списку</a>
+<div class="page-header">
+  <div class="page-header-left">
+    <a href="/bookings" class="page-back">← К списку бронирований</a>
+    <span class="page-title">
+      Бронирование
+      {% if booking %}
+        <code class="text-muted">{{ booking.id|string|truncate(12) }}</code>
+      {% endif %}
+    </span>
+    {% if booking %}
+      <span class="page-subtitle">
+        {% if booking.campaign_id %}Кампания {{ booking.campaign_id|string|truncate(12) }} · {% endif %}
+        {{ booking.date_from }} – {{ booking.date_to }}
+      </span>
+    {% endif %}
+  </div>
+  <div class="page-header-right">
+    {% if booking %}
+      {% if booking.status == 'draft' %}<span class="status-badge status-badge-warning">Черновик</span>
+      {% elif booking.status == 'reserved' %}<span class="status-badge status-badge-info">Зарезервировано</span>
+      {% elif booking.status == 'active' or booking.status == 'confirmed' %}<span class="status-badge status-badge-success">Подтверждено</span>
+      {% elif booking.status == 'cancelled' %}<span class="status-badge status-badge-muted">Отменено</span>
+      {% else %}<span class="status-badge">{{ booking.status }}</span>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
 
 {% if flash %}
-  <div class="alert {% if 'создано' in flash or 'зарезервировано' in flash or 'подтверждено' in flash or 'отменено' in flash %}alert-success{% else %}alert-warning{% endif %}">{{ flash }}</div>
+  <div class="banner banner-{% if 'создано' in flash or 'зарезервировано' in flash or 'подтверждено' in flash or 'отменено' in flash %}success{% else %}warning{% endif %}">
+    <div class="banner-body"><div class="banner-text">{{ flash }}</div></div>
+  </div>
 {% endif %}
 
 {% if backend_error %}
-  <div class="alert alert-error">{{ backend_error }}</div>
+  <div class="banner banner-error">
+    <span class="banner-icon">⚠️</span>
+    <div class="banner-body"><div class="banner-text">{{ backend_error }}</div></div>
+  </div>
 {% endif %}
 
 {% if booking %}
 
+{# ── Summary Metric Cards ── #}
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="metric-label">Статус</div>
+    <div class="metric-value">
+      {% if booking.status == 'draft' %}Черновик
+      {% elif booking.status == 'reserved' %}Зарезервировано
+      {% elif booking.status == 'active' or booking.status == 'confirmed' %}Подтверждено
+      {% elif booking.status == 'cancelled' %}Отменено
+      {% else %}{{ booking.status }}
+      {% endif %}
+    </div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Кампания</div>
+    <div class="metric-value text-sm">{{ booking.campaign_id|string|truncate(16) or '—' }}</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Период</div>
+    <div class="metric-value text-sm">{{ booking.date_from }} – {{ booking.date_to }}</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Элементов</div>
+    <div class="metric-value">{{ items|length if items else 0 }}</div>
+  </div>
+</div>
+
 {# ── Booking Info ── #}
-<h3>Информация</h3>
-<table class="data-table">
-  <tbody>
-    <tr><td><strong>ID</strong></td><td>{{ booking.id }}</td></tr>
-    <tr><td><strong>Кампания</strong></td><td>{{ booking.campaign_id }}</td></tr>
-    <tr><td><strong>Статус</strong></td>
-      <td>
-        {% if booking.status == 'draft' %}🟡 Черновик
-        {% elif booking.status == 'reserved' %}🔵 Зарезервировано
-        {% elif booking.status == 'active' or booking.status == 'confirmed' %}🟢 Подтверждено
-        {% elif booking.status == 'cancelled' %}⚫ Отменено
-        {% else %}{{ booking.status }}
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📋</span>
+    <span class="section-card-title">Информация о бронировании</span>
+  </div>
+  <div class="section-card-body p-0">
+    <table class="data-table">
+      <tbody>
+        <tr><td><strong>ID</strong></td><td><code>{{ booking.id }}</code></td></tr>
+        <tr><td><strong>Кампания</strong></td><td><code>{{ booking.campaign_id }}</code></td></tr>
+        <tr><td><strong>Период</strong></td><td>{{ booking.date_from }} – {{ booking.date_to }}</td></tr>
+        <tr><td><strong>Комментарий</strong></td><td>{{ booking.comment or '—' }}</td></tr>
+        <tr><td><strong>Создан</strong></td><td>{{ booking.created_at|fmt_date('full') if booking.created_at else '—' }}</td></tr>
+        <tr><td><strong>Обновлён</strong></td><td>{{ booking.updated_at|fmt_date('full') if booking.updated_at else '—' }}</td></tr>
+        {% if booking.approved_at %}
+        <tr><td><strong>Подтверждён</strong></td><td>{{ booking.approved_at|fmt_date('full') }}</td></tr>
         {% endif %}
-      </td>
-    </tr>
-    <tr><td><strong>Период</strong></td><td>{{ booking.date_from }} – {{ booking.date_to }}</td></tr>
-    <tr><td><strong>Комментарий</strong></td><td>{{ booking.comment or '—' }}</td></tr>
-    <tr><td><strong>Создан</strong></td><td>{{ booking.created_at|fmt_date('full') if booking.created_at else '—' }}</td></tr>
-    <tr><td><strong>Обновлён</strong></td><td>{{ booking.updated_at|fmt_date('full') if booking.updated_at else '—' }}</td></tr>
-    {% if booking.approved_at %}
-    <tr><td><strong>Подтверждён</strong></td><td>{{ booking.approved_at|fmt_date('full') }}</td></tr>
-    {% endif %}
-  </tbody>
-</table>
+      </tbody>
+    </table>
+  </div>
+</div>
 
 {# ── Booking Items ── #}
-<h3>Элементы бронирования</h3>
-{% if items %}
-  <table class="data-table">
-    <thead>
-      <tr><th>Блок</th><th>Слотов/цикл</th><th>Тип</th><th>Период</th></tr>
-    </thead>
-    <tbody>
-    {% for item in items %}
-      <tr>
-        <td>{{ item.inventory_unit_id }}</td>
-        <td>{{ item.booked_spots_per_loop or '—' }}</td>
-        <td>{{ item.reservation_type or 'campaign' }}</td>
-        <td>{{ item.date_from }} – {{ item.date_to }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-{% else %}
-  <div class="empty-state">Нет элементов бронирования.</div>
-{% endif %}
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📦</span>
+    <span class="section-card-title">Элементы бронирования</span>
+    <span class="section-card-badge">{{ items|length if items else 0 }}</span>
+  </div>
+  <div class="section-card-body p-0">
+    {% if items %}
+      <table class="data-table">
+        <thead>
+          <tr><th>Блок</th><th>Слотов/цикл</th><th>Тип</th><th>Период</th></tr>
+        </thead>
+        <tbody>
+        {% for item in items %}
+          <tr>
+            <td><code>{{ item.inventory_unit_id }}</code></td>
+            <td>{{ item.booked_spots_per_loop or '—' }}</td>
+            <td>{{ item.reservation_type or 'campaign' }}</td>
+            <td>{{ item.date_from }} – {{ item.date_to }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">📦</div>
+        <div class="empty-state-text">Нет элементов бронирования.</div>
+      </div>
+    {% endif %}
+  </div>
+</div>
 
 {# ── Actions ── #}
-<h3>Действия</h3>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">⚡</span>
+    <span class="section-card-title">Действия</span>
+  </div>
+  <div class="section-card-body">
+    <div class="action-bar">
+      {% if booking.status == 'draft' %}
+      <form method="post" action="/bookings/{{ booking.id }}/reserve" class="inline-form">
+        <button type="submit" class="btn btn-primary">Зарезервировать</button>
+      </form>
+      {% endif %}
 
-<div class="action-buttons">
-  {% if booking.status == 'draft' %}
-  <form method="post" action="/bookings/{{ booking.id }}/reserve" class="inline-form">
-    <button type="submit" class="btn-primary">Зарезервировать</button>
-  </form>
-  {% endif %}
+      {% if booking.status in ('draft', 'reserved') %}
+      <form method="post" action="/bookings/{{ booking.id }}/confirm" class="inline-form">
+        <button type="submit" class="btn btn-success">Подтвердить</button>
+      </form>
+      {% endif %}
 
-  {% if booking.status in ('draft', 'reserved') %}
-  <form method="post" action="/bookings/{{ booking.id }}/confirm" class="inline-form">
-    <button type="submit" class="btn-success">Подтвердить</button>
-  </form>
-  {% endif %}
+      {% if booking.status not in ('cancelled',) %}
+      <details class="section-collapse inline-form">
+        <summary class="btn btn-danger">Отменить</summary>
+        <form method="post" action="/bookings/{{ booking.id }}/cancel" class="filter-bar mt-8">
+          <label>Причина: <input type="text" name="reason" placeholder="Причина отмены"></label>
+          <button type="submit" class="btn btn-danger">Подтвердить отмену</button>
+        </form>
+      </details>
+      {% endif %}
+    </div>
 
-  {% if booking.status not in ('cancelled',) %}
-  <details class="section-collapse inline-form">
-    <summary class="btn-danger">Отменить</summary>
-    <form method="post" action="/bookings/{{ booking.id }}/cancel" class="filter-bar">
-      <label>Причина: <input type="text" name="reason" placeholder="Причина отмены"></label>
-      <button type="submit" class="btn-danger">Подтвердить отмену</button>
-    </form>
-  </details>
-  {% endif %}
+    <div class="hint-text" style="margin-top:8px">
+      Доступные действия зависят от статуса бронирования и ваших прав.
+      {% if booking.status == 'cancelled' %}
+      Отменённые бронирования нельзя изменить.
+      {% endif %}
+    </div>
+  </div>
 </div>
 
-<div class="hint-text">
-  Доступные действия зависят от статуса бронирования и ваших прав.
-  {% if booking.status == 'cancelled' %}
-  Отменённые бронирования нельзя изменить.
-  {% endif %}
+{# ── Cross-Links ── #}
+<div class="crosslinks-bar">
+  <span class="crosslinks-label">Связанные страницы:</span>
+  <a href="/campaigns" class="btn-sm">📢 Кампании</a>
+  <a href="/planning" class="btn-sm">📊 Планирование</a>
+  <a href="/publications" class="btn-sm">📋 Публикации</a>
 </div>
 
 {% else %}
-  <div class="empty-state">Бронирование не найдено или данные недоступны.</div>
+  <div class="empty-state">
+    <div class="empty-state-icon">🔍</div>
+    <div class="empty-state-title">Бронирование не найдено</div>
+    <div class="empty-state-text">Данные недоступны или бронирование не существует.</div>
+  </div>
 {% endif %}
 {% endblock %}

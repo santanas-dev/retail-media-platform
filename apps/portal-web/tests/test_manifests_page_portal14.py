@@ -122,7 +122,7 @@ class TestListRendering(unittest.TestCase):
     def test_17_list_has_status_labels(self):
         _load()
         self.assertIn("Опубликован", manifests_tpl)
-        self.assertIn("Сгенерирован", manifests_tpl)
+        self.assertIn("Сформирован", manifests_tpl)
 
     def test_18_list_has_detail_links(self):
         _load()
@@ -162,7 +162,7 @@ class TestDetailRendering(unittest.TestCase):
 
     def test_25_detail_has_body_summary(self):
         _load()
-        self.assertIn("Содержимое манифеста", detail_tpl)
+        self.assertIn("Содержимое пакета", detail_tpl)
 
     def test_26_detail_has_kso_check_section(self):
         _load()
@@ -202,7 +202,7 @@ class TestKSOCheck(unittest.TestCase):
 
     def test_33_kso_check_mentions_legacy_endpoint(self):
         _load()
-        self.assertIn("legacy", detail_tpl.lower())
+        self.assertIn("api пакетов", detail_tpl.lower())
 
 
 # ═══════════════════════════════════════════════════════════════════════════

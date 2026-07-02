@@ -1,28 +1,47 @@
 {% extends "base.html" %}
 {% block title %}Бронирования{% endblock %}
 {% block content %}
-<h2>Бронирования рекламного времени</h2>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <a href="/bookings" class="page-title">Бронирования</a>
+    <span class="page-subtitle">Резервирование рекламного времени под кампании</span>
+  </div>
+  <div class="page-header-right page-actions">
+    <a href="#create-form" class="btn btn-primary">+ Создать бронирование</a>
+  </div>
+</div>
 
 {% if flash %}
-  <div class="alert {% if 'создано' in flash or 'зарезервировано' in flash or 'подтверждено' in flash or 'отменено' in flash %}alert-success{% else %}alert-warning{% endif %}">{{ flash }}</div>
+  <div class="banner banner-{% if 'создано' in flash or 'зарезервировано' in flash or 'подтверждено' in flash or 'отменено' in flash %}success{% else %}warning{% endif %}">
+    <div class="banner-body"><div class="banner-text">{{ flash }}</div></div>
+  </div>
 {% endif %}
 
 {% if backend_error %}
-  <div class="alert alert-error">{{ backend_error }}</div>
+  <div class="banner banner-error">
+    <span class="banner-icon">⚠️</span>
+    <div class="banner-body"><div class="banner-text">{{ backend_error }}</div></div>
+  </div>
 {% endif %}
 
 {# ── Create Booking Form ── #}
-<details class="section-collapse">
-  <summary>Создать бронирование</summary>
-  <form method="post" class="filter-bar">
-    <label>Кампания ID: <input type="text" name="campaign_id" required placeholder="UUID кампании"></label>
-    <label>С: <input type="date" name="date_from" required></label>
-    <label>По: <input type="date" name="date_to" required></label>
-    <label>Комментарий: <input type="text" name="comment" placeholder="опционально"></label>
-    <button type="submit">Создать</button>
-  </form>
-  <div class="hint-text">Создание бронирований требует включённого feature flag ENABLE_BOOKING_WRITES на backend.</div>
-</details>
+<div id="create-form" class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📝</span>
+    <span class="section-card-title">Создать бронирование</span>
+  </div>
+  <div class="section-card-body">
+    <form method="post" class="filter-bar">
+      <label>Кампания ID: <input type="text" name="campaign_id" required placeholder="UUID кампании"></label>
+      <label>С: <input type="date" name="date_from" required></label>
+      <label>По: <input type="date" name="date_to" required></label>
+      <label>Комментарий: <input type="text" name="comment" placeholder="опционально"></label>
+      <button type="submit" class="btn btn-primary">Создать</button>
+    </form>
+    <div class="hint-text">Создание бронирований требует включённого переключателя на backend.</div>
+  </div>
+</div>
 
 {# ── Filters ── #}
 <form method="get" class="filter-bar">
@@ -44,40 +63,56 @@
 
 {# ── Booking List ── #}
 {% if bookings %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Кампания</th>
-        <th>Статус</th>
-        <th>Период</th>
-        <th>Создан</th>
-        <th>Действия</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for b in bookings %}
-      <tr>
-        <td><a href="/bookings/{{ b.id }}">{{ b.id|string|truncate(8) }}</a></td>
-        <td>{{ b.campaign_id|string|truncate(8) or '—' }}</td>
-        <td>
-          {% if b.status == 'draft' %}🟡 Черновик
-          {% elif b.status == 'reserved' %}🔵 Зарезервировано
-          {% elif b.status == 'active' or b.status == 'confirmed' %}🟢 Подтверждено
-          {% elif b.status == 'cancelled' %}⚫ Отменено
-          {% else %}{{ b.status }}
-          {% endif %}
-        </td>
-        <td>{{ b.date_from }} – {{ b.date_to }}</td>
-        <td>{{ b.created_at|fmt_date('short') if b.created_at else '—' }}</td>
-        <td>
-          <a href="/bookings/{{ b.id }}" class="btn-sm">Детали</a>
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <div class="section-card">
+    <div class="section-card-header">
+      <span class="section-card-icon">📋</span>
+      <span class="section-card-title">Список бронирований</span>
+      <span class="section-card-badge">{{ bookings|length }}</span>
+    </div>
+    <div class="section-card-body p-0">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Кампания</th>
+            <th>Статус</th>
+            <th>Период</th>
+            <th>Создан</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for b in bookings %}
+          <tr>
+            <td><a href="/bookings/{{ b.id }}">{{ b.id|string|truncate(8) }}</a></td>
+            <td>{{ b.campaign_id|string|truncate(8) or '—' }}</td>
+            <td>
+              {% if b.status == 'draft' %}<span class="status-badge status-badge-warning">Черновик</span>
+              {% elif b.status == 'reserved' %}<span class="status-badge status-badge-info">Зарезервировано</span>
+              {% elif b.status == 'active' or b.status == 'confirmed' %}<span class="status-badge status-badge-success">Подтверждено</span>
+              {% elif b.status == 'cancelled' %}<span class="status-badge status-badge-muted">Отменено</span>
+              {% else %}<span class="status-badge">{{ b.status }}</span>
+              {% endif %}
+            </td>
+            <td>{{ b.date_from }} – {{ b.date_to }}</td>
+            <td>{{ b.created_at|fmt_date('short') if b.created_at else '—' }}</td>
+            <td>
+              <a href="/bookings/{{ b.id }}" class="btn-sm">Детали</a>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 {% elif not backend_error %}
-  <div class="empty-state">Нет бронирований. Создайте первое бронирование или измените фильтры.</div>
+  <div class="empty-state">
+    <div class="empty-state-icon">📋</div>
+    <div class="empty-state-title">Бронирований пока нет</div>
+    <div class="empty-state-text">Создайте первое бронирование или измените фильтры.</div>
+    <div class="empty-state-action">
+      <a href="/planning" class="btn btn-secondary">📊 К планированию</a>
+    </div>
+  </div>
 {% endif %}
 {% endblock %}

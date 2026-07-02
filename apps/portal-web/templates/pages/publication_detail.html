@@ -1,24 +1,56 @@
 {% extends "base.html" %}
 {% block title %}Публикация {{ batch_id[:8] if batch_id else '' }}{% endblock %}
 {% block content %}
-<h2>Публикация</h2>
 
-<a href="/publications" class="btn-sm">← К списку публикаций</a>
+<div class="page-header">
+  <div class="page-header-left">
+    <a href="/publications" class="page-back">← К списку публикаций</a>
+    <span class="page-title">
+      Публикация
+      {% if batch %}
+        <code class="text-muted">{{ batch.batch_ref if batch.batch_ref else batch.id|string|truncate(12) }}</code>
+      {% endif %}
+    </span>
+    {% if batch and batch.campaign_id %}
+      <span class="page-subtitle">Кампания {{ batch.campaign_id|string|truncate(16) }}</span>
+    {% endif %}
+  </div>
+  <div class="page-header-right">
+    {% if batch %}
+      {% if batch.status == 'draft' %}<span class="status-badge status-badge-warning">Черновик</span>
+      {% elif batch.status == 'pending_approval' %}<span class="status-badge status-badge-info">На согласовании</span>
+      {% elif batch.status == 'approved' %}<span class="status-badge status-badge-success">Одобрен</span>
+      {% elif batch.status == 'manifest_generated' %}<span class="status-badge status-badge-info">Пакет показа готов</span>
+      {% elif batch.status == 'published' %}<span class="status-badge status-badge-success">Опубликован</span>
+      {% elif batch.status == 'cancelled' %}<span class="status-badge status-badge-muted">Отменён</span>
+      {% elif batch.status == 'rejected' %}<span class="status-badge status-badge-danger">Отклонён</span>
+      {% else %}<span class="status-badge">{{ batch.status }}</span>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
 
 {# ── Flash ── #}
 {% if pub_flash == 'ok:batch_published' %}
-  <div class="flash-message flash-success">✅ Пакет опубликован в системе.</div>
+  <div class="banner banner-success">
+    <div class="banner-body"><div class="banner-text">✅ Пакет опубликован в системе.</div></div>
+  </div>
 {% elif pub_flash == 'error' %}
-  <div class="flash-message flash-error">❌ {{ pub_flash_msg }}</div>
+  <div class="banner banner-error">
+    <div class="banner-body"><div class="banner-text">❌ {{ pub_flash_msg }}</div></div>
+  </div>
 {% endif %}
 
 {% if backend_error %}
-  <div class="alert alert-error">{{ backend_error }}</div>
+  <div class="banner banner-error">
+    <span class="banner-icon">⚠️</span>
+    <div class="banner-body"><div class="banner-text">{{ backend_error }}</div></div>
+  </div>
 {% endif %}
 
 {# ── Publish Result Block (PORTAL.1.3) ── #}
 {% if pub_result %}
-<div class="section-card" style="margin-top:16px">
+<div class="section-card">
   <div class="section-card-header">
     <span class="section-card-icon">📊</span>
     <span class="section-card-title">Результат публикации</span>
@@ -30,8 +62,8 @@
         <div class="banner banner-warning">
           <span class="banner-icon">🚫</span>
           <div class="banner-body">
-            <div class="banner-title">Публикация отключена feature flag</div>
-            <div class="banner-text">Backend отклонил операцию: <code>{{ pub_result.error }}</code>. Включите <code>ENABLE_REAL_PUBLICATION=true</code> на backend для публикации.</div>
+            <div class="banner-title">Публикация отключена техническим переключателем</div>
+            <div class="banner-text">Backend отклонил операцию: <code>{{ pub_result.error }}</code>. Требуется включение переключателя на backend для реальной публикации.</div>
           </div>
         </div>
       {% else %}
@@ -46,22 +78,22 @@
     {% else %}
       <table class="data-table">
         <tbody>
-          <tr><td><strong>Манифест создан</strong></td>
+          <tr><td><strong>Пакет показа создан</strong></td>
             <td>
               {% if pub_result.generated_manifest_created %}
                 ✅ Да
                 {% if pub_result.generated_manifest_details %}
-                  — <a href="/packages" class="btn-sm">Смотреть манифесты</a>
+                  — <a href="/packages" class="btn-sm">Смотреть пакеты показа</a>
                 {% endif %}
               {% else %}
                 ❌ Нет
               {% endif %}
             </td></tr>
-          <tr><td><strong>Количество манифестов</strong></td><td>{{ pub_result.generated_manifest_count }}</td></tr>
+          <tr><td><strong>Количество пакетов</strong></td><td>{{ pub_result.generated_manifest_count }}</td></tr>
           <tr><td><strong>Следующий шаг</strong></td>
             <td>
               {% if 'generated_manifest_write_disabled' in pub_result.next_step %}
-                ⚠️ Генерация манифеста отключена feature flag (ENABLE_GENERATED_MANIFEST_WRITE=false)
+                ⚠️ Создание пакетов показа отключено техническим переключателем
               {% elif pub_result.next_step %}
                 {{ pub_result.next_step }}
               {% else %}
@@ -72,9 +104,9 @@
       </table>
 
       {% if pub_result.generated_manifest_details %}
-      <h4>Созданные манифесты</h4>
+      <h4 class="mt-12">Созданные пакеты показа</h4>
       <table class="data-table">
-        <thead><tr><th>Манифест</th><th>Устройство</th><th>Статус</th></tr></thead>
+        <thead><tr><th>Пакет</th><th>Устройство</th><th>Статус</th></tr></thead>
         <tbody>
         {% for m in pub_result.generated_manifest_details %}
           <tr>
@@ -91,7 +123,7 @@
         <div class="banner banner-info">
           <span class="banner-icon">ℹ️</span>
           <div class="banner-body">
-            <div class="banner-text">Публикация выполнена, но манифест не создан — генерация манифестов отключена feature flag <code>ENABLE_GENERATED_MANIFEST_WRITE=false</code>. Манифесты станут доступны после включения флага.</div>
+            <div class="banner-text">Публикация выполнена, но пакет показа не создан — генерация отключена техническим переключателем. Пакеты станут доступны после его включения.</div>
           </div>
         </div>
       {% endif %}
@@ -103,58 +135,72 @@
 
 {# ── Batch Info ── #}
 {% if batch %}
-<h3>Информация о пакете</h3>
-<table class="data-table">
-  <tbody>
-    <tr><td><strong>ID</strong></td><td><code>{{ batch.id }}</code></td></tr>
-    <tr><td><strong>Статус</strong></td>
-      <td>
-        {% if batch.status == 'draft' %}🟡 Черновик
-        {% elif batch.status == 'pending_approval' %}🔵 На согласовании
-        {% elif batch.status == 'approved' %}🟢 Одобрен
-        {% elif batch.status == 'manifest_generated' %}📋 Пакет показа готов
-        {% elif batch.status == 'published' %}✅ Опубликован
-        {% elif batch.status == 'cancelled' %}⚫ Отменён
-        {% elif batch.status == 'rejected' %}🔴 Отклонён
-        {% else %}{{ batch.status }}
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📦</span>
+    <span class="section-card-title">Информация о пакете</span>
+  </div>
+  <div class="section-card-body p-0">
+    <table class="data-table">
+      <tbody>
+        <tr><td><strong>ID</strong></td><td><code>{{ batch.id }}</code></td></tr>
+        {% if batch.campaign_id %}
+        <tr><td><strong>Кампания</strong></td><td><code>{{ batch.campaign_id }}</code></td></tr>
         {% endif %}
-      </td>
-    </tr>
-    {% if batch.campaign_id %}
-    <tr><td><strong>Кампания</strong></td><td>{{ batch.campaign_id }}</td></tr>
-    {% endif %}
-    <tr><td><strong>Комментарий</strong></td><td>{{ batch.comment or '—' }}</td></tr>
-    <tr><td><strong>Создан</strong></td><td>{{ batch.created_at|fmt_date('full') if batch.created_at else '—' }}</td></tr>
-    <tr><td><strong>Обновлён</strong></td><td>{{ batch.updated_at|fmt_date('full') if batch.updated_at else '—' }}</td></tr>
-  </tbody>
-</table>
+        <tr><td><strong>Комментарий</strong></td><td>{{ batch.comment or '—' }}</td></tr>
+        <tr><td><strong>Создан</strong></td><td>{{ batch.created_at|fmt_date('full') if batch.created_at else '—' }}</td></tr>
+        <tr><td><strong>Обновлён</strong></td><td>{{ batch.updated_at|fmt_date('full') if batch.updated_at else '—' }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 
 {# ── Actions ── #}
-<h3>Действия</h3>
-<div class="action-buttons">
-  {% if batch.status == 'draft' %}
-  <form method="post" action="/publications/batch/{{ batch.id }}/request-approval" class="inline-form">
-    <button type="submit" class="btn-primary">→ На согласование</button>
-  </form>
-  {% endif %}
-  {% if batch.status == 'approved' %}
-  <form method="post" action="/publications/batch/{{ batch.id }}/generate" class="inline-form">
-    <button type="submit" class="btn-primary">📋 Сформировать пакет показа</button>
-  </form>
-  {% endif %}
-  {% if batch.status == 'manifest_generated' %}
-  <form method="post" action="/publications/batch/{{ batch.id }}/publish" class="inline-form">
-    <button type="submit" class="btn-success">🚀 Опубликовать в системе</button>
-  </form>
-  <div class="hint-text">⚠️ Только в системе. Доставка на КСО заблокирована.</div>
-  {% endif %}
-  {% if batch.status not in ('published', 'cancelled') %}
-  <form method="post" action="/publications/batch/{{ batch.id }}/cancel" class="inline-form">
-    <button type="submit" class="btn-danger">✕ Отмена</button>
-  </form>
-  {% endif %}
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">⚡</span>
+    <span class="section-card-title">Действия</span>
+  </div>
+  <div class="section-card-body">
+    <div class="action-bar">
+      {% if batch.status == 'draft' %}
+      <form method="post" action="/publications/batch/{{ batch.id }}/request-approval" class="inline-form">
+        <button type="submit" class="btn btn-primary">→ На согласование</button>
+      </form>
+      {% endif %}
+      {% if batch.status == 'approved' %}
+      <form method="post" action="/publications/batch/{{ batch.id }}/generate" class="inline-form">
+        <button type="submit" class="btn btn-primary">📋 Сформировать пакет показа</button>
+      </form>
+      {% endif %}
+      {% if batch.status == 'manifest_generated' %}
+      <form method="post" action="/publications/batch/{{ batch.id }}/publish" class="inline-form">
+        <button type="submit" class="btn btn-success">🚀 Опубликовать в системе</button>
+      </form>
+      <div class="hint-text">⚠️ Только в системе. Доставка на КСО заблокирована.</div>
+      {% endif %}
+      {% if batch.status not in ('published', 'cancelled') %}
+      <form method="post" action="/publications/batch/{{ batch.id }}/cancel" class="inline-form">
+        <button type="submit" class="btn btn-danger">✕ Отмена</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
 </div>
+
+{# ── Cross-Links ── #}
+<div class="crosslinks-bar">
+  <span class="crosslinks-label">Связанные страницы:</span>
+  <a href="/campaigns" class="btn-sm">📢 Кампании</a>
+  <a href="/packages" class="btn-sm">📦 Пакеты показа</a>
+  <a href="/reports/analytics" class="btn-sm">📊 Аналитика</a>
+</div>
+
 {% else %}
-  <div class="empty-state">Пакет публикации не найден или данные недоступны.</div>
+  <div class="empty-state">
+    <div class="empty-state-icon">📦</div>
+    <div class="empty-state-title">Пакет публикации не найден</div>
+    <div class="empty-state-text">Данные недоступны или публикация не существует.</div>
+  </div>
 {% endif %}
 {% endblock %}

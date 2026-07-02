@@ -1,103 +1,175 @@
 {% extends "base.html" %}
-{% block title %}Манифест {{ manifest_code }}{% endblock %}
+{% block title %}Пакет показа {{ manifest_code }}{% endblock %}
 {% block content %}
-<h2>Манифест</h2>
 
-<a href="/packages" class="btn-sm">← К списку манифестов</a>
+<div class="page-header">
+  <div class="page-header-left">
+    <a href="/packages" class="page-back">← К списку пакетов</a>
+    <span class="page-title">
+      Пакет показа
+      {% if manifest %}
+        <code class="text-muted">{{ manifest.manifest_code }}</code>
+      {% endif %}
+    </span>
+    {% if manifest %}
+      <span class="page-subtitle">
+        Устройство {{ manifest.device_code }}
+        {% if manifest.campaign_code %} · Кампания {{ manifest.campaign_code }}{% endif %}
+      </span>
+    {% endif %}
+  </div>
+  <div class="page-header-right">
+    {% if manifest %}
+      {% if manifest.status == 'published' %}<span class="status-badge status-badge-success">Опубликован</span>
+      {% elif manifest.status == 'generated' %}<span class="status-badge status-badge-info">Сформирован</span>
+      {% else %}<span class="status-badge">{{ manifest.status }}</span>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
 
 {% if backend_error %}
-  <div class="alert alert-error">{{ backend_error }}</div>
+  <div class="banner banner-error">
+    <span class="banner-icon">⚠️</span>
+    <div class="banner-body"><div class="banner-text">{{ backend_error }}</div></div>
+  </div>
 {% endif %}
 
 {% if manifest %}
-{# ── Manifest Summary ── #}
-<h3>Информация</h3>
-<table class="data-table">
-  <tbody>
-    <tr><td><strong>Код</strong></td><td><code>{{ manifest.manifest_code }}</code></td></tr>
-    <tr><td><strong>Устройство</strong></td><td><code>{{ manifest.device_code }}</code></td></tr>
-    <tr><td><strong>Кампания</strong></td><td><code>{{ manifest.campaign_code }}</code></td></tr>
-    <tr><td><strong>Размещение</strong></td><td><code>{{ manifest.placement_code or '—' }}</code></td></tr>
-    <tr><td><strong>Статус</strong></td>
-      <td>
-        {% if manifest.status == 'published' %}✅ Опубликован
-        {% elif manifest.status == 'generated' %}📋 Сгенерирован
-        {% else %}{{ manifest.status }}
+
+{# ── Summary Metric Cards ── #}
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="metric-label">Устройство</div>
+    <div class="metric-value text-sm"><code>{{ manifest.device_code }}</code></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Кампания</div>
+    <div class="metric-value text-sm"><code>{{ manifest.campaign_code }}</code></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Элементов</div>
+    <div class="metric-value">{{ manifest.item_count or '—' }}</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Формат</div>
+    <div class="metric-value">{{ manifest.media_ref_format or '—' }}</div>
+  </div>
+</div>
+
+{# ── Package Info ── #}
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📦</span>
+    <span class="section-card-title">Информация о пакете</span>
+  </div>
+  <div class="section-card-body p-0">
+    <table class="data-table">
+      <tbody>
+        <tr><td><strong>Код</strong></td><td><code>{{ manifest.manifest_code }}</code></td></tr>
+        <tr><td><strong>Устройство</strong></td><td><code>{{ manifest.device_code }}</code></td></tr>
+        <tr><td><strong>Кампания</strong></td><td><code>{{ manifest.campaign_code }}</code></td></tr>
+        <tr><td><strong>Размещение</strong></td><td><code>{{ manifest.placement_code or '—' }}</code></td></tr>
+        <tr><td><strong>Элементов</strong></td><td>{{ manifest.item_count or '—' }}</td></tr>
+        {% if manifest.media_ref_format %}
+        <tr><td><strong>Формат медиа</strong></td><td>{{ manifest.media_ref_format }}</td></tr>
         {% endif %}
-      </td>
-    </tr>
-    <tr><td><strong>Элементов</strong></td><td>{{ manifest.item_count or '—' }}</td></tr>
-    {% if manifest.media_ref_format %}
-    <tr><td><strong>Формат медиа</strong></td><td>{{ manifest.media_ref_format }}</td></tr>
-    {% endif %}
-    <tr><td><strong>Создан</strong></td><td>{{ manifest.generated_at|fmt_date('full') if manifest.generated_at else manifest.created_at|fmt_date('full') if manifest.created_at else '—' }}</td></tr>
-    {% if manifest.published_at %}
-    <tr><td><strong>Опубликован</strong></td><td>{{ manifest.published_at|fmt_date('full') }}</td></tr>
-    {% endif %}
-  </tbody>
-</table>
+        <tr><td><strong>Создан</strong></td><td>{{ manifest.generated_at|fmt_date('full') if manifest.generated_at else manifest.created_at|fmt_date('full') if manifest.created_at else '—' }}</td></tr>
+        {% if manifest.published_at %}
+        <tr><td><strong>Опубликован</strong></td><td>{{ manifest.published_at|fmt_date('full') }}</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
 
 {# ── Body Summary ── #}
 {% if body_summary %}
-<h3>Содержимое манифеста</h3>
-<table class="data-table">
-  <tbody>
-    <tr><td><strong>Элементов</strong></td><td>{{ body_summary.item_count }}</td></tr>
-    <tr><td><strong>Креативов</strong></td><td>{{ body_summary.creatives|length if body_summary.creatives else 0 }}</td></tr>
-  </tbody>
-</table>
-{% if body_summary.creatives %}
-  <h4>Коды креативов</h4>
-  <ul>
-  {% for cc in body_summary.creatives %}
-    <li><code>{{ cc }}</code></li>
-  {% endfor %}
-  </ul>
-{% endif %}
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📋</span>
+    <span class="section-card-title">Содержимое пакета</span>
+  </div>
+  <div class="section-card-body">
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-label">Элементов</div>
+        <div class="metric-value">{{ body_summary.item_count }}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Креативов</div>
+        <div class="metric-value">{{ body_summary.creatives|length if body_summary.creatives else 0 }}</div>
+      </div>
+    </div>
+    {% if body_summary.creatives %}
+      <h4 class="mt-12">Коды креативов</h4>
+      <ul>
+      {% for cc in body_summary.creatives %}
+        <li><code>{{ cc }}</code></li>
+      {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+</div>
 {% endif %}
 
 {# ── KSO Endpoint Check ── #}
-<h3>Доступность на КСО</h3>
-{% if kso_check %}
-  {% if kso_check.status == 'served' %}
-    <div class="banner banner-success">
-      <span class="banner-icon">✅</span>
-      <div class="banner-body">
-        <div class="banner-title">Манифест доступен для КСО</div>
-        <div class="banner-text">
-          Устройство <code>{{ manifest.device_code }}</code> получит манифест <code>{{ kso_check.manifest_code }}</code>
-          ({{ kso_check.item_count }} элементов) через legacy endpoint.
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🖥️</span>
+    <span class="section-card-title">Доступность на КСО</span>
+  </div>
+  <div class="section-card-body">
+    {% if kso_check %}
+      {% if kso_check.status == 'served' %}
+        <div class="banner banner-success">
+          <span class="banner-icon">✅</span>
+          <div class="banner-body">
+            <div class="banner-title">Пакет доступен для КСО</div>
+            <div class="banner-text">
+              Устройство <code>{{ manifest.device_code }}</code> получит пакет <code>{{ kso_check.manifest_code }}</code>
+              ({{ kso_check.item_count }} элементов).
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  {% elif kso_check.status == 'no_manifest' %}
-    <div class="banner banner-warning">
-      <span class="banner-icon">⚠️</span>
-      <div class="banner-body">
-        <div class="banner-title">Манифест не опубликован</div>
-        <div class="banner-text">
-          Для устройства <code>{{ manifest.device_code }}</code> нет опубликованного манифеста.
-          Legacy endpoint <code>GET /api/device-gateway/kso/{device_code}/manifest</code> вернёт
-          <code>{"status": "no_manifest"}</code>.
+      {% elif kso_check.status == 'no_manifest' %}
+        <div class="banner banner-warning">
+          <span class="banner-icon">⚠️</span>
+          <div class="banner-body">
+            <div class="banner-title">Пакет не опубликован</div>
+            <div class="banner-text">
+              Для устройства <code>{{ manifest.device_code }}</code> нет опубликованного пакета показа.
+              Пакет должен быть опубликован чтобы стать доступным для КСО.
+              Проверка выполняется через внутренний API пакетов.
+            </div>
+          </div>
         </div>
+      {% endif %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <div class="empty-state-text">Проверка КСО недоступна.</div>
       </div>
-    </div>
-  {% endif %}
-{% else %}
-  <div class="empty-state">Проверка КСО недоступна.</div>
-{% endif %}
+    {% endif %}
+  </div>
+</div>
 
-{# ── Links ── #}
-<h3>Связанные страницы</h3>
-<div class="action-buttons">
+{# ── Cross-Links ── #}
+<div class="crosslinks-bar">
+  <span class="crosslinks-label">Связанные страницы:</span>
   <a href="/publications" class="btn-sm">📦 Публикации</a>
   {% if manifest.campaign_code %}
   <a href="/campaigns" class="btn-sm">📢 Кампании</a>
   {% endif %}
   <a href="/devices" class="btn-sm">🖥️ Устройства</a>
+  <a href="/proof-of-play" class="btn-sm">✅ Подтверждение показа</a>
 </div>
 
 {% else %}
-  <div class="empty-state">Манифест не найден или данные недоступны.</div>
+  <div class="empty-state">
+    <div class="empty-state-icon">📦</div>
+    <div class="empty-state-title">Пакет показа не найден</div>
+    <div class="empty-state-text">Данные недоступны или пакет не существует.</div>
+  </div>
 {% endif %}
 {% endblock %}
