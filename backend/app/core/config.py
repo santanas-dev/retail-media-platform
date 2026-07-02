@@ -100,6 +100,7 @@ class Settings(BaseSettings):
 
     # Publications
     MAX_MANIFEST_JSON_BYTES: int = 10 * 1024 * 1024  # 10 MB
+    ENABLE_REAL_PUBLICATION: bool = False  # BACKEND.1.1 — feature flag, OFF by default
 
     # Device Gateway
     DEVICE_JWT_SECRET: str = ""

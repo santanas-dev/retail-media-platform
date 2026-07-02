@@ -100,6 +100,13 @@ class PublicationBatchResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PublishBatchResult(BaseModel):
+    """BACKEND.1.1 — wrapped publish response with feature-flag metadata."""
+    batch: PublicationBatchResponse
+    generated_manifest_created: bool = False
+    next_step: str = "generated_manifest_write_disabled"
+
+
 class PublicationBatchListResponse(BaseModel):
     """Lightweight list item (no nested collections)."""
     id: UUID

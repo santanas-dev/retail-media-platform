@@ -10,6 +10,7 @@ from fastapi import status as http_status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db, require_permission
+from app.core.config import get_settings
 from app.domains.identity.models import User
 from app.domains.identity.rls import resolve_user_scope_context, assert_object_in_advertiser_scope
 from app.domains.publications import schemas, service
@@ -184,14 +185,32 @@ async def approve_batch(
 
 @router.post(
     "/publication-batches/{batch_id}/publish",
-    response_model=schemas.PublicationBatchResponse,
+    response_model=schemas.PublishBatchResult,
 )
 async def publish_batch(
     batch_id: str,
     db=Depends(get_db),
     current_user: User = Depends(require_permission("publications.publish")),
 ):
-    """Publish batch. RLS: advertiser scope enforced."""
+    """Publish batch. RLS: advertiser scope enforced.
+
+    BACKEND.1.1 — gated by ENABLE_REAL_PUBLICATION feature flag.
+    When OFF: returns 422 (real publication disabled).
+    When ON: existing publish_batch() executes, but GeneratedManifest is NOT created.
+    """
+    settings = get_settings()
+    if not settings.ENABLE_REAL_PUBLICATION:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": "real_publication_disabled",
+                "message": "Real publication is disabled by feature flag "
+                           "(ENABLE_REAL_PUBLICATION=false). "
+                           "Set ENABLE_REAL_PUBLICATION=true to enable.",
+                "batch_id": batch_id,
+            },
+        )
+
     scope_ctx = await resolve_user_scope_context(db, current_user)
     adv_id = await _resolve_batch_advertiser(db, UUID(batch_id))
     if adv_id is not None:
@@ -203,7 +222,11 @@ async def publish_batch(
         action="publication_batch.publish", target_type="publication_batch",
         target_ref=batch_id,
     )
-    return result
+    return schemas.PublishBatchResult(
+        batch=schemas.PublicationBatchResponse.model_validate(result),
+        generated_manifest_created=False,
+        next_step="generated_manifest_write_disabled",
+    )
 
 
 @router.post(
