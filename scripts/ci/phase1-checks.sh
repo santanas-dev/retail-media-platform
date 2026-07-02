@@ -64,6 +64,8 @@ PYTHON_FILES=(
     "apps/orchestrator-worker/main.py"
     "apps/adapter-workers/mock/main.py"
     "packages/domain/__init__.py"
+    "packages/domain/models.py"
+    "packages/domain/database.py"
     "packages/observability/__init__.py"
 )
 
@@ -72,7 +74,19 @@ for f in "${PYTHON_FILES[@]}"; do
 done
 
 # ---------------------------------------------------------------------------
-# 2. Python — Import Smoke
+# 2. Python — Model Tests (static, no DB)
+# ---------------------------------------------------------------------------
+echo ""
+echo "--- Python Model Tests ---"
+
+if command -v pytest &>/dev/null || python3 -c "import pytest" 2>/dev/null; then
+    check "model tests" python3 -m pytest tests/test_phase2_models.py -q 2>&1
+else
+    check "model tests (unittest fallback)" python3 -m unittest tests.test_phase2_models -v 2>&1 | tail -5
+fi
+
+# ---------------------------------------------------------------------------
+# 3. Python — Import Smoke
 # ---------------------------------------------------------------------------
 echo ""
 echo "--- Python Import Smoke ---"
@@ -110,7 +124,7 @@ except SystemExit:
 done
 
 # ---------------------------------------------------------------------------
-# 3. JSON Schema Validation
+# 4. JSON Schema Validation
 # ---------------------------------------------------------------------------
 echo ""
 echo "--- JSON Schema Validation ---"
@@ -130,7 +144,7 @@ assert 'properties' in s, 'missing properties'
 done
 
 # ---------------------------------------------------------------------------
-# 4. Docker Compose Config Validation
+# 5. Docker Compose Config Validation
 # ---------------------------------------------------------------------------
 echo ""
 echo "--- Docker Compose Config Validation ---"
@@ -155,7 +169,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Frontend
+# 6. Frontend
 # ---------------------------------------------------------------------------
 echo ""
 echo "--- Frontend ---"
