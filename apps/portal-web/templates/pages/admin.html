@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">Администрирование</h1>
-<p class="page-description">Управление платформой: пользователи, роли, области доступа, аудит. Создание и изменение пользователей выполняется администратором системы.</p>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Администрирование</span>
+    <span class="page-subtitle">Пользователи, роли, права и аудит</span>
+  </div>
+</div>
 
 {% if flash_type == "success" %}
 <div class="success-banner">

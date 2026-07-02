@@ -1,29 +1,45 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- G.4 — Emergency Portal Read-Only / Dry-Run Control Page -->
-
-<h1>Аварийное управление</h1>
-<p class="subtitle">Только предварительный просмотр / dry-run</p>
-
-{# ── Dry-run warning banner ── #}
-<div class="alert alert-warning mb-16">
-  ⚠️ Это dry-run. Реклама не будет остановлена. Реальное выполнение отключено.
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Аварийное управление</span>
+    <span class="page-subtitle">Это dry-run. Реальное выполнение отключено.</span>
+  </div>
+  <div class="page-header-right">
+    <span class="status-badge status-badge-warning">dry‑run</span>
+  </div>
 </div>
 
-{# ── Backend error ── #}
+{# ── Dry-run warning banner ── #}
+<div class="banner banner-warning">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body">
+    <div class="banner-title">Только симуляция</div>
+    <div class="banner-text">Реклама не будет остановлена. Реальное выполнение отключено. Все действия выполняются в режиме предварительного просмотра.</div>
+  </div>
+</div>
+
+{# ── Backend errors ── #}
 {% if backend_error %}
-<div class="alert alert-error mb-16">{{ backend_error }}</div>
+<div class="banner banner-error">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body"><div class="banner-text">{{ backend_error }}</div></div>
+</div>
 {% endif %}
 
-{# ── Backend 403 ── #}
 {% if backend_403 %}
-<div class="alert alert-warning mb-16">Нет доступа к аварийному управлению</div>
+<div class="banner banner-warning">
+  <span class="banner-icon">🔒</span>
+  <div class="banner-body"><div class="banner-text">Нет доступа к аварийному управлению</div></div>
+</div>
 {% endif %}
 
-{# ── Backend unavailable ── #}
 {% if backend_unavailable %}
-<div class="alert alert-error mb-16">Сервис аварийного управления временно недоступен</div>
+<div class="banner banner-error">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body"><div class="banner-text">Сервис аварийного управления временно недоступен</div></div>
+</div>
 {% endif %}
 
 {# ═══════════════════════════════════════════════════════════════════ #}
@@ -31,51 +47,63 @@
 {# ═══════════════════════════════════════════════════════════════════ #}
 
 {% if capabilities %}
-<h2>Доступные возможности</h2>
-<div class="kpi-grid mb-16">
-  <div class="kpi-card">
-    <span class="kpi-value">{{ capabilities.action_types | length }}</span>
-    <span class="kpi-label">Типов действий</span>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">⚙️</span>
+    <span class="section-card-title">Доступные возможности</span>
   </div>
-  <div class="kpi-card">
-    <span class="kpi-value">{{ capabilities.priorities | length }}</span>
-    <span class="kpi-label">Уровней приоритета</span>
-  </div>
-  <div class="kpi-card">
-    <span class="kpi-value">dry‑run</span>
-    <span class="kpi-label">Режим</span>
+  <div class="section-card-body">
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-value">{{ capabilities.action_types | length }}</div>
+        <div class="metric-label">Типов действий</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">{{ capabilities.priorities | length }}</div>
+        <div class="metric-label">Уровней приоритета</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">dry‑run</div>
+        <div class="metric-label">Режим</div>
+      </div>
+    </div>
+
+    <details class="mb-8">
+      <summary>Типы действий</summary>
+      <ul>
+      {% for t in capabilities.action_types %}
+        <li>{{ t }}</li>
+      {% endfor %}
+      </ul>
+    </details>
+
+    <details>
+      <summary>Приоритеты</summary>
+      <ul>
+      {% for p in capabilities.priorities %}
+        <li>{{ p }}</li>
+      {% endfor %}
+      </ul>
+    </details>
   </div>
 </div>
-
-<details class="mb-16">
-  <summary>Типы действий</summary>
-  <ul>
-  {% for t in capabilities.action_types %}
-    <li>{{ t }}</li>
-  {% endfor %}
-  </ul>
-</details>
-
-<details class="mb-16">
-  <summary>Приоритеты</summary>
-  <ul>
-  {% for p in capabilities.priorities %}
-    <li>{{ p }}</li>
-  {% endfor %}
-  </ul>
-</details>
 {% endif %}
 
 {# ═══════════════════════════════════════════════════════════════════ #}
 {# B. Preview block                                                   #}
 {# ═══════════════════════════════════════════════════════════════════ #}
 
-<h2>Предварительный просмотр</h2>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🔍</span>
+    <span class="section-card-title">Предварительный просмотр</span>
+  </div>
+  <div class="section-card-body">
 
-<form method="post" action="/emergency" class="mb-16">
+<form method="post" action="/emergency">
   <input type="hidden" name="action" value="preview">
 
-  <div class="form-row">
+  <div class="filter-bar">
     <label>Тип действия
       <select name="action_type" required>
         <option value="">— выберите —</option>
@@ -97,12 +125,12 @@
 
   <fieldset class="mb-16">
     <legend>Цель (минимум одно поле)</legend>
-    <div class="form-row">
+    <div class="filter-bar">
       <label>Код канала <input type="text" name="channel_code" value="{{ form.channel_code }}" maxlength="64"></label>
       <label>Код магазина <input type="text" name="store_code" value="{{ form.store_code }}" maxlength="64"></label>
       <label>Код устройства <input type="text" name="device_code" value="{{ form.device_code }}" maxlength="64"></label>
     </div>
-    <div class="form-row">
+    <div class="filter-bar">
       <label>Код кампании <input type="text" name="campaign_code" value="{{ form.campaign_code }}" maxlength="64"></label>
       <label>Код размещения <input type="text" name="placement_code" value="{{ form.placement_code }}" maxlength="64"></label>
       <label>ID поверхности <input type="text" name="display_surface_id" value="{{ form.display_surface_id }}" maxlength="64"></label>
@@ -112,16 +140,24 @@
   <button type="submit" class="btn btn-primary">Проверить</button>
 </form>
 
+  </div>
+</div>
+
 {# ═══════════════════════════════════════════════════════════════════ #}
 {# C. Simulate stop/resume                                            #}
 {# ═══════════════════════════════════════════════════════════════════ #}
 
-<h2>Симуляция остановки</h2>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">⏹️</span>
+    <span class="section-card-title">Симуляция остановки</span>
+  </div>
+  <div class="section-card-body">
 
-<form method="post" action="/emergency" class="mb-16">
+<form method="post" action="/emergency">
   <input type="hidden" name="action" value="simulate-stop">
 
-  <div class="form-row">
+  <div class="filter-bar">
     <label>Тип действия
       <select name="action_type" required>
         <option value="">— выберите —</option>
@@ -146,12 +182,12 @@
 
   <fieldset class="mb-16">
     <legend>Цель</legend>
-    <div class="form-row">
+    <div class="filter-bar">
       <label>Код канала <input type="text" name="channel_code" maxlength="64"></label>
       <label>Код магазина <input type="text" name="store_code" maxlength="64"></label>
       <label>Код устройства <input type="text" name="device_code" maxlength="64"></label>
     </div>
-    <div class="form-row">
+    <div class="filter-bar">
       <label>Код кампании <input type="text" name="campaign_code" maxlength="64"></label>
       <label>Код размещения <input type="text" name="placement_code" maxlength="64"></label>
     </div>
@@ -160,13 +196,21 @@
   <button type="submit" class="btn btn-danger">Симулировать остановку</button>
 </form>
 
+  </div>
+</div>
+
 {# ═══════════════════════════════════════════════════════════════════ #}
 {# D. Simulate emergency message                                      #}
 {# ═══════════════════════════════════════════════════════════════════ #}
 
-<h2>Симуляция экстренного сообщения</h2>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📢</span>
+    <span class="section-card-title">Симуляция экстренного сообщения</span>
+  </div>
+  <div class="section-card-body">
 
-<form method="post" action="/emergency" class="mb-16">
+<form method="post" action="/emergency">
   <input type="hidden" name="action" value="simulate-message">
   <input type="hidden" name="action_type" value="emergency_message">
 
@@ -181,14 +225,14 @@
   <label>Причина <input type="text" name="reason" required maxlength="1024" placeholder="Причина сообщения"></label>
   <label>Заголовок <input type="text" name="msg_title" required maxlength="256" placeholder="Заголовок экстренного сообщения"></label>
   <label>Текст сообщения <textarea name="msg_body" required maxlength="2048" rows="4" placeholder="Текст экстренного сообщения"></textarea></label>
-  <div class="form-row">
+  <div class="filter-bar">
     <label>Длительность (сек) <input type="number" name="msg_duration" min="1" max="86400" value="300"></label>
     <label>Серьёзность <input type="text" name="msg_severity" maxlength="32" placeholder="warning"></label>
   </div>
 
   <fieldset class="mb-16">
     <legend>Цель</legend>
-    <div class="form-row">
+    <div class="filter-bar">
       <label>Код канала <input type="text" name="channel_code" maxlength="64"></label>
       <label>Код магазина <input type="text" name="store_code" maxlength="64"></label>
       <label>Код устройства <input type="text" name="device_code" maxlength="64"></label>
@@ -198,65 +242,71 @@
   <button type="submit" class="btn btn-primary">Симулировать сообщение</button>
 </form>
 
+  </div>
+</div>
+
 {# ═══════════════════════════════════════════════════════════════════ #}
 {# E. Result panel                                                    #}
 {# ═══════════════════════════════════════════════════════════════════ #}
 
 {% if result %}
-<h2>Результат</h2>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📊</span>
+    <span class="section-card-title">Результат</span>
+  </div>
+  <div class="section-card-body">
 
-<div class="kpi-grid mb-16">
-  <div class="kpi-card {% if result.ok %}kpi-success{% else %}kpi-danger{% endif %}">
-    <span class="kpi-value">{% if result.ok %}✅ OK{% else %}❌ Ошибка{% endif %}</span>
-    <span class="kpi-label">Статус</span>
+<div class="metric-grid">
+  <div class="metric-card {% if result.ok %}metric-card-success{% else %}metric-card-danger{% endif %}">
+    <div class="metric-value">{% if result.ok %}✅ OK{% else %}❌ Ошибка{% endif %}</div>
+    <div class="metric-label">Статус</div>
   </div>
-  <div class="kpi-card">
-    <span class="kpi-value">{{ result.dry_run }}</span>
-    <span class="kpi-label">dry_run</span>
+  <div class="metric-card">
+    <div class="metric-value">{{ result.dry_run }}</div>
+    <div class="metric-label">dry_run</div>
   </div>
-  <div class="kpi-card">
-    <span class="kpi-value">{{ result.action_type }}</span>
-    <span class="kpi-label">Тип действия</span>
+  <div class="metric-card">
+    <div class="metric-value">{{ result.action_type }}</div>
+    <div class="metric-label">Тип действия</div>
   </div>
 </div>
 
-{# Affected entities #}
 {% if result.affected_channels is defined or result.affected_devices is defined %}
-<div class="kpi-grid mb-16">
+<div class="metric-grid">
   {% if result.affected_channels is defined %}
-  <div class="kpi-card">
-    <span class="kpi-value">{{ result.affected_channels }}</span>
-    <span class="kpi-label">Затронутые каналы</span>
+  <div class="metric-card">
+    <div class="metric-value">{{ result.affected_channels }}</div>
+    <div class="metric-label">Затронутые каналы</div>
   </div>
   {% endif %}
   {% if result.affected_stores is defined %}
-  <div class="kpi-card">
-    <span class="kpi-value">{{ result.affected_stores }}</span>
-    <span class="kpi-label">Затронутые магазины</span>
+  <div class="metric-card">
+    <div class="metric-value">{{ result.affected_stores }}</div>
+    <div class="metric-label">Затронутые магазины</div>
   </div>
   {% endif %}
   {% if result.affected_devices is defined %}
-  <div class="kpi-card">
-    <span class="kpi-value">{{ result.affected_devices }}</span>
-    <span class="kpi-label">Затронутые устройства</span>
+  <div class="metric-card">
+    <div class="metric-value">{{ result.affected_devices }}</div>
+    <div class="metric-label">Затронутые устройства</div>
   </div>
   {% endif %}
   {% if result.affected_campaigns is defined %}
-  <div class="kpi-card">
-    <span class="kpi-value">{{ result.affected_campaigns }}</span>
-    <span class="kpi-label">Затронутые кампании</span>
+  <div class="metric-card">
+    <div class="metric-value">{{ result.affected_campaigns }}</div>
+    <div class="metric-label">Затронутые кампании</div>
   </div>
   {% endif %}
   {% if result.affected_placements is defined %}
-  <div class="kpi-card">
-    <span class="kpi-value">{{ result.affected_placements }}</span>
-    <span class="kpi-label">Затронутые размещения</span>
+  <div class="metric-card">
+    <div class="metric-value">{{ result.affected_placements }}</div>
+    <div class="metric-label">Затронутые размещения</div>
   </div>
   {% endif %}
 </div>
 {% endif %}
 
-{# Warnings #}
 {% if result.warnings %}
 <h3>Предупреждения</h3>
 <ul class="mb-16">
@@ -266,7 +316,6 @@
 </ul>
 {% endif %}
 
-{# Errors #}
 {% if result.errors %}
 <h3>Ошибки</h3>
 <ul class="mb-16">
@@ -276,17 +325,24 @@
 </ul>
 {% endif %}
 
-{# Validation errors from backend 422 #}
 {% if validation_errors %}
-<div class="alert alert-error mb-16">
-  <strong>Ошибки валидации:</strong>
-  <ul>
-  {% for ve in validation_errors %}
-    <li>{{ ve }}</li>
-  {% endfor %}
-  </ul>
+<div class="banner banner-error">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body">
+    <div class="banner-title">Ошибки валидации</div>
+    <div class="banner-text">
+      <ul>
+      {% for ve in validation_errors %}
+        <li>{{ ve }}</li>
+      {% endfor %}
+      </ul>
+    </div>
+  </div>
 </div>
 {% endif %}
+
+  </div>
+</div>
 {% endif %}
 
 {% endblock %}

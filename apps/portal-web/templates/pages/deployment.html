@@ -1,7 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">Развёртывание</h1>
-<p class="page-description">Контур развёртывания KSO Runtime на Linux КСО. Компоненты, контракты, инструменты.</p>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Развёртывание</span>
+    <span class="page-subtitle">Контур развёртывания KSO Runtime на Linux КСО</span>
+  </div>
+</div>
+
+<div class="banner banner-warning">
+  <span class="banner-icon">🚫</span>
+  <div class="banner-body">
+    <div class="banner-title">Production switch запрещён</div>
+    <div class="banner-text">Развёртывание на физические КСО не выполнялось. Все операции — подготовка и документирование. Физический запуск требует отдельного approval gate.</div>
+  </div>
+</div>
 
 <h2 class="mt-16 mb-12 text-md">Компоненты KSO Runtime</h2>
 <div class="component-list">

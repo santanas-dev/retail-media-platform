@@ -1,6 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">{{ creative.name if creative else "Креатив" }}</h1>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <a href="/creatives" class="page-back">← К списку креативов</a>
+    <span class="page-title">{{ creative.name if creative else "Креатив" }}</span>
+    {% if creative %}<span class="page-subtitle"><code>{{ creative.creative_code }}</code></span>{% endif %}
+  </div>
+</div>
 
 {% if creative %}
 <div class="content-card">

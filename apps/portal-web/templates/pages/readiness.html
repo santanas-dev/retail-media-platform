@@ -1,10 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">🧭 Готовность к запуску + Бизнес-демо</h1>
-<p class="page-description">
-  Сводка готовности устройств и бизнес-сценария к демонстрации. Данные из система.
-  <a href="/device-dashboard">📡 Полный Device Dashboard →</a>
-</p>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Готовность КСО</span>
+    <span class="page-subtitle">Проверки устройства, gateway, пакетов показа. Данные из системы.</span>
+  </div>
+  <div class="page-header-right page-actions">
+    <a href="/device-dashboard" class="btn btn-secondary">📡 Панель КСО</a>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════════════
      PART 1: DEVICE READINESS
