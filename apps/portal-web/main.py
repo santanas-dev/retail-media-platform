@@ -3649,6 +3649,146 @@ async def publications_batch_cancel(
     return RedirectResponse(url="/publications", status_code=303)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Manifests — Manifest / KSO Preview (PORTAL.1.4)
+# ══════════════════════════════════════════════════════════════════════
+
+
+@app.get("/packages", response_class=HTMLResponse)
+async def manifests_page(request: Request):
+    """Manifests list: GeneratedManifest records + KSO check (PORTAL.1.4)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/packages")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+    ctx: dict = {
+        "request": request,
+        "title": "Пакеты показа",
+        "active": "manifests",
+        "current_user": current_user,
+        "manifests": [],
+        "filters": {},
+        "backend_error": None,
+        "flash": request.query_params.get("flash", ""),
+    }
+
+    if not access_token:
+        ctx["backend_error"] = "Нет доступа к данным."
+        return templates.TemplateResponse(request, "pages/manifests.html", ctx)
+
+    filters = {}
+    for key in ("device_code", "campaign_code", "status"):
+        val = request.query_params.get(key)
+        if val:
+            filters[key] = val.strip()
+    ctx["filters"] = filters
+
+    try:
+        result = await backend.list_manifests(access_token)
+        if result.get("ok"):
+            manifests = result.get("data", [])
+            for key, val in filters.items():
+                manifests = [m for m in manifests if str(m.get(key, "")).lower() == val.lower()]
+            ctx["manifests"] = manifests
+        else:
+            ctx["backend_error"] = _safe_error(result)
+    except Exception:
+        ctx["backend_error"] = "Данные манифестов временно недоступны"
+
+    return templates.TemplateResponse(request, "pages/manifests.html", ctx)
+
+
+@app.get("/packages/{manifest_code}", response_class=HTMLResponse)
+async def manifest_detail(request: Request, manifest_code: str):
+    """Manifest detail with body summary + KSO check (PORTAL.1.4)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/packages")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+    ctx: dict = {
+        "request": request,
+        "title": f"Манифест {manifest_code}",
+        "active": "manifests",
+        "current_user": current_user,
+        "manifest": None,
+        "manifest_code": manifest_code,
+        "body_summary": None,
+        "kso_check": None,
+        "backend_error": None,
+    }
+
+    if not access_token:
+        ctx["backend_error"] = "Нет доступа к данным."
+        return templates.TemplateResponse(request, "pages/manifest_detail.html", ctx)
+
+    try:
+        detail = await backend.get_manifest(access_token, manifest_code)
+        if detail.get("ok"):
+            data = detail.get("data", {})
+            ctx["manifest"] = data
+            body = data.get("manifest_body_json") or data.get("manifest_body") or {}
+            if isinstance(body, str):
+                import json as _json
+                try:
+                    body = _json.loads(body)
+                except Exception:
+                    body = {}
+            ctx["body_summary"] = {
+                "item_count": data.get("item_count", len(body.get("items", [])) if isinstance(body, dict) else 0),
+                "has_items": bool(body.get("items")) if isinstance(body, dict) else False,
+                "creatives": [it.get("creative_code", "") for it in body.get("items", [])] if isinstance(body, dict) and body.get("items") else [],
+            }
+            device_code = data.get("device_code", "")
+            if device_code:
+                kso = await backend.get_kso_manifest_status(access_token, device_code)
+                if kso.get("ok"):
+                    ctx["kso_check"] = kso.get("data", {})
+        else:
+            ctx["backend_error"] = _safe_error(detail)
+    except Exception:
+        ctx["backend_error"] = "Данные манифеста временно недоступны"
+
+    return templates.TemplateResponse(request, "pages/manifest_detail.html", ctx)
+
+
+@app.post("/packages/check-kso", response_class=HTMLResponse)
+async def manifests_check_kso(request: Request):
+    """KSO endpoint check — find published manifest for device (PORTAL.1.4)."""
+    guard = await require_auth_for_page(request, "/packages")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        return RedirectResponse(url="/packages", status_code=303)
+
+    form = await request.form()
+    device_code = (form.get("device_code") or "").strip()
+    if not device_code:
+        return RedirectResponse(url="/packages", status_code=303)
+
+    backend = BackendClient()
+    result = await backend.get_kso_manifest_status(access_token, device_code)
+    if result.get("ok"):
+        data = result.get("data", {})
+        if data.get("status") == "served":
+            flash = f"Манифест+{data.get('manifest_code','?')}+готов+для+{device_code}"
+        else:
+            flash = f"Нет+манифеста+для+{device_code}"
+    else:
+        flash = "Ошибка+проверки+KSO"
+    return RedirectResponse(url=f"/packages?flash={flash}", status_code=303)
+
+
 # Legacy generate/publish handlers preserved for backward compat
 @app.post("/publications/generate", response_class=HTMLResponse)
 async def publications_generate(

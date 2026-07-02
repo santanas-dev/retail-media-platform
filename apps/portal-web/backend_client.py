@@ -820,6 +820,38 @@ class BackendClient:
     # Alias for consistency with portal naming
     get_publication = get_publication_batch
 
+    # ── KSO Manifest check (PORTAL.1.4) ──────────────────────────────────
+
+    async def get_kso_manifest_status(
+        self, access_token: str, device_code: str,
+    ) -> dict:
+        """Check if a published manifest exists for a KSO device.
+
+        Uses GET /api/manifests to find published manifest for device_code.
+        Does NOT call the legacy KSO endpoint (requires device JWT).
+        Returns {ok, data: {status, manifest_code, item_count, ...}}
+        or {ok, data: {status: 'no_manifest'}}.
+        """
+        manifests = await self.list_manifests(access_token)
+        if not manifests.get("ok"):
+            return {"ok": False, "error": "Cannot check manifests", "status": 502}
+        data = manifests.get("data", [])
+        # Find published manifest for this device
+        for m in data:
+            if m.get("device_code") == device_code and m.get("status") == "published":
+                return {
+                    "ok": True,
+                    "data": {
+                        "status": "served",
+                        "manifest_code": m.get("manifest_code", ""),
+                        "item_count": m.get("item_count", 0),
+                        "campaign_code": m.get("campaign_code", ""),
+                        "placement_code": m.get("placement_code", ""),
+                        "published_at": m.get("published_at", ""),
+                    },
+                }
+        return {"ok": True, "data": {"status": "no_manifest", "device_code": device_code}}
+
     async def create_publication_batch(
         self, access_token: str, campaign_code: str,
     ) -> dict:

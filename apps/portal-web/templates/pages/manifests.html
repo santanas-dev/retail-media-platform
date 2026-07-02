@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Манифесты{% endblock %}
+{% block content %}
+<h2>Манифесты (сгенерированные)</h2>
+
+{% if flash %}
+  <div class="alert alert-info">{{ flash }}</div>
+{% endif %}
+
+{% if backend_error %}
+  <div class="alert alert-error">{{ backend_error }}</div>
+{% endif %}
+
+{# ── KSO Check Form ── #}
+<details class="section-collapse">
+  <summary>Проверить доступность манифеста на КСО</summary>
+  <form method="post" action="/packages/check-kso" class="filter-bar">
+    <label>Код устройства: <input type="text" name="device_code" required placeholder="например, KSO-001"></label>
+    <button type="submit">Проверить</button>
+  </form>
+  <div class="hint-text">Проверка показывает, есть ли опубликованный манифест для устройства КСО. Legacy endpoint требует device JWT — проверка идёт через внутренний API манифестов.</div>
+</details>
+
+{# ── Filters ── #}
+<form method="get" class="filter-bar">
+  <label>Устройство: <input type="text" name="device_code" value="{{ filters.device_code or '' }}" placeholder="device_code"></label>
+  <label>Кампания: <input type="text" name="campaign_code" value="{{ filters.campaign_code or '' }}" placeholder="campaign_code"></label>
+  <label>Статус:
+    <select name="status">
+      <option value="">Все</option>
+      <option value="generated" {% if filters.status == 'generated' %}selected{% endif %}>Сгенерирован</option>
+      <option value="published" {% if filters.status == 'published' %}selected{% endif %}>Опубликован</option>
+    </select>
+  </label>
+  <button type="submit">Показать</button>
+</form>
+
+{# ── Manifest List ── #}
+{% if manifests %}
+  <table class="data-table">
+    <thead>
+      <tr><th>Код</th><th>Устройство</th><th>Кампания</th><th>Статус</th><th>Элементов</th><th>Создан</th></tr>
+    </thead>
+    <tbody>
+    {% for m in manifests %}
+      <tr>
+        <td><a href="/packages/{{ m.manifest_code }}"><code>{{ m.manifest_code }}</code></a></td>
+        <td><code>{{ m.device_code }}</code></td>
+        <td><code>{{ m.campaign_code }}</code></td>
+        <td>
+          {% if m.status == 'published' %}✅ Опубликован
+          {% elif m.status == 'generated' %}📋 Сгенерирован
+          {% else %}{{ m.status }}
+          {% endif %}
+        </td>
+        <td>{{ m.item_count or '—' }}</td>
+        <td>{{ m.generated_at|fmt_date('short') if m.generated_at else m.created_at|fmt_date('short') if m.created_at else '—' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% elif not backend_error %}
+  <div class="empty-state">
+    <div class="empty-state-title">Манифесты пока не созданы</div>
+    <div class="empty-state-text">Создайте публикацию с включённым флагом <code>ENABLE_GENERATED_MANIFEST_WRITE=true</code> на backend. Подробнее на странице <a href="/publications">Публикации</a>.</div>
+  </div>
+{% endif %}
+{% endblock %}

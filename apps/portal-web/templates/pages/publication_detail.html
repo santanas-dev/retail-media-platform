@@ -50,6 +50,9 @@
             <td>
               {% if pub_result.generated_manifest_created %}
                 ✅ Да
+                {% if pub_result.generated_manifest_details %}
+                  — <a href="/packages" class="btn-sm">Смотреть манифесты</a>
+                {% endif %}
               {% else %}
                 ❌ Нет
               {% endif %}
