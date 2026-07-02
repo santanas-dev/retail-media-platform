@@ -814,6 +814,226 @@ async def planning_page(request: Request):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Bookings — Booking Workflow (PORTAL.1.2)
+# ══════════════════════════════════════════════════════════════════════
+
+
+@app.get("/bookings", response_class=HTMLResponse)
+async def bookings_page(request: Request):
+    """Bookings page: list, create form, and actions (PORTAL.1.2)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/bookings")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+    ctx: dict = {
+        "request": request,
+        "title": "Бронирования",
+        "active": "bookings",
+        "current_user": current_user,
+        "bookings": [],
+        "filters": {},
+        "backend_error": None,
+        "flash": request.query_params.get("flash", ""),
+    }
+
+    if not access_token:
+        ctx["backend_error"] = "Нет доступа к данным. Выполните вход."
+        return templates.TemplateResponse(request, "pages/bookings.html", ctx)
+
+    # Collect filter values
+    filters = {}
+    for key in ("campaign_id", "status", "date_from", "date_to"):
+        val = request.query_params.get(key)
+        if val:
+            filters[key] = val.strip()
+    ctx["filters"] = filters
+
+    try:
+        result = await backend.list_bookings(
+            access_token,
+            campaign_id=filters.get("campaign_id"),
+            status=filters.get("status"),
+            date_from=filters.get("date_from"),
+            date_to=filters.get("date_to"),
+        )
+        if result.get("ok"):
+            ctx["bookings"] = result.get("data", [])
+        else:
+            ctx["backend_error"] = _safe_error(result)
+    except Exception:
+        ctx["backend_error"] = "Данные бронирований временно недоступны"
+
+    return templates.TemplateResponse(request, "pages/bookings.html", ctx)
+
+
+@app.post("/bookings", response_class=HTMLResponse)
+async def bookings_create(request: Request):
+    """Create a new booking (PORTAL.1.2)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/bookings")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+
+    if not access_token:
+        return RedirectResponse(url="/bookings?flash=Требуется+вход", status_code=303)
+
+    form = await request.form()
+    campaign_id = (form.get("campaign_id") or "").strip()
+    date_from = (form.get("date_from") or "").strip()
+    date_to = (form.get("date_to") or "").strip()
+    comment = (form.get("comment") or "").strip()
+
+    if not campaign_id or not date_from or not date_to:
+        return RedirectResponse(
+            url="/bookings?flash=Заполните+обязательные+поля", status_code=303,
+        )
+
+    payload = {"campaign_id": campaign_id, "date_from": date_from, "date_to": date_to}
+    if comment:
+        payload["comment"] = comment
+
+    try:
+        result = await backend.create_booking(access_token, payload)
+        if result.get("ok"):
+            flash = "Бронирование+создано"
+        else:
+            flash = _safe_error(result)
+    except Exception:
+        flash = "Ошибка+создания+бронирования"
+
+    return RedirectResponse(url=f"/bookings?flash={flash}", status_code=303)
+
+
+@app.get("/bookings/{booking_id}", response_class=HTMLResponse)
+async def booking_detail(request: Request, booking_id: str):
+    """Booking detail with items and actions (PORTAL.1.2)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/bookings")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+    ctx: dict = {
+        "request": request,
+        "title": f"Бронирование {booking_id}",
+        "active": "bookings",
+        "current_user": current_user,
+        "booking": None,
+        "items": [],
+        "backend_error": None,
+        "flash": request.query_params.get("flash", ""),
+    }
+
+    if not access_token:
+        ctx["backend_error"] = "Нет доступа к данным. Выполните вход."
+        return templates.TemplateResponse(request, "pages/booking_detail.html", ctx)
+
+    try:
+        detail = await backend.get_booking(access_token, booking_id)
+        if detail.get("ok"):
+            ctx["booking"] = detail.get("data", {})
+        else:
+            ctx["backend_error"] = _safe_error(detail)
+            return templates.TemplateResponse(request, "pages/booking_detail.html", ctx)
+
+        items = await backend.list_booking_items(access_token, booking_id)
+        if items.get("ok"):
+            ctx["items"] = items.get("data", [])
+    except Exception:
+        ctx["backend_error"] = "Данные бронирования временно недоступны"
+
+    return templates.TemplateResponse(request, "pages/booking_detail.html", ctx)
+
+
+@app.post("/bookings/{booking_id}/reserve", response_class=HTMLResponse)
+async def booking_reserve(request: Request, booking_id: str):
+    """Reserve a booking (PORTAL.1.2)."""
+    guard = await require_auth_for_page(request, "/bookings")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        return RedirectResponse(url=f"/bookings/{booking_id}?flash=Требуется+вход", status_code=303)
+
+    backend = BackendClient()
+    try:
+        result = await backend.reserve_booking(access_token, booking_id)
+        if result.get("ok"):
+            flash = "Бронирование+зарезервировано"
+        else:
+            flash = _safe_error(result)
+    except Exception:
+        flash = "Ошибка+резервирования"
+
+    return RedirectResponse(url=f"/bookings/{booking_id}?flash={flash}", status_code=303)
+
+
+@app.post("/bookings/{booking_id}/confirm", response_class=HTMLResponse)
+async def booking_confirm(request: Request, booking_id: str):
+    """Confirm a booking (PORTAL.1.2). Requires bookings.approve."""
+    guard = await require_auth_for_page(request, "/bookings")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        return RedirectResponse(url=f"/bookings/{booking_id}?flash=Требуется+вход", status_code=303)
+
+    backend = BackendClient()
+    try:
+        result = await backend.confirm_booking(access_token, booking_id)
+        if result.get("ok"):
+            flash = "Бронирование+подтверждено"
+        else:
+            flash = _safe_error(result)
+    except Exception:
+        flash = "Ошибка+подтверждения"
+
+    return RedirectResponse(url=f"/bookings/{booking_id}?flash={flash}", status_code=303)
+
+
+@app.post("/bookings/{booking_id}/cancel", response_class=HTMLResponse)
+async def booking_cancel(request: Request, booking_id: str):
+    """Cancel a booking (PORTAL.1.2)."""
+    guard = await require_auth_for_page(request, "/bookings")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    if not access_token:
+        return RedirectResponse(url=f"/bookings/{booking_id}?flash=Требуется+вход", status_code=303)
+
+    form = await request.form()
+    reason = (form.get("reason") or "").strip()
+
+    backend = BackendClient()
+    try:
+        result = await backend.cancel_booking(access_token, booking_id, reason)
+        if result.get("ok"):
+            flash = "Бронирование+отменено"
+        else:
+            flash = _safe_error(result)
+    except Exception:
+        flash = "Ошибка+отмены"
+
+    return RedirectResponse(url=f"/bookings/{booking_id}?flash={flash}", status_code=303)
+
+
+# ══════════════════════════════════════════════════════════════════════
 
 from fastapi.responses import PlainTextResponse
 

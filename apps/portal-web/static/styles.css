@@ -512,3 +512,18 @@ a:hover { color: var(--color-primary-text); }
 .content-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
 .content-card-title { font-size: 16px; font-weight: 600; color: var(--color-text); }
 .status-badge-blocked { background: var(--color-error-bg); color: var(--color-error-text); }
+
+/* Booking actions (PORTAL.1.2) */
+.action-buttons { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.inline-form { display: inline-block; }
+.btn-sm { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text); font-size: 12px; text-decoration: none; }
+.btn-sm:hover { background: var(--color-surface-hover); }
+.btn-primary { display: inline-flex; align-items: center; gap: 4px; padding: 8px 16px; border-radius: var(--radius); background: var(--color-primary); color: #fff; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-success { display: inline-flex; align-items: center; gap: 4px; padding: 8px 16px; border-radius: var(--radius); background: var(--color-success-bg); color: var(--color-success-text); border: 1px solid var(--color-success-border, #2e7d32); font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-success:hover { opacity: 0.85; }
+.btn-danger { display: inline-flex; align-items: center; gap: 4px; padding: 8px 16px; border-radius: var(--radius); background: var(--color-error-bg); color: var(--color-error-text); border: 1px solid var(--color-error-border, #c62828); font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-danger:hover { opacity: 0.85; }
+.section-collapse { margin: 8px 0; }
+.section-collapse summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
+.hint-text { font-size: 11px; color: var(--color-text-muted); margin-top: 8px; }

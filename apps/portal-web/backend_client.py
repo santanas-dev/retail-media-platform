@@ -1386,6 +1386,118 @@ class BackendClient:
         )
 
 
+    # ── Booking Workflow (PORTAL.1.2) ───────────────────────────────────
+
+    async def list_bookings(
+        self, access_token: str,
+        campaign_id: str | None = None,
+        status: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+    ) -> dict:
+        """GET /api/bookings → {ok, data: [{id, campaign_id, status, ...}]}."""
+        from urllib.parse import urlencode
+        params = {}
+        if campaign_id:
+            params["campaign_id"] = campaign_id
+        if status:
+            params["status"] = status
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        query = ("?" + urlencode(params)) if params else ""
+        return await self._request(
+            "GET", f"/api/bookings{query}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def get_booking(self, access_token: str, booking_id: str) -> dict:
+        """GET /api/bookings/{id} → {ok, data: {id, campaign_id, status, ...}}."""
+        return await self._request(
+            "GET", f"/api/bookings/{booking_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def create_booking(self, access_token: str, payload: dict) -> dict:
+        """POST /api/bookings → {ok, data: {id, campaign_id, status, ...}} (201).
+        
+        Payload: {campaign_id, date_from, date_to, comment?}
+        Requires ENABLE_BOOKING_WRITES=true on backend.
+        """
+        return await self._request(
+            "POST", "/api/bookings",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def update_booking(
+        self, access_token: str, booking_id: str, payload: dict,
+    ) -> dict:
+        """PUT /api/bookings/{id} → {ok, data}.
+        
+        Requires ENABLE_BOOKING_WRITES=true on backend.
+        """
+        return await self._request(
+            "PUT", f"/api/bookings/{booking_id}",
+            json_data=payload,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def reserve_booking(self, access_token: str, booking_id: str) -> dict:
+        """POST /api/bookings/{id}/reserve → {ok, data}.
+        
+        Requires ENABLE_BOOKING_WRITES=true on backend.
+        """
+        return await self._request(
+            "POST", f"/api/bookings/{booking_id}/reserve",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def confirm_booking(self, access_token: str, booking_id: str) -> dict:
+        """POST /api/bookings/{id}/confirm → {ok, data}.
+        
+        Requires bookings.approve permission + ENABLE_BOOKING_WRITES=true.
+        """
+        return await self._request(
+            "POST", f"/api/bookings/{booking_id}/confirm",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def cancel_booking(
+        self, access_token: str, booking_id: str, reason: str = "",
+    ) -> dict:
+        """POST /api/bookings/{id}/cancel → {ok, data}.
+        
+        Requires ENABLE_BOOKING_WRITES=true on backend.
+        """
+        return await self._request(
+            "POST", f"/api/bookings/{booking_id}/cancel",
+            json_data={"reason": reason} if reason else None,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def list_booking_items(self, access_token: str, booking_id: str) -> dict:
+        """GET /api/bookings/{id}/items → {ok, data: [{id, inventory_unit_id, ...}]}."""
+        return await self._request(
+            "GET", f"/api/bookings/{booking_id}/items",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    async def update_booking_items(
+        self, access_token: str, booking_id: str, items: list[dict],
+    ) -> dict:
+        """PUT /api/bookings/{id}/items → {ok, data}.
+        
+        Requires ENABLE_BOOKING_WRITES=true on backend.
+        """
+        return await self._request(
+            "PUT", f"/api/bookings/{booking_id}/items",
+            json_data={"items": items},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+
 # ── Module-level convenience functions ───────────────────────────────
 
 _client: Optional[BackendClient] = None

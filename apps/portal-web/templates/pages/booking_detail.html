@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Бронирование {{ booking.id|string|truncate(8) if booking else '' }}{% endblock %}
+{% block content %}
+<h2>Бронирование</h2>
+
+<a href="/bookings" class="btn-sm">← К списку</a>
+
+{% if flash %}
+  <div class="alert {% if 'создано' in flash or 'зарезервировано' in flash or 'подтверждено' in flash or 'отменено' in flash %}alert-success{% else %}alert-warning{% endif %}">{{ flash }}</div>
+{% endif %}
+
+{% if backend_error %}
+  <div class="alert alert-error">{{ backend_error }}</div>
+{% endif %}
+
+{% if booking %}
+
+{# ── Booking Info ── #}
+<h3>Информация</h3>
+<table class="data-table">
+  <tbody>
+    <tr><td><strong>ID</strong></td><td>{{ booking.id }}</td></tr>
+    <tr><td><strong>Кампания</strong></td><td>{{ booking.campaign_id }}</td></tr>
+    <tr><td><strong>Статус</strong></td>
+      <td>
+        {% if booking.status == 'draft' %}🟡 Черновик
+        {% elif booking.status == 'reserved' %}🔵 Зарезервировано
+        {% elif booking.status == 'active' or booking.status == 'confirmed' %}🟢 Подтверждено
+        {% elif booking.status == 'cancelled' %}⚫ Отменено
+        {% else %}{{ booking.status }}
+        {% endif %}
+      </td>
+    </tr>
+    <tr><td><strong>Период</strong></td><td>{{ booking.date_from }} – {{ booking.date_to }}</td></tr>
+    <tr><td><strong>Комментарий</strong></td><td>{{ booking.comment or '—' }}</td></tr>
+    <tr><td><strong>Создан</strong></td><td>{{ booking.created_at|fmt_date('full') if booking.created_at else '—' }}</td></tr>
+    <tr><td><strong>Обновлён</strong></td><td>{{ booking.updated_at|fmt_date('full') if booking.updated_at else '—' }}</td></tr>
+    {% if booking.approved_at %}
+    <tr><td><strong>Подтверждён</strong></td><td>{{ booking.approved_at|fmt_date('full') }}</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+
+{# ── Booking Items ── #}
+<h3>Элементы бронирования</h3>
+{% if items %}
+  <table class="data-table">
+    <thead>
+      <tr><th>Блок</th><th>Слотов/цикл</th><th>Тип</th><th>Период</th></tr>
+    </thead>
+    <tbody>
+    {% for item in items %}
+      <tr>
+        <td>{{ item.inventory_unit_id }}</td>
+        <td>{{ item.booked_spots_per_loop or '—' }}</td>
+        <td>{{ item.reservation_type or 'campaign' }}</td>
+        <td>{{ item.date_from }} – {{ item.date_to }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <div class="empty-state">Нет элементов бронирования.</div>
+{% endif %}
+
+{# ── Actions ── #}
+<h3>Действия</h3>
+
+<div class="action-buttons">
+  {% if booking.status == 'draft' %}
+  <form method="post" action="/bookings/{{ booking.id }}/reserve" class="inline-form">
+    <button type="submit" class="btn-primary">Зарезервировать</button>
+  </form>
+  {% endif %}
+
+  {% if booking.status in ('draft', 'reserved') %}
+  <form method="post" action="/bookings/{{ booking.id }}/confirm" class="inline-form">
+    <button type="submit" class="btn-success">Подтвердить</button>
+  </form>
+  {% endif %}
+
+  {% if booking.status not in ('cancelled',) %}
+  <details class="section-collapse inline-form">
+    <summary class="btn-danger">Отменить</summary>
+    <form method="post" action="/bookings/{{ booking.id }}/cancel" class="filter-bar">
+      <label>Причина: <input type="text" name="reason" placeholder="Причина отмены"></label>
+      <button type="submit" class="btn-danger">Подтвердить отмену</button>
+    </form>
+  </details>
+  {% endif %}
+</div>
+
+<div class="hint-text">
+  Доступные действия зависят от статуса бронирования и ваших прав.
+  {% if booking.status == 'cancelled' %}
+  Отменённые бронирования нельзя изменить.
+  {% endif %}
+</div>
+
+{% else %}
+  <div class="empty-state">Бронирование не найдено или данные недоступны.</div>
+{% endif %}
+{% endblock %}

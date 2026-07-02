@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Бронирования{% endblock %}
+{% block content %}
+<h2>Бронирования рекламного времени</h2>
+
+{% if flash %}
+  <div class="alert {% if 'создано' in flash or 'зарезервировано' in flash or 'подтверждено' in flash or 'отменено' in flash %}alert-success{% else %}alert-warning{% endif %}">{{ flash }}</div>
+{% endif %}
+
+{% if backend_error %}
+  <div class="alert alert-error">{{ backend_error }}</div>
+{% endif %}
+
+{# ── Create Booking Form ── #}
+<details class="section-collapse">
+  <summary>Создать бронирование</summary>
+  <form method="post" class="filter-bar">
+    <label>Кампания ID: <input type="text" name="campaign_id" required placeholder="UUID кампании"></label>
+    <label>С: <input type="date" name="date_from" required></label>
+    <label>По: <input type="date" name="date_to" required></label>
+    <label>Комментарий: <input type="text" name="comment" placeholder="опционально"></label>
+    <button type="submit">Создать</button>
+  </form>
+  <div class="hint-text">Создание бронирований требует включённого feature flag ENABLE_BOOKING_WRITES на backend.</div>
+</details>
+
+{# ── Filters ── #}
+<form method="get" class="filter-bar">
+  <label>Кампания: <input type="text" name="campaign_id" value="{{ filters.campaign_id or '' }}" placeholder="campaign_id"></label>
+  <label>Статус:
+    <select name="status">
+      <option value="">Все</option>
+      <option value="draft" {% if filters.status == 'draft' %}selected{% endif %}>Черновик</option>
+      <option value="reserved" {% if filters.status == 'reserved' %}selected{% endif %}>Зарезервировано</option>
+      <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Активно</option>
+      <option value="confirmed" {% if filters.status == 'confirmed' %}selected{% endif %}>Подтверждено</option>
+      <option value="cancelled" {% if filters.status == 'cancelled' %}selected{% endif %}>Отменено</option>
+    </select>
+  </label>
+  <label>С: <input type="date" name="date_from" value="{{ filters.date_from or '' }}"></label>
+  <label>По: <input type="date" name="date_to" value="{{ filters.date_to or '' }}"></label>
+  <button type="submit">Показать</button>
+</form>
+
+{# ── Booking List ── #}
+{% if bookings %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Кампания</th>
+        <th>Статус</th>
+        <th>Период</th>
+        <th>Создан</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for b in bookings %}
+      <tr>
+        <td><a href="/bookings/{{ b.id }}">{{ b.id|string|truncate(8) }}</a></td>
+        <td>{{ b.campaign_id|string|truncate(8) or '—' }}</td>
+        <td>
+          {% if b.status == 'draft' %}🟡 Черновик
+          {% elif b.status == 'reserved' %}🔵 Зарезервировано
+          {% elif b.status == 'active' or b.status == 'confirmed' %}🟢 Подтверждено
+          {% elif b.status == 'cancelled' %}⚫ Отменено
+          {% else %}{{ b.status }}
+          {% endif %}
+        </td>
+        <td>{{ b.date_from }} – {{ b.date_to }}</td>
+        <td>{{ b.created_at|fmt_date('short') if b.created_at else '—' }}</td>
+        <td>
+          <a href="/bookings/{{ b.id }}" class="btn-sm">Детали</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% elif not backend_error %}
+  <div class="empty-state">Нет бронирований. Создайте первое бронирование или измените фильтры.</div>
+{% endif %}
+{% endblock %}
