@@ -1,75 +1,63 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">Фактические показы</h1>
-<p class="page-description">Проверка цепочки фактических показов: плеер → агент → система → портал. Без BI-отчётности.</p>
 
-<!-- KPI Cards -->
-<div class="cards">
-  <div class="card">
-    <div class="card-title">Всего событий</div>
-    <div class="card-value">{{ kpi_total }}</div>
-    <div class="card-hint">Принято системой</div>
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Подтверждения показов</span>
+    <span class="page-subtitle">Проверка цепочки: плеер → агент → система → портал</span>
   </div>
-  <div class="card">
-    <div class="card-title">Уникальных КСО</div>
-    <div class="card-value">{{ kpi_unique_devices }}</div>
-    <div class="card-hint">Устройств</div>
-  </div>
-  <div class="card">
-    <div class="card-title">Уникальных кампаний</div>
-    <div class="card-value">{{ kpi_unique_campaigns }}</div>
-    <div class="card-hint">Кампаний</div>
+  <div class="page-header-right page-actions">
+    <a href="/reports/analytics" class="btn btn-secondary">📊 Аналитика</a>
   </div>
 </div>
 
-<!-- Filter Form (server-side GET, no JS) -->
-<div class="filter-toolbar">
-  <form method="get" action="/proof-of-play" class="filter-form">
-    <div class="filter-group">
-      <label class="filter-label" for="f_device_code">КСО</label>
-      <input type="text" id="f_device_code" name="device_code"
-             class="filter-select" placeholder="device_code"
-             value="{{ filters.get('device_code', '') }}">
-    </div>
-    <div class="filter-group">
-      <label class="filter-label" for="f_campaign_code">Кампания</label>
-      <input type="text" id="f_campaign_code" name="campaign_code"
-             class="filter-select" placeholder="campaign_code"
-             value="{{ filters.get('campaign_code', '') }}">
-    </div>
-    <div class="filter-group">
-      <label class="filter-label" for="f_creative_code">Креатив</label>
-      <input type="text" id="f_creative_code" name="creative_code"
-             class="filter-select" placeholder="creative_code"
-             value="{{ filters.get('creative_code', '') }}">
-    </div>
-    <div class="filter-group">
-      <label class="filter-label" for="f_placement_code">Размещение</label>
-      <input type="text" id="f_placement_code" name="placement_code"
-             class="filter-select" placeholder="placement_code"
-             value="{{ filters.get('placement_code', '') }}">
-    </div>
-    <div class="filter-group">
-      <label class="filter-label" for="f_date_from">С</label>
-      <input type="text" id="f_date_from" name="date_from"
-             class="filter-select" placeholder="YYYY-MM-DD"
-             value="{{ filters.get('date_from', '') }}">
-    </div>
-    <div class="filter-group">
-      <label class="filter-label" for="f_date_to">По</label>
-      <input type="text" id="f_date_to" name="date_to"
-             class="filter-select" placeholder="YYYY-MM-DD"
-             value="{{ filters.get('date_to', '') }}">
-    </div>
-    <div class="filter-group">
+<!-- KPI Cards -->
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="metric-value">{{ kpi_total }}</div>
+    <div class="metric-label">Всего событий</div>
+    <div class="metric-hint">Принято системой</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">{{ kpi_unique_devices }}</div>
+    <div class="metric-label">Уникальных КСО</div>
+    <div class="metric-hint">Устройств</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">{{ kpi_unique_campaigns }}</div>
+    <div class="metric-label">Уникальных кампаний</div>
+    <div class="metric-hint">Кампаний</div>
+  </div>
+</div>
+
+<!-- Filter Form -->
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🔍</span>
+    <span class="section-card-title">Фильтры</span>
+  </div>
+  <div class="section-card-body">
+    <form method="get" action="/proof-of-play" class="filter-bar">
+      <label>КСО: <input type="text" name="device_code" placeholder="device_code" value="{{ filters.get('device_code', '') }}"></label>
+      <label>Кампания: <input type="text" name="campaign_code" placeholder="campaign_code" value="{{ filters.get('campaign_code', '') }}"></label>
+      <label>Креатив: <input type="text" name="creative_code" placeholder="creative_code" value="{{ filters.get('creative_code', '') }}"></label>
+      <label>Размещение: <input type="text" name="placement_code" placeholder="placement_code" value="{{ filters.get('placement_code', '') }}"></label>
+      <label>С: <input type="text" name="date_from" placeholder="YYYY-MM-DD" value="{{ filters.get('date_from', '') }}"></label>
+      <label>По: <input type="text" name="date_to" placeholder="YYYY-MM-DD" value="{{ filters.get('date_to', '') }}"></label>
       <button type="submit" class="btn btn-primary">Фильтр</button>
       <a href="/proof-of-play" class="btn btn-secondary">Сброс</a>
-    </div>
-  </form>
+    </form>
+  </div>
 </div>
 
 <!-- PoP Events Table -->
-<div class="table-container">
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📡</span>
+    <span class="section-card-title">События показов</span>
+    {% if pop_events %}<span class="section-card-badge">{{ pop_events|length }}</span>{% endif %}
+  </div>
+  <div class="section-card-body p-0">
 <table class="data-table">
   <thead>
     <tr>
@@ -116,6 +104,16 @@
   {% endif %}
   </tbody>
 </table>
+</div>
+</div>
+
+<!-- Cross-Links -->
+<div class="crosslinks-bar">
+  <span class="crosslinks-label">Связанные страницы:</span>
+  <a href="/campaigns" class="btn-sm">📢 Кампании</a>
+  <a href="/devices" class="btn-sm">🖥️ Устройства</a>
+  <a href="/packages" class="btn-sm">📦 Пакеты показа</a>
+  <a href="/reports/analytics" class="btn-sm">📊 Аналитика</a>
 </div>
 
 <!-- Notes -->

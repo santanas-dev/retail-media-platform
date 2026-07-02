@@ -1,32 +1,37 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">🖥️ КСО Устройства</h1>
-<p class="page-description">
-  Реестр КСО — статус, версии компонентов, геометрия экрана.
-  <a href="/device-dashboard" class="btn btn-primary btn-sm">📡 Панель КСО →</a>
-</p>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Устройства</span>
+    <span class="page-subtitle">КСО, экраны и носители показа</span>
+  </div>
+  <div class="page-header-right page-actions">
+    <a href="/device-dashboard" class="btn btn-primary">📡 Панель КСО</a>
+  </div>
+</div>
 
 <!-- Summary Cards -->
-<div class="cards">
-  <div class="card">
-    <div class="card-title">Всего КСО</div>
-    <div class="card-value">{{ devices|length }}</div>
-    <div class="card-hint">В системе</div>
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="metric-value">{{ devices|length }}</div>
+    <div class="metric-label">Всего КСО</div>
+    <div class="metric-hint">В системе</div>
   </div>
-  <div class="card">
-    <div class="card-title">Активно</div>
-    <div class="card-value">{{ devices|selectattr('status', 'equalto', 'active')|list|length }}</div>
-    <div class="card-hint">В работе</div>
+  <div class="metric-card metric-card-success">
+    <div class="metric-value">{{ devices|selectattr('status', 'equalto', 'active')|list|length }}</div>
+    <div class="metric-label">Активно</div>
+    <div class="metric-hint">В работе</div>
   </div>
-  <div class="card">
-    <div class="card-title">Обслуживание</div>
-    <div class="card-value">{{ devices|selectattr('status', 'equalto', 'maintenance')|list|length }}</div>
-    <div class="card-hint">Технические работы</div>
+  <div class="metric-card metric-card-warning">
+    <div class="metric-value">{{ devices|selectattr('status', 'equalto', 'maintenance')|list|length }}</div>
+    <div class="metric-label">Обслуживание</div>
+    <div class="metric-hint">Технические работы</div>
   </div>
-  <div class="card">
-    <div class="card-title">Заблокировано</div>
-    <div class="card-value">{{ devices|selectattr('status', 'equalto', 'blocked')|list|length }}</div>
-    <div class="card-hint">Доступ ограничен</div>
+  <div class="metric-card metric-card-danger">
+    <div class="metric-value">{{ devices|selectattr('status', 'equalto', 'blocked')|list|length }}</div>
+    <div class="metric-label">Заблокировано</div>
+    <div class="metric-hint">Доступ ограничен</div>
   </div>
 </div>
 
@@ -102,16 +107,13 @@
   </span>
 </div>
 
-<!-- PORTAL.1.6: Cross-Links -->
-<div class="section-card mt-16">
-  <div class="section-card-body">
-    <div class="action-buttons">
-      <a href="/device-dashboard" class="btn-sm">📡 Панель КСО</a>
-      <a href="/packages" class="btn-sm">📜 Пакеты показа</a>
-      <a href="/proof-of-play" class="btn-sm">✅ Фактические показы</a>
-      <a href="/reports/analytics" class="btn-sm">📊 Аналитика</a>
-    </div>
-  </div>
+<!-- Cross-Links -->
+<div class="crosslinks-bar">
+  <span class="crosslinks-label">Связанные страницы:</span>
+  <a href="/device-dashboard" class="btn-sm">📡 Панель КСО</a>
+  <a href="/packages" class="btn-sm">📦 Пакеты показа</a>
+  <a href="/proof-of-play" class="btn-sm">✅ Подтверждения показов</a>
+  <a href="/reports/analytics" class="btn-sm">📊 Аналитика</a>
 </div>
 
 <!-- Safety -->

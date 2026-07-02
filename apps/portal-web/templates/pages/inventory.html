@@ -1,7 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">Рекламное время</h1>
-<p class="page-description">Занятость рекламного времени, прогноз показов, доступность для размещения. Оценка по расписанию и количеству КСО без учёта фактического трафика.</p>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Рекламное время</span>
+    <span class="page-subtitle">Занятость, прогноз показов и доступность для размещения</span>
+  </div>
+  <div class="page-header-right page-actions">
+    <a href="/planning" class="btn btn-secondary">📊 Планирование</a>
+  </div>
+</div>
 
 <!-- Flash Messages -->
 {% if flash_msg %}

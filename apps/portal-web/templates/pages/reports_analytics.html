@@ -1,123 +1,177 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- F.5 — Portal Analytics Read-Only -->
-
-<h1>Аналитика показов</h1>
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Аналитика показов</span>
+    <span class="page-subtitle">Доставка, план-факт, здоровье устройств и детализация</span>
+  </div>
+  <div class="page-header-right page-actions">
+    <a href="/reports" class="btn btn-secondary">📊 Отчёты</a>
+  </div>
+</div>
 
 <!-- Filters -->
-<form method="get" action="/reports/analytics" class="form-inline mb-16">
-  <label>С <input type="date" name="date_from" value="{{ filters.date_from }}"></label>
-  <label>По <input type="date" name="date_to" value="{{ filters.date_to }}"></label>
-  <label>Канал
-    <select name="channel_code">
-      <option value="">— все —</option>
-      <option value="kso" {% if filters.channel_code == "kso" %}selected{% endif %}>КСО</option>
-    </select>
-  </label>
-  <button type="submit" class="btn btn-primary btn-sm">Показать</button>
-  <a href="/reports/analytics" class="btn btn-secondary btn-sm">Сбросить</a>
-</form>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🔍</span>
+    <span class="section-card-title">Фильтры</span>
+  </div>
+  <div class="section-card-body">
+    <form method="get" action="/reports/analytics" class="filter-bar">
+      <label>С <input type="date" name="date_from" value="{{ filters.date_from }}"></label>
+      <label>По <input type="date" name="date_to" value="{{ filters.date_to }}"></label>
+      <label>Канал
+        <select name="channel_code">
+          <option value="">— все —</option>
+          <option value="kso" {% if filters.channel_code == "kso" %}selected{% endif %}>КСО</option>
+        </select>
+      </label>
+      <button type="submit" class="btn btn-primary btn-sm">Показать</button>
+      <a href="/reports/analytics" class="btn btn-secondary btn-sm">Сбросить</a>
+    </form>
+  </div>
+</div>
 
 {% if backend_error %}
-<div class="alert alert-error mb-16">{{ backend_error }}</div>
+<div class="banner banner-error">
+  <span class="banner-icon">⚠️</span>
+  <div class="banner-body"><div class="banner-text">{{ backend_error }}</div></div>
+</div>
 {% endif %}
 
 {% if backend_403 %}
-<div class="alert alert-warning mb-16">Нет доступа к отчёту</div>
+<div class="banner banner-warning">
+  <span class="banner-icon">🔒</span>
+  <div class="banner-body"><div class="banner-text">Нет доступа к отчёту</div></div>
+</div>
 {% endif %}
 
 {% if no_data %}
-<div class="alert mb-16">За выбранный период событий показов нет.</div>
+<div class="empty-state">
+  <div class="empty-state-icon">📊</div>
+  <div class="empty-state-title">За выбранный период событий показов нет</div>
+  <div class="empty-state-text">Событий показов за выбранный период не обнаружено.</div>
+</div>
 {% endif %}
 
 {% if summary %}
 <!-- A. Сводка доставки -->
-<h2>Сводка доставки</h2>
-<div class="kpi-grid mb-16">
-  <div class="kpi-card">
-    <span class="kpi-value">{{ summary.delivered_impressions }}</span>
-    <span class="kpi-label">Показов доставлено</span>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📦</span>
+    <span class="section-card-title">Сводка доставки</span>
   </div>
-  <div class="kpi-card">
-    <span class="kpi-value">{{ summary.proof_events_count }}</span>
-    <span class="kpi-label">Событий PoP</span>
-  </div>
-  <div class="kpi-card">
-    <span class="kpi-value kpi-success">{{ summary.playback_success_count }}</span>
-    <span class="kpi-label">Успешных</span>
-  </div>
-  <div class="kpi-card">
-    <span class="kpi-value kpi-danger">{{ summary.playback_failure_count }}</span>
-    <span class="kpi-label">С ошибками</span>
-  </div>
-  <div class="kpi-card">
-    <span class="kpi-value">{{ summary.manifest_received_count }}</span>
-    <span class="kpi-label">Манифестов получено</span>
-  </div>
-  <div class="kpi-card">
-    <span class="kpi-value">{{ summary.device_count }}</span>
-    <span class="kpi-label">Устройств всего</span>
-  </div>
-  <div class="kpi-card">
-    <span class="kpi-value">{{ summary.active_device_count }}</span>
-    <span class="kpi-label">Активных устройств</span>
+  <div class="section-card-body">
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-value">{{ summary.delivered_impressions }}</div>
+        <div class="metric-label">Показов доставлено</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">{{ summary.proof_events_count }}</div>
+        <div class="metric-label">Событий PoP</div>
+      </div>
+      <div class="metric-card metric-card-success">
+        <div class="metric-value">{{ summary.playback_success_count }}</div>
+        <div class="metric-label">Успешных</div>
+      </div>
+      <div class="metric-card metric-card-danger">
+        <div class="metric-value">{{ summary.playback_failure_count }}</div>
+        <div class="metric-label">С ошибками</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">{{ summary.manifest_received_count }}</div>
+        <div class="metric-label">Пакетов получено</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">{{ summary.device_count }}</div>
+        <div class="metric-label">Устройств всего</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">{{ summary.active_device_count }}</div>
+        <div class="metric-label">Активных устройств</div>
+      </div>
+    </div>
   </div>
 </div>
 {% endif %}
 
 {% if planned %}
 <!-- B. План / факт -->
-<h2>План / факт</h2>
-<div class="kpi-grid mb-16">
-  <div class="kpi-card">
-    <span class="kpi-value">{{ planned.delivered_impressions }}</span>
-    <span class="kpi-label">Доставлено</span>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📐</span>
+    <span class="section-card-title">План / факт</span>
   </div>
-  <div class="kpi-card">
-    <span class="kpi-value">{% if planned.expected_impressions is not none %}{{ planned.expected_impressions }}{% else %}—{% endif %}</span>
-    <span class="kpi-label">План</span>
-  </div>
-  <div class="kpi-card">
-    <span class="kpi-value">{{ planned.status }}</span>
-    <span class="kpi-label">Статус</span>
+  <div class="section-card-body">
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-value">{{ planned.delivered_impressions }}</div>
+        <div class="metric-label">Доставлено</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">{% if planned.expected_impressions is not none %}{{ planned.expected_impressions }}{% else %}—{% endif %}</div>
+        <div class="metric-label">План</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">{{ planned.status }}</div>
+        <div class="metric-label">Статус</div>
+      </div>
+    </div>
+    {% if planned.expected_impressions is none %}
+    <div class="banner banner-info">
+      <span class="banner-icon">ℹ️</span>
+      <div class="banner-body"><div class="banner-text">Плановые показы пока не рассчитаны.</div></div>
+    </div>
+    {% endif %}
   </div>
 </div>
-{% if planned.expected_impressions is none %}
-<div class="alert mb-16">Плановые показы пока не рассчитаны.</div>
-{% endif %}
 {% endif %}
 
 {% if health %}
 <!-- C. Здоровье устройств -->
-<h2>Здоровье устройств</h2>
-<div class="kpi-grid mb-16">
-  <div class="kpi-card">
-    <span class="kpi-value">{{ health.devices | length }}</span>
-    <span class="kpi-label">Устройств на связи</span>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">💚</span>
+    <span class="section-card-title">Здоровье устройств</span>
+    <span class="section-card-badge">{{ health.devices | length }}</span>
+  </div>
+  <div class="section-card-body p-0">
+    {% if health.devices %}
+    <table class="data-table">
+      <thead><tr>
+        <th>Устройство</th><th>Статус</th><th>Последняя связь</th>
+      </tr></thead>
+      <tbody>
+      {% for d in health.devices %}
+      <tr>
+        <td>{{ d.device_code or d.gateway_device_id or "—" }}</td>
+        <td>
+          {% if d.status == "ok" %}<span class="status-badge status-badge-success">OK</span>
+          {% elif d.status == "silent" %}<span class="status-badge status-badge-warning">Нет связи</span>
+          {% elif d.status == "warning" %}<span class="status-badge status-badge-warning">⚠️</span>
+          {% else %}<span class="status-badge">{{ d.status }}</span>
+          {% endif %}
+        </td>
+        <td>{{ d.last_seen_at | fmt_date("full") }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
   </div>
 </div>
-{% if health.devices %}
-<table class="data-table mb-16">
-  <thead><tr>
-    <th>Устройство</th><th>Статус</th><th>Последняя активность</th>
-  </tr></thead>
-  <tbody>
-  {% for d in health.devices %}
-  <tr>
-    <td>{{ d.device_code or d.gateway_device_id or "—" }}</td>
-    <td>{% if d.status == "ok" %}✅ OK{% elif d.status == "silent" %}🔇 Нет связи{% elif d.status == "warning" %}⚠️{% else %}{{ d.status }}{% endif %}</td>
-    <td>{{ d.last_seen_at | fmt_date("full") }}</td>
-  </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% endif %}
 {% endif %}
 
 {% if breakdowns %}
 <!-- D. Breakdowns -->
-<h2>Детализация</h2>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">📋</span>
+    <span class="section-card-title">Детализация</span>
+  </div>
+  <div class="section-card-body p-0">
 
 {% set btypes = {
     "campaign": "Кампании",
@@ -131,8 +185,8 @@
 {% for btype, btitle in btypes.items() %}
   {% set items = breakdowns | selectattr("breakdown_type", "equalto", btype) | list %}
   {% if items %}
-  <h3>{{ btitle }}</h3>
-  <table class="data-table mb-16">
+  <h3 class="px-12 pt-8">{{ btitle }}</h3>
+  <table class="data-table">
     <thead><tr>
       <th>{{ btitle[:-1] if btitle.endswith("и") else btitle }}</th>
       <th>Показов</th><th>Событий</th><th>Успешно</th><th>Ошибок</th>
@@ -151,19 +205,18 @@
   </table>
   {% endif %}
 {% endfor %}
+  </div>
+</div>
 {% endif %}
 
-<!-- PORTAL.1.6: Cross-Links -->
-<div class="section-card mt-16">
-  <div class="section-card-body">
-    <div class="action-buttons">
-      <a href="/campaigns" class="btn-sm">📢 Кампании</a>
-      <a href="/devices" class="btn-sm">🖥️ Устройства</a>
-      <a href="/packages" class="btn-sm">📜 Пакеты показа</a>
-      <a href="/proof-of-play" class="btn-sm">✅ Фактические показы</a>
-      <a href="/publications" class="btn-sm">📋 Публикации</a>
-    </div>
-  </div>
+<!-- Cross-Links -->
+<div class="crosslinks-bar">
+  <span class="crosslinks-label">Связанные страницы:</span>
+  <a href="/campaigns" class="btn-sm">📢 Кампании</a>
+  <a href="/devices" class="btn-sm">🖥️ Устройства</a>
+  <a href="/packages" class="btn-sm">📦 Пакеты показа</a>
+  <a href="/proof-of-play" class="btn-sm">✅ Подтверждения показов</a>
+  <a href="/publications" class="btn-sm">📋 Публикации</a>
 </div>
 
 {% endblock %}

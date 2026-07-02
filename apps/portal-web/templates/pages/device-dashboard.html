@@ -1,10 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">🖥️ Панель КСО</h1>
-<p class="page-description">
-  Состояние экранов КСО — готовность, связь, агенты, пакеты показа.
-  <span class="text-muted text-sm">Данные из системы. Физическая доставка на КСО не выполнялась.</span>
-</p>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <span class="page-title">Панель КСО</span>
+    <span class="page-subtitle">Состояние экранов — готовность, связь, агенты, пакеты показа</span>
+  </div>
+  <div class="page-header-right page-actions">
+    <a href="/devices" class="btn btn-secondary">🖥️ Устройства</a>
+  </div>
+</div>
 
 <!-- Physical readiness note -->
 <div class="banner banner-warning">
