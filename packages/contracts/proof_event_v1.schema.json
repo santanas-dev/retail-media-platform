@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rmp.internal/contracts/proof-event/v1",
+  "title": "Proof Event v1",
+  "description": "Phase 1 placeholder. Full spec: docs/architecture/contracts/proof-event-v1.md",
+  "type": "object",
+  "required": ["event_id", "device_id", "store_id", "started_at", "pop_mode"],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "event_type": { "type": "string", "const": "proof" },
+    "schema_version": { "type": "string" },
+    "device": {
+      "type": "object",
+      "required": ["device_id"],
+      "properties": {
+        "device_id": { "type": "string", "format": "uuid" },
+        "device_code": { "type": "string" }
+      }
+    },
+    "store": {
+      "type": "object",
+      "required": ["store_id"],
+      "properties": {
+        "store_id": { "type": "string", "format": "uuid" },
+        "store_code": { "type": "string" }
+      }
+    },
+    "campaign": {
+      "type": "object",
+      "properties": {
+        "campaign_id": { "type": "string", "format": "uuid" },
+        "campaign_code": { "type": "string" }
+      }
+    },
+    "surface": {
+      "type": "object",
+      "properties": {
+        "surface_id": { "type": "string", "format": "uuid" },
+        "channel_type": { "type": "string" },
+        "device_type": { "type": "string" }
+      }
+    },
+    "playback": {
+      "type": "object",
+      "required": ["started_at", "duration_ms"],
+      "properties": {
+        "started_at": { "type": "string", "format": "date-time" },
+        "ended_at": { "type": "string", "format": "date-time" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "media_sha256": { "type": "string" }
+      }
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "playback_result": { "type": "string", "enum": ["success","skipped","failed","interrupted"] },
+        "failure_reason": { "type": "string" }
+      }
+    },
+    "pop_mode": { "type": "string", "enum": ["real_playback","screen_render","idle_screen","template_applied","gateway_ack","label_ack","controller_ack"] }
+  }
+}

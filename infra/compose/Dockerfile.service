@@ -1,0 +1,29 @@
+# Shared service Dockerfile for Phase 1 skeletons
+#
+# Build:  docker build -f infra/compose/Dockerfile.service
+#         --build-arg SERVICE_NAME=control-api
+#         --build-arg SERVICE_MODULE=apps.control-api.main
+#         --build-arg SERVICE_PORT=8000 .
+#
+# Run:    docker run --rm -e RMP_SERVICE=control-api rmp-control-api
+
+FROM python:3.12-slim
+
+ARG SERVICE_NAME
+ARG SERVICE_MODULE
+ARG SERVICE_PORT
+
+ENV RMP_SERVICE=${SERVICE_NAME}
+
+WORKDIR /app
+
+# Copy only what's needed: the service + shared packages
+COPY apps/${SERVICE_NAME}/requirements.txt ./apps/${SERVICE_NAME}/
+RUN pip install --no-cache-dir -r apps/${SERVICE_NAME}/requirements.txt
+
+COPY packages/ ./packages/
+COPY apps/${SERVICE_NAME}/ ./apps/${SERVICE_NAME}/
+
+EXPOSE ${SERVICE_PORT}
+
+CMD ["sh", "-c", "python -m ${SERVICE_MODULE/./}"]

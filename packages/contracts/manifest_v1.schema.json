@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rmp.internal/contracts/manifest/v1",
+  "title": "Universal Manifest v1",
+  "description": "Phase 1 placeholder. Full spec: docs/architecture/contracts/universal-manifest-v1.md",
+  "type": "object",
+  "required": ["manifest_id", "device_id", "store_id", "channel_type"],
+  "properties": {
+    "manifest_id": { "type": "string", "format": "uuid" },
+    "manifest_version": { "type": "integer", "minimum": 1 },
+    "schema_version": { "type": "string" },
+    "device_id": { "type": "string", "format": "uuid" },
+    "device_code": { "type": "string" },
+    "store_id": { "type": "string", "format": "uuid" },
+    "store_code": { "type": "string" },
+    "channel_type": { "type": "string" },
+    "device_type": { "type": "string" },
+    "display_surfaces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["surface_id", "surface_code"],
+        "properties": {
+          "surface_id": { "type": "string", "format": "uuid" },
+          "surface_code": { "type": "string" }
+        }
+      }
+    },
+    "valid_from": { "type": "string", "format": "date-time" },
+    "valid_to": { "type": "string", "format": "date-time" },
+    "media_files": { "type": "array" },
+    "playlist": { "type": "array" },
+    "adapter_payload": { "type": "object" },
+    "signature": {
+      "type": "object",
+      "properties": {
+        "algorithm": { "type": "string" },
+        "value": { "type": "string" }
+      }
+    }
+  }
+}
