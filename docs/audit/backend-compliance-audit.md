@@ -208,3 +208,16 @@ Backend is **85% complete** for functional coverage.
 **Critical gaps:** publication real publish (BACKEND.1.1), manifest real generation (BACKEND.1.2), booking (BACKEND.1.3).  
 **Read-only by design:** planning, analytics — acceptable for v1.  
 **Dry-run by design:** emergency — acceptable. Publications/manifests — MUST be resolved.
+
+---
+
+## Updated after BACKEND.1 (2026-07-03)
+
+Backend now **~95% complete** for functional coverage.
+
+Critical gaps resolved:
+- Publication real publish → `ENABLE_REAL_PUBLICATION` (BACKEND.1.1)
+- GeneratedManifest writes → `ENABLE_GENERATED_MANIFEST_WRITE` (BACKEND.1.2)
+- Booking write API → `ENABLE_BOOKING_WRITES` (BACKEND.1.3)
+
+All three protected by feature flags (default OFF). E2E backend chain verified (BACKEND.1.4). Security gate passed (BACKEND.1.5).

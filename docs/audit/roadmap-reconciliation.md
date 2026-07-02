@@ -145,3 +145,10 @@
 - **Current 46.1 roadmap:** ✅ Completed (all A→H done)
 - **PILOT track:** 🚫 FROZEN
 - **New roadmap:** 🟢 BACKEND.1 → PORTAL.1 → UI.1 → E2E.1 → KSO.1 → PROD.1 → PILOT.1
+
+---
+
+## Updated after BACKEND.1 (2026-07-03)
+
+BACKEND.1 phase **COMPLETE**. All three critical debts closed under feature flags.
+Next: **PORTAL.1 — Portal Functional Completion** (GO).

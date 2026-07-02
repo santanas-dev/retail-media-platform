@@ -111,3 +111,17 @@
 | Production readiness | 0 | 1 | 5 | 1 |
 | Documentation/roadmap | 0 | 2 | 2 | 0 |
 | **TOTAL** | **6** | **13** | **20** | **4** |
+
+---
+
+## Updated after BACKEND.1 (2026-07-03)
+
+Three critical backend debts CLOSED:
+
+| # | Item | Severity | Resolution |
+|---|---|---|---|
+| TDB-001 | Publication real publish blocked | CRITICAL → RESOLVED | `ENABLE_REAL_PUBLICATION` (BACKEND.1.1) |
+| TDB-002 | GeneratedManifest not created | CRITICAL → RESOLVED | Bridge function, `ENABLE_GENERATED_MANIFEST_WRITE` (BACKEND.1.2) |
+| TDB-003 | Booking write API unguarded | HIGH → RESOLVED | `ENABLE_BOOKING_WRITES`, 6 endpoints (BACKEND.1.3) |
+
+Remaining: 3 CRITICAL, 10 HIGH, 20 MEDIUM, 4 LOW after BACKEND.1.
