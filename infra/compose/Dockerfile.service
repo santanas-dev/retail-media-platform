@@ -26,4 +26,4 @@ COPY apps/${SERVICE_NAME}/ ./apps/${SERVICE_NAME}/
 
 EXPOSE ${SERVICE_PORT}
 
-CMD ["sh", "-c", "python -m ${SERVICE_MODULE/./}"]
+CMD ["sh", "-c", "python -c \"import runpy; runpy.run_module('${SERVICE_MODULE}', run_name='__main__')\""]

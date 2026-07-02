@@ -48,21 +48,23 @@ jobs:
       - name: Import smoke (service entrypoints only)
         if: startsWith(matrix.path, 'apps/')
         run: |
-          # Test that service modules can be imported as a syntax/import check
-          # (they will fail on uvicorn.run() at the bottom, which is expected —
-          # we check that the import chain resolves)
-          timeout 5 python -c "
+          # Test that service modules import correctly.
+          # pip deps are installed in CI (setup-python does not auto-install them).
+          pip install fastapi uvicorn 2>&1 | tail -1
+          python -c "
           import sys, os
           sys.path.insert(0, '.')
+          path = '${{ matrix.path }}'
+          mod = path.replace('/', '.').replace('.py', '')
+          src = open(path).read()
+          if '__name__' in src:
+              src = src.split(\"if __name__\")[0]
           try:
-              exec(open('${{ matrix.path }}').read().split(\"if __name__\")[0])
+              exec(compile(src, path, 'exec'), {'__file__': path, '__name__': mod})
               print('import OK')
-          except (SystemExit, ImportError) as e:
-              if 'uvicorn' in str(e) or 'fastapi' in str(e):
-                  print('WARNING: missing deps (expected in CI without pip install)')
-              else:
-                  raise
-          " || true
+          except SystemExit:
+              pass  # uvicorn.run tries to parse args
+          "
   json-schema:
     name: JSON Schema Validation
     runs-on: ubuntu-latest
