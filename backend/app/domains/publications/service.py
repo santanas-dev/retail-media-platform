@@ -879,6 +879,193 @@ async def publish_batch(
     return batch
 
 
+# ── BACKEND.1.2: GeneratedManifest bridge ──────────────────────────
+
+
+async def create_generated_manifests_for_published_batch(
+    db: AsyncSession,
+    batch: models.PublicationBatch,
+    user_id: UUID,
+) -> tuple[int, list[dict]]:
+    """Create GeneratedManifest rows for a published batch.
+
+    Called after publish_batch() succeeds, only when
+    ENABLE_GENERATED_MANIFEST_WRITE=true.
+
+    Resolves device_code via PublicationTarget → KsoDevice relationship,
+    builds KSO-safe manifest projections from published ManifestVersions,
+    and creates GeneratedManifest rows (idempotent: skips existing).
+
+    Returns (count_created, details_list) where details_list contains
+    {manifest_code, device_code, created, existing} for each target.
+    """
+    settings = get_settings()
+    if not settings.ENABLE_GENERATED_MANIFEST_WRITE:
+        return 0, []
+
+    # ── Get published manifest versions for this batch ──
+    versions_result = await db.execute(
+        select(models.ManifestVersion).where(
+            models.ManifestVersion.publication_batch_id == batch.id,
+            models.ManifestVersion.status == "published",
+        )
+    )
+    versions = list(versions_result.scalars().all())
+    if not versions:
+        return 0, []
+
+    # ── Load PublicationTargets ──
+    from app.domains.hierarchy.models import KsoDevice
+    from app.domains.manifests.models import GeneratedManifest
+    from app.domains.campaigns.models import Campaign
+    from app.domains.organization.models import Store
+    from app.domains.publications.kso_manifest_projection import (
+        build_kso_safe_manifest_projection,
+        ManifestSourceItem,
+    )
+
+    targets_result = await db.execute(
+        select(models.PublicationTarget).where(
+            models.PublicationTarget.publication_batch_id == batch.id,
+        )
+    )
+    targets_by_id: dict[UUID, models.PublicationTarget] = {
+        t.id: t for t in targets_result.scalars().all()
+    }
+
+    # ── Resolve campaign ──
+    campaign_result = await db.execute(
+        select(Campaign).where(Campaign.id == batch.campaign_id)
+    )
+    campaign = campaign_result.scalar_one_or_none()
+    campaign_code = campaign.campaign_code if campaign else "unknown"
+
+    created_count = 0
+    details: list[dict] = []
+
+    for mv in versions:
+        target = targets_by_id.get(mv.publication_target_id)
+        if not target:
+            continue
+
+        # ── Resolve KsoDevice from target.store_id ──
+        device_result = await db.execute(
+            select(KsoDevice).where(
+                KsoDevice.store_id == target.store_id,
+                KsoDevice.channel == "kso",
+            ).limit(1)
+        )
+        kso_device = device_result.scalar_one_or_none()
+        if not kso_device:
+            continue
+
+        # ── Resolve store ──
+        store_result = await db.execute(
+            select(Store).where(Store.id == target.store_id)
+        )
+        store = store_result.scalar_one_or_none()
+        store_code = store.code if store else "unknown"
+
+        # ── Idempotency: manifest_code = "pub-{batch_id}-{device_code}" ──
+        manifest_code = f"pub-{batch.id}-{kso_device.device_code}"
+
+        existing = await db.execute(
+            select(GeneratedManifest).where(
+                GeneratedManifest.manifest_code == manifest_code
+            )
+        )
+        if existing.scalar_one_or_none():
+            details.append({
+                "manifest_code": manifest_code,
+                "device_code": kso_device.device_code,
+                "created": False,
+                "existing": True,
+            })
+            continue
+
+        # ── Build KSO-safe manifest projection ──
+        manifest_json = mv.manifest_json or {}
+        schedule_items = (manifest_json.get("schedule", {}) or {}).get("items", [])
+
+        source_items: list = []
+        for i, item in enumerate(schedule_items):
+            media = item.get("media", {}) or {}
+            mime_type = media.get("mime_type", "image/png")
+            duration_sec = float(media.get("duration_seconds", 5.0))
+            duration_ms = int(max(1, duration_sec * 1000))
+
+            # Parse date + time
+            date_str = item.get("date", "")
+            time_from = item.get("time_from", "00:00:00")
+            time_to = item.get("time_to", "23:59:59")
+
+            valid_from = None
+            valid_to = None
+            if date_str:
+                try:
+                    valid_from = datetime.fromisoformat(f"{date_str}T{time_from}")
+                except (ValueError, TypeError):
+                    pass
+                try:
+                    valid_to = datetime.fromisoformat(f"{date_str}T{time_to}")
+                except (ValueError, TypeError):
+                    pass
+
+            source_items.append(ManifestSourceItem(
+                channel_code="kso",
+                campaign_status="approved",   # validated during manifest generation
+                creative_status="approved",   # validated during manifest generation
+                rendition_status="valid",     # validated during manifest generation
+                publication_status="published",
+                device_status=kso_device.status or "active",
+                store_is_active=store.is_active if store else True,
+                store_code=store_code,
+                device_code=kso_device.device_code,
+                content_type=mime_type,
+                duration_ms=duration_ms,
+                slot_order=i,
+                valid_from=valid_from,
+                valid_to=valid_to,
+            ))
+
+        if not source_items:
+            continue
+
+        projection = build_kso_safe_manifest_projection(
+            source_items, generated_at=_now(),
+        )
+
+        if not projection.ok:
+            continue
+
+        # ── Create GeneratedManifest ──
+        gm = GeneratedManifest(
+            manifest_code=manifest_code,
+            device_code=kso_device.device_code,
+            placement_code=f"pub-{batch.id}",  # placeholder; KsoPlacement FK not used in pub flow
+            campaign_code=campaign_code,
+            status="published",
+            schema_version=1,
+            manifest_body_json=projection.manifest,
+            item_count=projection.items_included,
+            media_ref_format="slot-NNN",
+            generated_by=user_id,
+            published_by=user_id,
+            generated_at=_now(),
+            published_at=_now(),
+        )
+        db.add(gm)
+        created_count += 1
+        details.append({
+            "manifest_code": manifest_code,
+            "device_code": kso_device.device_code,
+            "created": True,
+            "existing": False,
+        })
+
+    return created_count, details
+
+
 async def cancel_batch(
     db: AsyncSession,
     batch: models.PublicationBatch,

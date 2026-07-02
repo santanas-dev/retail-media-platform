@@ -222,10 +222,24 @@ async def publish_batch(
         action="publication_batch.publish", target_type="publication_batch",
         target_ref=batch_id,
     )
+
+    # ── BACKEND.1.2: Create GeneratedManifest if flag enabled ──
+    gm_count, gm_details = await service.create_generated_manifests_for_published_batch(
+        db, result, current_user.id,
+    )
+
+    gm_created = gm_count > 0
+    next_step = (
+        "legacy_kso_manifest_available"
+        if gm_created
+        else "generated_manifest_write_disabled"
+    )
     return schemas.PublishBatchResult(
         batch=schemas.PublicationBatchResponse.model_validate(result),
-        generated_manifest_created=False,
-        next_step="generated_manifest_write_disabled",
+        generated_manifest_created=gm_created,
+        generated_manifest_count=gm_count,
+        generated_manifest_details=gm_details,
+        next_step=next_step,
     )
 
 

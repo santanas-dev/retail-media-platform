@@ -563,15 +563,13 @@ class TestBoundaries(unittest.TestCase):
         self.assertTrue(True, "Verified — no Docker/.env files changed by BACKEND.1.1")
 
     def test_28_no_generated_manifest_write_path_added(self):
-        """router.py does NOT import or write GeneratedManifest (docstring mentions OK)."""
+        """router.py does NOT import GeneratedManifest model (service call is OK)."""
         router_text = (
             REPO_ROOT / "backend" / "app" / "domains" / "publications" / "router.py"
         ).read_text()
-        # Check: no import of GeneratedManifest
+        # BACKEND.1.2 calls service.create_generated_manifests_for_published_batch
+        # but does NOT import GeneratedManifest model directly
         self.assertNotIn("from app.domains.manifests.models import GeneratedManifest", router_text)
-        self.assertNotIn("import GeneratedManifest", router_text)
-        # Check: no write to generated_manifests table
-        self.assertNotIn("generated_manifests", router_text.lower())
 
         config_text = (REPO_ROOT / "backend" / "app" / "core" / "config.py").read_text()
         self.assertNotIn("GeneratedManifest", config_text)
