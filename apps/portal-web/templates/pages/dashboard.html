@@ -1,23 +1,25 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">Главный экран</h1>
-<p class="page-description">Обзор рекламного портала. Портал готов для демонстрации бизнес-процесса: креативы, кампании, расписание, согласование, публикации и отчёты.</p>
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Панель управления</h1>
+    <p class="page-subtitle">Обзор платформы: кампании, креативы, устройства, публикации и следующие шаги</p>
+  </div>
+  <div class="page-actions">
+    <a href="/campaigns/create" class="btn btn-primary">+ Кампания</a>
+  </div>
+</div>
 
-<!-- Physical KSO status — business formulation only -->
+<!-- Physical KSO status -->
 <div class="banner banner-info">
   <span class="banner-icon">ℹ️</span>
   <div class="banner-body">
     <div class="banner-title">Физический запуск</div>
-    <div class="banner-text">Физический запуск в магазин требует отдельного подтверждения. Портал готов для демонстрации бизнес-процесса: креативы, кампании, расписание, согласование, публикационные пакеты и отчёты.</div>
+    <div class="banner-text">Физический запуск в магазин требует отдельного подтверждения. Портал готов для демонстрации бизнес-процесса.</div>
   </div>
 </div>
 
 {% if dashboard_backend %}
-
-<!-- ═══════════════════════════════════════════════════════════════════
-     A. PLATFORM SUMMARY
-     ═══════════════════════════════════════════════════════════════════ -->
-
 <div class="section-card">
   <div class="section-card-header">
     <span class="section-card-icon">📊</span>
@@ -25,7 +27,6 @@
   </div>
   <div class="section-card-body">
     <div class="stat-grid">
-      <!-- Campaigns -->
       <div class="stat-block">
         <div class="stat-block-header">
           <span class="stat-block-icon">📢</span>
@@ -53,7 +54,6 @@
         </div>
       </div>
 
-      <!-- Creatives -->
       <div class="stat-block">
         <div class="stat-block-header">
           <span class="stat-block-icon">🎨</span>
@@ -78,7 +78,6 @@
         </div>
       </div>
 
-      <!-- Devices -->
       <div class="stat-block">
         <div class="stat-block-header">
           <span class="stat-block-icon">🖥️</span>
@@ -92,9 +91,9 @@
           {% set d_offline_pct = (kpi.offline_devices / kpi.total_devices * 100) | int %}
           {% set d_other_pct = 100 - d_ready_pct - d_blocked_pct - d_offline_pct %}
           <div class="dist-bar">
-            {% if d_ready_pct > 0 %}<div class="dist-segment approved" style="width:{{ d_ready_pct }}%;" title="Ready: {{ kpi.ready_devices }}"></div>{% endif %}
-            {% if d_blocked_pct > 0 %}<div class="dist-segment blocked" style="width:{{ d_blocked_pct }}%;" title="Blocked: {{ kpi.blocked_devices }}"></div>{% endif %}
-            {% if d_offline_pct > 0 %}<div class="dist-segment offline" style="width:{{ d_offline_pct }}%;" title="Offline: {{ kpi.offline_devices }}"></div>{% endif %}
+            {% if d_ready_pct > 0 %}<div class="dist-segment approved" style="width:{{ d_ready_pct }}%;" title="Готово: {{ kpi.ready_devices }}"></div>{% endif %}
+            {% if d_blocked_pct > 0 %}<div class="dist-segment blocked" style="width:{{ d_blocked_pct }}%;" title="Заблокировано: {{ kpi.blocked_devices }}"></div>{% endif %}
+            {% if d_offline_pct > 0 %}<div class="dist-segment offline" style="width:{{ d_offline_pct }}%;" title="Офлайн: {{ kpi.offline_devices }}"></div>{% endif %}
             {% if d_other_pct > 0 %}<div class="dist-segment other" style="width:{{ d_other_pct }}%;" title="Прочее"></div>{% endif %}
           </div>
           {% endif %}
@@ -106,7 +105,6 @@
         </div>
       </div>
 
-      <!-- Manifests & Batches -->
       <div class="stat-block">
         <div class="stat-block-header">
           <span class="stat-block-icon">📋</span>
@@ -127,10 +125,6 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════════
-     B. ADVERTISING PIPELINE
-     ═══════════════════════════════════════════════════════════════════ -->
-
 <div class="section-card">
   <div class="section-card-header">
     <span class="section-card-icon">🔄</span>
@@ -138,7 +132,6 @@
   </div>
   <div class="section-card-body">
     <div class="pipeline">
-      <!-- 1. Creative -->
       <a href="/creatives" class="pipeline-step {{ 'pipeline-warning' if kpi.total_creatives == 0 }}">
         <span class="pipeline-step-num">1</span>
         <span class="pipeline-step-icon">🎨</span>
@@ -147,7 +140,6 @@
         {% if kpi.total_creatives == 0 %}<span class="pipeline-warn">Пусто</span>{% endif %}
       </a>
       <span class="pipeline-arrow">→</span>
-      <!-- 2. Campaign -->
       <a href="/campaigns" class="pipeline-step {{ 'pipeline-warning' if kpi.total_campaigns == 0 }}">
         <span class="pipeline-step-num">2</span>
         <span class="pipeline-step-icon">📢</span>
@@ -156,7 +148,6 @@
         {% if kpi.total_campaigns == 0 %}<span class="pipeline-warn">Пусто</span>{% endif %}
       </a>
       <span class="pipeline-arrow">→</span>
-      <!-- 3. Schedule -->
       <a href="/schedule" class="pipeline-step {{ 'pipeline-warning' if kpi.total_schedules == 0 }}">
         <span class="pipeline-step-num">3</span>
         <span class="pipeline-step-icon">🗓</span>
@@ -165,7 +156,6 @@
         {% if kpi.total_schedules == 0 %}<span class="pipeline-warn">Пусто</span>{% endif %}
       </a>
       <span class="pipeline-arrow">→</span>
-      <!-- 4. Approval -->
       <a href="/approvals" class="pipeline-step">
         <span class="pipeline-step-num">4</span>
         <span class="pipeline-step-icon">📝</span>
@@ -173,7 +163,6 @@
         <span class="pipeline-step-count">{{ kpi.approvals_pending }}</span>
       </a>
       <span class="pipeline-arrow">→</span>
-      <!-- 5. Publication -->
       <a href="/publications" class="pipeline-step {{ 'pipeline-warning' if kpi.total_batches == 0 }}">
         <span class="pipeline-step-num">5</span>
         <span class="pipeline-step-icon">📋</span>
@@ -181,7 +170,6 @@
         <span class="pipeline-step-count {{ 'count-zero' if kpi.total_batches == 0 }}">{{ kpi.total_batches }}</span>
       </a>
       <span class="pipeline-arrow">→</span>
-      <!-- 6. Report -->
       <a href="/reports" class="pipeline-step">
         <span class="pipeline-step-num">6</span>
         <span class="pipeline-step-icon">📈</span>
@@ -191,13 +179,9 @@
     </div>
   </div>
   <div class="section-card-footer">
-    Этапы: Креатив → Кампания → Расписание → Согласование → Публикация → Отчёт. Каждый этап — ссылка на раздел.
+    Этапы: Креатив → Кампания → Расписание → Согласование → Публикация → Отчёт
   </div>
 </div>
-
-<!-- ═══════════════════════════════════════════════════════════════════
-     C. BUSINESS NEXT ACTIONS
-     ═══════════════════════════════════════════════════════════════════ -->
 
 <div class="section-card">
   <div class="section-card-header">
@@ -229,7 +213,7 @@
       <a href="/publications" class="next-action-card {{ 'next-action-done' if kpi.total_batches > 0 }}">
         <span class="next-action-num">5</span>
         <span class="next-action-label">Подготовить публикацию</span>
-        <span class="next-action-hint">{{ kpi.total_batches }} пакетов публикации</span>
+        <span class="next-action-hint">{{ kpi.total_batches }} пакетов</span>
       </a>
       <a href="/reports" class="next-action-card">
         <span class="next-action-num">6</span>
@@ -245,7 +229,7 @@
   <div class="empty-state-icon">📡</div>
   <div class="empty-state-title">Система недоступна</div>
   <div class="empty-state-text">Метрики появятся после восстановления соединения с системой.</div>
-  <div class="empty-state-action mt-12">
+  <div class="empty-state-action">
     <a href="/dashboard" class="btn btn-primary">⟳ Обновить</a>
     <a href="/readiness" class="btn btn-ghost ml-8">Проверить готовность</a>
   </div>

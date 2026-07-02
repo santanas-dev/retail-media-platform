@@ -1,7 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="page-title">Создание кампании</h1>
-<p class="page-description">Заполните форму для создания рекламной кампании. Кампания добавляет рекламный материал в расписание показа на КСО. Публикация формирует новую версию пакета показа. Локальный плейлист на КСО точечно не мутируется.</p>
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Создание кампании</h1>
+    <p class="page-subtitle">Заполните форму для создания рекламной кампании. Кампания добавляет рекламный материал в расписание показа на КСО.</p>
+  </div>
+  <div class="page-actions">
+    <a href="/campaigns" class="btn btn-ghost">← К списку</a>
+  </div>
+</div>
 
 <!-- Flash / Errors -->
 {% if flash_msg %}

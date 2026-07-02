@@ -396,6 +396,9 @@ code, pre, .cell-code, .cell-mono, .business-chip {
 .status-badge-served { background: var(--color-success-bg); color: var(--color-success-text); }
 .status-badge-no_manifest { background: var(--color-warning-bg); color: var(--color-warning-text); }
 .status-badge-unknown { background: var(--color-surface-hover); color: var(--color-text-muted); }
+.status-badge-warning { background: var(--color-warning-bg); color: var(--color-warning-text); }
+.status-badge-info { background: var(--color-info-bg); color: var(--color-info-text); }
+.status-badge-success { background: var(--color-success-bg); color: var(--color-success-text); }
 
 /* ── Status pills (legacy) ────────────────── */
 .status-pill {

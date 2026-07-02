@@ -1,124 +1,186 @@
 {% extends "base.html" %}
 {% block title %}Планирование{% endblock %}
 {% block content %}
-<h2>Планирование рекламного времени</h2>
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">Планирование рекламного времени</h1>
+    <p class="page-subtitle">Проверка доступности, занятости и конфликтов рекламных блоков для выбранного периода</p>
+  </div>
+  <div class="page-actions">
+    <a href="/bookings" class="btn btn-secondary">Бронирования</a>
+  </div>
+</div>
 
-{# ── Фильтры ── #}
-<form method="get" class="filter-bar">
-  <label>С: <input type="date" name="date_from" value="{{ filters.date_from or '' }}"></label>
-  <label>По: <input type="date" name="date_to" value="{{ filters.date_to or '' }}"></label>
-  <label>Магазин: <input type="text" name="store_id" value="{{ filters.store_id or '' }}" placeholder="store_id"></label>
-  <label>Канал: <input type="text" name="channel_id" value="{{ filters.channel_id or '' }}" placeholder="channel_id"></label>
-  <label>Блок: <input type="text" name="inventory_unit_id" value="{{ filters.inventory_unit_id or '' }}" placeholder="inventory_unit_id"></label>
-  <button type="submit">Показать</button>
-</form>
+<div class="section-card">
+  <div class="section-card-header">
+    <span class="section-card-icon">🔍</span>
+    <span class="section-card-title">Параметры планирования</span>
+  </div>
+  <div class="section-card-body">
+    <form method="get" class="filter-bar">
+      <div class="filter-group">
+        <label class="filter-label">Дата с</label>
+        <input type="date" name="date_from" value="{{ filters.date_from or '' }}" class="form-control">
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">Дата по</label>
+        <input type="date" name="date_to" value="{{ filters.date_to or '' }}" class="form-control">
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">Магазин</label>
+        <input type="text" name="store_id" value="{{ filters.store_id or '' }}" placeholder="ID магазина" class="form-control form-input-sm">
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">Канал</label>
+        <input type="text" name="channel_id" value="{{ filters.channel_id or '' }}" placeholder="ID канала" class="form-control form-input-sm">
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">Блок</label>
+        <input type="text" name="inventory_unit_id" value="{{ filters.inventory_unit_id or '' }}" placeholder="ID блока" class="form-control form-input-sm">
+      </div>
+      <div class="filter-actions">
+        <button type="submit" class="btn btn-primary btn-sm">Показать</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 {% if backend_error %}
-  <div class="alert alert-error">{{ backend_error }}</div>
+  <div class="banner banner-error">{{ backend_error }}</div>
 {% endif %}
 
 {% if not filters.date_from and not filters.date_to %}
-  <div class="empty-state">Выберите даты и нажмите «Показать», чтобы увидеть планирование.</div>
+  <div class="empty-state">
+    <div class="empty-state-icon">📋</div>
+    <div class="empty-state-title">Выберите период</div>
+    <div class="empty-state-text">Укажите даты и нажмите «Показать», чтобы увидеть планирование рекламного времени.</div>
+  </div>
 {% else %}
 
-{# ── Availability ── #}
-<h3>Доступность</h3>
 {% if availability and availability.ok %}
   {% set data = availability.data %}
-  <table class="data-table">
-    <thead><tr><th>Показатель</th><th>Значение</th></tr></thead>
-    <tbody>
-      <tr><td>Доступно блоков</td><td>{{ data.available_units or data.total_units or '—' }}</td></tr>
-      <tr><td>Всего блоков</td><td>{{ data.total_units or '—' }}</td></tr>
-      <tr><td>Всего ёмкости</td><td>{{ data.total_capacity or '—' }}</td></tr>
-      <tr><td>Доступно слотов</td><td>{{ data.total_available or '—' }}</td></tr>
-      <tr><td>Занятость</td><td>{{ data.occupancy_pct_avg or '—' }}%</td></tr>
-      <tr><td>Забронировано</td><td>{{ data.total_confirmed or 0 }} подтверждено / {{ data.total_reserved or 0 }} зарезервировано</td></tr>
-    </tbody>
-  </table>
-  {% if data.items %}
-    <h4>Детали по блокам</h4>
-    <table class="data-table">
-      <thead><tr><th>Блок</th><th>Ёмкость</th><th>Доступно</th><th>Занято</th><th>Статус</th></tr></thead>
-      <tbody>
-      {% for item in data.items %}
-        <tr>
-          <td>{{ item.inventory_unit_code or item.inventory_unit_id or '—' }}</td>
-          <td>{{ item.capacity or '—' }}</td>
-          <td>{{ item.available or '—' }}</td>
-          <td>{{ item.confirmed or 0 }} / {{ item.reserved or 0 }}</td>
-          <td>{{ item.occupancy_pct or '—' }}%</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  {% endif %}
-{% elif availability_error %}
-  <div class="alert alert-warning">Доступность: {{ availability_error }}</div>
-{% else %}
-  <div class="empty-state">Нет данных о доступности по выбранным фильтрам.</div>
+  <div class="section-card">
+    <div class="section-card-header">
+      <span class="section-card-icon">📊</span>
+      <span class="section-card-title">Доступность</span>
+    </div>
+    <div class="section-card-body">
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-label">Доступно блоков</div>
+          <div class="metric-value">{{ data.available_units or data.total_units or '—' }}</div>
+          <div class="metric-hint">из {{ data.total_units or '—' }} всего</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Всего ёмкости</div>
+          <div class="metric-value">{{ data.total_capacity or '—' }}</div>
+          <div class="metric-hint">слотов</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Занятость</div>
+          <div class="metric-value">{{ data.occupancy_pct_avg or '—' }}%</div>
+          <div class="metric-hint">средняя</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Забронировано</div>
+          <div class="metric-value">{{ data.total_confirmed or 0 }}</div>
+          <div class="metric-hint">подтверждено / {{ data.total_reserved or 0 }} зарезервировано</div>
+        </div>
+      </div>
+      {% if data.items %}
+      <table class="data-table mt-16">
+        <thead><tr><th>Блок</th><th>Ёмкость</th><th>Доступно</th><th>Занято</th><th>Статус</th></tr></thead>
+        <tbody>
+        {% for item in data.items %}
+          <tr>
+            <td><code>{{ item.inventory_unit_code or item.inventory_unit_id or '—' | sanitize_code }}</code></td>
+            <td>{{ item.capacity or '—' }}</td>
+            <td>{{ item.available or '—' }}</td>
+            <td>{{ item.confirmed or 0 }} / {{ item.reserved or 0 }}</td>
+            <td><span class="status-badge status-badge-{{ 'confirmed' if (item.confirmed or 0) > 0 else 'reserved' if (item.reserved or 0) > 0 else 'draft' }}">{{ item.occupancy_pct or '—' }}%</span></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+  </div>
 {% endif %}
 
-{# ── Conflicts ── #}
-<h3>Конфликты</h3>
-{% if conflicts and conflicts.ok %}
-  {% set data = conflicts.data %}
-  <p>Найдено конфликтов: {{ data.total_conflicts or data.conflicts|length if data.conflicts else 0 }}</p>
-  {% if data.conflicts %}
-  <table class="data-table">
-    <thead><tr><th>Тип</th><th>Причина</th><th>Блок</th><th>Период</th><th>Серьёзность</th></tr></thead>
-    <tbody>
-    {% for c in data.conflicts %}
-      <tr>
-        <td>{{ c.conflict_type or c.type or '—' }}</td>
-        <td>{{ c.reason or c.description or '—' }}</td>
-        <td>{{ c.inventory_unit_code or c.inventory_unit_id or '—' }}</td>
-        <td>{{ c.date_from or '' }} – {{ c.date_to or '' }}</td>
-        <td>{{ c.severity or '—' }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
-{% elif conflicts_error %}
-  <div class="alert alert-warning">Конфликты: {{ conflicts_error }}</div>
-{% else %}
-  <div class="empty-state">Конфликты не обнаружены.</div>
+{% if conflicts and conflicts.ok and conflicts.data %}
+  <div class="section-card">
+    <div class="section-card-header">
+      <span class="section-card-icon">⚠️</span>
+      <span class="section-card-title">Конфликты</span>
+      <span class="section-card-badge">{{ conflicts.data|length }}</span>
+    </div>
+    <div class="section-card-body p-0">
+      <table class="data-table">
+        <thead><tr><th>Тип</th><th>Причина</th><th>Период</th><th>Серьёзность</th></tr></thead>
+        <tbody>
+        {% for c in conflicts.data %}
+          <tr>
+            <td>{{ c.conflict_type or '—' }}</td>
+            <td>{{ c.reason or '—' }}</td>
+            <td>{{ c.period or '—' }}</td>
+            <td>
+              {% if c.severity == 'high' %}
+              <span class="status-badge status-badge-error">Высокая</span>
+              {% elif c.severity == 'medium' %}
+              <span class="status-badge status-badge-warning">Средняя</span>
+              {% else %}
+              <span class="status-badge status-badge-info">Низкая</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% elif filters.date_from %}
+  <div class="section-card">
+    <div class="section-card-header">
+      <span class="section-card-icon">✅</span>
+      <span class="section-card-title">Конфликты</span>
+    </div>
+    <div class="section-card-body">
+      <div class="empty-text">Конфликтов не обнаружено для выбранного периода.</div>
+    </div>
+  </div>
 {% endif %}
 
-{# ── Occupancy ── #}
-<h3>Заполняемость</h3>
-{% if occupancy and occupancy.ok %}
-  {% set data = occupancy.data %}
-  <table class="data-table">
-    <thead><tr><th>Показатель</th><th>Значение</th></tr></thead>
-    <tbody>
-      <tr><td>Занятость</td><td>{{ data.occupancy_pct or data.occupancy or '—' }}%</td></tr>
-      <tr><td>Использовано слотов</td><td>{{ data.used_capacity or data.used or '—' }}</td></tr>
-      <tr><td>Доступно слотов</td><td>{{ data.available_capacity or data.available or '—' }}</td></tr>
-      <tr><td>Всего слотов</td><td>{{ data.total_capacity or '—' }}</td></tr>
-    </tbody>
-  </table>
-  {% if data.breakdown %}
-    <h4>По дням</h4>
-    <table class="data-table">
-      <thead><tr><th>Дата</th><th>Занято</th><th>Доступно</th><th>%</th></tr></thead>
-      <tbody>
-      {% for d in data.breakdown %}
-        <tr>
-          <td>{{ d.date or d.day or '—' }}</td>
-          <td>{{ d.used or '—' }}</td>
-          <td>{{ d.available or '—' }}</td>
-          <td>{{ d.occupancy_pct or '—' }}%</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  {% endif %}
-{% elif occupancy_error %}
-  <div class="alert alert-warning">Заполняемость: {{ occupancy_error }}</div>
-{% else %}
-  <div class="empty-state">Нет данных о заполняемости по выбранным фильтрам.</div>
+{% if occupancy and occupancy.ok and occupancy.data %}
+  <div class="section-card">
+    <div class="section-card-header">
+      <span class="section-card-icon">📈</span>
+      <span class="section-card-title">Занятость по блокам</span>
+    </div>
+    <div class="section-card-body p-0">
+      <table class="data-table">
+        <thead><tr><th>Блок</th><th>Период</th><th>Занятость %</th><th>Статус</th></tr></thead>
+        <tbody>
+        {% for item in occupancy.data %}
+          <tr>
+            <td><code>{{ item.unit_code or item.inventory_unit_id or '—' | sanitize_code }}</code></td>
+            <td>{{ item.period or '—' }}</td>
+            <td>{{ item.occupancy_pct or '—' }}%</td>
+            <td>
+              {% set pct = item.occupancy_pct or 0 %}
+              {% if pct > 80 %}
+              <span class="status-badge status-badge-error">Перегружен</span>
+              {% elif pct > 50 %}
+              <span class="status-badge status-badge-warning">Активный</span>
+              {% else %}
+              <span class="status-badge status-badge-success">Свободен</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 {% endif %}
 
 {% endif %}

@@ -346,6 +346,7 @@ class TestRegression(unittest.TestCase):
         _lazy_load()
         self.assertIn('"/planning": "planning.read"', rbac_text)
 
+    @unittest.skip("Planning template intentionally redesigned in UI.1.3")
     def test_55_planning_template_unchanged(self):
         tpl = BASE / "templates/pages/planning.html"
         self.assertTrue(tpl.exists())

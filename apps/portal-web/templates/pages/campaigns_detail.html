@@ -14,11 +14,24 @@
 {% endif %}
 
 <!-- Header -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">{{ campaign.name | sanitize }}</h1>
+    <p class="page-subtitle">
+      <span class="status-badge status-badge-{{ campaign.status }}">{{ {'draft':'Черновик','in_review':'На согласовании','approved':'Одобрена','rejected':'Отклонена','archived':'Архив','active':'Активна'}.get(campaign.status, campaign.status) }}</span>
+      <span class="text-muted">· {{ campaign.campaign_code | sanitize_code }}</span>
+    </p>
+  </div>
+  <div class="page-actions">
+    <a href="/campaigns" class="btn btn-ghost">← К списку</a>
+  </div>
+</div>
+
+<!-- Campaign Info Card -->
 <div class="section-card">
   <div class="section-card-header">
-    <span class="section-card-icon">📢</span>
-    <span class="section-card-title">{{ campaign.name | sanitize }}</span>
-    <span class="status-badge status-badge-{{ campaign.status }}">{{ {'draft':'Черновик','in_review':'На согласовании','approved':'Одобрена','rejected':'Отклонена','archived':'Архив','active':'Активна'}.get(campaign.status, campaign.status) }}</span>
+    <span class="section-card-icon">📋</span>
+    <span class="section-card-title">Информация о кампании</span>
   </div>
   <div class="section-card-body">
     <div class="detail-grid">

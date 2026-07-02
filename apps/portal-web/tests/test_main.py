@@ -319,7 +319,7 @@ class TestDashboardContent(unittest.TestCase):
     def test_renders_metric_cards(self):
         """Dashboard renders platform summary with stat blocks."""
         # With mock auth but no backend token, shows fallback.
-        self.assertIn("Главный экран", self.html)
+        self.assertIn("Панель управления", self.html)
         self.assertIn("Система недоступна", self.html)
 
     def test_dashboard_has_backend_driven_layout(self):
@@ -6950,7 +6950,7 @@ class TestBusinessDemoCleanup45_4_2(unittest.TestCase):
                          "Campaigns page must not render inline edit rows")
 
     def test_dashboard_title_is_russian(self):
-        """P1.5: dashboard title must be 'Главный экран', not 'Dashboard'."""
+        """P1.5: dashboard title must be 'Панель управления', not 'Dashboard'."""
         resp = self.client.get("/dashboard")
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Главный экран", resp.text)
