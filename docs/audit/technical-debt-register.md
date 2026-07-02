@@ -125,3 +125,25 @@ Three critical backend debts CLOSED:
 | TDB-003 | Booking write API unguarded | HIGH → RESOLVED | `ENABLE_BOOKING_WRITES`, 6 endpoints (BACKEND.1.3) |
 
 Remaining: 3 CRITICAL, 10 HIGH, 20 MEDIUM, 4 LOW after BACKEND.1.
+
+---
+
+## Updated after PORTAL.1 (2026-07-03)
+
+Portal functional debt RESOLVED:
+
+| # | Item | Severity | Resolution |
+|---|---|---|---|
+| PFD-01 | Planning workflow missing | HIGH → RESOLVED | `/planning` — availability/conflicts/occupancy (PORTAL.1.1) |
+| PFD-02 | Booking workflow missing | HIGH → RESOLVED | `/bookings` — create/reserve/confirm/cancel (PORTAL.1.2) |
+| PFD-03 | Publication workflow partial | CRITICAL → RESOLVED | `/publications/{id}` + publish result (PORTAL.1.3) |
+| PFD-04 | Manifest preview missing | HIGH → RESOLVED | `/packages` — list/detail/KSO check (PORTAL.1.4) |
+| PFD-05 | Campaign assembly basic | MEDIUM → RESOLVED | 9-step workflow + cross-links (PORTAL.1.5) |
+| PFD-06 | Error handling technical | MEDIUM → RESOLVED | `_safe_error()`, no-data states (PORTAL.1.6) |
+| PFD-07 | Cross-linking missing | MEDIUM → RESOLVED | analytics/PoP/devices/packages cross-links (PORTAL.1.6) |
+| PFD-08 | Status transitions invisible | MEDIUM → RESOLVED | campaign workflow checklist (PORTAL.1.5) |
+
+**Portal functional debt: 0 remaining** (all 8 items resolved).  
+Portal UX/UI debt: unchanged — deferred to UI.1.
+
+Updated totals: **3 CRITICAL, 5 HIGH, 12 MEDIUM, 4 LOW** after PORTAL.1.

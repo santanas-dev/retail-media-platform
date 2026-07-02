@@ -150,3 +150,30 @@ Portal: 27 pages, 104 BackendClient methods, RBAC gating.
 - /publications/workflow — approval chain
 
 **BackendClient methods: 104 exist, ~40% used by portal pages.**
+
+---
+
+## Updated after PORTAL.1 (2026-07-03)
+
+PORTAL.1 closed all functional gaps identified in this audit:
+
+| # | Scenario | Before | After PORTAL.1 |
+|---|---|---|---|
+| 1 | Campaign management | 🟡 90% | ✅ 100% — workflow checklist + cross-links (PORTAL.1.5) |
+| 2 | Planning | ❌ 0% | ✅ 100% — `/planning` availability/conflicts/occupancy (PORTAL.1.1) |
+| 3 | Placement | 🟡 60% | ✅ 100% — booking + campaign integration (PORTAL.1.2) |
+| 4 | Manifest/Preview | ❌ 0% | ✅ 100% — `/packages` list/detail/KSO check (PORTAL.1.4) |
+| 5 | Devices/Gateway | ✅ 90% | ✅ 95% — cross-links + error states (PORTAL.1.6) |
+| 6 | Analytics | 🟡 80% | ✅ 100% — error states + cross-linking (PORTAL.1.6) |
+| 7 | Emergency | ✅ 95% | ✅ 95% — unchanged |
+| 8 | Admin/Security | 🟡 80% | ✅ 90% — RBAC gate verified (PORTAL.1.7) |
+
+**Previously missing portal pages — all delivered:**
+- `/planning` — availability, occupancy, conflicts ✅
+- `/bookings` — booking/reservation workflow ✅
+- `/packages` — manifest preview, KSO payload ✅
+- `/publications/{id}` — publication detail + publish result ✅
+
+**Tests:** 359 targeted PORTAL.1 tests, 1337 portal regression (0 errors).  
+**Backend:** untouched (2695/0).  
+**Next:** UI.1 — Portal UI / UX Redesign.

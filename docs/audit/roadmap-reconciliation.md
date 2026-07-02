@@ -152,3 +152,19 @@
 
 BACKEND.1 phase **COMPLETE**. All three critical debts closed under feature flags.
 Next: **PORTAL.1 — Portal Functional Completion** (GO).
+
+---
+
+## Updated after PORTAL.1 (2026-07-03)
+
+PORTAL.1 phase **COMPLETE**. All functional portal gaps closed. 7 new workflow pages, 359 tests, 0 backend changes.
+
+| Phase | Original Gap | After PORTAL.1 |
+|-------|-------------|-----------------|
+| PORTAL.1.2 Planning workflow | Missing | ✅ `/planning` (1.1) |
+| PORTAL.1.3 Booking workflow | Missing | ✅ `/bookings` (1.2) |
+| PORTAL.1.4 Publication/manifest | Missing | ✅ `/publications` + `/packages` (1.3/1.4) |
+| PORTAL.1.5 Campaign UX | Basic | ✅ workflow checklist (1.5) |
+| PORTAL.1.6 Error/cross-links | Partial | ✅ safe errors + cross-links (1.6) |
+
+**Next: UI.1 — Portal UI / UX Redesign** (GO).
