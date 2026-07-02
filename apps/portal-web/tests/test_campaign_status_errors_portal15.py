@@ -162,7 +162,9 @@ class TestListRendering(unittest.TestCase):
 
     def test_25_list_has_detail_link(self):
         _load()
-        self.assertIn('href="/campaigns/{{ c.campaign_code }}"', list_tpl)
+        self.assertIn(
+            'href="/campaigns/{{ c.url_code }}"', list_tpl,
+        )
 
     def test_26_list_has_approval_actions(self):
         _load()

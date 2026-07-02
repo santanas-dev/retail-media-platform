@@ -490,6 +490,15 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    async def get_campaign_by_id(
+        self, access_token: str, campaign_id: str,
+    ) -> dict:
+        """GET /api/campaigns/{id} → {ok, data} (UUID-based fallback)."""
+        return await self._request(
+            "GET", f"/api/campaigns/{campaign_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
     async def update_campaign_by_code(
         self, access_token: str, campaign_code: str, payload: dict,
     ) -> dict:

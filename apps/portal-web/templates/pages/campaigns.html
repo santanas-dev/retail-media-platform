@@ -99,30 +99,30 @@
             {% if c.creative_count == 0 %}
             <span class="text-sm text-muted">Креатив не выбран</span>
             {% else %}
-            <a href="/campaigns/{{ c.campaign_code }}" class="link">{{ c.creative_count }} креатив{{ 'а' if 1 < c.creative_count < 5 else '' }}{{ 'ов' if c.creative_count >= 5 else '' }}</a>
+            <a href="/campaigns/{{ c.url_code }}" class="link">{{ c.creative_count }} креатив{{ 'а' if 1 < c.creative_count < 5 else '' }}{{ 'ов' if c.creative_count >= 5 else '' }}</a>
             {% endif %}
           </td>
           <td>{{ c.created_at | fmt_date('full') }}</td>
           <td>
             <div class="form-inline gap-4">
-              <a href="/campaigns/{{ c.campaign_code }}" class="btn btn-sm btn-ghost">Открыть</a>
+              <a href="/campaigns/{{ c.url_code }}" class="btn btn-sm btn-ghost">Открыть</a>
               {% if c.status != 'archived' %}
-              <form method="post" action="/campaigns/{{ c.campaign_code }}/edit" class="flex-center gap-4">
+              <form method="post" action="/campaigns/{{ c.url_code }}/edit" class="flex-center gap-4">
                 <input type="text" name="name" value="{{ c.name }}" minlength="1" maxlength="255" required
                        class="form-input form-input-sm" style="width:100px;font-size:11px;">
                 <button type="submit" class="btn btn-sm btn-ghost" title="Сохранить название">✏️</button>
               </form>
               {% if c.status in ('draft', 'rejected') %}
-              <form method="post" action="/campaigns/{{ c.campaign_code }}/submit" class="inline">
+              <form method="post" action="/campaigns/{{ c.url_code }}/submit" class="inline">
                 <button type="submit" class="btn btn-sm btn-primary">→ На согласование</button>
               </form>
               {% endif %}
               {% if c.status == 'approved' %}
-              <form method="post" action="/campaigns/{{ c.campaign_code }}/create-publication-batch" class="inline">
+              <form method="post" action="/campaigns/{{ c.url_code }}/create-publication-batch" class="inline">
                 <button type="submit" class="btn btn-sm">📦 Подготовить</button>
               </form>
               {% endif %}
-              <form action="/campaigns/{{ c.campaign_code }}/archive" method="POST" class="inline">
+              <form action="/campaigns/{{ c.url_code }}/archive" method="POST" class="inline">
                 <button type="submit" class="btn btn-sm btn-ghost">Архив</button>
               </form>
               {% else %}

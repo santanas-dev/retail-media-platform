@@ -2034,10 +2034,13 @@ async def campaigns_page(request: Request):
     status_counts = {"draft": 0, "in_review": 0, "approved": 0, "rejected": 0, "archived": 0, "active": 0}
     for c in campaigns:
         code = c.get("campaign_code", "")
+        campaign_id = str(c.get("id", ""))  # UUID fallback
+        url_code = code if code else campaign_id  # use code if present, else UUID
         status = c.get("status", "")
         creative_codes = c.get("creative_codes", [])
         safe_rows.append({
             "campaign_code": code,
+            "url_code": url_code,  # identifier for URL routing
             "name": c.get("name", ""),
             "status": status,
             "description": c.get("description") or "—",
@@ -2876,8 +2879,11 @@ async def campaigns_detail(request: Request, campaign_code: str):
     if not access_token:
         return RedirectResponse(url="/login", status_code=303)
 
-    # Fetch campaign
+    # Fetch campaign — try by code first, then by ID (UUID fallback)
     camp_result = await backend.get_campaign_by_code(access_token, campaign_code)
+    if not camp_result.get("ok"):
+        # Fallback: try UUID-based lookup
+        camp_result = await backend.get_campaign_by_id(access_token, campaign_code)
     if not camp_result.get("ok"):
         if camp_result.get("code") == 403:
             return forbidden_response()
@@ -2897,9 +2903,12 @@ async def campaigns_detail(request: Request, campaign_code: str):
     campaign = camp_result.get("data", {})
     status = campaign.get("status", "")
 
+    # For sub-queries, prefer campaign_code from data; fallback to URL param
+    effective_code = campaign.get("campaign_code", "") or campaign_code
+
     # Fetch bound creatives
     bound_creatives = []
-    cr_result = await backend.list_campaign_creatives(access_token, campaign_code)
+    cr_result = await backend.list_campaign_creatives(access_token, effective_code)
     if cr_result.get("ok"):
         for cr in cr_result.get("data", []):
             fs = cr.get("file_size", 0)
@@ -2949,7 +2958,7 @@ async def campaigns_detail(request: Request, campaign_code: str):
     sched_result = await backend.list_schedules(access_token)
     if sched_result.get("ok"):
         for s in sched_result.get("data", []):
-            if s.get("campaign_code") == campaign_code:
+            if s.get("campaign_code") == effective_code:
                 # Fetch slots for each schedule
                 sched_code = s.get("schedule_code", "")
                 slots = []
