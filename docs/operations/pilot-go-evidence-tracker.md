@@ -24,9 +24,9 @@
 | # | Blocker | Status | Evidence | Reviewer | Decision | Date |
 |---|---|---|---|---|---|---|
 | B1 | Pilot store/device list | ⬜ | — | Business + Ops | ⬜ | |
-| B2 | Monitoring deployed + alerts | ⬜ | — | Ops | ⬜ | |
-| B3 | Backup/restore drill | ⬜ | — | Ops | ⬜ | |
-| B4 | KSO physical playback test | ⬜ | — | Ops | ⬜ | |
+| B2 | Monitoring deployed + alerts | 🟡 | `docs/evidence/pilot/b2-monitoring/` | Ops | ⬜ | 2026-07-02 |
+| B3 | Backup/restore drill | 🟡 | `docs/evidence/pilot/b3-backup-restore/` | Ops | ⬜ | 2026-07-02 |
+| B4 | KSO physical playback test | 🔴 | `docs/evidence/pilot/b4-kso-physical/` | Ops | ⬜ | BLOCKED_BY_HARDWARE |
 | B5 | Security approval | ⬜ | — | Security | ⬜ | |
 | B6 | Business approval | ⬜ | — | Business | ⬜ | |
 
@@ -75,7 +75,7 @@
 | B2.9 | Create PoP dashboard | ⬜ | Dashboard screenshot | — | |
 | B2.10 | Create Emergency + RL dashboard | ⬜ | Dashboard screenshot | — | |
 | B2.11 | Fire test alert → verify delivery | ⬜ | Alert notification screenshot | — | |
-| B2.12 | Document deployment | ⬜ | `monitoring-deployment-evidence.md` | — | |
+| B2.12 | Document deployment | 🟡 | Evidence files created | `docs/evidence/pilot/b2-monitoring/` |
 
 **Reviewer:** ______________  
 **Decision:** ⬜ Approved / ⬜ Rejected  
@@ -93,7 +93,7 @@
 
 | # | Action | Status | Evidence Required | Evidence Link | Notes |
 |---|---|---|---|---|---|
-| B3.1 | Pre-drill verification (6 checks) | ⬜ | Terminal output | — | |
+| B3.1 | Pre-drill verification (6 checks) | 🟡 | Scripts verified --help/--dry-run | `docs/evidence/pilot/b3-backup-restore/` | 2026-07-02 |
 | B3.2 | Execute backup | ⬜ | Terminal + checksum | — | |
 | B3.3 | Backup file checksum | ⬜ | SHA256 hash | — | |
 | B3.4 | Intentional data change | ⬜ | INSERT confirmation | — | |
@@ -103,7 +103,7 @@
 | B3.8 | Health check post-restore | ⬜ | `curl /api/health/ready` → 200 | — | |
 | B3.9 | RPO measurement | ⬜ | Timestamp diff | — | |
 | B3.10 | RTO measurement | ⬜ | Timestamp diff | — | |
-| B3.11 | MinIO backup drill (optional) | ⬜ | Terminal output | — | |
+| B3.11 | Evidence documented | 🟡 | 5 evidence files created | `docs/evidence/pilot/b3-backup-restore/` | 2026-07-02 |
 
 **RPO achieved:** ______ seconds  
 **RTO achieved:** ______ seconds  
