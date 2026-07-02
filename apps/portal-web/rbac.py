@@ -155,6 +155,7 @@ PAGE_PERMISSION_MAP: dict[str, str] = {
     "/readiness": "devices.gateway.read",
     "/readiness/business-acceptance": "devices.gateway.read",
     "/emergency": "emergency.read",
+    "/planning": "planning.read",
 }
 
 # Public routes — no auth required

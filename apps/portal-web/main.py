@@ -699,6 +699,120 @@ async def reports_analytics_page(request: Request):
     return templates.TemplateResponse(request, "pages/reports_analytics.html", ctx)
 
 
+# ── Helper: safe error message extraction ──
+
+
+def _safe_error(result: dict) -> str:
+    """Extract safe error message from backend response. No traceback, no secrets."""
+    if not isinstance(result, dict):
+        return "Ошибка сервера"
+    msg = result.get("error") or result.get("detail") or result.get("message", "")
+    if isinstance(msg, dict):
+        msg = msg.get("message", str(msg))
+    msg = str(msg)
+    if len(msg) > 300:
+        msg = msg[:300] + "…"
+    return msg or "Неизвестная ошибка"
+
+
+# ══════════════════════════════════════════════════════════════════════
+# PORTAL.1.1 — Planning: Availability / Conflicts / Occupancy
+# ══════════════════════════════════════════════════════════════════════
+
+
+@app.get("/planning", response_class=HTMLResponse)
+async def planning_page(request: Request):
+    """Planning page: availability, conflicts, occupancy (read-only)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/planning")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    backend = BackendClient()
+    ctx: dict = {
+        "request": request,
+        "title": "Планирование",
+        "active": "planning",
+        "current_user": current_user,
+        "filters": {},
+        "availability": None,
+        "conflicts": None,
+        "occupancy": None,
+        "availability_error": None,
+        "conflicts_error": None,
+        "occupancy_error": None,
+        "backend_error": None,
+    }
+
+    if not access_token:
+        ctx["backend_error"] = "Нет доступа к данным. Выполните вход."
+        return templates.TemplateResponse(request, "pages/planning.html", ctx)
+
+    # Collect filter values
+    filters = {}
+    for key in ("date_from", "date_to", "store_id", "channel_id",
+                "inventory_unit_id", "campaign_id"):
+        val = request.query_params.get(key)
+        if val:
+            filters[key] = val.strip()
+    ctx["filters"] = filters
+
+    if not filters.get("date_from") or not filters.get("date_to"):
+        return templates.TemplateResponse(request, "pages/planning.html", ctx)
+
+    date_from = filters["date_from"]
+    date_to = filters["date_to"]
+
+    try:
+        # Availability
+        av = await backend.get_planning_availability(
+            access_token,
+            campaign_id=filters.get("campaign_id"),
+            channel_id=filters.get("channel_id"),
+            store_id=filters.get("store_id"),
+            inventory_unit_id=filters.get("inventory_unit_id"),
+            date_from=date_from,
+            date_to=date_to,
+        )
+        if av.get("ok"):
+            ctx["availability"] = av
+        else:
+            ctx["availability_error"] = _safe_error(av)
+
+        # Conflicts
+        cf = await backend.check_planning_conflicts(
+            access_token,
+            inventory_unit_id=filters.get("inventory_unit_id"),
+            date_from=date_from,
+            date_to=date_to,
+        )
+        if cf.get("ok"):
+            ctx["conflicts"] = cf
+        else:
+            ctx["conflicts_error"] = _safe_error(cf)
+
+        # Occupancy
+        oc = await backend.get_planning_occupancy(
+            access_token,
+            channel_id=filters.get("channel_id"),
+            store_id=filters.get("store_id"),
+            inventory_unit_id=filters.get("inventory_unit_id"),
+            date_from=date_from,
+            date_to=date_to,
+        )
+        if oc.get("ok"):
+            ctx["occupancy"] = oc
+        else:
+            ctx["occupancy_error"] = _safe_error(oc)
+
+    except Exception:
+        ctx["backend_error"] = "Данные планирования временно недоступны"
+
+    return templates.TemplateResponse(request, "pages/planning.html", ctx)
+
+
 # ══════════════════════════════════════════════════════════════════════
 
 from fastapi.responses import PlainTextResponse

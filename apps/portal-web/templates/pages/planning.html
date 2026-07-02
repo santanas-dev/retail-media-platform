@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Планирование{% endblock %}
+{% block content %}
+<h2>Планирование рекламного времени</h2>
+
+{# ── Фильтры ── #}
+<form method="get" class="filter-bar">
+  <label>С: <input type="date" name="date_from" value="{{ filters.date_from or '' }}"></label>
+  <label>По: <input type="date" name="date_to" value="{{ filters.date_to or '' }}"></label>
+  <label>Магазин: <input type="text" name="store_id" value="{{ filters.store_id or '' }}" placeholder="store_id"></label>
+  <label>Канал: <input type="text" name="channel_id" value="{{ filters.channel_id or '' }}" placeholder="channel_id"></label>
+  <label>Блок: <input type="text" name="inventory_unit_id" value="{{ filters.inventory_unit_id or '' }}" placeholder="inventory_unit_id"></label>
+  <button type="submit">Показать</button>
+</form>
+
+{% if backend_error %}
+  <div class="alert alert-error">{{ backend_error }}</div>
+{% endif %}
+
+{% if not filters.date_from and not filters.date_to %}
+  <div class="empty-state">Выберите даты и нажмите «Показать», чтобы увидеть планирование.</div>
+{% else %}
+
+{# ── Availability ── #}
+<h3>Доступность</h3>
+{% if availability and availability.ok %}
+  {% set data = availability.data %}
+  <table class="data-table">
+    <thead><tr><th>Показатель</th><th>Значение</th></tr></thead>
+    <tbody>
+      <tr><td>Доступно блоков</td><td>{{ data.available_units or data.total_units or '—' }}</td></tr>
+      <tr><td>Всего блоков</td><td>{{ data.total_units or '—' }}</td></tr>
+      <tr><td>Всего ёмкости</td><td>{{ data.total_capacity or '—' }}</td></tr>
+      <tr><td>Доступно слотов</td><td>{{ data.total_available or '—' }}</td></tr>
+      <tr><td>Занятость</td><td>{{ data.occupancy_pct_avg or '—' }}%</td></tr>
+      <tr><td>Забронировано</td><td>{{ data.total_confirmed or 0 }} подтверждено / {{ data.total_reserved or 0 }} зарезервировано</td></tr>
+    </tbody>
+  </table>
+  {% if data.items %}
+    <h4>Детали по блокам</h4>
+    <table class="data-table">
+      <thead><tr><th>Блок</th><th>Ёмкость</th><th>Доступно</th><th>Занято</th><th>Статус</th></tr></thead>
+      <tbody>
+      {% for item in data.items %}
+        <tr>
+          <td>{{ item.inventory_unit_code or item.inventory_unit_id or '—' }}</td>
+          <td>{{ item.capacity or '—' }}</td>
+          <td>{{ item.available or '—' }}</td>
+          <td>{{ item.confirmed or 0 }} / {{ item.reserved or 0 }}</td>
+          <td>{{ item.occupancy_pct or '—' }}%</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+{% elif availability_error %}
+  <div class="alert alert-warning">Доступность: {{ availability_error }}</div>
+{% else %}
+  <div class="empty-state">Нет данных о доступности по выбранным фильтрам.</div>
+{% endif %}
+
+{# ── Conflicts ── #}
+<h3>Конфликты</h3>
+{% if conflicts and conflicts.ok %}
+  {% set data = conflicts.data %}
+  <p>Найдено конфликтов: {{ data.total_conflicts or data.conflicts|length if data.conflicts else 0 }}</p>
+  {% if data.conflicts %}
+  <table class="data-table">
+    <thead><tr><th>Тип</th><th>Причина</th><th>Блок</th><th>Период</th><th>Серьёзность</th></tr></thead>
+    <tbody>
+    {% for c in data.conflicts %}
+      <tr>
+        <td>{{ c.conflict_type or c.type or '—' }}</td>
+        <td>{{ c.reason or c.description or '—' }}</td>
+        <td>{{ c.inventory_unit_code or c.inventory_unit_id or '—' }}</td>
+        <td>{{ c.date_from or '' }} – {{ c.date_to or '' }}</td>
+        <td>{{ c.severity or '—' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+{% elif conflicts_error %}
+  <div class="alert alert-warning">Конфликты: {{ conflicts_error }}</div>
+{% else %}
+  <div class="empty-state">Конфликты не обнаружены.</div>
+{% endif %}
+
+{# ── Occupancy ── #}
+<h3>Заполняемость</h3>
+{% if occupancy and occupancy.ok %}
+  {% set data = occupancy.data %}
+  <table class="data-table">
+    <thead><tr><th>Показатель</th><th>Значение</th></tr></thead>
+    <tbody>
+      <tr><td>Занятость</td><td>{{ data.occupancy_pct or data.occupancy or '—' }}%</td></tr>
+      <tr><td>Использовано слотов</td><td>{{ data.used_capacity or data.used or '—' }}</td></tr>
+      <tr><td>Доступно слотов</td><td>{{ data.available_capacity or data.available or '—' }}</td></tr>
+      <tr><td>Всего слотов</td><td>{{ data.total_capacity or '—' }}</td></tr>
+    </tbody>
+  </table>
+  {% if data.breakdown %}
+    <h4>По дням</h4>
+    <table class="data-table">
+      <thead><tr><th>Дата</th><th>Занято</th><th>Доступно</th><th>%</th></tr></thead>
+      <tbody>
+      {% for d in data.breakdown %}
+        <tr>
+          <td>{{ d.date or d.day or '—' }}</td>
+          <td>{{ d.used or '—' }}</td>
+          <td>{{ d.available or '—' }}</td>
+          <td>{{ d.occupancy_pct or '—' }}%</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+{% elif occupancy_error %}
+  <div class="alert alert-warning">Заполняемость: {{ occupancy_error }}</div>
+{% else %}
+  <div class="empty-state">Нет данных о заполняемости по выбранным фильтрам.</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
