@@ -527,3 +527,7 @@ a:hover { color: var(--color-primary-text); }
 .section-collapse { margin: 8px 0; }
 .section-collapse summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
 .hint-text { font-size: 11px; color: var(--color-text-muted); margin-top: 8px; }
+
+/* Workflow progress bar (PORTAL.1.5) */
+.workflow-progress-bar { margin-bottom: 12px; height: 6px; background: var(--color-surface-hover); border-radius: 3px; overflow: hidden; }
+.workflow-progress-fill { height: 100%; background: var(--color-success); border-radius: 3px; }

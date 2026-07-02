@@ -220,17 +220,17 @@ class TestSafetyBoundaries(unittest.TestCase):
         assert "BookingItem" not in content
 
     def test_no_form_posts_in_planning_block(self):
-        """Planning block has no forms — read-only."""
-        # Check the planning block specifically — no <form> tags
+        """Planning block has no forms — read-only. Cross-links section excluded (PORTAL.1.5)."""
         content = _read("campaigns_detail.html")
-        # The template has forms for other things (submit, etc.)
-        # but planning block has no action URLs like /bookings
-        assert "/bookings" not in content
+        # Exclude PORTAL.1.5 cross-links section
+        planning_section = content.split("PORTAL.1.5: Cross-Links")[0] if "PORTAL.1.5: Cross-Links" in content else content
+        assert "/bookings" not in planning_section
 
     def test_no_reservation_links(self):
         content = _read("campaigns_detail.html")
-        assert "/reserve" not in content
-        assert "/booking" not in content.lower()
+        planning_section = content.split("PORTAL.1.5: Cross-Links")[0] if "PORTAL.1.5: Cross-Links" in content else content
+        assert "/reserve" not in planning_section
+        assert "/booking" not in planning_section.lower()
 
 
 # ═══════════════════════════════════════════════════════════════════════════

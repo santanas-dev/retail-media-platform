@@ -431,6 +431,73 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- PORTAL.1.5: Workflow Checklist -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+{% if workflow %}
+<div class="section-card mt-16">
+  <div class="section-card-header">
+    <span class="section-card-icon">📋</span>
+    <span class="section-card-title">Продвижение кампании</span>
+    <span class="section-card-badge">{{ workflow.done_count }}/{{ workflow.total }}</span>
+  </div>
+  <div class="section-card-body">
+    <div class="workflow-progress-bar">
+      <span class="workflow-progress-text">{{ workflow.done_count }}/{{ workflow.total }} ({{ workflow.pct }}%)</span>
+    </div>
+    <ul class="checklist" style="margin-top:12px;">
+    {% for step in workflow.steps %}
+      <li class="checklist-item {{ 'checklist-ok' if step.done else '' }}">
+        {% if step.done %}✅{% elif step.status == 'blocked' %}⏸{% else %}⬜{% endif %}
+        {{ step.label }}
+        {% if step.hint %}<span class="text-sm text-muted"> — {{ step.hint }}</span>{% endif %}
+      </li>
+    {% endfor %}
+    </ul>
+    {% if workflow.next_action %}
+    <div class="banner banner-info mt-12">
+      <span class="banner-icon">👉</span>
+      <div class="banner-body">
+        <div class="banner-title">Следующее действие</div>
+        <div class="banner-text">{{ workflow.next_action }}</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- PORTAL.1.5: Cross-Links -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+{% if cross_links %}
+<div class="section-card mt-16">
+  <div class="section-card-header">
+    <span class="section-card-icon">🔗</span>
+    <span class="section-card-title">Связанные разделы</span>
+  </div>
+  <div class="section-card-body">
+    <div class="action-buttons">
+      {% if cross_links.planning %}
+      <a href="/planning?campaign_id={{ cross_links.campaign_code }}" class="btn-sm">📊 Планирование</a>
+      {% endif %}
+      {% if cross_links.bookings %}
+      <a href="/bookings?campaign_id={{ cross_links.campaign_code }}" class="btn-sm">📅 Бронирования</a>
+      {% endif %}
+      {% if cross_links.publications %}
+      <a href="/publications" class="btn-sm">📋 Публикации</a>
+      {% endif %}
+      {% if cross_links.packages %}
+      <a href="/packages?campaign_code={{ cross_links.campaign_code }}" class="btn-sm">📜 Пакеты показа</a>
+      {% endif %}
+      {% if cross_links.reports %}
+      <a href="/reports?campaign_code={{ cross_links.campaign_code }}" class="btn-sm">📈 Отчёты</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Back Link -->
 <div class="mt-16">
   <a href="/campaigns" class="btn btn-ghost">← Назад к списку</a>

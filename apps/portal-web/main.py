@@ -2652,6 +2652,180 @@ async def campaigns_create_submit(
     })
 
 
+# ══════════════════════════════════════════════════════════════════════
+# PORTAL.1.5 helpers — campaign workflow + cross-links
+# ══════════════════════════════════════════════════════════════════════
+
+
+def _build_campaign_cross_links(
+    campaign_code: str, permissions: list[str],
+) -> dict:
+    """Build cross-link availability based on user permissions."""
+    return {
+        "planning": "planning.read" in permissions,
+        "bookings": "bookings.read" in permissions,
+        "publications": "publications.read" in permissions,
+        "packages": "publications.read" in permissions,
+        "reports": "reports.read" in permissions,
+        "campaign_code": campaign_code,
+    }
+
+
+async def _build_campaign_workflow(
+    status: str,
+    bound_creatives: list,
+    schedules: list,
+    placements: list,
+    campaign_code: str,
+    access_token: str,
+    backend,
+) -> dict:
+    """Build workflow checklist from cross-domain data (PORTAL.1.5)."""
+    steps = []
+
+    # Step 1: Campaign created
+    steps.append({
+        "label": "Кампания создана",
+        "done": status not in ("", None),
+        "status": "done",
+        "hint": f"Статус: {status}" if status else "",
+    })
+
+    # Step 2: Creative bound + approved
+    has_creatives = len(bound_creatives) > 0
+    has_approved = any(c.get("status") == "approved" for c in bound_creatives)
+    steps.append({
+        "label": "Креатив добавлен и одобрен",
+        "done": has_creatives and has_approved,
+        "status": "done" if (has_creatives and has_approved) else "pending",
+        "hint": "Добавьте одобренный креатив" if not has_creatives else "",
+    })
+
+    # Step 3: Placement created
+    has_placement = len(schedules) > 0 or len(placements) > 0
+    steps.append({
+        "label": "Размещение создано",
+        "done": has_placement,
+        "status": "done" if has_placement else "pending",
+        "hint": "Создайте размещение" if not has_placement else "",
+    })
+
+    # Step 4: Campaign approved
+    is_approved = status in ("approved", "active", "published")
+    is_submitted = status in ("in_review", "approved", "active", "published")
+    steps.append({
+        "label": "Кампания одобрена",
+        "done": is_approved,
+        "status": "done" if is_approved else ("blocked" if status == "in_review" else "pending"),
+        "hint": "Ожидает решения" if status == "in_review" else ("Отправьте на согласование" if not is_submitted else ""),
+    })
+
+    # Step 5: Booking
+    has_booking = False
+    booking_count = 0
+    try:
+        bk_result = await backend.list_bookings(access_token)
+        if bk_result.get("ok"):
+            cb = [b for b in bk_result.get("data", []) if str(b.get("campaign_id", "")) == campaign_code]
+            booking_count = len(cb)
+            has_booking = booking_count > 0
+    except Exception:
+        pass
+    steps.append({
+        "label": "Бронирование создано",
+        "done": has_booking,
+        "status": "done" if has_booking else "pending",
+        "hint": f"Найдено: {booking_count}" if has_booking else "Создайте бронирование",
+    })
+
+    # Step 6: Publication batch
+    has_publication = False
+    pub_count = 0
+    pb_result = None
+    try:
+        pb_result = await backend.list_publication_batches(access_token)
+        if pb_result.get("ok"):
+            cb = [b for b in pb_result.get("data", []) if campaign_code in (b.get("comment") or "")]
+            pub_count = len(cb)
+            has_publication = pub_count > 0
+    except Exception:
+        pass
+    steps.append({
+        "label": "Пакет публикации создан",
+        "done": has_publication,
+        "status": "done" if has_publication else "pending",
+        "hint": f"Найдено: {pub_count}" if has_publication else "Создайте публикационный пакет",
+    })
+
+    # Step 7: Published
+    has_published = False
+    try:
+        if pb_result and pb_result.get("ok"):
+            pb = [b for b in pb_result.get("data", []) if campaign_code in (b.get("comment") or "") and b.get("status") == "published"]
+            has_published = len(pb) > 0
+    except Exception:
+        pass
+    steps.append({
+        "label": "Публикация выполнена",
+        "done": has_published,
+        "status": "done" if has_published else "pending",
+        "hint": "Опубликуйте пакет" if has_publication and not has_published else "",
+    })
+
+    # Step 8: Manifest/package
+    has_manifest = False
+    mf_count = 0
+    camp_manifests = []
+    try:
+        mf_result = await backend.list_manifests(access_token)
+        if mf_result.get("ok"):
+            camp_manifests = [m for m in mf_result.get("data", []) if m.get("campaign_code") == campaign_code]
+            mf_count = len(camp_manifests)
+            has_manifest = mf_count > 0
+    except Exception:
+        pass
+    steps.append({
+        "label": "Пакет показа создан",
+        "done": has_manifest,
+        "status": "done" if has_manifest else "pending",
+        "hint": f"Найдено: {mf_count}" if has_manifest else "Требуется ENABLE_GENERATED_MANIFEST_WRITE=true",
+    })
+
+    # Step 9: KSO ready
+    has_kso = has_manifest and any(m.get("status") == "published" for m in camp_manifests)
+    steps.append({
+        "label": "Доступен для КСО",
+        "done": has_kso,
+        "status": "done" if has_kso else ("pending" if has_manifest else "blocked"),
+        "hint": "Опубликуйте пакет" if has_manifest and not has_kso else "",
+    })
+
+    # Next action
+    na = None
+    if not has_creatives:
+        na = "Добавьте одобренный креатив к кампании"
+    elif not is_submitted:
+        na = "Отправьте кампанию на согласование"
+    elif not is_approved:
+        na = "Ожидайте согласования кампании"
+    elif not has_booking:
+        na = "Создайте бронирование в инвентаре"
+    elif not has_publication:
+        na = "Создайте публикационный пакет"
+    elif not has_published:
+        na = "Опубликуйте пакет"
+    elif not has_kso:
+        na = "Опубликуйте пакет показа"
+
+    return {
+        "steps": steps,
+        "next_action": na,
+        "done_count": sum(1 for s in steps if s["done"]),
+        "total": len(steps),
+        "pct": int(sum(1 for s in steps if s["done"]) / len(steps) * 100) if steps else 0,
+    }
+
+
 @app.get("/campaigns/{campaign_code}", response_class=HTMLResponse)
 async def campaigns_detail(request: Request, campaign_code: str):
     """Campaign detail card with creatives, placements, submit readiness, approval."""
@@ -2890,6 +3064,15 @@ async def campaigns_detail(request: Request, campaign_code: str):
             else:
                 planning_data["occupancy"] = None
 
+    # ── PORTAL.1.5: Cross-domain data for workflow checklist ────
+    workflow = _build_campaign_workflow(
+        status, bound_creatives, schedules, placements_safe,
+        campaign_code, access_token, backend,
+    )
+    cross_links = _build_campaign_cross_links(
+        campaign_code, get_portal_tokens(request).get("permissions", []),
+    )
+
     return templates.TemplateResponse(request, "pages/campaigns_detail.html", {
         "request": request,
         "title": campaign.get("name", "Кампания"),
@@ -2907,6 +3090,8 @@ async def campaigns_detail(request: Request, campaign_code: str):
         "flash_msg": flash_msg,
         "flash_type": flash_type,
         "planning": planning_data,
+        "workflow": workflow,
+        "cross_links": cross_links,
     })
 
 
