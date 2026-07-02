@@ -817,6 +817,9 @@ class BackendClient:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+    # Alias for consistency with portal naming
+    get_publication = get_publication_batch
+
     async def create_publication_batch(
         self, access_token: str, campaign_code: str,
     ) -> dict:

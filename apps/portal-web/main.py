@@ -3539,7 +3539,7 @@ async def publications_batch_publish(
     request: Request,
     batch_id: str,
 ):
-    """Publish batch backend status (manifest_generated → published). No physical delivery."""
+    """Publish batch — backend status change. Shows PublishBatchResult (PORTAL.1.3)."""
     current_user = get_current_portal_user(request)
     guard = await require_auth_for_page(request, "/publications")
     if guard is not None:
@@ -3549,16 +3549,77 @@ async def publications_batch_publish(
     if not access_token:
         request.session["pub_flash"] = "error"
         request.session["pub_flash_msg"] = "Нет доступа."
-        return RedirectResponse(url="/publications", status_code=303)
+        return RedirectResponse(url=f"/publications/{batch_id}", status_code=303)
 
     backend = BackendClient()
     result = await backend.publish_batch(access_token, batch_id)
     if result["ok"]:
+        data = result.get("data", {})
         request.session["pub_flash"] = "ok:batch_published"
+        # Store PublishBatchResult in session for detail page
+        request.session["pub_result"] = {
+            "generated_manifest_created": data.get("generated_manifest_created", False),
+            "generated_manifest_count": data.get("generated_manifest_count", 0),
+            "generated_manifest_details": data.get("generated_manifest_details", []),
+            "next_step": data.get("next_step", ""),
+        }
     else:
         request.session["pub_flash"] = "error"
         request.session["pub_flash_msg"] = result.get("error", "Ошибка публикации")[:200]
-    return RedirectResponse(url="/publications", status_code=303)
+        # Store error detail for feature flag display
+        error_detail = result.get("error", "")
+        request.session["pub_result"] = {
+            "error": error_detail,
+            "is_feature_flag_off": "real_publication_disabled" in str(error_detail)
+                                  or "booking_writes_disabled" in str(error_detail),
+        }
+    return RedirectResponse(url=f"/publications/{batch_id}", status_code=303)
+
+
+@app.get("/publications/{batch_id}", response_class=HTMLResponse)
+async def publication_detail(request: Request, batch_id: str):
+    """Publication batch detail with publish results (PORTAL.1.3)."""
+    current_user = get_current_portal_user(request)
+    guard = await require_auth_for_page(request, "/publications")
+    if guard is not None:
+        return guard
+
+    tokens = get_portal_tokens(request)
+    access_token = tokens.get("access_token", "")
+    ctx: dict = {
+        "request": request,
+        "title": f"Публикация {batch_id[:8]}",
+        "active": "publications",
+        "current_user": current_user,
+        "batch": None,
+        "batch_id": batch_id,
+        "backend_error": None,
+        "pub_result": None,
+    }
+
+    # Recover flash + publish result from session
+    flash = request.session.pop("pub_flash", None)
+    flash_msg = request.session.pop("pub_flash_msg", "")
+    pub_result = request.session.pop("pub_result", None)
+    ctx["pub_flash"] = flash
+    ctx["pub_flash_msg"] = flash_msg
+    ctx["pub_result"] = pub_result
+
+    if not access_token:
+        ctx["backend_error"] = "Нет доступа к данным."
+        return templates.TemplateResponse(request, "pages/publication_detail.html", ctx)
+
+    backend = BackendClient()
+    try:
+        detail = await backend.get_publication(access_token, batch_id)
+        if detail.get("ok"):
+            ctx["batch"] = detail.get("data", {})
+        else:
+            ctx["backend_error"] = _safe_error(detail)
+    except Exception:
+        ctx["backend_error"] = "Данные публикации временно недоступны"
+
+    return templates.TemplateResponse(request, "pages/publication_detail.html", ctx)
 
 
 @app.post("/publications/batch/{batch_id}/cancel", response_class=HTMLResponse)

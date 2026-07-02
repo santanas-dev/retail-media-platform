@@ -106,6 +106,7 @@
     <div class="px-12 py-8" style="border-bottom:1px solid var(--color-border-light);">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
         <code class="font-semibold">{{ b.batch_ref }}</code>
+        <a href="/publications/{{ b.batch_id }}" class="btn-sm">Детали</a>
         <span class="status-badge status-badge-{{ b.status }}">
           {{ 'Черновик' if b.status == 'draft' else
              'На согласовании' if b.status == 'pending_approval' else
