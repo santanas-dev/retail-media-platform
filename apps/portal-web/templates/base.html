@@ -3,102 +3,129 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Рекламный портал — {{ title }}</title>
+<title>{{ title }} — Retail Media Platform</title>
 <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body>
+<body class="app-shell">
 
 <!-- Header -->
-<div class="header">
-  <span class="header-logo">Рекламный портал</span>
+<header class="header">
+  <span class="header-logo">Retail Media Platform</span>
   <span class="header-spacer"></span>
   {% if current_user %}
-  <span class="header-user">{{ current_user.safe_name }}
+  <div class="user-panel">
+    <span class="user-name">{{ current_user.safe_name }}</span>
     {% if current_user.roles %}
-    <span class="header-roles">({{ current_user.role_labels | join(', ') }})</span>
+    <span class="user-roles">({{ current_user.role_labels | join(', ') }})</span>
     {% endif %}
-  </span>
-  <a href="/logout" class="header-login-link">Выход</a>
+  </div>
+  <a href="/logout" class="btn btn-sm btn-ghost">Выход</a>
   {% endif %}
-</div>
+</header>
 
 <!-- Sidebar Navigation -->
-<div class="sidebar">
-  <div class="sidebar-section">Основное</div>
-  <a href="/dashboard" class="{{ 'active' if active == 'dashboard' }}">
-    <span class="nav-icon">📊</span><span class="nav-label">Главный экран</span>
-  </a>
-  <a href="/campaigns" class="{{ 'active' if active == 'campaigns' }}">
-    <span class="nav-icon">📢</span><span class="nav-label">Кампании</span>
-  </a>
-  <a href="/creatives" class="{{ 'active' if active == 'creatives' }}">
-    <span class="nav-icon">🎨</span><span class="nav-label">Креативы</span>
-  </a>
-  <a href="/help" class="{{ 'active' if active == 'help' }}">
-    <span class="nav-icon">📖</span><span class="nav-label">Как пользоваться</span>
-  </a>
-  <a href="/schedule" class="{{ 'active' if active == 'schedule' }}">
-    <span class="nav-icon">🗓</span><span class="nav-label">Расписание</span>
-  </a>
-  <a href="/approvals" class="{{ 'active' if active == 'approvals' }}">
-    <span class="nav-icon">📝</span><span class="nav-label">Согласования</span>
-  </a>
-  <a href="/publications" class="{{ 'active' if active == 'publications' }}">
-    <span class="nav-icon">📋</span><span class="nav-label">Публикации</span>
-  </a>
+<nav class="sidebar" aria-label="Основная навигация">
+  <div class="sidebar-brand">Меню</div>
 
-  <div class="sidebar-section">Аналитика</div>
-  <a href="/reports" class="{{ 'active' if active == 'reports' }}">
-    <span class="nav-icon">📈</span><span class="nav-label">Отчёты</span>
-  </a>
-  <a href="/reports/analytics" class="{{ 'active' if active == 'reports-analytics' }}">
-    <span class="nav-icon">📊</span><span class="nav-label">Аналитика показов</span>
-  </a>
-  <a href="/planning" class="{{ 'active' if active == 'planning' }}">
-    <span class="nav-icon">📋</span><span class="nav-label">Планирование</span>
-  </a>
-  <a href="/bookings" class="{{ 'active' if active == 'bookings' }}">
-    <span class="nav-icon">📅</span><span class="nav-label">Бронирования</span>
-  </a>
-  <a href="/packages" class="{{ 'active' if active == 'packages' }}">
-    <span class="nav-icon">📜</span><span class="nav-label">Пакеты показа</span>
-  </a>
+  {% set p = permissions if permissions is defined else [] %}
 
-  <div class="sidebar-section">Администрирование</div>
-  <a href="/inventory" class="{{ 'active' if active == 'inventory' }}">
-    <span class="nav-icon">⏱</span><span class="nav-label">Рекламное время</span>
-  </a>
-  <a href="/devices" class="{{ 'active' if active == 'devices' }}">
-    <span class="nav-icon">🖥️</span><span class="nav-label">Устройства</span>
-  </a>
-  <a href="/stores" class="{{ 'active' if active == 'stores' }}">
-    <span class="nav-icon">🏪</span><span class="nav-label">Магазины</span>
-  </a>
-  <a href="/readiness" class="{{ 'active' if active == 'readiness' }}">
-    <span class="nav-icon">🧭</span><span class="nav-label">Готовность</span>
-  </a>
-  <a href="/proof-of-play" class="{{ 'active' if active == 'pop' }}">
-    <span class="nav-icon">✅</span><span class="nav-label">Фактические показы</span>
-  </a>
-  <a href="/device-dashboard" class="{{ 'active' if active == 'device-dashboard' }}">
-    <span class="nav-icon">📡</span><span class="nav-label">Панель КСО</span>
-  </a>
-  <a href="/deployment" class="{{ 'active' if active == 'deployment' }}">
-    <span class="nav-icon">🚀</span><span class="nav-label">Развёртывание</span>
-  </a>
-  <a href="/admin" class="{{ 'active' if active == 'admin' }}">
-    <span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span>
-  </a>
-  <a href="/emergency" class="{{ 'active' if active == 'emergency' }}">
-    <span class="nav-icon">🚨</span><span class="nav-label">Аварийное управление</span>
-  </a>
+  {# ── Продажи ── #}
+  {% if ('campaigns.read' in p) or ('media.read' in p) or ('campaigns.approve' in p) %}
+  <div class="sidebar-section">
+    <span class="sidebar-section-title">Продажи</span>
+  </div>
+  {% if 'campaigns.read' in p %}
+  <a href="/dashboard" class="sidebar-link {{ 'active' if active == 'dashboard' }}"><span class="nav-icon">📊</span><span class="nav-label">Главный экран</span></a>
+  <a href="/campaigns" class="sidebar-link {{ 'active' if active == 'campaigns' }}"><span class="nav-icon">📢</span><span class="nav-label">Кампании</span></a>
+  {% endif %}
+  {% if 'media.read' in p %}
+  <a href="/creatives" class="sidebar-link {{ 'active' if active == 'creatives' }}"><span class="nav-icon">🎨</span><span class="nav-label">Креативы</span></a>
+  {% endif %}
+  {% if 'campaigns.approve' in p %}
+  <a href="/approvals" class="sidebar-link {{ 'active' if active == 'approvals' }}"><span class="nav-icon">📝</span><span class="nav-label">Согласования</span></a>
+  {% endif %}
+  {% endif %}
 
-</div>
+  {# ── Планирование ── #}
+  {% if ('planning.read' in p) or ('bookings.read' in p) or ('scheduling.read' in p) or ('inventory.read' in p) %}
+  <div class="sidebar-section">
+    <span class="sidebar-section-title">Планирование</span>
+  </div>
+  {% if 'planning.read' in p %}
+  <a href="/planning" class="sidebar-link {{ 'active' if active == 'planning' }}"><span class="nav-icon">📋</span><span class="nav-label">Планирование</span></a>
+  {% endif %}
+  {% if 'bookings.read' in p %}
+  <a href="/bookings" class="sidebar-link {{ 'active' if active == 'bookings' }}"><span class="nav-icon">📅</span><span class="nav-label">Бронирования</span></a>
+  {% endif %}
+  {% if 'scheduling.read' in p %}
+  <a href="/schedule" class="sidebar-link {{ 'active' if active == 'schedule' }}"><span class="nav-icon">🗓</span><span class="nav-label">Расписание</span></a>
+  {% endif %}
+  {% endif %}
 
-<!-- Main content -->
-<div class="main">
+  {# ── Публикация ── #}
+  {% if 'publications.read' in p %}
+  <div class="sidebar-section">
+    <span class="sidebar-section-title">Публикация</span>
+  </div>
+  <a href="/publications" class="sidebar-link {{ 'active' if active == 'publications' }}"><span class="nav-icon">📋</span><span class="nav-label">Публикации</span></a>
+  <a href="/packages" class="sidebar-link {{ 'active' if active == 'manifests' }}"><span class="nav-icon">📜</span><span class="nav-label">Пакеты показа</span></a>
+  {% endif %}
+
+  {# ── Устройства ── #}
+  {% if ('devices.read' in p) or ('devices.gateway.read' in p) %}
+  <div class="sidebar-section">
+    <span class="sidebar-section-title">Устройства</span>
+  </div>
+  {% if 'devices.read' in p %}
+  <a href="/devices" class="sidebar-link {{ 'active' if active == 'devices' }}"><span class="nav-icon">🖥️</span><span class="nav-label">Устройства</span></a>
+  {% endif %}
+  {% if 'devices.gateway.read' in p %}
+  <a href="/device-dashboard" class="sidebar-link {{ 'active' if active == 'device-dashboard' }}"><span class="nav-icon">📡</span><span class="nav-label">Панель КСО</span></a>
+  <a href="/readiness" class="sidebar-link {{ 'active' if active == 'readiness' }}"><span class="nav-icon">🧭</span><span class="nav-label">Готовность</span></a>
+  {% endif %}
+  {% endif %}
+
+  {# ── Аналитика ── #}
+  {% if 'reports.read' in p %}
+  <div class="sidebar-section">
+    <span class="sidebar-section-title">Аналитика</span>
+  </div>
+  <a href="/reports" class="sidebar-link {{ 'active' if active == 'reports' }}"><span class="nav-icon">📈</span><span class="nav-label">Отчёты</span></a>
+  <a href="/reports/analytics" class="sidebar-link {{ 'active' if active == 'reports-analytics' }}"><span class="nav-icon">📊</span><span class="nav-label">Аналитика показов</span></a>
+  <a href="/proof-of-play" class="sidebar-link {{ 'active' if active == 'pop' }}"><span class="nav-icon">✅</span><span class="nav-label">Фактические показы</span></a>
+  {% endif %}
+
+  {# ── Администрирование ── #}
+  {% if ('users.read' in p) or ('emergency.read' in p) or ('organization.read' in p) or ('inventory.read' in p) %}
+  <div class="sidebar-section">
+    <span class="sidebar-section-title">Администрирование</span>
+  </div>
+  {% if 'inventory.read' in p %}
+  <a href="/inventory" class="sidebar-link {{ 'active' if active == 'inventory' }}"><span class="nav-icon">⏱</span><span class="nav-label">Рекламное время</span></a>
+  {% endif %}
+  {% if 'organization.read' in p %}
+  <a href="/stores" class="sidebar-link {{ 'active' if active == 'stores' }}"><span class="nav-icon">🏪</span><span class="nav-label">Магазины</span></a>
+  {% endif %}
+  {% if 'users.read' in p %}
+  <a href="/admin" class="sidebar-link {{ 'active' if active == 'admin' }}"><span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span></a>
+  {% endif %}
+  {% if 'emergency.read' in p %}
+  <a href="/emergency" class="sidebar-link {{ 'active' if active == 'emergency' }}"><span class="nav-icon">🚨</span><span class="nav-label">Аварийное управление</span></a>
+  {% endif %}
+  {% endif %}
+
+  {# ── Сервис (public) ── #}
+  <div class="sidebar-section">
+    <span class="sidebar-section-title">Сервис</span>
+  </div>
+  <a href="/help" class="sidebar-link {{ 'active' if active == 'help' }}"><span class="nav-icon">📖</span><span class="nav-label">Как пользоваться</span></a>
+  <a href="/compliance" class="sidebar-link {{ 'active' if active == 'compliance' }}"><span class="nav-icon">📜</span><span class="nav-label">Соответствие</span></a>
+</nav>
+
+<!-- Main Content -->
+<main class="main-content" id="main-content">
 {% block content %}{% endblock %}
-</div>
+</main>
 
 </body>
 </html>

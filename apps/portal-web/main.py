@@ -34,6 +34,7 @@ from portal_session import (
 )
 from rbac import require_admin_access, require_portal_permission, require_auth_for_page, forbidden_response
 from action_availability import campaign_actions
+from portal_session import get_session_permissions
 
 APP_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = APP_DIR / "templates"
@@ -116,12 +117,14 @@ def _page(
             return guard
 
         current_user = get_current_portal_user(request)
+        permissions = get_session_permissions(request)
         ctx = {
             "request": request,
             "title": title,
             "active": active,
             "demo": True,
             "current_user": current_user,
+            "permissions": permissions,
         }
         if extra:
             ctx.update(extra)
@@ -146,6 +149,7 @@ async def help_page(request: Request):
         "title": "Как пользоваться",
         "active": "help",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
     })
 
 
@@ -283,6 +287,7 @@ async def dashboard_page(request: Request):
         "active": "dashboard",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "kpi": kpi,
         "dashboard_backend": dashboard_backend,
         "backend_warning": backend_warning,
@@ -296,6 +301,7 @@ def _dashboard_fallback(request: Request, current_user, reason: str = "") -> HTM
         "active": "dashboard",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "kpi": {},
         "dashboard_backend": False,
         "backend_warning": reason or "Данные временно недоступны.",
@@ -353,6 +359,7 @@ async def proof_of_play_page(request: Request):
         "active": "pop",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "pop_events": events,
         "kpi_total": kpi_total,
         "kpi_unique_devices": kpi_unique_devices,
@@ -369,6 +376,7 @@ def _pop_fallback(request: Request, current_user, reason: str = "") -> HTMLRespo
         "active": "pop",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "pop_events": [],
         "kpi_total": 0,
         "kpi_unique_devices": 0,
@@ -542,6 +550,7 @@ async def reports_page(request: Request):
             "title": "Отчёты",
             "active": "reports",
             "current_user": current_user,
+            "permissions": get_session_permissions(request),
             "demo": False,
             "pop_summary": pop_summary,
             "pop_summary_ok": pop_summary_ok,
@@ -580,6 +589,7 @@ def _reports_fallback(request: Request, current_user, *, reason: str = ""
         "title": "Отчёты",
         "active": "reports",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "demo": False,
         "pop_summary": {},
         "pop_summary_ok": False,
@@ -641,6 +651,7 @@ async def reports_analytics_page(request: Request):
         "title": "Аналитика показов",
         "active": "reports-analytics",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "filters": filters,
         "summary": None,
         "planned": None,
@@ -736,6 +747,7 @@ async def planning_page(request: Request):
         "title": "Планирование",
         "active": "planning",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "filters": {},
         "availability": None,
         "conflicts": None,
@@ -834,6 +846,7 @@ async def bookings_page(request: Request):
         "title": "Бронирования",
         "active": "bookings",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "bookings": [],
         "filters": {},
         "backend_error": None,
@@ -928,6 +941,7 @@ async def booking_detail(request: Request, booking_id: str):
         "title": f"Бронирование {booking_id}",
         "active": "bookings",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "booking": None,
         "items": [],
         "backend_error": None,
@@ -1191,6 +1205,7 @@ async def inventory_page(request: Request):
         "active": "inventory",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "backend_ok": has_data,
         "snapshot": snap,
         "availability": avail,
@@ -1210,6 +1225,7 @@ def _inventory_fallback(
         "active": "inventory",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "backend_ok": False,
         "backend_unavailable": True,
         "backend_message": reason or "Данные временно недоступны.",
@@ -1336,6 +1352,7 @@ async def device_dashboard_page(request: Request):
         "active": "device-dashboard",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "devices": devices,
         "filters": filters,
         "backend_unavailable": False,
@@ -1354,6 +1371,7 @@ def _device_dashboard_fallback(
         "active": "device-dashboard",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "devices": [],
         "filters": filters,
         "backend_unavailable": True,
@@ -1443,6 +1461,7 @@ async def readiness_page(request: Request):
         "active": "readiness",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "kpi": kpi,
         "devices": devices,
         "filters": {"readiness_badge": readiness_filter} if readiness_filter else {},
@@ -1459,6 +1478,7 @@ def _readiness_fallback(
         "active": "readiness",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "kpi": {},
         "devices": [],
         "filters": {},
@@ -1491,6 +1511,7 @@ async def business_acceptance_page(request: Request):
         "active": "readiness",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
     })
 
 
@@ -1539,6 +1560,7 @@ async def stores_page(request: Request):
         "active": "stores",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "stores": stores,
         "store_count": len(stores),
         "kso_total": sum(s.get("kso_count", 0) for s in stores),
@@ -1580,6 +1602,7 @@ async def devices_page(request: Request):
         "active": "devices",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "devices": devices,
     })
 
@@ -1592,6 +1615,7 @@ def _stores_fallback(request: Request, current_user, reason: str = "") -> HTMLRe
         "active": "stores",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "stores": [],
         "backend_unavailable": True,
         "backend_message": "Данные временно недоступны. Попробуйте позже.",
@@ -1606,6 +1630,7 @@ def _devices_fallback(request: Request, current_user, reason: str = "") -> HTMLR
         "active": "devices",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "devices": [],
         "backend_unavailable": True,
         "backend_message": "Данные временно недоступны. Попробуйте позже.",
@@ -1684,6 +1709,7 @@ async def creatives_page(request: Request):
         "active": "creatives",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "creatives": safe_rows,
         "advertisers": advertisers,
         "flash_type": flash_type,
@@ -1860,6 +1886,7 @@ async def creative_detail_page(request: Request, creative_code: str):
         return templates.TemplateResponse(request, "pages/creative_detail.html", {
             "request": request, "title": "Креатив", "active": "creatives",
             "current_user": current_user, "creative": None,
+            "permissions": get_session_permissions(request),
         })
     backend = BackendClient()
     resp = await backend.list_creatives(at)
@@ -1912,6 +1939,7 @@ async def creative_detail_page(request: Request, creative_code: str):
     return templates.TemplateResponse(request, "pages/creative_detail.html", {
         "request": request, "title": creative["name"] if creative else "Креатив",
         "active": "creatives", "current_user": current_user, "creative": creative,
+        "permissions": get_session_permissions(request),
     })
 
 
@@ -1932,6 +1960,7 @@ async def moderation_queue_page(request: Request):
     return templates.TemplateResponse(request, "pages/creatives.html", {
         "request": request, "title": "Очередь проверки", "active": "creatives",
         "current_user": current_user, "creatives": queue_items,
+        "permissions": get_session_permissions(request),
         "moderation_queue": True,
     })
 
@@ -1943,6 +1972,7 @@ def _creatives_fallback(request: Request, current_user) -> HTMLResponse:
         "active": "creatives",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "creatives": [],
         "backend_unavailable": True,
         "backend_message": "Данные временно недоступны. Попробуйте позже.",
@@ -2055,6 +2085,7 @@ async def campaigns_page(request: Request):
         "active": "campaigns",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "campaigns": safe_rows,
         "campaigns_by_status": status_counts,
         "flash_type": flash_type,
@@ -2397,6 +2428,7 @@ async def campaigns_create_page(request: Request):
         "title": "Создание кампании",
         "active": "campaigns",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "form": form,
         "advertisers": advertisers,
         "creatives": creatives,
@@ -2516,6 +2548,7 @@ async def campaigns_create_submit(
             "title": "Создание кампании",
             "active": "campaigns",
             "current_user": current_user,
+            "permissions": get_session_permissions(request),
             "form": form,
             "advertisers": [],
             "creatives": [],
@@ -2542,6 +2575,7 @@ async def campaigns_create_submit(
         return templates.TemplateResponse(request, "pages/campaigns_create.html", {
             "request": request, "title": "Создание кампании", "active": "campaigns",
             "current_user": current_user, "form": form,
+            "permissions": get_session_permissions(request),
             "advertisers": [], "creatives": [], "devices": [],
             "flash_msg": "", "flash_type": "", "errors": errors, "summary": None,
         })
@@ -2641,6 +2675,7 @@ async def campaigns_create_submit(
         "title": "Кампания создана",
         "active": "campaigns",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "form": {},
         "advertisers": [],
         "creatives": [],
@@ -2850,6 +2885,7 @@ async def campaigns_detail(request: Request, campaign_code: str):
             return templates.TemplateResponse(request, "pages/campaigns_detail.html", {
                 "request": request, "title": "Кампания не найдена", "active": "campaigns",
                 "current_user": current_user, "campaign": None, "not_found": True,
+                "permissions": get_session_permissions(request),
                 "bound_creatives": [], "approved_creatives": [],
                 "schedules": [], "placements": [], "readiness": {}, "approval_info": None,
                 "publication_ready": False,
@@ -3078,6 +3114,7 @@ async def campaigns_detail(request: Request, campaign_code: str):
         "title": campaign.get("name", "Кампания"),
         "active": "campaigns",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "campaign": campaign,
         "bound_creatives": bound_creatives,
         "approved_creatives": approved_creatives,
@@ -3188,6 +3225,7 @@ async def placement_detail(request: Request, placement_id: str):
         return templates.TemplateResponse(request, "pages/placement_detail.html", {
             "request": request, "title": "Размещение не найдено",
             "active": "campaigns", "current_user": current_user,
+            "permissions": get_session_permissions(request),
             "placement": None, "targets": [], "not_found": True,
         }, status_code=404)
 
@@ -3232,6 +3270,7 @@ async def placement_detail(request: Request, placement_id: str):
         "title": placement_safe.get("name") or placement_safe.get("placement_code", "Размещение"),
         "active": "campaigns",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "placement": placement_safe,
         "targets": targets_safe,
     })
@@ -3244,6 +3283,7 @@ def _campaigns_fallback(request: Request, current_user) -> HTMLResponse:
         "active": "campaigns",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "campaigns": [],
         "backend_unavailable": True,
         "backend_message": "Данные временно недоступны. Попробуйте позже.",
@@ -3379,6 +3419,7 @@ async def schedule_page(request: Request):
         "active": "schedule",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "schedules": safe_schedules,
         "schedule_slots": schedule_slots,
         "available_campaigns": available_campaigns,
@@ -3557,6 +3598,7 @@ def _schedule_fallback(request: Request, current_user) -> HTMLResponse:
         "active": "schedule",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "schedules": [],
         "schedule_slots": {},
         "backend_unavailable": True,
@@ -3655,6 +3697,7 @@ async def publications_page(request: Request):
         "active": "publications",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "batches": batches,
         "total_batches_count": total_batches_count,
         "manifests": manifests,
@@ -3776,6 +3819,7 @@ async def publication_detail(request: Request, batch_id: str):
         "title": f"Публикация {batch_id[:8]}",
         "active": "publications",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "batch": None,
         "batch_id": batch_id,
         "backend_error": None,
@@ -3855,6 +3899,7 @@ async def manifests_page(request: Request):
         "title": "Пакеты показа",
         "active": "manifests",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "manifests": [],
         "filters": {},
         "backend_error": None,
@@ -3903,6 +3948,7 @@ async def manifest_detail(request: Request, manifest_code: str):
         "title": f"Манифест {manifest_code}",
         "active": "manifests",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "manifest": None,
         "manifest_code": manifest_code,
         "body_summary": None,
@@ -4172,6 +4218,7 @@ async def approvals_page(request: Request):
         "active": "approvals",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "approvals": safe_rows,
         "available_objects": available_objects,
         "flash_type": flash_type,
@@ -4275,6 +4322,7 @@ def _approvals_fallback(request: Request, current_user) -> HTMLResponse:
         "active": "approvals",
         "demo": False,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "approvals": [],
         "backend_unavailable": True,
         "backend_message": "Данные временно недоступны. Попробуйте позже.",
@@ -4338,6 +4386,7 @@ async def admin_page(request: Request):
         "active": "admin",
         "demo": False,  # Real backend data
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "backend_available": admin_data["backend_ok"],
         "users": admin_data.get("users", []),
         "roles": admin_data.get("roles", []),
@@ -4907,6 +4956,7 @@ async def logout_page(request: Request):
         "active": "logout",
         "demo": True,
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
     })
 
 
@@ -5021,6 +5071,7 @@ async def emergency_page(request: Request):
         "title": "Аварийное управление",
         "active": "emergency",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "action_types": _EMERGENCY_ACTION_TYPES,
         "priorities": _EMERGENCY_PRIORITIES,
         "capabilities": None,
@@ -5070,6 +5121,7 @@ async def emergency_page_post(request: Request):
         "title": "Аварийное управление",
         "active": "emergency",
         "current_user": current_user,
+        "permissions": get_session_permissions(request),
         "action_types": _EMERGENCY_ACTION_TYPES,
         "priorities": _EMERGENCY_PRIORITIES,
         "capabilities": None,

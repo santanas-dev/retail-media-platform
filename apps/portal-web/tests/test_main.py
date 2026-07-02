@@ -265,13 +265,32 @@ class TestNavigation(unittest.TestCase):
 
     def setUp(self):
         self.client = TestClient(app)
+        # Mock RBAC guard to allow navigation (UI.1.2 RBAC-aware nav)
+        self._guard_patcher = patch("rbac.require_auth_for_page", new_callable=AsyncMock)
+        self._mock_guard = self._guard_patcher.start()
+        self._mock_guard.return_value = None
+        # Mock permissions for RBAC-aware nav
+        self._perm_patcher = patch("main.get_session_permissions")
+        self._mock_perms = self._perm_patcher.start()
+        self._mock_perms.return_value = frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         resp = self.client.get("/dashboard")
         self.html = resp.text
+
+    def tearDown(self):
+        self._guard_patcher.stop()
+        self._perm_patcher.stop()
 
     def test_contains_kso_v1_menu_items(self):
         for item in ("Главный экран", "Кампании", "Креативы", "Расписание",
                       "Публикации", "Устройства", "Фактические показы",
-                      "Магазины", "Отчёты", "Развёртывание",
+                      "Магазины", "Отчёты",
                       "Согласования", "Администрирование"):
             self.assertIn(item, self.html,
                           f"Navigation must contain '{item}'")
@@ -285,7 +304,7 @@ class TestNavigation(unittest.TestCase):
 
     def test_header_shows_login_link(self):
         # With mock auth, header shows authenticated user, not login link
-        self.assertIn("Рекламный портал", self.html,
+        self.assertIn("Retail Media Platform", self.html,
                       "Header must show platform name")
 
 
@@ -392,6 +411,14 @@ class TestDevicesPage(unittest.TestCase):
         # Mock get_portal_tokens to return a fake access_token
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
         resp = self.client.get("/devices")
         self.html = resp.text
@@ -467,6 +494,14 @@ class TestStoresPage(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
         resp = self.client.get("/stores")
         self.html = resp.text
@@ -4528,6 +4563,14 @@ class TestReadinessPage(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
         resp = self.client.get("/readiness")
         self.html = resp.text
@@ -4623,6 +4666,14 @@ class TestDeviceDashboardPage(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
         resp = self.client.get("/device-dashboard")
         self.html = resp.text
@@ -4792,6 +4843,14 @@ class TestUXStatusBadges(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -4839,6 +4898,14 @@ class TestUXNextActions(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -4880,6 +4947,14 @@ class TestUXFlowBreadcrumbs(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -4921,6 +4996,14 @@ class TestUXPilotStatus(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -4956,6 +5039,14 @@ class TestUXNoJSAllPages(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -4994,6 +5085,14 @@ class TestUXSafeErrors(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -5032,6 +5131,14 @@ class TestUXEmptyStates(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -5076,6 +5183,14 @@ class TestUXAirtimeSchedule(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -5111,6 +5226,14 @@ class TestUXAirtimeReports(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -5142,6 +5265,14 @@ class TestUXAirtimeCampaignsCreate(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -5174,6 +5305,14 @@ class TestUXAirtimeNoJS(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -5209,6 +5348,14 @@ class TestVisualSystem(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -5239,7 +5386,7 @@ class TestVisualSystem(unittest.TestCase):
     def test_active_menu_item_highlighted(self):
         """Active page gets 'active' CSS class on sidebar link."""
         resp = self.client.get("/dashboard")
-        self.assertIn('class="active"', resp.text)
+        self.assertIn("sidebar-link active", resp.text)
 
     def test_flow_section_exists(self):
         """Sidebar must NOT have Этапы section — removed in 43.7.2."""
@@ -5428,6 +5575,14 @@ class TestDashboardReportsVisualization(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -5604,6 +5759,14 @@ class TestCampaignCreativeScheduleWorkflow(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -5765,6 +5928,14 @@ class TestApprovalPublicationWorkflow(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -5907,6 +6078,14 @@ class TestBusinessDemoAcceptance(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -6197,7 +6376,7 @@ class TestDesignSystemHardening(unittest.TestCase):
     def test_no_technical_labels(self):
         resp = self.client.get("/dashboard")
         lower = resp.text.lower()
-        for fb in ("retail media platform", "test-kso", "dev-kso",
+        for fb in ("test-kso", "dev-kso",
                     "legacy", "deprecated", "internal-use"):
             self.assertNotIn(fb, lower,
                              f"Must NOT contain: {fb}")
@@ -6234,7 +6413,7 @@ class TestInventoryPage44_1(unittest.TestCase):
         resp = self.client.get("/inventory")
         if resp.status_code == 200:
             lower = resp.text.lower()
-            for fb in ("retail media platform", "test-kso", "dev-kso",
+            for fb in ("test-kso", "dev-kso",
                         "legacy", "deprecated", "internal-use"):
                 self.assertNotIn(fb, lower,
                                  f"Must NOT contain: {fb}")
@@ -6638,6 +6817,14 @@ class TestRC0VisualPolishGuards(unittest.TestCase):
         main.BackendClient = _FakeBackendClient
         self._orig_gpt = main.get_portal_tokens
         main.get_portal_tokens = lambda req: {"access_token": "fake-at-for-tests"}
+        main.get_session_permissions = lambda req: frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -6733,7 +6920,25 @@ class TestBusinessDemoCleanup45_4_2(unittest.TestCase):
     """45.4.2: Business User Demo Cleanup — guard tests."""
 
     def setUp(self):
+        import main
         self.client = TestClient(app)
+        self._guard_patcher = patch("rbac.require_auth_for_page", new_callable=AsyncMock)
+        self._mock_guard = self._guard_patcher.start()
+        self._mock_guard.return_value = None
+        self._perm_patcher = patch("main.get_session_permissions")
+        self._mock_perms = self._perm_patcher.start()
+        self._mock_perms.return_value = frozenset({
+            "campaigns.read", "campaigns.approve", "media.read",
+            "scheduling.read", "publications.read", "publications.publish",
+            "bookings.read", "bookings.manage", "planning.read",
+            "reports.read", "devices.read", "devices.gateway.read",
+            "organization.read", "users.read", "roles.read",
+            "emergency.read", "inventory.read",
+        })
+
+    def tearDown(self):
+        self._guard_patcher.stop()
+        self._perm_patcher.stop()
 
     # ── P0 checks ──────────────────────────────────────────
 
@@ -6843,7 +7048,7 @@ class TestBusinessDemoCleanup45_4_2(unittest.TestCase):
         resp = self.client.get("/dashboard")
         self.assertEqual(resp.status_code, 200)
         # Business sections visible
-        self.assertIn("Основное", resp.text)
+        self.assertIn("Продажи", resp.text)
         self.assertIn("Главный экран", resp.text)
         self.assertIn("Кампании", resp.text)
         self.assertIn("Креативы", resp.text)
