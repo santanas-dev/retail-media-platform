@@ -45,9 +45,33 @@ capability_profiles            physical_devices
 │  screen_render/      │       │ cache_size_bytes     │
 │  gateway_ack/etc)    │       │ created_at           │
 │ created_at           │       │ updated_at           │
-└──────────────────────┘       └──────┬───────────────┘
-                                      │
-        ┌─────────────────────────────┘
+│ created_at           │       └──────┬───────────────┘
+└──────────────────────┘              │
+                                      │ 1:N
+        ┌─────────────────────────────┤
+        │                             │
+        ▼                             ▼
+device_certificates              device_status_history
+┌──────────────────────────┐    ┌──────────────────────────┐
+│ id                       │    │ id                       │
+│ physical_device_id FK ───┼──► │ physical_device_id FK ──►│ physical_devices
+│ certificate_type         │    │ old_status               │
+│ (rsa/ed25519/hsm)        │    │ new_status               │
+│ public_key               │    │ changed_at               │
+│ fingerprint              │    │ reason                   │
+│ issued_at                │    │ source                   │
+│ expires_at               │    │ (heartbeat/admin/manual/  │
+│ revoked_at (opt)         │    │  device_self)            │
+│ status (active/revoked/  │    │ details_json (opt)       │
+│   expired)               │    └──────────────────────────┘
+│ created_at               │
+└──────────────────────────┘
+
+NOTE: physical_devices.status is a CURRENT STATE cache only.
+      device_status_history is AUTHORITATIVE for transitions, SLA
+      reports, and audit trail. The cache is updated synchronously
+      on every status change for read performance.
+
         │
         ▼
 logical_carriers                   display_surfaces
@@ -278,7 +302,7 @@ manifests                         manifest_items
 ┌──────────────────────┐          ┌──────────────────────┐
 │ id                   │          │ id                   │
 │ manifest_id (UUID)   │──FK─────►│ manifest_id          │
-│ device_id/surface_id │          │ order                │
+│ physical_device_id FK│          │ order                │
 │ store_id FK          │          │ creative_version_id FK
 │ playlist_version_id  │          │ rendition_id FK      │
 │ manifest_version     │          │ sha256               │
@@ -471,6 +495,8 @@ ORDER BY (event_date, user_id, action)  PARTITION BY toYYYYMM(date)
 - `branches` 1→N `clusters` 1→N `stores` 1→N `store_zones`
 - `channels` 1→N `device_types` 1→N `capability_profiles`
 - `stores` 1→N `physical_devices` 1→N (opt) `logical_carriers` 1→N `display_surfaces`
+- `physical_devices` 1→N `device_certificates`
+- `physical_devices` 1→N `device_status_history`
 - `device_types` → `physical_devices`
 - `advertisers` 1→N `brands` 1→N `contracts` 1→N `orders`
 - `campaigns` N→1 `advertisers`, `campaigns` 1→N `placements` 1→N `placement_targets`
@@ -486,3 +512,5 @@ ORDER BY (event_date, user_id, action)  PARTITION BY toYYYYMM(date)
 - TZ v2.5 Table 18 (PostgreSQL operational model), Table 19 (ClickHouse analytical model)
 - TZ v2.5 §24.4 (New channel → device → surface model)
 - `rmp_rewrite_starting_decisions.md` — First tables to build
+- ADR-003 (Device identity — device_certificates design)
+- Critical Review P0 fix (device_status_history for authoritative transitions)

@@ -10,6 +10,8 @@
 
 The Universal Manifest is the canonical contract between the platform and every channel adapter. It contains a common part (identical for all devices) and a channel-specific `adapter_payload`.
 
+**Delivery model:** One manifest is delivered to one gateway/physical device runtime. The manifest may reference one or many `display_surfaces` inside it. Inventory and reporting remain surface-based; delivery is device-based. A manifest with multiple surfaces targets all surfaces controlled by that device (e.g., ESL gateway with N labels, LED controller with N panels).
+
 ## Schema (v1.0)
 
 ```json
@@ -25,8 +27,12 @@ The Universal Manifest is the canonical contract between the platform and every 
     "store_code": "ST-042",
     "channel_type": "KSO|ANDROID_TV|PRICE_CHECKER|ESL|LED",
     "device_type": "KSO_V1|ANDROID_TV_V1|PRICE_CHECKER_V1|ESL_GW_V1|LED_CTRL_V1",
-    "surface_id": "uuid (optional, for multi-surface devices)",
-    "surface_code": "SURF-001 (optional)",
+    "display_surfaces": [
+      {
+        "surface_id": "uuid",
+        "surface_code": "SURF-001"
+      }
+    ],
     "playlist_version": "2026-07-01-001",
     "valid_from": "2026-07-02T00:00:00Z",
     "valid_to": "2026-07-09T00:00:00Z",
@@ -193,3 +199,5 @@ The Universal Manifest is the canonical contract between the platform and every 
 
 - TZ v2.5 Table 13 (Manifest fields), §8.2 (Manifest requirements), §24.7 (Universal manifest)
 - ADR-003 (Device identity — no tokens in URLs)
+- ERD v2.5 (manifest → physical_device FK, display_surfaces referenced inside manifest)
+- Critical Review P0 fix: delivery is device-based, targeting is surface-based

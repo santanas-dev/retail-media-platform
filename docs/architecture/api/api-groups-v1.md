@@ -205,7 +205,7 @@ Four logically separated API groups, each with its own authentication, rate limi
 | POST | `/device/v1/register` | device_code | — | Register device, get credentials |
 | POST | `/device/v1/session` | device HMAC | — | Establish session, get JWT |
 | POST | `/device/v1/session/refresh` | device JWT | — | Refresh JWT |
-| GET | `/device/v1/manifest` | device JWT | — | Pull latest manifest (ETag/304) |
+| GET | `/device/v1/manifest` | device JWT | — | Pull latest manifest for this device (ETag/304). Manifest may contain `display_surfaces[]` for multi-surface devices. |
 | POST | `/device/v1/manifest/ack` | device JWT | — | Acknowledge manifest applied |
 | POST | `/device/v1/heartbeat` | device JWT | — | Device heartbeat |
 | POST | `/device/v1/pop/batch` | device JWT | — | Submit PoP batch |

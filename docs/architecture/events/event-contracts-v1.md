@@ -126,6 +126,8 @@
 **Consumer:** Device Gateway (for caching/invalidation)
 **Delivery:** JetStream (persisted)
 
+**Delivery semantics:** One event per manifest. The manifest targets one `device_id`. Surface-level targeting is INSIDE the manifest payload (`display_surfaces[]` array), not as separate events or device lists. This event notifies the Device Gateway that a new manifest version is available for caching/pre-fetch. The actual manifest content is served via `GET /device/v1/manifest`. The `surface_ids` field here is informational for analytics correlation, not a delivery target list.
+
 ```json
 {
   "manifest_id": "uuid",
