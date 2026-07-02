@@ -147,3 +147,24 @@ Portal functional debt RESOLVED:
 Portal UX/UI debt: unchanged — deferred to UI.1.
 
 Updated totals: **3 CRITICAL, 5 HIGH, 12 MEDIUM, 4 LOW** after PORTAL.1.
+
+---
+
+## Updated after UI.1 (2026-07-03)
+
+Portal UX/UI debt RESOLVED or downgraded:
+
+| # | Item | Severity | Resolution |
+|---|------|----------|------------|
+| UID-01 | No design system or component library | 🟠 HIGH → **RESOLVED** | 60+ CSS custom properties, 11 компонентов (UI.1.1) |
+| UID-02 | Basic CSS only — no visual hierarchy | 🟠 HIGH → **RESOLVED** | page-header, section-card, metric-grid, status-badge, crosslinks (UI.1.1–UI.1.6) |
+| UID-03 | Technical UUIDs visible to users | 🟡 MEDIUM → **PARTIAL** | Code/short forms где возможно; raw UUIDs остаются где нет бизнес-кода |
+| UID-04 | Mixed RU/EN labels and terminology | 🟡 MEDIUM → **RESOLVED** | «Пакеты показа», «Подтверждения показов», «Технический переключатель» (UI.1.3–UI.1.6) |
+| UID-05 | No responsive design | 🟡 MEDIUM → **PARTIAL** | Media queries, table overflow safe, sidebar responsive — baseline complete |
+| UID-06 | Tables lack filtering/sorting/pagination | 🟡 MEDIUM → **RESOLVED** | Filter-bar, action-bar, data-table component (UI.1.1–UI.1.6) |
+| UID-07 | No loading states or progress indicators | 🟢 LOW → **DEFERRED** | Требует JS/async — отложено до post-E2E |
+| UID-08 | Forms lack validation feedback | 🟡 MEDIUM → **PARTIAL** | Базовые ошибки отображены; rich validation требует JS |
+
+**Portal UX/UI debt: 0 CRITICAL, 0 HIGH, 3 MEDIUM (PARTIAL), 2 LOW (1 DEFERRED).**
+
+Updated totals: **3 CRITICAL, 5 HIGH, 9 MEDIUM, 3 LOW** after UI.1.

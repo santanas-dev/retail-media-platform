@@ -168,3 +168,37 @@ PORTAL.1 phase **COMPLETE**. All functional portal gaps closed. 7 new workflow p
 | PORTAL.1.6 Error/cross-links | Partial | ✅ safe errors + cross-links (1.6) |
 
 **Next: UI.1 — Portal UI / UX Redesign** (GO).
+
+---
+
+## Updated after UI.1 (2026-07-03)
+
+UI.1 phase **COMPLETE**. 9 коммитов, 25+ страниц с единым визуальным стандартом, 1709/0 portal regression.
+
+| Gap | Before UI.1 | After UI.1 |
+|-----|------------|-------------|
+| UID-01 Design system | Missing | ✅ 60+ CSS vars, 11 компонентов |
+| UID-02 Visual hierarchy | None | ✅ page-header, section-card, metric-grid |
+| UID-03 Technical UUIDs | Visible | 🟡 Partial — code/short forms |
+| UID-04 Mixed RU/EN | Yes | ✅ Unified Russian terms |
+| UID-05 Responsive | None | ✅ Baseline complete |
+| UID-06 Tables standard | None | ✅ Filter/action bar |
+| UID-08 Form validation | Missing | 🟡 Partial — basic errors shown |
+
+**Backend:** 2695/0 (untouched). **Portal:** 1709/0.  
+**Next: E2E.1 — Full Portal Scenario Validation** (GO).
+
+### Updated Roadmap Status
+
+| Phase | Status | Date |
+|-------|--------|------|
+| A–G (Original) | ✅ Complete | 2026-07-02 |
+| H (Production Readiness) | ⏸️ Deferred | — |
+| PILOT.0 | ⏸️ Deferred | — |
+| BACKEND.1 | ✅ Complete | 2026-07-02 |
+| PORTAL.1 | ✅ Complete | 2026-07-03 |
+| **UI.1** | **✅ Complete** | **2026-07-03** |
+| **E2E.1** | **⬜ Next** | **TBD** |
+| KSO.1 | ⬜ Pending | TBD |
+| PROD.1 | ⬜ Pending | TBD |
+| PILOT.1 | ⬜ Pending | TBD |

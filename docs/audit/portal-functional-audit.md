@@ -177,3 +177,20 @@ PORTAL.1 closed all functional gaps identified in this audit:
 **Tests:** 359 targeted PORTAL.1 tests, 1337 portal regression (0 errors).  
 **Backend:** untouched (2695/0).  
 **Next:** UI.1 — Portal UI / UX Redesign.
+
+---
+
+## Updated after UI.1 (2026-07-03)
+
+UI.1 завершил визуальный редизайн всех портальных страниц. Функциональный аудит (сценарии 1–8) не изменился — все оценки остаются актуальными после PORTAL.1. UI.1 добавил:
+
+- Единый визуальный стандарт (page-header, section-card, metric cards, status badges)
+- RBAC-aware навигацию (6 групп, device_service ограничен)
+- Русскую терминологию («Пакеты показа», «Подтверждения показов», «Технический переключатель»)
+- Cross-links между связанными страницами
+- Стандартизированные empty/error states
+- Dry-run safety для emergency + production switch NO-GO
+
+**Portal baseline after UI.1:** 1709 passed / 0 errors / ~34 skipped.  
+**Backend:** 2695/0 (untouched).  
+**Next:** E2E.1 — Full Portal Scenario Validation.
