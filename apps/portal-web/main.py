@@ -96,6 +96,28 @@ templates.env.filters["fmt_date"] = _format_datetime
 from labels import label_filter
 templates.env.filters["label"] = label_filter
 
+# ── Register display filters for UI.2.2 UUID cleanup ─────────────────
+from display import (
+    short_uuid_filter,
+    display_ref_filter,
+    display_code_filter,
+    display_campaign_filter,
+    display_device_filter,
+    display_booking_filter,
+    display_package_filter,
+    display_creative_filter,
+    display_store_filter,
+)
+templates.env.filters["short_uuid"] = short_uuid_filter
+templates.env.filters["display_ref"] = display_ref_filter
+templates.env.filters["display_code"] = display_code_filter
+templates.env.filters["display_campaign"] = display_campaign_filter
+templates.env.filters["display_device"] = display_device_filter
+templates.env.filters["display_booking"] = display_booking_filter
+templates.env.filters["display_package"] = display_package_filter
+templates.env.filters["display_creative"] = display_creative_filter
+templates.env.filters["display_store"] = display_store_filter
+
 
 # ══════════════════════════════════════════════════════════════════════
 # Template context helpers

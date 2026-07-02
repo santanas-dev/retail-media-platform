@@ -146,7 +146,7 @@
       <tbody>
       {% for d in health.devices %}
       <tr>
-        <td>{{ d.device_code or d.gateway_device_id or "—" }}</td>
+        <td>{{ d.device_code or d.gateway_device_id | display_ref or "—" }}</td>
         <td>
           {% if d.status == "ok" %}<span class="status-badge status-badge-success">OK</span>
           {% elif d.status == "silent" %}<span class="status-badge status-badge-warning">Нет связи</span>
@@ -194,7 +194,7 @@
     <tbody>
     {% for b in items %}
     <tr>
-      <td>{% if b.key == "unknown" %}Не определено{% else %}{% if btype == "campaign" %}<a href="/campaigns/{{ b.key }}" class="link">{{ b.label or b.key }}</a>{% elif btype == "device" %}<a href="/devices" class="link">{{ b.label or b.key }}</a>{% else %}{{ b.label or b.key }}{% endif %}{% endif %}</td>
+      <td>{% if b.key == "unknown" %}Не определено{% else %}{% if btype == "campaign" %}<a href="/campaigns/{{ b.key }}" class="link">{{ b.label or b.key | display_ref }}</a>{% elif btype == "device" %}<a href="/devices" class="link">{{ b.label or b.key | display_ref }}</a>{% else %}{{ b.label or b.key | display_ref }}{% endif %}{% endif %}</td>
       <td>{{ b.metrics.delivered_impressions }}</td>
       <td>{{ b.metrics.proof_events_count }}</td>
       <td>{{ b.metrics.playback_success_count }}</td>

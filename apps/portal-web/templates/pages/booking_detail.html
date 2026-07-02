@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Бронирование {{ booking.id|string|truncate(8) if booking else '' }}{% endblock %}
+{% block title %}Бронирование {{ booking.id | display_ref("Бронь") if booking else '' }}{% endblock %}
 {% block content %}
 
 <div class="page-header">
@@ -8,12 +8,12 @@
     <span class="page-title">
       Бронирование
       {% if booking %}
-        <code class="text-muted">{{ booking.id|string|truncate(12) }}</code>
+        <code class="text-muted">{{ booking.id | display_ref("Бронь") }}</code>
       {% endif %}
     </span>
     {% if booking %}
       <span class="page-subtitle">
-        {% if booking.campaign_id %}Кампания {{ booking.campaign_id|string|truncate(12) }} · {% endif %}
+        {% if booking.campaign_id %}Кампания {{ booking.campaign_id | display_ref(\"\", 8) }} · {% endif %}
         {{ booking.date_from }} – {{ booking.date_to }}
       </span>
     {% endif %}
@@ -60,7 +60,7 @@
   </div>
   <div class="metric-card">
     <div class="metric-label">Кампания</div>
-    <div class="metric-value text-sm">{{ booking.campaign_id|string|truncate(16) or '—' }}</div>
+    <div class="metric-value text-sm">{{ booking.campaign_id | display_ref("", 8) }}</div>
   </div>
   <div class="metric-card">
     <div class="metric-label">Период</div>
@@ -81,8 +81,8 @@
   <div class="section-card-body p-0">
     <table class="data-table">
       <tbody>
-        <tr><td><strong>ID</strong></td><td><code>{{ booking.id }}</code></td></tr>
-        <tr><td><strong>Кампания</strong></td><td><code>{{ booking.campaign_id }}</code></td></tr>
+        <tr><td><strong>ID</strong></td><td><code title="{{ booking.id }}">{{ booking.id | display_ref("Бронь") }}</code></td></tr>
+        <tr><td><strong>Кампания</strong></td><td><code title="{{ booking.campaign_id }}">{{ booking.campaign_id | display_ref("", 12) }}</code></td></tr>
         <tr><td><strong>Период</strong></td><td>{{ booking.date_from }} – {{ booking.date_to }}</td></tr>
         <tr><td><strong>Комментарий</strong></td><td>{{ booking.comment or '—' }}</td></tr>
         <tr><td><strong>Создан</strong></td><td>{{ booking.created_at|fmt_date('full') if booking.created_at else '—' }}</td></tr>

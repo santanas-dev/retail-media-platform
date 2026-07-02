@@ -84,8 +84,8 @@
         <tbody>
         {% for b in bookings %}
           <tr>
-            <td><a href="/bookings/{{ b.id }}">{{ b.id|string|truncate(8) }}</a></td>
-            <td>{{ b.campaign_id|string|truncate(8) or '—' }}</td>
+            <td><a href="/bookings/{{ b.id }}">{{ b | display_ref("Бронь") }}</a></td>
+            <td>{{ b.campaign_id | display_ref("Кампания", 8) }}</td>
             <td>
               {% if b.status == 'draft' %}<span class="status-badge status-badge-warning">Черновик</span>
               {% elif b.status == 'reserved' %}<span class="status-badge status-badge-info">Зарезервировано</span>

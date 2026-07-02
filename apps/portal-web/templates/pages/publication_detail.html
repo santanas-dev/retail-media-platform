@@ -8,11 +8,11 @@
     <span class="page-title">
       Публикация
       {% if batch %}
-        <code class="text-muted">{{ batch.batch_ref if batch.batch_ref else batch.id|string|truncate(12) }}</code>
+        <code class="text-muted">{{ batch.batch_ref if batch.batch_ref else batch | display_ref("Пакет") }}</code>
       {% endif %}
     </span>
     {% if batch and batch.campaign_id %}
-      <span class="page-subtitle">Кампания {{ batch.campaign_id|string|truncate(16) }}</span>
+      <span class="page-subtitle">Кампания {{ batch.campaign_id | display_ref("", 8) }}</span>
     {% endif %}
   </div>
   <div class="page-header-right">
@@ -143,9 +143,9 @@
   <div class="section-card-body p-0">
     <table class="data-table">
       <tbody>
-        <tr><td><strong>ID</strong></td><td><code>{{ batch.id }}</code></td></tr>
+        <tr><td><strong>ID</strong></td><td><code title="{{ batch.id }}">{{ batch | display_ref("Пакет") }}</code></td></tr>
         {% if batch.campaign_id %}
-        <tr><td><strong>Кампания</strong></td><td><code>{{ batch.campaign_id }}</code></td></tr>
+        <tr><td><strong>Кампания</strong></td><td><code title="{{ batch.campaign_id }}">{{ batch.campaign_id | display_ref("", 12) }}</code></td></tr>
         {% endif %}
         <tr><td><strong>Комментарий</strong></td><td>{{ batch.comment or '—' }}</td></tr>
         <tr><td><strong>Создан</strong></td><td>{{ batch.created_at|fmt_date('full') if batch.created_at else '—' }}</td></tr>
