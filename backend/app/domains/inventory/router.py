@@ -7,10 +7,28 @@ from fastapi import APIRouter, Depends, Query
 from fastapi import status as http_status
 
 from app.core.deps import get_current_user, require_permission, get_db
+from app.core.config import get_settings
 from app.domains.identity.models import User
 from app.domains.inventory import schemas, service
 
+from fastapi import HTTPException
+
 router = APIRouter(prefix="/api", tags=["Inventory & Booking"])
+
+
+def _check_booking_writes_enabled() -> None:
+    """BACKEND.1.3 — feature flag gate for booking write operations."""
+    settings = get_settings()
+    if not settings.ENABLE_BOOKING_WRITES:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": "booking_writes_disabled",
+                "message": "Booking write operations are disabled by feature flag "
+                           "(ENABLE_BOOKING_WRITES=false). "
+                           "Set ENABLE_BOOKING_WRITES=true to enable.",
+            },
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -154,6 +172,7 @@ async def create_booking(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("bookings.manage")),
 ):
+    _check_booking_writes_enabled()
     return await service.create_booking(db, data, current_user.id)
 
 
@@ -173,6 +192,7 @@ async def update_booking(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("bookings.manage")),
 ):
+    _check_booking_writes_enabled()
     return await service.update_booking(db, booking_id, data)
 
 
@@ -182,6 +202,7 @@ async def reserve_booking(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("bookings.manage")),
 ):
+    _check_booking_writes_enabled()
     return await service.reserve_booking(db, booking_id)
 
 
@@ -191,6 +212,7 @@ async def confirm_booking(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("bookings.approve")),
 ):
+    _check_booking_writes_enabled()
     return await service.confirm_booking(db, booking_id, current_user.id)
 
 
@@ -200,6 +222,7 @@ async def cancel_booking(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("bookings.manage")),
 ):
+    _check_booking_writes_enabled()
     return await service.cancel_booking(db, booking_id)
 
 
@@ -219,6 +242,7 @@ async def update_booking_items(
     db=Depends(get_db),
     current_user: User = Depends(require_permission("bookings.manage")),
 ):
+    _check_booking_writes_enabled()
     return await service.update_booking_items(db, booking_id, data)
 
 

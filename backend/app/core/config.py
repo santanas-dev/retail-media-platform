@@ -102,6 +102,7 @@ class Settings(BaseSettings):
     MAX_MANIFEST_JSON_BYTES: int = 10 * 1024 * 1024  # 10 MB
     ENABLE_REAL_PUBLICATION: bool = False  # BACKEND.1.1 — feature flag, OFF by default
     ENABLE_GENERATED_MANIFEST_WRITE: bool = False  # BACKEND.1.2 — feature flag, OFF by default
+    ENABLE_BOOKING_WRITES: bool = False  # BACKEND.1.3 — feature flag, OFF by default
 
     # Device Gateway
     DEVICE_JWT_SECRET: str = ""
