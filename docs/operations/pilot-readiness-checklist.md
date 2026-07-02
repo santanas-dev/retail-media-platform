@@ -1,9 +1,10 @@
 # Pilot Readiness Checklist
 
-**Date:** 2026-07-02 | **Last review:** 2026-07-01 (H.6) | **Owner:** Ops Team (TBD)
+**Date:** 2026-07-02 | **Last review:** 2026-07-01 (PILOT.0) | **Owner:** Ops Team (TBD)
 
-> **Current Status: 🟡 PREPARATION PACKAGE READY — 6 blockers remain; templates/protocols created in H.6**  
-> All blockers have templates/protocols ready — actions (not docs) needed for real pilot.
+> **Current Status: 🟡 ACTION PLAN READY — evidence tracker created, 6 blockers have action plans**  
+> PILOT.0: `pilot-go-action-plan.md` + `pilot-go-evidence-tracker.md` + support escalation template.  
+> Next: execute 6 actions → collect evidence → pilot GO decision.
 
 ---
 
@@ -40,13 +41,25 @@
 | P8 | Rollback plan approved | 🟡 Scripts ready (H.3); no real drill | `rollback_preflight.sh`, `rollback-runbook.md` | Execute drill + review |
 | P12 | Operator runbook exists + reviewed | 🟡 Created (H.1); not reviewed | 6 runbooks in `docs/operations/` | Review with ops |
 
-### ❌ NOT YET CLOSED (1/16)
+### ❌ NOT YET CLOSED (0/16 — all have templates or action plans)
+
+All 16 criteria now have either: ✅ READY evidence, 🟡 template/protocol ready, or 📋 action plan in `pilot-go-action-plan.md`.
 
 | # | Criterion | Status | Next |
 |---|---|---|---|
-| P13 | Support escalation path exists | ❌ Missing | Define with management |
+| P13 | Support escalation path exists | 🟡 Template ready (PILOT.0) | Fill + approve |
 
-**Decision:** Preparation package complete (H.6). All 6 blockers have templates/protocols — executors can proceed to actual actions. Real pilot still NO-GO until evidence collected.
+**Decision:** PILOT.0 action plan + evidence tracker ready. Proceed to execute 6 actions per `pilot-go-action-plan.md`. Track evidence in `pilot-go-evidence-tracker.md`. Real pilot still NO-GO until all evidence collected and approved.
+
+---
+
+## PILOT.0 — Action Plan & Evidence Tracker
+
+| Document | Purpose |
+|---|---|
+| `docs/operations/pilot-go-action-plan.md` | 6-blocker execution plan with dependencies, timeline, acceptance criteria |
+| `docs/operations/pilot-go-evidence-tracker.md` | Per-blocker evidence tracking table with 50+ checkpoints |
+| `docs/operations/templates/support-escalation-path-template.md` | L1/L2/L3 escalation with contacts, triggers, response times |
 
 ---
 
