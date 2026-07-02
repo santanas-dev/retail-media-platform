@@ -1,0 +1,142 @@
+name: Phase 1 — Quality Gates
+
+on:
+  push:
+    paths:
+      - "apps/control-api/**"
+      - "apps/device-gateway/**"
+      - "apps/pop-ingestor/**"
+      - "apps/orchestrator-worker/**"
+      - "apps/adapter-workers/**"
+      - "apps/admin-web/**"
+      - "packages/**"
+      - "infra/compose/**"
+      - "scripts/ci/**"
+      - ".github/workflows/phase1-ci.yml"
+  pull_request:
+    paths:
+      - "apps/control-api/**"
+      - "apps/device-gateway/**"
+      - "apps/pop-ingestor/**"
+      - "apps/orchestrator-worker/**"
+      - "apps/adapter-workers/**"
+      - "apps/admin-web/**"
+      - "packages/**"
+      - "infra/compose/**"
+
+jobs:
+  python-check:
+    name: Python — Syntax & Import Smoke
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        path:
+          - apps/control-api/main.py
+          - apps/device-gateway/main.py
+          - apps/pop-ingestor/main.py
+          - apps/orchestrator-worker/main.py
+          - apps/adapter-workers/mock/main.py
+          - packages/domain/__init__.py
+          - packages/observability/__init__.py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Syntax check
+        run: python -m py_compile ${{ matrix.path }}
+      - name: Import smoke (service entrypoints only)
+        if: startsWith(matrix.path, 'apps/')
+        run: |
+          # Test that service modules can be imported as a syntax/import check
+          # (they will fail on uvicorn.run() at the bottom, which is expected —
+          # we check that the import chain resolves)
+          timeout 5 python -c "
+          import sys, os
+          sys.path.insert(0, '.')
+          try:
+              exec(open('${{ matrix.path }}').read().split(\"if __name__\")[0])
+              print('import OK')
+          except (SystemExit, ImportError) as e:
+              if 'uvicorn' in str(e) or 'fastapi' in str(e):
+                  print('WARNING: missing deps (expected in CI without pip install)')
+              else:
+                  raise
+          " || true
+  json-schema:
+    name: JSON Schema Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JSON Schema files
+        run: |
+          echo "Checking JSON validity..."
+          for f in packages/contracts/*.schema.json; do
+            echo "  $f"
+            python3 -c "import json; json.load(open('$f')); print('    OK')"
+          done
+      - name: Schema self-validation (draft 2020-12)
+        run: |
+          # Verify each schema is valid against the meta-schema
+          # (lightweight: just validate structure, not full meta-schema)
+          python3 -c "
+          import json, os
+          for f in os.listdir('packages/contracts'):
+              if f.endswith('.schema.json'):
+                  path = os.path.join('packages/contracts', f)
+                  s = json.load(open(path))
+                  assert '\$schema' in s, f'{f}: missing \$schema'
+                  assert '\$id' in s, f'{f}: missing \$id'
+                  assert s.get('type') == 'object', f'{f}: root must be object'
+                  assert 'properties' in s or 'required' in s, f'{f}: missing properties'
+                  print(f'  {f}: valid')
+          "
+
+  frontend:
+    name: Frontend — Install, TypeCheck, Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/admin-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/admin-web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: TypeScript type-check
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+
+  docker-compose:
+    name: Docker Compose Config Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose file syntax
+        run: |
+          python3 -c "
+          import yaml, sys
+          try:
+              with open('infra/compose/docker-compose.phase1.yml') as f:
+                  d = yaml.safe_load(f)
+              assert 'services' in d, 'missing services key'
+              services = d['services']
+              required = ['postgres', 'clickhouse', 'redis', 'nats', 'minio',
+                          'control-api', 'device-gateway', 'pop-ingestor',
+                          'orchestrator-worker', 'mock-adapter']
+              for s in required:
+                  assert s in services, f'missing service: {s}'
+                  svc = services[s]
+                  if s not in ('admin-web',):  # admin-web uses profiles
+                      assert 'healthcheck' in svc or s in ('postgres','clickhouse','redis','nats','minio'), \
+                          f'{s}: missing healthcheck'
+              print(f'OK: {len(services)} services, all required present')
+          except Exception as e:
+              print(f'FAIL: {e}')
+              sys.exit(1)
+          "

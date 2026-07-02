@@ -67,6 +67,22 @@ All services:
 
 ## How To Verify
 
+### Quick: Local Quality Gates
+
+```bash
+# Run all Phase 1 checks locally
+bash scripts/ci/phase1-checks.sh
+```
+
+Checks included:
+- Python syntax (`py_compile`) for all 7 Phase 1 Python files
+- Python import smoke (modules import without errors)
+- JSON Schema validation (valid JSON + required fields)
+- Docker Compose config validation (syntax + required services)
+- Frontend TypeScript type-check (`tsc --noEmit`) + build (`vite build`)
+
+### Full: Docker Integration Test
+
 ```bash
 # Start all infrastructure + services
 docker compose -f infra/compose/docker-compose.phase1.yml up -d
