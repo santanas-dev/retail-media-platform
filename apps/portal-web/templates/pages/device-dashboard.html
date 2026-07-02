@@ -158,7 +158,7 @@
       <!-- Пакет показа: manifest + cache -->
       <td>
         {% if d.manifest %}
-        <span class="status-badge status-{{ d.manifest.status }}">{{ d.manifest.status }}</span>
+        <span class="status-badge status-{{ d.manifest.status }}">{{ d.manifest.status | label }}</span>
         {% if d.manifest.manifest_hash %}
         <br><small class="cell-mono">{{ d.manifest.manifest_hash[:8] }}…</small>
         {% endif %}

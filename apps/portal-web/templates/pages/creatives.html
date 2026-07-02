@@ -162,7 +162,7 @@
             {% elif c.status == 'rejected' %}<span class="status-pill status-pill-rejected">Отклонён</span>
             {% elif c.status == 'validation_failed' %}<span class="status-pill status-pill-rejected">Ошибка</span>
             {% elif c.status == 'archived' %}<span class="status-pill status-pill-archived">Архив</span>
-            {% else %}<span class="status-pill status-pill-draft">{{ c.status }}</span>{% endif %}
+            {% else %}<span class="status-pill status-pill-draft">{{ c.status | label }}</span>{% endif %}
           </td>
           <td>{{ c.content_type or '—' }}</td>
           <td class="dim-cell">

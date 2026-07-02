@@ -119,7 +119,7 @@
              'Пакет показа готов' if b.status == 'manifest_generated' else
              'Опубликовано' if b.status == 'published' else
              'Отменено' if b.status == 'cancelled' else
-             'Отклонено' if b.status == 'rejected' else b.status }}
+             'Отклонено' if b.status == 'rejected' else b.status | label }}
         </span>
         <span class="text-meta text-secondary">📢 {{ b.campaign_name }}</span>
         <span class="text-sm text-muted">подготовлен {{ b.created_at | fmt_date('full') }}</span>
@@ -215,7 +215,7 @@
         <td><code>{{ m.manifest_code | sanitize_code }}</code></td>
         <td><code>{{ m.device_code | sanitize_code }}</code></td>
         <td><code>{{ m.campaign_code | sanitize_code }}</code></td>
-        <td><span class="status-badge status-badge-{{ m.status }}">{'draft':'Черновик','approved':'Одобрен','published':'Опубликован','cancelled':'Отменён'}.get(m.status, m.status)</span></td>
+        <td><span class="status-badge status-badge-{{ m.status }}">{{ m.status | label }}</span></td>
         <td>{{ m.item_count }}</td>
       </tr>
       {% endfor %}

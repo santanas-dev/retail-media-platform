@@ -22,7 +22,7 @@
     {% if manifest %}
       {% if manifest.status == 'published' %}<span class="status-badge status-badge-success">Опубликован</span>
       {% elif manifest.status == 'generated' %}<span class="status-badge status-badge-info">Сформирован</span>
-      {% else %}<span class="status-badge">{{ manifest.status }}</span>
+      {% else %}<span class="status-badge">{{ manifest.status | label }}</span>
       {% endif %}
     {% endif %}
   </div>

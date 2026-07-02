@@ -47,17 +47,18 @@ class TestPortalStatusLabels(unittest.TestCase):
 
     def test_campaign_detail_has_russian_labels(self):
         content = _read("campaigns_detail.html")
-        self.assertIn("Черновик", content)
-        self.assertIn("На согласовании", content)
-        self.assertIn("Одобрена", content)
-        self.assertIn("Отклонена", content)
+        # After UI.2.1: uses | label filter instead of inline dicts
+        self.assertIn("| label", content)
+        # Verify no old inline status dicts remain
+        self.assertNotIn("{'draft':'Черновик'", content)
 
     def test_publications_have_russian_batch_labels(self):
         content = _read("publications.html")
+        # Publications still has inline if/elif for batch statuses (visual layout)
+        # but uses | label for manifest sub-table and fallbacks
         self.assertIn("Черновик", content)
-        self.assertIn("На согласовании", content)
         self.assertIn("Пакет показа готов", content)
-        self.assertIn("Опубликовано", content)
+        self.assertIn("| label", content)
 
     def test_publications_have_dead_end_guidance(self):
         content = _read("publications.html")
@@ -65,8 +66,10 @@ class TestPortalStatusLabels(unittest.TestCase):
 
     def test_schedule_has_russian_labels(self):
         content = _read("schedule.html")
-        self.assertIn("Черновик", content)
-        self.assertIn("Активно", content)
+        # After UI.2.1: uses | label filter
+        self.assertIn("| label", content)
+        # Verify no old inline dict
+        self.assertNotIn("{'draft':'Черновик'", content)
         self.assertIn("Архив", content)
 
     def test_no_raw_english_status(self):

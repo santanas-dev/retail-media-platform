@@ -24,7 +24,7 @@
       {% elif booking.status == 'reserved' %}<span class="status-badge status-badge-info">Зарезервировано</span>
       {% elif booking.status == 'active' or booking.status == 'confirmed' %}<span class="status-badge status-badge-success">Подтверждено</span>
       {% elif booking.status == 'cancelled' %}<span class="status-badge status-badge-muted">Отменено</span>
-      {% else %}<span class="status-badge">{{ booking.status }}</span>
+      {% else %}<span class="status-badge">{{ booking.status | label }}</span>
       {% endif %}
     {% endif %}
   </div>

@@ -62,7 +62,7 @@
           {% elif creative.status == 'rejected' %}<span class="status-danger">Отклонён</span>
           {% elif creative.status == 'validation_failed' %}<span class="status-danger">Ошибка проверки</span>
           {% elif creative.status == 'archived' %}<span class="status-muted">Архив</span>
-          {% else %}<span class="status-muted">{{ creative.status }}</span>{% endif %}
+          {% else %}<span class="status-muted">{{ creative.status | label }}</span>{% endif %}
         </span>
       </div>
 

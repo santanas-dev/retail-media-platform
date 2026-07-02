@@ -7,7 +7,7 @@
     <span class="page-subtitle">Это dry-run. Реальное выполнение отключено.</span>
   </div>
   <div class="page-header-right">
-    <span class="status-badge status-badge-warning">dry‑run</span>
+    <span class="status-badge status-badge-warning">{{ "dry_run" | label }}</span>
   </div>
 </div>
 
@@ -63,7 +63,7 @@
         <div class="metric-label">Уровней приоритета</div>
       </div>
       <div class="metric-card">
-        <div class="metric-value">dry‑run</div>
+        <div class="metric-value">{{ "dry_run" | label }}</div>
         <div class="metric-label">Режим</div>
       </div>
     </div>
@@ -72,7 +72,7 @@
       <summary>Типы действий</summary>
       <ul>
       {% for t in capabilities.action_types %}
-        <li>{{ t }}</li>
+        <li>{{ t | label("emergency_action") }}</li>
       {% endfor %}
       </ul>
     </details>
@@ -81,7 +81,7 @@
       <summary>Приоритеты</summary>
       <ul>
       {% for p in capabilities.priorities %}
-        <li>{{ p }}</li>
+        <li>{{ p | label("priority") }}</li>
       {% endfor %}
       </ul>
     </details>
@@ -108,14 +108,14 @@
       <select name="action_type" required>
         <option value="">— выберите —</option>
         {% for t in action_types %}
-        <option value="{{ t }}" {% if form.action_type == t %}selected{% endif %}>{{ t }}</option>
+        <option value="{{ t }}" {% if form.action_type == t %}selected{% endif %}>{{ t | label("emergency_action") }}</option>
         {% endfor %}
       </select>
     </label>
     <label>Приоритет
       <select name="priority">
         {% for p in priorities %}
-        <option value="{{ p }}" {% if form.priority == p %}selected{% endif %}>{{ p }}</option>
+        <option value="{{ p }}" {% if form.priority == p %}selected{% endif %}>{{ p | label("priority") }}</option>
         {% endfor %}
       </select>
     </label>
@@ -161,18 +161,18 @@
     <label>Тип действия
       <select name="action_type" required>
         <option value="">— выберите —</option>
-        <option value="stop_campaign">stop_campaign</option>
-        <option value="stop_placement">stop_placement</option>
-        <option value="stop_channel">stop_channel</option>
-        <option value="stop_store">stop_store</option>
-        <option value="stop_device">stop_device</option>
-        <option value="resume">resume</option>
+        <option value="stop_campaign">Остановить кампанию</option>
+        <option value="stop_placement">Остановить размещение</option>
+        <option value="stop_channel">Остановить канал</option>
+        <option value="stop_store">Остановить магазин</option>
+        <option value="stop_device">Остановить устройство</option>
+        <option value="resume">Возобновить</option>
       </select>
     </label>
     <label>Приоритет
       <select name="priority">
         {% for p in priorities %}
-        <option value="{{ p }}">{{ p }}</option>
+        <option value="{{ p }}">{{ p | label("priority") }}</option>
         {% endfor %}
       </select>
     </label>
@@ -217,7 +217,7 @@
   <label>Приоритет
     <select name="priority">
       {% for p in priorities %}
-      <option value="{{ p }}">{{ p }}</option>
+      <option value="{{ p }}">{{ p | label("priority") }}</option>
       {% endfor %}
     </select>
   </label>
@@ -264,7 +264,7 @@
   </div>
   <div class="metric-card">
     <div class="metric-value">{{ result.dry_run }}</div>
-    <div class="metric-label">dry_run</div>
+    <div class="metric-label">Режим</div>
   </div>
   <div class="metric-card">
     <div class="metric-value">{{ result.action_type }}</div>

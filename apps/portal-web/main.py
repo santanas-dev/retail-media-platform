@@ -92,6 +92,10 @@ def _format_datetime(val, fmt="short"):
 
 templates.env.filters["fmt_date"] = _format_datetime
 
+# ── Register label filter for UI.2.1 localization ────────────────────
+from labels import label_filter
+templates.env.filters["label"] = label_filter
+
 
 # ══════════════════════════════════════════════════════════════════════
 # Template context helpers

@@ -72,7 +72,7 @@
         {% elif d.status in ('blocked', 'lost') %}
         <span class="status-badge status-danger">Заблокировано</span>
         {% else %}
-        <span class="status-badge status-muted">{{ d.status or '—' }}</span>
+        <span class="status-badge status-muted">{{ (d.status or '—') | label }}</span>
         {% endif %}
       </td>
       <td>{{ d.sidecar_version or '—' }}</td>

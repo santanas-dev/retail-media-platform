@@ -91,7 +91,7 @@
               {% elif b.status == 'reserved' %}<span class="status-badge status-badge-info">Зарезервировано</span>
               {% elif b.status == 'active' or b.status == 'confirmed' %}<span class="status-badge status-badge-success">Подтверждено</span>
               {% elif b.status == 'cancelled' %}<span class="status-badge status-badge-muted">Отменено</span>
-              {% else %}<span class="status-badge">{{ b.status }}</span>
+              {% else %}<span class="status-badge">{{ b.status | label }}</span>
               {% endif %}
             </td>
             <td>{{ b.date_from }} – {{ b.date_to }}</td>

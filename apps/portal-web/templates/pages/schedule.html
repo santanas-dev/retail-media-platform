@@ -129,7 +129,7 @@
     <div class="px-12 py-8" style="border-bottom:1px solid var(--color-border-light);">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <span class="font-semibold">{{ s.name }}</span>
-        <span class="status-badge status-badge-{{ 'draft' if s.status == 'draft' else 'approved' if s.status == 'active' else 'draft' }}">{'draft':'Черновик','active':'Активно','archived':'Архив'}.get(s.status, s.status)</span>
+        <span class="status-badge status-badge-{{ 'draft' if s.status == 'draft' else 'approved' if s.status == 'active' else 'draft' }}">{{ s.status | label }}</span>
         {% if s.campaign_code != '—' and s.campaign_code %}<span class="text-sm text-secondary">📢 {{ s.campaign_name }}</span>{% endif %}
         <span class="text-sm text-secondary">{{ s.valid_from | fmt_date }} – {{ s.valid_to | fmt_date }}</span>
         <span class="text-sm text-secondary">📋 {{ s.slot_count }} слотов</span>

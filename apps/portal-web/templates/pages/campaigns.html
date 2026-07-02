@@ -93,7 +93,7 @@
             {% elif c.status == 'rejected' %}<span class="status-badge status-badge-rejected">Отклонено</span>
             {% elif c.status == 'archived' %}<span class="status-badge status-badge-archived">Архив</span>
             {% elif c.status == 'active' %}<span class="status-badge status-badge-active">Активна</span>
-            {% else %}<span class="status-badge status-badge-draft">{{ c.status | sanitize }}</span>{% endif %}
+            {% else %}<span class="status-badge status-badge-draft">{{ c.status | label }}</span>{% endif %}
           </td>
           <td>
             {% if c.creative_count == 0 %}

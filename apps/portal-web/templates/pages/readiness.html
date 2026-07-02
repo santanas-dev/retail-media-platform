@@ -116,7 +116,7 @@
       <td>{{ d.get('store_code', '—') or '—' }}</td>
       <td>
         {% if d.get('heartbeat') %}
-        <span class="status-badge status-{{ d.heartbeat.status }}">{{ d.heartbeat.status | sanitize }}</span>
+        <span class="status-badge status-{{ d.heartbeat.status }}">{{ d.heartbeat.status | label }}</span>
         {% if d.heartbeat.age_seconds is not none %}
         <br><small>{{ d.heartbeat.age_seconds }}s</small>
         {% endif %}
@@ -126,14 +126,14 @@
       </td>
       <td>
         {% if d.get('credential') %}
-        <span class="status-badge status-{{ d.credential.status }}">{{ d.credential.status | sanitize }}</span>
+        <span class="status-badge status-{{ d.credential.status }}">{{ d.credential.status | label }}</span>
         {% else %}
         <span class="muted">—</span>
         {% endif %}
       </td>
       <td>
         {% if d.get('manifest') %}
-        <span class="status-badge status-{{ d.manifest.status }}">{{ d.manifest.status }}</span>
+        <span class="status-badge status-{{ d.manifest.status }}">{{ d.manifest.status | label }}</span>
         {% else %}
         <span class="muted">—</span>
         {% endif %}
@@ -155,7 +155,7 @@
         {% endif %}
       </td>
       <td>
-        <span class="readiness-badge readiness-{{ d.readiness_badge }}">{{ d.readiness_badge }}</span>
+        <span class="readiness-badge readiness-{{ d.readiness_badge }}">{{ d.readiness_badge | label("readiness") }}</span>
         {% if d.get('readiness_reasons') %}
         <br><small class="text-warning">{{ d.readiness_reasons|join('; ') | sanitize }}</small>
         {% endif %}

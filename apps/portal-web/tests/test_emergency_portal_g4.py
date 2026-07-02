@@ -171,7 +171,12 @@ class TestButtons(unittest.TestCase):
         assert "Выполнить" not in self.content, "Forbidden button 'Выполнить' found"
 
     def test_no_ostanovit_button(self):
-        assert "Остановить" not in self.content, "Forbidden button 'Остановить' found"
+        # "Остановить" may appear in dropdown labels (UI.2.1 localization)
+        # but must NOT appear as a button that would execute real actions
+        import re
+        button_texts = re.findall(r'<button[^>]*>(.*?)</button>', self.content, re.DOTALL)
+        for txt in button_texts:
+            assert "Остановить" not in txt, f"Forbidden button text 'Остановить' found: {txt}"
 
     def test_no_activate_button(self):
         assert "Активировать" not in self.content, "Forbidden button 'Активировать' found"

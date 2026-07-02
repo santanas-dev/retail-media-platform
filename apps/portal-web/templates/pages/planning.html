@@ -128,8 +128,12 @@
               <span class="status-badge status-badge-error">Высокая</span>
               {% elif c.severity == 'medium' %}
               <span class="status-badge status-badge-warning">Средняя</span>
-              {% else %}
+              {% elif c.severity == 'low' %}
               <span class="status-badge status-badge-info">Низкая</span>
+              {% elif c.severity == 'critical' %}
+              <span class="status-badge status-badge-error">Критическая</span>
+              {% else %}
+              <span class="status-badge status-badge-info">{{ c.severity | label("severity") }}</span>
               {% endif %}
             </td>
           </tr>

@@ -76,7 +76,7 @@
             <td>
               {% if m.status == 'published' %}<span class="status-badge status-badge-success">Опубликован</span>
               {% elif m.status == 'generated' %}<span class="status-badge status-badge-info">Сформирован</span>
-              {% else %}<span class="status-badge">{{ m.status }}</span>
+              {% else %}<span class="status-badge">{{ m.status | label }}</span>
               {% endif %}
             </td>
             <td>{{ m.item_count or '—' }}</td>

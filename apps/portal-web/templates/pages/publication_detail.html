@@ -24,7 +24,7 @@
       {% elif batch.status == 'published' %}<span class="status-badge status-badge-success">Опубликован</span>
       {% elif batch.status == 'cancelled' %}<span class="status-badge status-badge-muted">Отменён</span>
       {% elif batch.status == 'rejected' %}<span class="status-badge status-badge-danger">Отклонён</span>
-      {% else %}<span class="status-badge">{{ batch.status }}</span>
+      {% else %}<span class="status-badge">{{ batch.status | label }}</span>
       {% endif %}
     {% endif %}
   </div>
@@ -112,7 +112,7 @@
           <tr>
             <td><code>{{ m.manifest_code or m.manifest_id or '—' }}</code></td>
             <td><code>{{ m.device_code or '—' }}</code></td>
-            <td>{{ m.status or 'published' }}</td>
+            <td>{{ m.status | label }}</td>
           </tr>
         {% endfor %}
         </tbody>
