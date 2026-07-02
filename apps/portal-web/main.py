@@ -4399,7 +4399,7 @@ async def admin_page(request: Request):
         "backend_available": admin_data["backend_ok"],
         "users": admin_data.get("users", []),
         "roles": admin_data.get("roles", []),
-        "permissions": admin_data.get("permissions", []),
+        "rbac_permissions": admin_data.get("permissions", []),
         "audit_events": admin_data.get("audit_events", []),
         "users_count": len(admin_data.get("users", [])),
         "roles_count": len(admin_data.get("roles", [])),
