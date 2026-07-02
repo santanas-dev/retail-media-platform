@@ -140,7 +140,7 @@
     <tbody>
     {% for b in items %}
     <tr>
-      <td>{% if b.key == "unknown" %}Не определено{% else %}{{ b.label or b.key }}{% endif %}</td>
+      <td>{% if b.key == "unknown" %}Не определено{% else %}{% if btype == "campaign" %}<a href="/campaigns/{{ b.key }}" class="link">{{ b.label or b.key }}</a>{% elif btype == "device" %}<a href="/devices" class="link">{{ b.label or b.key }}</a>{% else %}{{ b.label or b.key }}{% endif %}{% endif %}</td>
       <td>{{ b.metrics.delivered_impressions }}</td>
       <td>{{ b.metrics.proof_events_count }}</td>
       <td>{{ b.metrics.playback_success_count }}</td>
@@ -152,5 +152,18 @@
   {% endif %}
 {% endfor %}
 {% endif %}
+
+<!-- PORTAL.1.6: Cross-Links -->
+<div class="section-card mt-16">
+  <div class="section-card-body">
+    <div class="action-buttons">
+      <a href="/campaigns" class="btn-sm">📢 Кампании</a>
+      <a href="/devices" class="btn-sm">🖥️ Устройства</a>
+      <a href="/packages" class="btn-sm">📜 Пакеты показа</a>
+      <a href="/proof-of-play" class="btn-sm">✅ Фактические показы</a>
+      <a href="/publications" class="btn-sm">📋 Публикации</a>
+    </div>
+  </div>
+</div>
 
 {% endblock %}

@@ -56,7 +56,7 @@
   {% if devices %}
   {% for d in devices %}
     <tr>
-      <td class="cell-code">{{ d.device_code }}</td>
+      <td class="cell-code"><a href="/packages?device_code={{ d.device_code }}" class="link">{{ d.device_code }}</a></td>
       <td>{{ d.display_name or '—' }}</td>
       <td>{{ d.store_name or '—' }}</td>
       <td>
@@ -100,6 +100,18 @@
     <strong>Заблокировано</strong> — доступ ограничен.
     Подробный статус компонентов: <a href="/device-dashboard">Панель КСО</a>.
   </span>
+</div>
+
+<!-- PORTAL.1.6: Cross-Links -->
+<div class="section-card mt-16">
+  <div class="section-card-body">
+    <div class="action-buttons">
+      <a href="/device-dashboard" class="btn-sm">📡 Панель КСО</a>
+      <a href="/packages" class="btn-sm">📜 Пакеты показа</a>
+      <a href="/proof-of-play" class="btn-sm">✅ Фактические показы</a>
+      <a href="/reports/analytics" class="btn-sm">📊 Аналитика</a>
+    </div>
+  </div>
 </div>
 
 <!-- Safety -->

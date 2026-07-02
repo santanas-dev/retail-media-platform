@@ -91,9 +91,9 @@
   {% for e in pop_events %}
     <tr>
       <td><code>{{ e.event_code | sanitize_code }}</code></td>
-      <td><code>{{ e.device_code | sanitize_code }}</code></td>
+      <td><a href="/devices" class="link"><code>{{ e.device_code | sanitize_code }}</code></a></td>
       <td><code>{{ e.placement_code | sanitize_code }}</code></td>
-      <td><code>{{ e.campaign_code | sanitize_code }}</code></td>
+      <td><a href="/campaigns/{{ e.campaign_code | sanitize_code }}" class="link"><code>{{ e.campaign_code | sanitize_code }}</code></a></td>
       <td><code>{{ e.creative_code | sanitize_code }}</code></td>
       <td><code>{{ e.media_ref | sanitize }}</code></td>
       <td>{{ e.event_type | sanitize }}</td>
