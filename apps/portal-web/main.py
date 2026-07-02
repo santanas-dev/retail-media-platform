@@ -36,6 +36,17 @@ from rbac import require_admin_access, require_portal_permission, require_auth_f
 from action_availability import campaign_actions
 from portal_session import get_session_permissions
 
+# UI.2.1: localization
+from labels import label_filter
+# UI.2.2: display helpers
+from display import (
+    short_uuid_filter, display_ref_filter, display_code_filter,
+    display_campaign_filter, display_device_filter, display_booking_filter,
+    display_package_filter, display_creative_filter, display_store_filter,
+)
+# UI.2.3: table pagination/search
+from table_helpers import table_context
+
 APP_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = APP_DIR / "templates"
 STATIC_DIR = APP_DIR / "static"
@@ -92,22 +103,10 @@ def _format_datetime(val, fmt="short"):
 
 templates.env.filters["fmt_date"] = _format_datetime
 
-# ── Register label filter for UI.2.1 localization ────────────────────
-from labels import label_filter
+# UI.2.1: label filter
 templates.env.filters["label"] = label_filter
 
-# ── Register display filters for UI.2.2 UUID cleanup ─────────────────
-from display import (
-    short_uuid_filter,
-    display_ref_filter,
-    display_code_filter,
-    display_campaign_filter,
-    display_device_filter,
-    display_booking_filter,
-    display_package_filter,
-    display_creative_filter,
-    display_store_filter,
-)
+# UI.2.2: display filters
 templates.env.filters["short_uuid"] = short_uuid_filter
 templates.env.filters["display_ref"] = display_ref_filter
 templates.env.filters["display_code"] = display_code_filter
@@ -1492,6 +1491,12 @@ async def readiness_page(request: Request):
         "devices": devices,
         "filters": {"readiness_badge": readiness_filter} if readiness_filter else {},
         "backend_unavailable": False,
+        # UI.2.3: table pagination + search
+        "devices_table": table_context(
+            request, devices,
+            search_fields=["device_code", "store_code", "readiness_badge"],
+            search_param="q",
+        ),
     })
 
 
@@ -1510,6 +1515,11 @@ def _readiness_fallback(
         "filters": {},
         "backend_unavailable": True,
         "backend_message": reason,
+        # UI.2.3: paginated context (empty)
+        "devices_table": table_context(
+            request, [],
+            search_fields=["device_code", "store_code", "readiness_badge"],
+        ),
     })
 
 
@@ -4368,6 +4378,14 @@ def _approvals_fallback(request: Request, current_user) -> HTMLResponse:
 # Admin — Read-Only Backend API Integration (Step 36.7)
 # ══════════════════════════════════════════════════════════════════════
 
+
+def _build_table_ctx(request, items, search_fields=None):
+    """Build paginated table context for templates. UI.2.3."""
+    if search_fields is None:
+        search_fields = ["username", "email", "display_name"]
+    return table_context(request, items, search_fields=search_fields)
+
+
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request):
     """Admin page: RBAC-guarded, read-only backend API integration.
@@ -4431,6 +4449,8 @@ async def admin_page(request: Request):
         "roles_count": len(admin_data.get("roles", [])),
         "flash_type": flash_type,
         "flash_msg": flash_msg,
+        # UI.2.3: table pagination context
+        "users_table": _build_table_ctx(request, admin_data.get("users", [])),
     })
 
 

@@ -86,17 +86,24 @@
         </select>
       </div>
       <div class="filter-group filter-actions">
-        <button type="submit" class="btn btn-primary">🔍 Фильтр</button>
+        <button type="submit" class="btn btn-primary">🔍 Применить</button>
         <a href="/readiness" class="action-link">Сбросить</a>
+      </div>
+    </div>
+    <div class="filter-row mt-8">
+      <div class="filter-group">
+        <label for="f-search">Поиск</label>
+        <input type="text" id="f-search" name="q" value="{{ devices_table.query }}" placeholder="Код КСО, магазин..." >
       </div>
     </div>
   </form>
 </div>
 
 <!-- Device Table -->
-{% if devices %}
-<div class="table-wrap">
-<table class="data-table">
+{% import "_macros.html" as m %}
+{% if devices_table.total > 0 %}
+<div class="table-wrap table-wrapper">
+<table class="data-table data-table-compact data-table-striped data-table-hover">
   <thead>
     <tr>
       <th>Код КСО</th>
@@ -110,7 +117,7 @@
     </tr>
   </thead>
   <tbody>
-    {% for d in devices %}
+    {% for d in devices_table.rows %}
     <tr>
       <td class="cell-code"><strong>{{ d.device_code | sanitize_code }}</strong></td>
       <td>{{ d.get('store_code', '—') or '—' }}</td>
@@ -165,6 +172,9 @@
   </tbody>
 </table>
 </div>
+
+{{ m.pagination(devices_table) }}
+
 {% else %}
 <div class="empty-state">
   {% if backend_unavailable %}

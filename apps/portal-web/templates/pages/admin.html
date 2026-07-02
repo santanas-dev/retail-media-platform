@@ -73,11 +73,16 @@
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- Users Table (read-only from backend API) -->
 <!-- ═══════════════════════════════════════════════════════════════════ -->
+{% import "_macros.html" as m %}
 <div class="requirements-box" id="users-section">
   <div class="requirements-title">Пользователи портала</div>
-  {% if backend_available and users %}
-  <div class="table-container mt-12">
-  <table class="data-table">
+  {% if backend_available and users_table.total > 0 %}
+  <!-- Search -->
+  {{ m.search_bar(placeholder="Поиск по имени, email, роли...", query=users_table.query) }}
+
+  <!-- Table -->
+  <div class="table-container table-wrapper mt-12">
+  <table class="data-table data-table-compact data-table-striped data-table-hover">
     <thead>
       <tr>
         <th>Пользователь</th><th>Логин</th><th>Роли</th><th>Статус</th>
@@ -85,7 +90,8 @@
       </tr>
     </thead>
     <tbody>
-    {% for u in users %}
+    {% if users_table.rows %}
+    {% for u in users_table.rows %}
       <tr>
         <td>{{ (u.display_name or u.username) | sanitize_user }}</td>
         <td>{{ u.username | sanitize }}</td>
@@ -108,12 +114,21 @@
         <td>{{ '✅' if u.is_active else '❌' }}</td>
         <td>{{ '✅' if u.mfa_enabled else '❌' }}</td>
         <td>{{ (u.auth_provider or 'local') | sanitize }}</td>
-        <td><span class="action-link">—</span></td>
+        <td class="action-cell"><span class="action-link">—</span></td>
       </tr>
     {% endfor %}
+    {% else %}
+      <tr class="empty-row">
+        <td colspan="8">{{ m.empty_search(users_table.query) }}</td>
+      </tr>
+    {% endif %}
     </tbody>
   </table>
   </div>
+
+  <!-- Pagination -->
+  {{ m.pagination(users_table) }}
+
   {% else %}
   <div class="table-container mt-12">
   <table class="data-table">

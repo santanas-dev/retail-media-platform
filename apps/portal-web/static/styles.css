@@ -974,3 +974,114 @@ code, pre, .cell-code, .cell-mono, .business-chip {
   .next-actions-grid { grid-template-columns: 1fr; }
   .blocker-grid { grid-template-columns: 1fr; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   UI.2.3 — Table Modernization: pagination, search, compact styles
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Table wrapper for horizontal scroll on wide tables */
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Compact table */
+.data-table-compact th,
+.data-table-compact td {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+/* Striped table */
+.data-table-striped tbody tr:nth-child(even) {
+  background: var(--color-bg-subtle, rgba(0,0,0,0.02));
+}
+
+/* Hover effect */
+.data-table-hover tbody tr:hover {
+  background: var(--color-bg-hover, rgba(0,0,0,0.04));
+}
+
+/* Action cell — right-aligned, compact */
+.action-cell {
+  text-align: right;
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+/* ── Search ── */
+.table-search {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.table-search-input {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 14px;
+  min-width: 220px;
+  flex: 1;
+  max-width: 360px;
+}
+.table-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+/* ── Pagination ── */
+.table-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  font-size: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.table-count {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+.pagination-links {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pagination-link {
+  padding: 4px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--color-text);
+  font-size: 13px;
+  transition: background 0.15s;
+}
+.pagination-link:hover {
+  background: var(--color-bg-hover, rgba(0,0,0,0.04));
+}
+.pagination-current {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.pagination-disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ── Muted row ── */
+.row-muted {
+  opacity: 0.65;
+}
+
+/* ── Table empty state ── */
+.table-empty-state {
+  text-align: center;
+  padding: 24px;
+}
+.table-empty-icon { font-size: 24px; margin-bottom: 8px; }
+.table-empty-title { font-weight: 600; margin-bottom: 4px; }
+.table-empty-text { color: var(--color-text-secondary); font-size: 13px; }

@@ -1,0 +1,59 @@
+{# UI.2.3 — Pagination & Search Macros #}
+
+{# ── Search bar ── #}
+{% macro search_bar(placeholder="Поиск...", query="", param="q") %}
+<form method="get" class="table-search">
+  <input type="text" name="{{ param }}" value="{{ query }}"
+         placeholder="{{ placeholder }}" class="table-search-input">
+  <button type="submit" class="btn btn-sm btn-secondary">🔍</button>
+  {% if query %}
+  <a href="?" class="btn btn-sm btn-ghost">✕ Сбросить</a>
+  {% endif %}
+</form>
+{% endmacro %}
+
+{# ── Pagination controls ── #}
+{% macro pagination(table) %}
+{% if table.total_pages > 1 %}
+<div class="table-pagination">
+  <div class="table-count">
+    Показано {{ table.start_idx }}–{{ table.end_idx }} из {{ table.total }}
+  </div>
+  <div class="pagination-links">
+    {% if table.has_prev %}
+    <a href="?page={{ table.page - 1 }}{% if table.query %}&q={{ table.query }}{% endif %}"
+       class="pagination-link">← Назад</a>
+    {% else %}
+    <span class="pagination-link pagination-disabled">← Назад</span>
+    {% endif %}
+
+    <span class="pagination-current">Стр. {{ table.page }} из {{ table.total_pages }}</span>
+
+    {% if table.has_next %}
+    <a href="?page={{ table.page + 1 }}{% if table.query %}&q={{ table.query }}{% endif %}"
+       class="pagination-link">Вперёд →</a>
+    {% else %}
+    <span class="pagination-link pagination-disabled">Вперёд →</span>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="table-count">
+  {% if table.total > 0 %}
+  Показано {{ table.start_idx }}–{{ table.end_idx }} из {{ table.total }}
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{# ── Empty state for search results ── #}
+{% macro empty_search(query) %}
+<div class="empty-state">
+  <div class="empty-state-icon">🔍</div>
+  <div class="empty-state-title">Ничего не найдено</div>
+  <div class="empty-state-text">По запросу «{{ query }}» ничего не найдено.</div>
+  <div class="empty-state-action mt-12">
+    <a href="?" class="btn btn-sm btn-secondary">Сбросить поиск</a>
+  </div>
+</div>
+{% endmacro %}
